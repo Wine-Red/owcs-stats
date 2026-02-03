@@ -86,6 +86,61 @@ class SeasonTeamPlayerController {
     }
   }
 
+  // 批量创建赛季-队伍-选手关联
+  static async bulkCreate(req, res) {
+    try {
+      const { seasonTeamId, playerIds } = req.body;
+      
+      if (!seasonTeamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+        return res.status(400).json({ error: '参数错误' });
+      }
+      
+      // 检查赛季-队伍关联是否存在
+      const seasonTeam = await SeasonTeam.findByPk(seasonTeamId);
+      if (!seasonTeam) {
+        return res.status(400).json({ error: '赛季-队伍关联不存在' });
+      }
+      
+      // 检查选手是否存在
+      const players = await Player.findAll({
+        where: { id: playerIds }
+      });
+      
+      if (players.length !== playerIds.length) {
+        return res.status(400).json({ error: '部分选手不存在' });
+      }
+      
+      // 检查已存在的关联
+      const existingSeasonTeamPlayers = await SeasonTeamPlayer.findAll({
+        where: {
+          seasonTeamId,
+          playerId: playerIds
+        }
+      });
+      
+      const existingPlayerIds = existingSeasonTeamPlayers.map(stp => stp.playerId);
+      const newPlayerIds = playerIds.filter(id => !existingPlayerIds.includes(id));
+      
+      if (newPlayerIds.length === 0) {
+        return res.status(400).json({ error: '所选选手已全部关联' });
+      }
+      
+      // 批量创建
+      const seasonTeamPlayers = await SeasonTeamPlayer.bulkCreate(
+        newPlayerIds.map(playerId => ({ seasonTeamId, playerId }))
+      );
+      
+      res.status(201).json({
+        created: seasonTeamPlayers,
+        existing: existingPlayerIds,
+        message: `成功添加 ${seasonTeamPlayers.length} 个选手关联，${existingPlayerIds.length} 个已存在`
+      });
+    } catch (error) {
+      console.error('批量创建赛季-队伍-选手关联失败:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
   // 更新赛季-队伍-选手关联
   static async update(req, res) {
     try {

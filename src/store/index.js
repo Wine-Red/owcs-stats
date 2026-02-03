@@ -15,6 +15,8 @@ const store = createStore({
     heroes: [],
     // 比赛数据
     matches: [],
+    // 地图局数据
+    mapGames: [],
     // 赛季-队伍关联数据
     seasonTeams: [],
     // 赛季-队伍-选手关联数据
@@ -50,6 +52,10 @@ const store = createStore({
     // 设置比赛数据
     setMatches(state, matches) {
       state.matches = matches;
+    },
+    // 设置地图局数据
+    setMapGames(state, mapGames) {
+      state.mapGames = mapGames;
     },
     // 设置赛季-队伍关联数据
     setSeasonTeams(state, seasonTeams) {
@@ -156,6 +162,21 @@ const store = createStore({
       }
     },
     
+    // 加载地图局数据
+    async loadMapGames({ commit }, filters) {
+      commit('setLoading', true);
+      try {
+        const mapGames = await apiService.getMapGames(filters);
+        commit('setMapGames', mapGames);
+        return mapGames;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+    
     // 创建比赛
     async createMatch({ commit }, matchData) {
       commit('setLoading', true);
@@ -235,6 +256,23 @@ const store = createStore({
         commit('setLoading', false);
       }
     },
+
+    // 批量创建赛季-队伍关联
+    async bulkCreateSeasonTeams({ commit }, { seasonId, teamIds }) {
+      commit('setLoading', true);
+      try {
+        const result = await apiService.bulkCreateSeasonTeams({ seasonId, teamIds });
+        result.created.forEach(seasonTeam => {
+          commit('addSeasonTeam', seasonTeam);
+        });
+        return result;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
     
     // 更新赛季-队伍关联
     async updateSeasonTeam({ commit }, { id, seasonTeamData }) {
@@ -266,12 +304,15 @@ const store = createStore({
     },
     
     // 获取赛季-队伍的选手
-    async getSeasonTeamPlayers({ commit }, seasonTeamId) {
+    async getSeasonTeamPlayers({ commit, state }, seasonTeamId) {
       commit('setLoading', true);
       try {
-        const seasonTeamPlayers = await apiService.getSeasonTeamPlayers(seasonTeamId);
-        commit('setSeasonTeamPlayers', seasonTeamPlayers);
-        return seasonTeamPlayers;
+        const newSeasonTeamPlayers = await apiService.getSeasonTeamPlayers(seasonTeamId);
+        const existingIds = state.seasonTeamPlayers.map(stp => stp.id);
+        const uniqueNewPlayers = newSeasonTeamPlayers.filter(stp => !existingIds.includes(stp.id));
+        const mergedSeasonTeamPlayers = [...state.seasonTeamPlayers, ...uniqueNewPlayers];
+        commit('setSeasonTeamPlayers', mergedSeasonTeamPlayers);
+        return newSeasonTeamPlayers;
       } catch (error) {
         commit('setError', error.message);
         throw error;
@@ -287,6 +328,23 @@ const store = createStore({
         const seasonTeamPlayer = await apiService.createSeasonTeamPlayer(seasonTeamPlayerData);
         commit('addSeasonTeamPlayer', seasonTeamPlayer);
         return seasonTeamPlayer;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    // 批量创建赛季-队伍-选手关联
+    async bulkCreateSeasonTeamPlayers({ commit }, { seasonTeamId, playerIds }) {
+      commit('setLoading', true);
+      try {
+        const result = await apiService.bulkCreateSeasonTeamPlayers({ seasonTeamId, playerIds });
+        result.created.forEach(seasonTeamPlayer => {
+          commit('addSeasonTeamPlayer', seasonTeamPlayer);
+        });
+        return result;
       } catch (error) {
         commit('setError', error.message);
         throw error;
@@ -436,7 +494,7 @@ const store = createStore({
         commit('setLoading', false);
       }
     },
-    
+
     async updatePlayer({ commit }, { id, playerData }) {
       commit('setLoading', true);
       try {
@@ -452,7 +510,7 @@ const store = createStore({
         commit('setLoading', false);
       }
     },
-    
+
     async deletePlayer({ commit }, playerId) {
       commit('setLoading', true);
       try {
@@ -460,6 +518,20 @@ const store = createStore({
         // 重新加载所有选手数据
         const players = await apiService.getPlayers();
         commit('setPlayers', players);
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    // 创建地图局
+    async createMapGame({ commit }, mapGameData) {
+      commit('setLoading', true);
+      try {
+        const mapGame = await apiService.createMapGame(mapGameData);
+        return mapGame;
       } catch (error) {
         commit('setError', error.message);
         throw error;
@@ -481,6 +553,8 @@ const store = createStore({
     allHeroes: state => state.heroes,
     // 获取所有比赛
     allMatches: state => state.matches,
+    // 获取所有地图局
+    allMapGames: state => state.mapGames,
     // 获取所有赛季-队伍关联
     allSeasonTeams: state => state.seasonTeams,
     // 获取所有赛季-队伍-选手关联

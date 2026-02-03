@@ -16,6 +16,9 @@ const initDatabase = async () => {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
+    // 设置模型关联关系
+    setupAssociations();
+
     // 自动同步模型到数据库
     await sequelize.sync({ force: false });
     console.log('数据库模型同步成功');
@@ -27,6 +30,28 @@ const initDatabase = async () => {
     console.error('数据库初始化失败:', error);
     process.exit(1);
   }
+};
+
+const setupAssociations = () => {
+  const Season = require('../models/Season');
+  const Team = require('../models/Team');
+  const SeasonTeam = require('../models/SeasonTeam');
+  const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+  const Player = require('../models/Player');
+  const Map = require('../models/Map');
+  const Hero = require('../models/Hero');
+  const Match = require('../models/Match');
+  const MapGame = require('../models/MapGame');
+  const PlayerStat = require('../models/PlayerStat');
+
+  // PlayerStat 关联
+  PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
+  PlayerStat.belongsTo(Player, { foreignKey: 'playerId', as: 'player' });
+  PlayerStat.belongsTo(Hero, { foreignKey: 'heroId', as: 'hero' });
+  PlayerStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
+
+  // MapGame 关联
+  MapGame.hasMany(PlayerStat, { foreignKey: 'mapGameId', as: 'playerStats' });
 };
 
 const initBasicData = async () => {

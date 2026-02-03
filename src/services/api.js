@@ -78,7 +78,7 @@ const apiService = {
   getMatchMapGames: (matchId) => api.get(`/matches/${matchId}/map-games`),
 
   // 地图局相关
-  getMapGames: () => api.get('/map-games'),
+  getMapGames: (filters) => api.get('/map-games', { params: filters }),
   getMapGameById: (id) => api.get(`/map-games/${id}`),
   createMapGame: (data) => api.post('/map-games', data),
   updateMapGame: (id, data) => api.put(`/map-games/${id}`, data),
@@ -104,12 +104,14 @@ const apiService = {
   getAllSeasonTeams: () => api.get('/season-teams'),
   getSeasonTeams: (seasonId) => api.get(`/seasons/${seasonId}/teams`),
   createSeasonTeam: (data) => api.post('/season-teams', data),
+  bulkCreateSeasonTeams: (data) => api.post('/season-teams/bulk', data),
   updateSeasonTeam: (id, data) => api.put(`/season-teams/${id}`, data),
   deleteSeasonTeam: (id) => api.delete(`/season-teams/${id}`),
   
   // SeasonTeamPlayer相关
   getSeasonTeamPlayers: (seasonTeamId) => api.get(`/season-teams/${seasonTeamId}/players`),
   createSeasonTeamPlayer: (data) => api.post('/season-team-players', data),
+  bulkCreateSeasonTeamPlayers: (data) => api.post('/season-team-players/bulk', data),
   updateSeasonTeamPlayer: (id, data) => api.put(`/season-team-players/${id}`, data),
   deleteSeasonTeamPlayer: (id) => api.delete(`/season-team-players/${id}`)
 };

@@ -15,6 +15,9 @@ router.get('/:seasonTeamId/players', SeasonTeamPlayerController.getPlayersBySeas
 // 创建赛季-队伍关联
 router.post('/', SeasonTeamController.create);
 
+// 批量创建赛季-队伍关联
+router.post('/bulk', SeasonTeamController.bulkCreate);
+
 // 更新赛季-队伍关联
 router.put('/:id', SeasonTeamController.update);
 

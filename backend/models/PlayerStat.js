@@ -1,9 +1,5 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const MapGame = require('./MapGame');
-const Player = require('./Player');
-const Hero = require('./Hero');
-const Team = require('./Team');
 
 const PlayerStat = sequelize.define('PlayerStat', {
   id: {
@@ -13,35 +9,19 @@ const PlayerStat = sequelize.define('PlayerStat', {
   },
   mapGameId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: MapGame,
-      key: 'id'
-    }
+    allowNull: false
   },
   playerId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Player,
-      key: 'id'
-    }
+    allowNull: false
   },
   heroId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Hero,
-      key: 'id'
-    }
+    allowNull: false
   },
   teamId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Team,
-      key: 'id'
-    }
+    allowNull: false
   },
   kills: {
     type: DataTypes.INTEGER,
@@ -87,11 +67,5 @@ const PlayerStat = sequelize.define('PlayerStat', {
   tableName: 'player_stats',
   timestamps: false
 });
-
-// 关联关系
-PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
-PlayerStat.belongsTo(Player, { foreignKey: 'playerId' });
-PlayerStat.belongsTo(Hero, { foreignKey: 'heroId' });
-PlayerStat.belongsTo(Team, { foreignKey: 'teamId' });
 
 module.exports = PlayerStat;
