@@ -1,0 +1,23 @@
+const express = require('express');
+const router = express.Router();
+const MapGameController = require('../controllers/MapGameController');
+
+// 获取所有地图局
+router.get('/', MapGameController.getAll);
+
+// 获取单个地图局
+router.get('/:id', MapGameController.getById);
+
+// 创建地图局
+router.post('/', MapGameController.create);
+
+// 更新地图局
+router.put('/:id', MapGameController.update);
+
+// 删除地图局
+router.delete('/:id', MapGameController.delete);
+
+// 获取地图局的选手数据
+router.get('/:id/player-stats', MapGameController.getPlayerStats);
+
+module.exports = router;
