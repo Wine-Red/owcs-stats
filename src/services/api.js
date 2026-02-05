@@ -97,6 +97,8 @@ const apiService = {
   getTeamStatsData: (params) => api.get('/stats/team', { params }),
   getSeasonStatsData: (params) => api.get('/stats/season', { params }),
   getHeroStatsData: (params) => api.get('/stats/hero', { params }),
+  getHeroBanStatsData: (params) => api.get('/stats/hero/ban', { params }),
+  getMapPickStatsData: (params) => api.get('/stats/map/pick', { params }),
   comparePlayers: (playerIds) => api.get('/stats/player/compare', { params: { playerIds } }),
   compareTeams: (teamIds) => api.get('/stats/team/compare', { params: { teamIds } }),
   

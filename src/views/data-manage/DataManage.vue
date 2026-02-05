@@ -774,7 +774,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Map as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, EditPen, Delete } from '@element-plus/icons-vue';
+import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, EditPen, Delete } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 
 export default {

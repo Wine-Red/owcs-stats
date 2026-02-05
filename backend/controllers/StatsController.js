@@ -30,17 +30,83 @@ const StatsController = {
       res.status(500).json({ error: error.message });
     }
   },
+  
+  // 获取英雄禁用统计数据
+  getHeroBanStats: async (req, res) => {
+    try {
+      const { seasonId } = req.query;
+      
+      if (!seasonId) {
+        return res.status(400).json({ error: 'Season ID is required' });
+      }
+      
+      // 获取赛季的所有地图局
+      const mapGames = await MapGame.findAll({ where: { seasonId } });
+      const totalGames = mapGames.length;
+      
+      // 统计英雄禁用数据
+      const banStats = {};
+      
+      // 遍历所有地图局，统计禁用次数
+      for (const game of mapGames) {
+        if (game.team1BanHeroId) {
+          banStats[game.team1BanHeroId] = (banStats[game.team1BanHeroId] || 0) + 1;
+        }
+        if (game.team2BanHeroId) {
+          banStats[game.team2BanHeroId] = (banStats[game.team2BanHeroId] || 0) + 1;
+        }
+      }
+      
+      // 转换为数组并排序
+      const banStatsArray = Object.entries(banStats).map(([heroId, banCount]) => ({
+        heroId: parseInt(heroId),
+        banCount,
+        banRate: totalGames > 0 ? (banCount / totalGames * 100).toFixed(2) : 0
+      }));
+      
+      // 按禁用次数降序排序，取前10名
+      banStatsArray.sort((a, b) => b.banCount - a.banCount);
+      const topBanStats = banStatsArray.slice(0, 10);
+      
+      // 关联英雄信息
+      const Hero = require('../models/Hero');
+      const topBanStatsWithHero = await Promise.all(
+        topBanStats.map(async (stat) => {
+          const hero = await Hero.findByPk(stat.heroId);
+          return {
+            ...stat,
+            heroName: hero ? hero.name : '未知英雄'
+          };
+        })
+      );
+      
+      res.status(200).json({
+        data: topBanStatsWithHero,
+        totalGames,
+        totalBans: Object.values(banStats).reduce((sum, count) => sum + count, 0)
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
 
   // 获取队伍统计数据
   getTeamStats: async (req, res) => {
     try {
-      const { seasonId } = req.query;
+      const { seasonId, teamIds } = req.query;
       
       const where = {};
       if (seasonId) {
         const mapGames = await MapGame.findAll({ where: { seasonId } });
         const mapGameIds = mapGames.map(mg => mg.id);
         where.mapGameId = { [Op.in]: mapGameIds };
+      }
+      
+      // Filter by teamIds if provided
+      if (teamIds) {
+        // teamIds can be an array or a single value
+        const ids = Array.isArray(teamIds) ? teamIds : [teamIds];
+        where.teamId = { [Op.in]: ids };
       }
       
       // 聚合队伍数据
@@ -61,7 +127,40 @@ const StatsController = {
         group: ['teamId']
       });
       
-      res.status(200).json(stats);
+      // Calculate total duration for each team
+      const statsWithDuration = await Promise.all(stats.map(async (stat) => {
+        const teamId = stat.teamId;
+        const durationWhere = {};
+        if (seasonId) durationWhere.seasonId = seasonId;
+        
+        // A team plays if it is team1 or team2
+        durationWhere[Op.or] = [
+            { team1Id: teamId },
+            { team2Id: teamId }
+        ];
+
+        // This is sum of all game durations the team played.
+        // But for per 10min calculation:
+        // (Team Total Damage / (Team Total Duration / 600))
+        // Team Total Damage is sum of 5 players' damage.
+        // Team Total Duration in seconds is game_duration * 5 (since 5 players play simultaneously).
+        // Wait, "Team Total Duration" usually means the sum of time the team played the game.
+        // Let's look at the formula user provided: (该队伍所有队员的总伤害/总时长（分钟）)*10
+        // "总时长（分钟）" usually refers to the game time the team played.
+        // Example: Team played 10 mins. Total Damage = 10000 (sum of 5 players).
+        // Damage/10min = (10000 / 10) * 10 = 10000.
+        // This means we just need the sum of game durations for the team.
+        // The current implementation calculates exactly that: sum('duration') where team played.
+        
+        const totalDuration = await MapGame.sum('duration', { where: durationWhere });
+        
+        // Clone the stat object and add totalDuration
+        const statPlain = stat.get({ plain: true });
+        statPlain.totalDuration = totalDuration || 0;
+        return statPlain;
+      }));
+      
+      res.status(200).json(statsWithDuration);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -213,6 +312,89 @@ const StatsController = {
       }
       
       res.status(200).json(teamStats);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  
+  // 获取地图选取统计数据
+  getMapPickStats: async (req, res) => {
+    try {
+      const { seasonId } = req.query;
+      
+      if (!seasonId) {
+        return res.status(400).json({ error: 'Season ID is required' });
+      }
+      
+      // 获取赛季的所有地图局
+      const mapGames = await MapGame.findAll({ where: { seasonId } });
+      
+      // 统计地图选取次数
+      const mapPickCounts = {};
+      for (const game of mapGames) {
+        if (game.mapId) {
+          mapPickCounts[game.mapId] = (mapPickCounts[game.mapId] || 0) + 1;
+        }
+      }
+      
+      // 关联地图信息
+      const Map = require('../models/Map');
+      const mapStats = [];
+      
+      for (const [mapId, pickCount] of Object.entries(mapPickCounts)) {
+        const map = await Map.findByPk(parseInt(mapId));
+        if (map) {
+          mapStats.push({
+            mapId: parseInt(mapId),
+            mapName: map.name,
+            mapType: map.type,
+            pickCount
+          });
+        }
+      }
+      
+      // 按地图类型分组
+      const mapStatsByType = {};
+      for (const stat of mapStats) {
+        if (!mapStatsByType[stat.mapType]) {
+          mapStatsByType[stat.mapType] = [];
+        }
+        mapStatsByType[stat.mapType].push(stat);
+      }
+      
+      // 计算每种类型内各地图的选取率
+      const result = [];
+      for (const [mapType, stats] of Object.entries(mapStatsByType)) {
+        // 计算该类型的总选取次数
+        const totalPicks = stats.reduce((sum, stat) => sum + stat.pickCount, 0);
+        
+        // 计算每个地图的选取率
+        const typeStats = stats.map(stat => ({
+          mapId: stat.mapId,
+          mapName: stat.mapName,
+          mapType,
+          pickCount: stat.pickCount,
+          pickRate: totalPicks > 0 ? (stat.pickCount / totalPicks * 100).toFixed(2) : 0
+        }));
+        
+        // 按选取率降序排序
+        typeStats.sort((a, b) => b.pickRate - a.pickRate);
+        
+        result.push({
+          mapType,
+          totalPicks,
+          maps: typeStats
+        });
+      }
+      
+      // 按地图类型排序（推进、护送、混合、闪点、控制）
+      const mapTypeOrder = ['推进', '护送', '混合', '闪点', '控制'];
+      result.sort((a, b) => mapTypeOrder.indexOf(a.mapType) - mapTypeOrder.indexOf(b.mapType));
+      
+      res.status(200).json({
+        data: result,
+        totalGames: mapGames.length
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
