@@ -103,7 +103,11 @@
           style="width: 100%"
           border
         >
-          <el-table-column prop="id" label="地图局ID" width="80" />
+          <el-table-column label="创建时间" width="180">
+            <template #default="scope">
+              {{ formatDate(scope.row.createdAt) }}
+            </template>
+          </el-table-column>
           <el-table-column label="赛季" width="180">
             <template #default="scope">
               {{ getSeasonName(scope.row.seasonId) }}
@@ -239,45 +243,40 @@
 
     <!-- 选手管理 -->
     <div v-show="activeTab === 'players'">
-      <el-card class="data-card">
-        <template #header>
-          <div class="card-header">
-            <span>选手列表</span>
-            <el-button type="primary" size="small" @click="addPlayer">
-              <el-icon><Plus /></el-icon>
-              添加选手
-            </el-button>
-          </div>
-        </template>
-        <el-table
-          v-loading="loading"
-          :data="players"
-          style="width: 100%"
-          border
-        >
-          <el-table-column prop="id" label="选手ID" width="80" />
-          <el-table-column prop="name" label="选手名称" width="150" />
-          <el-table-column prop="role" label="位置" width="100">
-            <template #default="scope">
-              <el-tag :type="getRoleType(scope.row.role)">
-                {{ getRoleText(scope.row.role) }}
-              </el-tag>
+      <el-row :gutter="20">
+        <el-col :span="8" v-for="role in ['tank', 'damage', 'support']" :key="role">
+          <el-card class="data-card">
+            <template #header>
+              <div class="card-header">
+                <span>{{ getRoleText(role) }}列表</span>
+                <el-button type="primary" size="small" @click="addPlayer(role)">
+                  <el-icon><Plus /></el-icon>
+                  添加{{ getRoleText(role) }}
+                </el-button>
+              </div>
             </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="scope">
-              <el-button type="primary" size="small" @click="editPlayer(scope.row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+            <el-table
+              v-loading="loading"
+              :data="getPlayersByRole(role)"
+              style="width: 100%"
+              border
+              max-height="600"
+            >
+              <el-table-column prop="name" label="选手名称" />
+              <el-table-column label="操作" width="120" fixed="right">
+                <template #default="scope">
+                  <el-button type="primary" size="small" @click="editPlayer(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                  <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
 
     <!-- 赛季-队伍关联管理 -->
@@ -502,7 +501,9 @@
                 :value="player.id"
               >
                 <span>{{ player.name }}</span>
-                <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(player.role) }})</span>
+                <span style="color: #8492a6; font-size: 12px; margin-left: 10px">
+                  ({{ getRoleText(player.role) }})
+                </span>
               </el-option>
             </el-select>
           </el-form-item>
@@ -882,12 +883,58 @@ export default {
     });
 
     const availablePlayers = computed(() => {
-      if (!editForm.value.seasonTeamId) return players.value;
-      const existingPlayerIds = seasonTeamPlayers.value
-        .filter(stp => stp.seasonTeamId === editForm.value.seasonTeamId)
-        .map(stp => stp.playerId);
-      return players.value.filter(player => !existingPlayerIds.includes(player.id));
+      // 按照 role 排序：tank -> damage -> support
+      const roleOrder = { tank: 1, damage: 2, support: 3 };
+      
+      // 过滤掉已经在当前赛季加入其他队伍的选手
+      const filteredPlayers = players.value.filter(player => !isPlayerAlreadyInSeason(player.id));
+      
+      return [...filteredPlayers].sort((a, b) => {
+        const orderA = roleOrder[a.role] || 99;
+        const orderB = roleOrder[b.role] || 99;
+        
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        
+        // 如果角色相同，按名字字母顺序排
+        return a.name.localeCompare(b.name);
+      });
     });
+    
+    // 检查选手是否已经存在于当前赛季的任何队伍中
+    const isPlayerAlreadyInSeason = (playerId) => {
+      // 1. 获取当前选中的赛季-队伍关联
+      const currentSeasonTeamId = editForm.value.seasonTeamId;
+      if (!currentSeasonTeamId) return false;
+
+      // 2. 找到该关联对应的赛季ID
+      const currentSeasonTeam = seasonTeams.value.find(st => st.id === currentSeasonTeamId);
+      if (!currentSeasonTeam) return false;
+      const currentSeasonId = currentSeasonTeam.seasonId;
+
+      // 3. 找到该赛季下所有的赛季-队伍关联ID
+      const allSeasonTeamIdsInSeason = seasonTeams.value
+        .filter(st => st.seasonId === currentSeasonId)
+        .map(st => st.id);
+
+      // 4. 检查该选手是否在这些关联中的任何一个里面
+      // 注意：这里需要检查所有已加载的 seasonTeamPlayers
+      // 但 store 中的 seasonTeamPlayers 可能只包含当前筛选的，所以可能需要额外的逻辑来获取全量数据
+      // 考虑到性能，我们假设 store.state.seasonTeamPlayers 包含我们需要的数据，
+      // 或者我们需要在打开对话框时加载该赛季所有队伍的选手数据。
+      
+      // 更好的做法是在计算属性中处理，或者确保 seasonTeamPlayers 包含了足够的信息。
+      // 由于目前的架构限制，我们先基于已有的 seasonTeamPlayers 进行检查。
+      // 为了准确性，我们在打开添加对话框时应该加载该赛季所有选手的关联信息。
+      
+      // 这里我们遍历 store 中的 seasonTeamPlayers，检查是否有匹配 playerId 且 seasonTeamId 属于当前赛季的记录
+      const isInSeason = seasonTeamPlayers.value.some(stp => 
+        stp.playerId === playerId && allSeasonTeamIdsInSeason.includes(stp.seasonTeamId)
+      );
+
+      return isInSeason;
+    };
 
     const maps = computed(() => store.state.maps);
     const heroes = computed(() => store.state.heroes);
@@ -948,6 +995,19 @@ export default {
     const getHeroName = (heroId) => {
       const hero = store.getters.getHeroById(heroId);
       return hero ? hero.name : '无';
+    };
+
+    // 格式化日期
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const h = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      const s = String(date.getSeconds()).padStart(2, '0');
+      return `${y}-${m}-${d} ${h}:${min}:${s}`;
     };
     
 
@@ -1122,6 +1182,32 @@ export default {
           seasonId: mapGame.seasonId
         };
         
+        // 确保加载了相关的赛季-队伍和选手数据
+        try {
+          // 1. 加载所有赛季-队伍关联
+          const allSeasonTeams = await apiService.getAllSeasonTeams();
+          store.commit('setSeasonTeams', allSeasonTeams);
+
+          // 2. 找到当前比赛两支队伍的赛季关联ID
+          const seasonTeam1 = allSeasonTeams.find(st => 
+            st.seasonId === mapGame.seasonId && st.teamId === mapGame.team1Id
+          );
+          const seasonTeam2 = allSeasonTeams.find(st => 
+            st.seasonId === mapGame.seasonId && st.teamId === mapGame.team2Id
+          );
+
+          // 3. 加载这两支队伍的选手列表
+          if (seasonTeam1) {
+            await store.dispatch('getSeasonTeamPlayers', seasonTeam1.id);
+          }
+          if (seasonTeam2) {
+            await store.dispatch('getSeasonTeamPlayers', seasonTeam2.id);
+          }
+        } catch (e) {
+          console.error('加载队伍选手数据失败:', e);
+          ElMessage.warning('加载队伍选手数据失败，部分选手可能无法显示');
+        }
+
         console.log('获取地图局的选手数据，ID:', mapGame.id);
         // 获取地图局的选手数据
         const playerStats = await apiService.getMapGamePlayerStats(mapGame.id);
@@ -1389,13 +1475,18 @@ export default {
       dialogVisible.value = true;
     };
     
+    // 获取指定位置的选手列表
+    const getPlayersByRole = (role) => {
+      return players.value.filter(player => player.role === role);
+    };
+
     // 添加选手
-    const addPlayer = () => {
+    const addPlayer = (role = 'tank') => {
       dialogTitle.value = '添加选手';
       dialogType.value = 'player';
       editForm.value = {
         name: '',
-        role: 'tank'
+        role: role // 默认使用传入的位置，如果没有传入则默认为tank
       };
       dialogVisible.value = true;
     };
@@ -1421,13 +1512,36 @@ export default {
     };
     
     // 添加赛季-队伍-选手关联
-    const addSeasonTeamPlayer = () => {
+    const addSeasonTeamPlayer = async () => {
       dialogTitle.value = '添加赛季-队伍-选手关联';
       dialogType.value = 'season-team-player';
       editForm.value = {
         seasonTeamId: seasonTeamPlayerFilter.value.seasonTeamId || '',
         playerIds: []
       };
+      
+      // 如果已经选择了 seasonTeamId，我们需要确保加载了该赛季下所有队伍的选手数据，以便正确判断选手是否已存在
+      const seasonTeamId = editForm.value.seasonTeamId;
+      if (seasonTeamId) {
+        const currentSeasonTeam = seasonTeams.value.find(st => st.id === seasonTeamId);
+        if (currentSeasonTeam) {
+           const seasonId = currentSeasonTeam.seasonId;
+           // 找到该赛季下的所有 seasonTeamId
+           const seasonTeamIds = seasonTeams.value
+             .filter(st => st.seasonId === seasonId)
+             .map(st => st.id);
+            
+           // 并行加载所有相关队伍的选手数据
+           // 注意：这里可能会发起较多请求，如果赛季队伍很多，可以考虑后端增加一个接口一次性获取
+           try {
+             const promises = seasonTeamIds.map(id => store.dispatch('getSeasonTeamPlayers', id));
+             await Promise.all(promises);
+           } catch (e) {
+             console.error('加载赛季选手数据失败', e);
+           }
+        }
+      }
+      
       dialogVisible.value = true;
     };
     
@@ -1665,6 +1779,7 @@ export default {
       seasonTeamPlayers,
       availableTeams,
       availablePlayers,
+      isPlayerAlreadyInSeason,
       maps,
       heroes,
       mapGameEditDialogVisible,
@@ -1679,6 +1794,7 @@ export default {
       getRoleType,
       getMapName,
       getHeroName,
+      formatDate,
       searchMatches,
       resetFilter,
       handleSizeChange,
@@ -1709,6 +1825,7 @@ export default {
       handleSeasonTeamChangeForPlayers,
       getRoleCount,
       getRoleSlots,
+      getPlayersByRole,
       getHeroesByRole,
       getMatchTeamPlayers,
       getMapGamePlayerStat,

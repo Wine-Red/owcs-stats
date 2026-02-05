@@ -412,10 +412,9 @@ export default {
               data: seriesData,
               label: {
                   show: true,
-                  formatter: function (param) {
-                      return param.data.name;
-                  },
-                  position: 'top'
+                  formatter: '{b}',
+                  position: 'top',
+                  fontWeight: 'bold'
               },
               itemStyle: {
                 color: function(params) {
@@ -432,14 +431,16 @@ export default {
               query: { maxWidth: 768 },
               option: {
                 grid: {
-                   left: '10%',
-                   right: '10%'
+                   top: '10%',
+                   left: '5%',
+                   right: '5%',
+                   containLabel: true
                 },
                 series: [
                     {
-                        label: {
-                            show: false // Hide labels on small screens to avoid clutter
-                        }
+                        // label: {
+                        //     show: false // Hide labels on small screens to avoid clutter
+                        // }
                     }
                 ]
               }
@@ -667,6 +668,7 @@ export default {
           },
           yAxis: {
             type: 'category',
+            inverse: true,
             data: heroNames,
             axisLabel: {
               interval: 0,

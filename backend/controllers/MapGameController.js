@@ -45,6 +45,7 @@ const MapGameController = {
           { model: Team, as: 'winner' },
           { model: Map }
         ],
+        order: [['createdAt', 'DESC']],
         limit: parseInt(pageSize),
         offset: (parseInt(page) - 1) * parseInt(pageSize)
       });

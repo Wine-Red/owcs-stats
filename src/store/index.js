@@ -308,9 +308,11 @@ const store = createStore({
       commit('setLoading', true);
       try {
         const newSeasonTeamPlayers = await apiService.getSeasonTeamPlayers(seasonTeamId);
-        const existingIds = state.seasonTeamPlayers.map(stp => stp.id);
-        const uniqueNewPlayers = newSeasonTeamPlayers.filter(stp => !existingIds.includes(stp.id));
-        const mergedSeasonTeamPlayers = [...state.seasonTeamPlayers, ...uniqueNewPlayers];
+        // 保留非当前 seasonTeamId 的数据
+        const otherSeasonTeamPlayers = state.seasonTeamPlayers.filter(stp => stp.seasonTeamId !== seasonTeamId);
+        // 合并新数据
+        const mergedSeasonTeamPlayers = [...otherSeasonTeamPlayers, ...newSeasonTeamPlayers];
+        
         commit('setSeasonTeamPlayers', mergedSeasonTeamPlayers);
         return newSeasonTeamPlayers;
       } catch (error) {

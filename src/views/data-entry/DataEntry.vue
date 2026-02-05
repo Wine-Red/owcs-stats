@@ -124,7 +124,7 @@
                 <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
                 <div class="player-slots">
                   <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team1-' + role + '-' + index">
-                    <el-form-item :label="'选手' + (index + 1)" :prop="`lineup.team1.${role}${index + 1}`">
+                    <el-form-item :label="'选手' + (index + 1)" :prop="`lineup.team1.${role}${index + 1}`" label-width="auto">
                       <el-select
                         v-model="formData.lineup.team1[role + (index + 1)]"
                         :placeholder="'选择' + getRoleText(role) + '选手'"
@@ -141,7 +141,7 @@
                       </el-select>
                     </el-form-item>
                     <div v-if="formData.lineup.team1[role + (index + 1)]" class="player-stats-form">
-                      <el-form-item :label="'英雄'" :prop="`playerStats.team1.${role}${index + 1}.heroId`">
+                      <el-form-item :label="'英雄'" :prop="`playerStats.team1.${role}${index + 1}.heroId`" label-width="auto">
                         <el-select
                           v-model="getPlayerStat('team1', role, index + 1).heroId"
                           :placeholder="'选择' + getRoleText(role) + '英雄'"
@@ -156,35 +156,35 @@
                         </el-select>
                       </el-form-item>
                       <div class="stats-grid">
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.kills`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.kills`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
                           <span class="stat-label">击杀</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.deaths`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.deaths`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
                           <span class="stat-label">死亡</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.assists`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.assists`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
                           <span class="stat-label">助攻</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.damage`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.damage`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
                           <span class="stat-label">伤害</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.healing`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.healing`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
                           <span class="stat-label">治疗</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.mitigation`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.mitigation`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
                           <span class="stat-label">抵挡</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.ultsUsed`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.ultsUsed`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
                           <span class="stat-label">大招</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.finalBlows`">
+                        <el-form-item :prop="`playerStats.team1.${role}${index + 1}.finalBlows`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team1', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
                           <span class="stat-label">最后一击</span>
                         </el-form-item>
@@ -207,7 +207,7 @@
                 <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
                 <div class="player-slots">
                   <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team2-' + role + '-' + index">
-                    <el-form-item :label="'选手' + (index + 1)" :prop="`lineup.team2.${role}${index + 1}`">
+                    <el-form-item :label="'选手' + (index + 1)" :prop="`lineup.team2.${role}${index + 1}`" label-width="auto">
                       <el-select
                         v-model="formData.lineup.team2[role + (index + 1)]"
                         :placeholder="'选择' + getRoleText(role) + '选手'"
@@ -224,7 +224,7 @@
                       </el-select>
                     </el-form-item>
                     <div v-if="formData.lineup.team2[role + (index + 1)]" class="player-stats-form">
-                      <el-form-item :label="'英雄'" :prop="`playerStats.team2.${role}${index + 1}.heroId`">
+                      <el-form-item :label="'英雄'" :prop="`playerStats.team2.${role}${index + 1}.heroId`" label-width="auto">
                         <el-select
                           v-model="getPlayerStat('team2', role, index + 1).heroId"
                           :placeholder="'选择' + getRoleText(role) + '英雄'"
@@ -239,35 +239,35 @@
                         </el-select>
                       </el-form-item>
                       <div class="stats-grid">
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.kills`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.kills`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
                           <span class="stat-label">击杀</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.deaths`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.deaths`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
                           <span class="stat-label">死亡</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.assists`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.assists`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
                           <span class="stat-label">助攻</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.damage`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.damage`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
                           <span class="stat-label">伤害</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.healing`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.healing`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
                           <span class="stat-label">治疗</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.mitigation`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.mitigation`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
                           <span class="stat-label">抵挡</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.ultsUsed`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.ultsUsed`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
                           <span class="stat-label">大招</span>
                         </el-form-item>
-                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.finalBlows`">
+                        <el-form-item :prop="`playerStats.team2.${role}${index + 1}.finalBlows`" label-width="0">
                           <el-input-number v-model="getPlayerStat('team2', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
                           <span class="stat-label">最后一击</span>
                         </el-form-item>
@@ -842,9 +842,54 @@ export default {
 }
 
 .step-actions {
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  margin-top: 30px;
-}
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 30px;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .role-section[data-role="tank"] .player-slot .stats-grid,
+    .role-section[data-role="damage"] .player-slot .stats-grid,
+    .role-section[data-role="support"] .player-slot .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    
+    .step-actions {
+      flex-direction: column;
+      padding: 0 20px;
+    }
+    
+    .step-actions .el-button {
+      width: 100%;
+      margin-left: 0;
+      margin-bottom: 10px;
+    }
+
+    /* 强制在移动端将选手卡片内的表单标签显示在上方 */
+    .player-slot .el-form-item {
+      flex-direction: column;
+    }
+    
+    .player-slot .el-form-item__label {
+      width: auto !important;
+      text-align: left;
+      margin-bottom: 5px;
+    }
+    
+    .player-slot .el-form-item__content {
+      margin-left: 0 !important;
+    }
+  }
 </style>
