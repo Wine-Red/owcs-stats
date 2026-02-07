@@ -222,7 +222,7 @@ const store = createStore({
     },
     
     // 获取赛季的队伍
-    async getSeasonTeams({ commit }, seasonId) {
+    async getSeasonTeams({ commit, dispatch }, seasonId) {
       commit('setLoading', true);
       try {
         // 首先获取所有赛季-队伍关联
@@ -231,6 +231,10 @@ const store = createStore({
         const filteredSeasonTeams = allSeasonTeams.filter(st => st.seasonId === seasonId);
         // 更新赛季-队伍关联数据
         commit('setSeasonTeams', filteredSeasonTeams);
+
+        // 并行获取该赛季所有队伍的选手关联数据
+        await Promise.all(filteredSeasonTeams.map(st => dispatch('getSeasonTeamPlayers', st.id)));
+
         // 然后获取该赛季的队伍列表
         const teams = await apiService.getSeasonTeams(seasonId);
         return teams;

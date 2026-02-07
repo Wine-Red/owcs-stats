@@ -596,8 +596,8 @@ export default {
           team1Id: formData.value.team1Id,
           team2Id: formData.value.team2Id,
           winnerId: formData.value.winnerId,
-          team1BanHeroId: formData.value.team1BanHeroId,
-          team2BanHeroId: formData.value.team2BanHeroId,
+          team1BanHeroId: formData.value.team1BanHeroId || null,
+          team2BanHeroId: formData.value.team2BanHeroId || null,
           duration: formData.value.duration,
           playerStats: []
         };
@@ -617,14 +617,14 @@ export default {
                   playerId: playerId,
                   teamId: teamId,
                   heroId: stat.heroId,
-                  kills: stat.kills,
-                  deaths: stat.deaths,
-                  assists: stat.assists,
-                  damage: stat.damage,
-                  healing: stat.healing,
-                  mitigation: stat.mitigation,
-                  ultsUsed: stat.ultsUsed,
-                  finalBlows: stat.finalBlows
+                  kills: stat.kills || 0,
+                  deaths: stat.deaths || 0,
+                  assists: stat.assists || 0,
+                  damage: stat.damage || 0,
+                  healing: stat.healing || 0,
+                  mitigation: stat.mitigation || 0,
+                  ultsUsed: stat.ultsUsed || 0,
+                  finalBlows: stat.finalBlows || 0
                 });
               }
             }

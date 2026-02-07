@@ -16,17 +16,6 @@
               />
             </el-select>
           </el-form-item>
-          
-          <el-form-item>
-            <el-button type="primary" @click="updateCharts">
-              <el-icon><Search /></el-icon>
-              应用筛选
-            </el-button>
-            <el-button @click="resetFilter">
-              <el-icon><Refresh /></el-icon>
-              重置
-            </el-button>
-          </el-form-item>
         </el-form>
       </div>
     </el-card>
@@ -77,7 +66,9 @@
       <el-card class="filterable-data-card">
         <template #header>
           <div class="card-header">
-            <span>队伍数据统计</span>
+            <div class="header-left">
+                <span class="header-title">队伍数据</span>
+            </div>
             <div class="card-filter">
               <el-select 
                 v-model="teamFilter" 
@@ -109,10 +100,28 @@
       <el-card class="filterable-data-card">
         <template #header>
           <div class="card-header">
-            <span>选手个人数据</span>
+            <div class="header-left">
+                <span class="header-title">选手个人数据</span>
+                <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
+                    <el-radio-button label="tank">坦克</el-radio-button>
+                    <el-radio-button label="damage">输出</el-radio-button>
+                    <el-radio-button label="support">辅助</el-radio-button>
+                </el-radio-group>
+            </div>
             <div class="card-filter">
-              <el-select v-model="playerFilter" placeholder="选择选手" :disabled="!filterForm.seasonId" style="width: 150px">
-                <el-option label="全部选手" value="" />
+              <el-select 
+                v-model="playerFilter" 
+                placeholder="" 
+                :disabled="!filterForm.seasonId" 
+                class="player-select-input"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                popper-class="player-select-dropdown"
+              >
+                <template #prefix>
+                   <span class="custom-select-placeholder">选手筛选列表</span>
+                </template>
                 <el-option
                   v-for="player in getFilteredPlayers"
                   :key="player.id"
@@ -191,7 +200,8 @@ export default {
     
     // 卡片独立筛选
     const teamFilter = ref([]);
-    const playerFilter = ref('');
+    const playerFilter = ref([]);
+    const playerRole = ref('damage');
     
     // 图表引用
     const heroBanChart = ref(null);
@@ -202,6 +212,7 @@ export default {
     
     // 数据缓存
     const allTeamStats = ref([]);
+    const allPlayerStats = ref([]);
 
     // 图表实例
     let heroBanChartInstance = null;
@@ -224,22 +235,29 @@ export default {
     
     // 计算属性
     const seasons = computed(() => store.state.seasons);
-    const teams = computed(() => store.state.teams);
+    const teams = computed(() => {
+      if (filterForm.value.seasonId) {
+        return store.getters.getTeamsBySeasonId(filterForm.value.seasonId);
+      }
+      return store.state.teams;
+    });
     const heroes = computed(() => store.state.heroes);
     
     // 根据赛季和队伍筛选选手
     const getFilteredPlayers = computed(() => {
-      if (!filterForm.value.seasonId) return store.state.players;
-      
-      // 如果没有选择队伍，返回所有选手
-      if (!filterForm.value.teamIds || filterForm.value.teamIds.length === 0) {
-        return store.state.players;
+      // 首先根据职责筛选
+      let players = store.state.players;
+      if (playerRole.value) {
+        players = players.filter(p => p.role === playerRole.value);
       }
+
+      if (!filterForm.value.seasonId) return players;
       
-      // 获取选中队伍的所有赛季-队伍关联
-      const seasonTeamIds = store.state.seasonTeams
-        .filter(st => st.seasonId === filterForm.value.seasonId && filterForm.value.teamIds.includes(st.teamId))
-        .map(st => st.id);
+      // 获取当前赛季的所有赛季-队伍关联
+      const seasonTeams = store.state.seasonTeams
+        .filter(st => st.seasonId === filterForm.value.seasonId);
+      
+      const seasonTeamIds = seasonTeams.map(st => st.id);
       
       // 获取这些关联中的所有选手ID
       const playerIds = store.state.seasonTeamPlayers
@@ -247,7 +265,7 @@ export default {
         .map(stp => stp.playerId);
       
       // 返回筛选后的选手
-      return store.state.players.filter(player => playerIds.includes(player.id));
+      return players.filter(player => playerIds.includes(player.id));
     });
     
     // 初始化图表
@@ -491,114 +509,297 @@ export default {
       }
     };
     
+    // 渲染选手图表（纯前端过滤和渲染）
+    const renderPlayerChart = () => {
+        if (!playerChart) return;
+        
+        // 1. 获取当前数据源 (可能是API返回的完整列表，或者我们需要先获取一次)
+        // 注意：由于后端现在支持筛选，我们最好是先获取该角色下的所有选手数据，然后在前端进行筛选
+        // 这样可以避免每次勾选都请求API
+        
+        // 我们需要一个变量来存储当前角色的所有选手数据
+        // 在 updatePlayerStatsChart 中获取并存储
+        
+        // 这里假设 updatePlayerStatsChart 已经获取了数据并存储在 allPlayerStats 中
+        // 我们需要在 setup 中增加 allPlayerStats
+        
+        let filteredStats = [];
+        
+        // 检查 playerFilter 是否有值
+        if (playerFilter.value && playerFilter.value.length > 0) {
+             const selectedIds = playerFilter.value.map(id => Number(id));
+             
+             filteredStats = allPlayerStats.value.filter(item => {
+                 return selectedIds.includes(Number(item.playerId));
+             });
+        } else {
+             // 如果未选中任何选手，显示空还是显示全部？
+             // 队伍图表是未选中显示空。
+             // 但根据“默认显示输出选手图表”的需求，初始加载时应该显示所有。
+             // 用户交互后，如果清空了筛选，通常也是显示全部或空。
+             // 队伍图表那里逻辑是：teamFilter默认全选。
+             // 让我们让 playerFilter 默认全选。
+             filteredStats = allPlayerStats.value;
+        }
+
+        // 定义轴标签和数据映射键
+        let xAxisName = '';
+        let yAxisName = '';
+        let xKey = '';
+        let yKey = '';
+        let yInverse = false;
+        
+        switch (playerRole.value) {
+            case 'tank':
+                xAxisName = '抵挡/10min';
+                yAxisName = '死亡/10min';
+                xKey = 'totalMitigation';
+                yKey = 'totalDeaths';
+                yInverse = true; 
+                break;
+            case 'damage':
+                xAxisName = '伤害/10min';
+                yAxisName = '消灭/10min';
+                xKey = 'totalDamage';
+                yKey = 'totalKills';
+                break;
+            case 'support':
+                xAxisName = '治疗/10min';
+                yAxisName = '助攻/10min';
+                xKey = 'totalHealing';
+                yKey = 'totalAssists';
+                break;
+            default:
+                xAxisName = '伤害/10min';
+                yAxisName = '消灭/10min';
+                xKey = 'totalDamage';
+                yKey = 'totalKills';
+        }
+        
+        // 计算全局最大值用于固定坐标轴
+        // 1. 遍历当前职责下的所有选手（allPlayerStats），找出最大值
+        let globalMaxX = 0;
+        let globalMaxY = 0;
+        
+        allPlayerStats.value.forEach(item => {
+            const duration = item.totalDuration || 0;
+            if (duration === 0) return;
+            
+            // 计算每个选手的 X 和 Y 值
+            const xVal = (item[xKey] / duration) * 10;
+            const yVal = (item[yKey] / duration) * 10;
+            
+            if (xVal > globalMaxX) globalMaxX = xVal;
+            if (yVal > globalMaxY) globalMaxY = yVal;
+        });
+
+        // 稍微放大一点作为最大刻度
+        const xMax = Math.ceil(globalMaxX * 1.1); 
+        const yMax = Math.ceil(globalMaxY * 1.1); 
+        
+        const seriesData = filteredStats.map(item => {
+            const duration = item.totalDuration || 0; 
+            if (duration === 0) return null;
+            
+            const xVal = parseFloat(((item[xKey] / duration) * 10).toFixed(2));
+            const yVal = parseFloat(((item[yKey] / duration) * 10).toFixed(2));
+            
+            return {
+                name: item.player?.name || '未知选手',
+                value: [xVal, yVal, item.player?.name, item.team?.name]
+            };
+        }).filter(item => item !== null);
+        
+        const option = {
+          title: {
+            text: `选手数据 (${xAxisName} vs ${yAxisName})`,
+            left: 'center',
+            show: false
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: function (params) {
+               return `<b>${params.data.value[2]}</b> (${params.data.value[3]})<br/>` +
+                      `${xAxisName}: ${params.data.value[0]}<br/>` +
+                      `${yAxisName}: ${params.data.value[1]}`;
+            }
+          },
+          grid: {
+            left: '5%',
+            right: '10%',
+            bottom: '10%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'value',
+            name: xAxisName,
+            nameLocation: 'middle',
+            nameGap: 30,
+            scale: false, // 禁用自动缩放
+            min: 0,
+            max: xMax > 0 ? xMax : undefined
+          },
+          yAxis: {
+            type: 'value',
+            name: yAxisName,
+            inverse: yInverse,
+            scale: false, // 禁用自动缩放
+            min: 0,
+            max: yMax > 0 ? yMax : undefined
+          },
+          series: [
+            {
+              type: 'scatter',
+              symbolSize: 15,
+              data: seriesData,
+              itemStyle: {
+                  color: function(params) {
+                      const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+                      return colors[params.dataIndex % colors.length];
+                  }
+              },
+              label: {
+                  show: true,
+                  formatter: function(params) {
+                      return params.data.value[2];
+                  },
+                  position: 'top',
+                  fontWeight: 'bold',
+                  fontSize: 10
+              }
+            }
+          ]
+        };
+        
+        playerChart.setOption(option, true);
+    };
+
     // 更新选手数据图表
     const updatePlayerStatsChart = async () => {
       if (!playerChart) return;
       
       try {
-        // 显示加载动画
         playerChart.showLoading();
         
-        // 从API获取选手统计数据
+        // 获取当前角色下的所有选手数据（不传具体playerIds，只传role）
         const params = {
           seasonId: filterForm.value.seasonId || null,
           teamIds: filterForm.value.teamIds.length > 0 ? filterForm.value.teamIds : null,
-          playerIds: filterForm.value.playerIds.length > 0 ? filterForm.value.playerIds : null
+          playerIds: null, // 获取所有，前端筛选
+          role: playerRole.value
         };
+        
         const response = await apiService.getPlayerStatsData(params);
+        allPlayerStats.value = response || [];
         
-        // 处理数据
-        const playerNames = response.slice(0, 8).map(item => item.playerName || '未知选手');
-        const kills = response.slice(0, 8).map(item => item.totalKills || 0);
-        const deaths = response.slice(0, 8).map(item => item.totalDeaths || 0);
-        const assists = response.slice(0, 8).map(item => item.totalAssists || 0);
+        // 默认全选当前获取到的选手
+        // 获取当前筛选出的选手列表 (getFilteredPlayers 已经根据 role 筛选了)
+        // 我们需要确保 playerFilter 中的 ID 是当前 allPlayerStats 中存在的
         
-        const option = {
-          title: {
-            text: '选手数据统计',
-            left: 'center'
-          },
-          tooltip: {
-            trigger: 'axis'
-          },
-          grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            containLabel: true
-          },
-          xAxis: {
-            type: 'category',
-            data: playerNames
-          },
-          yAxis: {
-            type: 'value'
-          },
-          series: [
-            {
-              name: '击杀',
-              type: 'line',
-              data: kills
-            },
-            {
-              name: '死亡',
-              type: 'line',
-              data: deaths
-            },
-            {
-              name: '助攻',
-              type: 'line',
-              data: assists
+        const availablePlayerIds = allPlayerStats.value.map(p => p.playerId);
+        
+        // 自动选择Top 5逻辑
+        // 如果 playerFilter 为空，或者切换了角色（这里假设外部已清空），则进行Top 5选择
+        if (playerFilter.value.length === 0) {
+            // 计算每个选手的排序指标
+            const statsWithScore = allPlayerStats.value.map(item => {
+                const duration = item.totalDuration || 0;
+                if (duration === 0) return { ...item, score: -Infinity }; // 无数据排最后
+
+                let score = 0;
+                // 数据标准化为每10分钟
+                const per10 = (val) => (val / duration) * 10;
+
+                if (playerRole.value === 'tank') {
+                    // 坦克：死亡少（越小越好）、抵挡多（越大越好）
+                    // 评分公式：抵挡/10min - (死亡/10min * 权重)
+                    // 或者简单点：优先按抵挡排序，死亡作为次要？
+                    // 用户需求：“每个图表都是越往右上角越厉害”，意味着X轴（抵挡）越大越好，Y轴（死亡）越小越好（坐标轴已反转）。
+                    // 综合评分：可以简单用 (抵挡/10min) / (死亡/10min + 1) 或者 抵挡 - 死亡*1000
+                    // 让我们用一个加权分数：抵挡分 - 死亡分。
+                    // 假设平均抵挡 10000，平均死亡 5。
+                    // 抵挡权重 1，死亡权重 2000？
+                    // 简单粗暴点：按 (抵挡/10min) 降序排。如果抵挡接近，看死亡。
+                    // 为了选出“右上角”的选手，应该是抵挡高且死亡低的。
+                    // Score = (Mitigation per 10) - (Deaths per 10 * 1000) (假设1死抵消1000抵挡)
+                    // 但实际上，死亡通常是个位数，抵挡是万级。
+                    // 让我们尝试：Score = (Mitigation per 10) / (Deaths per 10 + 0.1)
+                    const mit = per10(item.totalMitigation);
+                    const dth = per10(item.totalDeaths);
+                    score = mit / (dth + 0.1);
+                } else if (playerRole.value === 'damage') {
+                    // 输出：伤害高、消灭多
+                    // 优先消灭？还是伤害？通常消灭更重要。
+                    // Score = (Elims per 10) * 1000 + (Damage per 10)
+                    const dmg = per10(item.totalDamage);
+                    const elim = per10(item.totalKills);
+                    score = elim * 1000 + dmg;
+                } else if (playerRole.value === 'support') {
+                    // 辅助：治疗高、助攻多
+                    // Score = (Healing per 10) + (Assists per 10 * 1000)
+                    const heal = per10(item.totalHealing);
+                    const ast = per10(item.totalAssists);
+                    score = heal + ast * 1000;
+                }
+
+                return { ...item, score };
+            });
+
+            // 降序排序
+            statsWithScore.sort((a, b) => b.score - a.score);
+
+            // 取前5名
+            const top5 = statsWithScore.slice(0, 5);
+            playerFilter.value = top5.map(p => p.playerId);
+            
+            // 如果不足5人，就全选
+            if (playerFilter.value.length === 0 && availablePlayerIds.length > 0) {
+                 playerFilter.value = availablePlayerIds;
             }
-          ]
-        };
+        } else {
+             // 过滤掉不再当前列表中的ID (比如切换了赛季或队伍)
+             playerFilter.value = playerFilter.value.filter(id => availablePlayerIds.includes(id));
+             // 如果过滤后为空，重新触发Top 5逻辑（递归调用或者直接复制上面的逻辑）
+             // 简单起见，如果为空，就全选所有（或者也可以Top 5，看用户习惯，这里保持全选作为兜底）
+             if (playerFilter.value.length === 0) {
+                 // 复制上面的Top 5逻辑
+                 const statsWithScore = allPlayerStats.value.map(item => {
+                    const duration = item.totalDuration || 0;
+                    if (duration === 0) return { ...item, score: -Infinity };
+
+                    let score = 0;
+                    const per10 = (val) => (val / duration) * 10;
+
+                    if (playerRole.value === 'tank') {
+                        const mit = per10(item.totalMitigation);
+                        const dth = per10(item.totalDeaths);
+                        score = mit / (dth + 0.1);
+                    } else if (playerRole.value === 'damage') {
+                        const dmg = per10(item.totalDamage);
+                        const elim = per10(item.totalKills);
+                        score = elim * 1000 + dmg;
+                    } else if (playerRole.value === 'support') {
+                        const heal = per10(item.totalHealing);
+                        const ast = per10(item.totalAssists);
+                        score = heal + ast * 1000;
+                    }
+                    return { ...item, score };
+                });
+                statsWithScore.sort((a, b) => b.score - a.score);
+                const top5 = statsWithScore.slice(0, 5);
+                playerFilter.value = top5.map(p => p.playerId);
+                
+                if (playerFilter.value.length === 0 && availablePlayerIds.length > 0) {
+                    playerFilter.value = availablePlayerIds;
+                }
+             }
+        }
         
-        playerChart.setOption(option);
+        renderPlayerChart();
+        
       } catch (error) {
         console.error('获取选手数据失败:', error);
-        
-        // 显示默认数据
-        const option = {
-          title: {
-            text: '选手数据统计',
-            left: 'center'
-          },
-          tooltip: {
-            trigger: 'axis'
-          },
-          grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            containLabel: true
-          },
-          xAxis: {
-            type: 'category',
-            data: getFilteredPlayers.value.slice(0, 8).map(player => player.name)
-          },
-          yAxis: {
-            type: 'value'
-          },
-          series: [
-            {
-              name: '击杀',
-              type: 'line',
-              data: [0, 0, 0, 0, 0, 0, 0, 0]
-            },
-            {
-              name: '死亡',
-              type: 'line',
-              data: [0, 0, 0, 0, 0, 0, 0, 0]
-            },
-            {
-              name: '助攻',
-              type: 'line',
-              data: [0, 0, 0, 0, 0, 0, 0, 0]
-            }
-          ]
-        };
-        
-        playerChart.setOption(option);
+        playerChart.hideLoading();
       } finally {
         playerChart.hideLoading();
       }
@@ -1119,7 +1320,7 @@ export default {
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
       teamFilter.value = [];
-      playerFilter.value = '';
+      playerFilter.value = []; // should be array
       
       // 加载赛季的队伍关联数据
       if (filterForm.value.seasonId) {
@@ -1131,8 +1332,8 @@ export default {
           const teamIdsInSeason = seasonTeams.map(st => st.teamId);
           teamFilter.value = teamIdsInSeason;
           
-          // 更新图表
-          updateTeamComparisonChart();
+          // 更新所有图表
+          updateCharts();
         } catch (error) {
           ElMessage.error('加载赛季队伍失败: ' + error.message);
         }
@@ -1186,6 +1387,17 @@ export default {
         renderTeamChart();
     }, { deep: true });
 
+    // 监听 playerFilter 变化，实时更新图表
+    watch(playerFilter, () => {
+        renderPlayerChart();
+    }, { deep: true });
+
+    // 监听 playerRole 变化，重置选手筛选并更新图表
+    watch(playerRole, () => {
+        playerFilter.value = []; // 清空筛选，updatePlayerStatsChart 会处理默认全选
+        updatePlayerStatsChart();
+    });
+
     // 组件挂载
     onMounted(async () => {
       await store.dispatch('loadBaseData');
@@ -1228,6 +1440,7 @@ export default {
       filterForm,
       teamFilter,
       playerFilter,
+      playerRole,
       seasons,
       teams,
       heroes,
@@ -1312,6 +1525,18 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+  gap: 10px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-title {
+    font-weight: bold;
 }
 
 .card-filter {
@@ -1440,6 +1665,21 @@ export default {
   line-height: 32px; /* Match standard input height */
   margin-left: 4px;
 }
+
+.player-select-input {
+  width: 400px;
+}
+
+@media (max-width: 768px) {
+  .player-select-input {
+    width: 100% !important;
+  }
+}
+
+/* Hide the default tags in the select input - Deprecated here, moved to global style but keeping for scoped safety */
+.player-select-input :deep(.el-select__tags) {
+  display: none;
+}
 </style>
 
 <style>
@@ -1471,6 +1711,32 @@ export default {
   max-height: 600px !important;
 }
 
+/* Player Filter Styles - Mirroring Team Filter */
+.player-select-input .el-select__tags {
+  display: none !important;
+}
+
+.player-select-input .el-select__selection {
+  display: none !important;
+}
+
+.player-select-dropdown .el-select-dropdown__list {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important; /* 3列显示，更紧凑 */
+  gap: 10px;
+  padding: 10px;
+  min-width: 400px;
+}
+
+.player-select-dropdown .el-select-dropdown__item {
+  height: auto;
+  line-height: 2;
+}
+
+.player-select-dropdown .el-select-dropdown__wrap {
+  max-height: 600px !important;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .team-select-dropdown .el-select-dropdown__list {
@@ -1483,6 +1749,37 @@ export default {
   .team-select-dropdown {
     width: 90vw !important;
     left: 5vw !important;
+  }
+
+  .player-select-dropdown .el-select-dropdown__list {
+    min-width: unset !important;
+    width: 100%;
+    grid-template-columns: repeat(2, 1fr) !important; /* 移动端改为2列 */
+  }
+  
+  .player-select-dropdown {
+    width: 90vw !important;
+    left: 5vw !important;
+    margin: 0 !important; /* Remove margin to fix spacing */
+  }
+  
+  .player-select-dropdown .el-scrollbar {
+      padding-right: 0 !important; /* Remove potential scrollbar padding */
+  }
+
+  .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+  }
+
+  .header-left {
+      width: 100%;
+      justify-content: space-between;
+      margin-bottom: 5px;
+  }
+
+  .card-filter {
+      width: 100%;
   }
 }
 </style>

@@ -8,10 +8,10 @@ const StatsController = {
   // 获取选手统计数据
   getPlayerStats: async (req, res) => {
     try {
-      const { playerId, seasonId, limit = 20 } = req.query;
+      const { playerId, seasonId, teamIds, role } = req.query;
       
       const where = {};
-      if (playerId) where.playerId = playerId;
+      
       if (seasonId) {
         // 获取赛季的所有地图局
         const mapGames = await MapGame.findAll({ where: { seasonId } });
@@ -19,10 +19,44 @@ const StatsController = {
         where.mapGameId = { [Op.in]: mapGameIds };
       }
       
+      if (teamIds) {
+        const ids = Array.isArray(teamIds) ? teamIds : [teamIds];
+        where.teamId = { [Op.in]: ids };
+      }
+
+      if (playerId) {
+        where.playerId = playerId;
+      }
+      
+      const playerInclude = {
+        model: Player,
+        as: 'player',
+        attributes: ['id', 'name', 'role']
+      };
+      
+      if (role) {
+        playerInclude.where = { role };
+      }
+      
       const playerStats = await PlayerStat.findAll({ 
         where,
-        include: ['player', 'hero', 'team'],
-        limit: parseInt(limit)
+        include: [
+          playerInclude,
+          { model: Team, as: 'team', attributes: ['id', 'name'] },
+          { model: MapGame, attributes: [] }
+        ],
+        attributes: [
+          'playerId',
+          'teamId',
+          [Sequelize.fn('SUM', Sequelize.col('kills')), 'totalKills'],
+          [Sequelize.fn('SUM', Sequelize.col('deaths')), 'totalDeaths'],
+          [Sequelize.fn('SUM', Sequelize.col('assists')), 'totalAssists'],
+          [Sequelize.fn('SUM', Sequelize.col('damage')), 'totalDamage'],
+          [Sequelize.fn('SUM', Sequelize.col('healing')), 'totalHealing'],
+          [Sequelize.fn('SUM', Sequelize.col('mitigation')), 'totalMitigation'],
+          [Sequelize.fn('SUM', Sequelize.col('MapGame.duration')), 'totalDuration']
+        ],
+        group: ['playerId', 'teamId', 'player.id', 'player.name', 'player.role', 'team.id', 'team.name']
       });
       
       res.status(200).json(playerStats);
