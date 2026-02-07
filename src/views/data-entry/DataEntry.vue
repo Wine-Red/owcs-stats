@@ -612,11 +612,11 @@ export default {
             for (let i = 1; i <= roleCounts[role]; i++) {
               const playerId = formData.value.lineup[teamKey][role + i];
               const stat = formData.value.playerStats[teamKey][role + i];
-              if (playerId && stat.heroId) {
+              if (playerId) {
                 mapGameData.playerStats.push({
                   playerId: playerId,
                   teamId: teamId,
-                  heroId: stat.heroId,
+                  heroId: stat.heroId || null,
                   kills: stat.kills || 0,
                   deaths: stat.deaths || 0,
                   assists: stat.assists || 0,

@@ -20,7 +20,7 @@ const initDatabase = async () => {
     setupAssociations();
 
     // 自动同步模型到数据库
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ alter: true });
     console.log('数据库模型同步成功');
 
     // 初始化基础数据

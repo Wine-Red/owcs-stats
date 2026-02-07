@@ -17,7 +17,7 @@ const PlayerStat = sequelize.define('PlayerStat', {
   },
   heroId: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   },
   teamId: {
     type: DataTypes.INTEGER,

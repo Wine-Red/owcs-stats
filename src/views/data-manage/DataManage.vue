@@ -533,233 +533,226 @@
           </el-form-item>
         </el-form>
 
-        <el-tabs v-model="mapGameEditTab" type="border-card">
-          <el-tab-pane
-            v-for="(mapGame, index) in mapGamesForEdit"
-            :key="mapGame.id"
-            :label="'地图局 ' + (index + 1)"
-            :name="String(index)"
-          >
-            <el-card>
-              <el-form :model="mapGame" label-width="120px">
-                <el-form-item label="地图">
-                  <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">
-                    <el-option
-                      v-for="map in maps"
-                      :key="map.id"
-                      :label="map.name"
-                      :value="map.id"
-                    >
-                      <span>{{ map.name }}</span>
-                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ map.type }})</span>
-                    </el-option>
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="获胜队伍">
-                  <el-select v-model="mapGame.winnerId" placeholder="请选择获胜队伍" style="width: 100%">
-                    <el-option
-                      :label="getTeamName(currentMatchForEdit.team1Id)"
-                      :value="currentMatchForEdit.team1Id"
-                    />
-                    <el-option
-                      :label="getTeamName(currentMatchForEdit.team2Id)"
-                      :value="currentMatchForEdit.team2Id"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="队伍1 Ban">
-                  <el-select v-model="mapGame.team1BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
-                    <el-option
-                      v-for="hero in heroes"
-                      :key="hero.id"
-                      :label="hero.name"
-                      :value="hero.id"
-                    >
-                      <span>{{ hero.name }}</span>
-                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
-                    </el-option>
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="队伍2 Ban">
-                  <el-select v-model="mapGame.team2BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
-                    <el-option
-                      v-for="hero in heroes"
-                      :key="hero.id"
-                      :label="hero.name"
-                      :value="hero.id"
-                    >
-                      <span>{{ hero.name }}</span>
-                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
-                    </el-option>
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="时长(分钟)">
-                  <el-input-number
-                    v-model="mapGame.duration"
-                    :min="1"
-                    :max="120"
-                    :step="1"
-                    style="width: 100%"
+        <div v-if="mapGamesForEdit.length > 0">
+          <div v-for="(mapGame, index) in mapGamesForEdit" :key="mapGame.id">
+            <el-form :model="mapGame" label-width="120px" style="margin-top: 20px;">
+              <el-form-item label="地图">
+                <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">
+                  <el-option
+                    v-for="map in maps"
+                    :key="map.id"
+                    :label="map.name"
+                    :value="map.id"
+                  >
+                    <span>{{ map.name }}</span>
+                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ map.type }})</span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="获胜队伍">
+                <el-select v-model="mapGame.winnerId" placeholder="请选择获胜队伍" style="width: 100%">
+                  <el-option
+                    :label="getTeamName(currentMatchForEdit.team1Id)"
+                    :value="currentMatchForEdit.team1Id"
                   />
-                </el-form-item>
-              </el-form>
+                  <el-option
+                    :label="getTeamName(currentMatchForEdit.team2Id)"
+                    :value="currentMatchForEdit.team2Id"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="队伍1 Ban">
+                <el-select v-model="mapGame.team1BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                  <el-option
+                    v-for="hero in heroes"
+                    :key="hero.id"
+                    :label="hero.name"
+                    :value="hero.id"
+                  >
+                    <span>{{ hero.name }}</span>
+                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="队伍2 Ban">
+                <el-select v-model="mapGame.team2BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                  <el-option
+                    v-for="hero in heroes"
+                    :key="hero.id"
+                    :label="hero.name"
+                    :value="hero.id"
+                  >
+                    <span>{{ hero.name }}</span>
+                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
+                  </el-option>
+                </el-select>
+              </el-form-item>
+              <el-form-item label="时长(分钟)">
+                <el-input-number
+                  v-model="mapGame.duration"
+                  :min="1"
+                  :max="120"
+                  :step="1"
+                  style="width: 100%"
+                />
+              </el-form-item>
+            </el-form>
 
-              <el-divider>{{ getTeamName(currentMatchForEdit.team1Id) }} 上场阵容</el-divider>
-              <div class="lineup-section">
-                <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team1-' + role" :data-role="role">
-                  <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
-                  <div class="player-slots">
-                    <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team1-' + role + '-' + index">
-                      <div class="player-info">
-                        <span class="player-label">选手{{ index + 1 }}:</span>
+            <el-divider>{{ getTeamName(currentMatchForEdit.team1Id) }} 上场阵容</el-divider>
+            <div class="lineup-section">
+              <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team1-' + role" :data-role="role">
+                <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
+                <div class="player-slots">
+                  <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team1-' + role + '-' + index">
+                    <div class="player-info">
+                      <span class="player-label">选手{{ index + 1 }}:</span>
+                      <el-select
+                        v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).playerId"
+                        :placeholder="'选择' + getRoleText(role) + '选手'"
+                        style="width: 100%"
+                        @change="handleMapGamePlayerChange(mapGame, 'team1', role, index + 1)"
+                      >
+                        <el-option
+                          v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team1', role)"
+                          :key="player.id"
+                          :label="player.name"
+                          :value="player.id"
+                        />
+                      </el-select>
+                    </div>
+                    <div class="player-stats-form">
+                      <el-form-item label="英雄">
                         <el-select
-                          v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).playerId"
-                          :placeholder="'选择' + getRoleText(role) + '选手'"
+                          v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).heroId"
+                          :placeholder="'选择' + getRoleText(role) + '英雄'"
                           style="width: 100%"
-                          @change="handleMapGamePlayerChange(mapGame, 'team1', role, index + 1)"
                         >
                           <el-option
-                            v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team1', role)"
-                            :key="player.id"
-                            :label="player.name"
-                            :value="player.id"
+                            v-for="hero in getHeroesByRole(role)"
+                            :key="hero.id"
+                            :label="hero.name"
+                            :value="hero.id"
                           />
                         </el-select>
-                      </div>
-                      <div class="player-stats-form">
-                        <el-form-item label="英雄">
-                          <el-select
-                            v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).heroId"
-                            :placeholder="'选择' + getRoleText(role) + '英雄'"
-                            style="width: 100%"
-                          >
-                            <el-option
-                              v-for="hero in getHeroesByRole(role)"
-                              :key="hero.id"
-                              :label="hero.name"
-                              :value="hero.id"
-                            />
-                          </el-select>
+                      </el-form-item>
+                      <div class="stats-grid">
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
+                          <span class="stat-label">击杀</span>
                         </el-form-item>
-                        <div class="stats-grid">
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
-                            <span class="stat-label">击杀</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
-                            <span class="stat-label">死亡</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
-                            <span class="stat-label">助攻</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
-                            <span class="stat-label">伤害</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
-                            <span class="stat-label">治疗</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
-                            <span class="stat-label">抵挡</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
-                            <span class="stat-label">大招</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
-                            <span class="stat-label">最后一击</span>
-                          </el-form-item>
-                        </div>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
+                          <span class="stat-label">死亡</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
+                          <span class="stat-label">助攻</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
+                          <span class="stat-label">伤害</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
+                          <span class="stat-label">治疗</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
+                          <span class="stat-label">抵挡</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
+                          <span class="stat-label">大招</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
+                          <span class="stat-label">最后一击</span>
+                        </el-form-item>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <el-divider>{{ getTeamName(currentMatchForEdit.team2Id) }} 上场阵容</el-divider>
-              <div class="lineup-section">
-                <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team2-' + role" :data-role="role">
-                  <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
-                  <div class="player-slots">
-                    <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team2-' + role + '-' + index">
-                      <div class="player-info">
-                        <span class="player-label">选手{{ index + 1 }}:</span>
+            <el-divider>{{ getTeamName(currentMatchForEdit.team2Id) }} 上场阵容</el-divider>
+            <div class="lineup-section">
+              <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team2-' + role" :data-role="role">
+                <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
+                <div class="player-slots">
+                  <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team2-' + role + '-' + index">
+                    <div class="player-info">
+                      <span class="player-label">选手{{ index + 1 }}:</span>
+                      <el-select
+                        v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).playerId"
+                        :placeholder="'选择' + getRoleText(role) + '选手'"
+                        style="width: 100%"
+                        @change="handleMapGamePlayerChange(mapGame, 'team2', role, index + 1)"
+                      >
+                        <el-option
+                          v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team2', role)"
+                          :key="player.id"
+                          :label="player.name"
+                          :value="player.id"
+                        />
+                      </el-select>
+                    </div>
+                    <div class="player-stats-form">
+                      <el-form-item label="英雄">
                         <el-select
-                          v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).playerId"
-                          :placeholder="'选择' + getRoleText(role) + '选手'"
+                          v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).heroId"
+                          :placeholder="'选择' + getRoleText(role) + '英雄'"
                           style="width: 100%"
-                          @change="handleMapGamePlayerChange(mapGame, 'team2', role, index + 1)"
                         >
                           <el-option
-                            v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team2', role)"
-                            :key="player.id"
-                            :label="player.name"
-                            :value="player.id"
+                            v-for="hero in getHeroesByRole(role)"
+                            :key="hero.id"
+                            :label="hero.name"
+                            :value="hero.id"
                           />
                         </el-select>
-                      </div>
-                      <div class="player-stats-form">
-                        <el-form-item label="英雄">
-                          <el-select
-                            v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).heroId"
-                            :placeholder="'选择' + getRoleText(role) + '英雄'"
-                            style="width: 100%"
-                          >
-                            <el-option
-                              v-for="hero in getHeroesByRole(role)"
-                              :key="hero.id"
-                              :label="hero.name"
-                              :value="hero.id"
-                            />
-                          </el-select>
+                      </el-form-item>
+                      <div class="stats-grid">
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
+                          <span class="stat-label">击杀</span>
                         </el-form-item>
-                        <div class="stats-grid">
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
-                            <span class="stat-label">击杀</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
-                            <span class="stat-label">死亡</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
-                            <span class="stat-label">助攻</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
-                            <span class="stat-label">伤害</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
-                            <span class="stat-label">治疗</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
-                            <span class="stat-label">抵挡</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
-                            <span class="stat-label">大招</span>
-                          </el-form-item>
-                          <el-form-item>
-                            <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
-                            <span class="stat-label">最后一击</span>
-                          </el-form-item>
-                        </div>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
+                          <span class="stat-label">死亡</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
+                          <span class="stat-label">助攻</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
+                          <span class="stat-label">伤害</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
+                          <span class="stat-label">治疗</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
+                          <span class="stat-label">抵挡</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
+                          <span class="stat-label">大招</span>
+                        </el-form-item>
+                        <el-form-item>
+                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
+                          <span class="stat-label">最后一击</span>
+                        </el-form-item>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </el-card>
-          </el-tab-pane>
-        </el-tabs>
+            </div>
+          </div>
+        </div>
       </div>
       <template #footer>
         <span class="dialog-footer">
@@ -1376,11 +1369,11 @@ export default {
       try {
         for (const mapGame of mapGamesForEdit.value) {
           const playerStats = mapGame.playerStats
-            .filter(ps => ps.playerId && ps.heroId)
+            .filter(ps => ps.playerId)
             .map(ps => ({
               playerId: ps.playerId,
               teamId: ps.teamId,
-              heroId: ps.heroId,
+              heroId: ps.heroId || null,
               kills: ps.kills,
               deaths: ps.deaths,
               assists: ps.assists,
