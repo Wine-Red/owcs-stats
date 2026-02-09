@@ -15,6 +15,10 @@ const Hero = sequelize.define('Hero', {
   role: {
     type: DataTypes.ENUM('tank', 'damage', 'support'),
     allowNull: false
+  },
+  subRole: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'heroes',

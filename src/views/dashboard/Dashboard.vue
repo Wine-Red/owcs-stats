@@ -36,8 +36,8 @@
           <el-icon><Timer /></el-icon>
         </div>
         <div class="card-content">
-          <h3 class="card-title">比赛数量</h3>
-          <p class="card-value">{{ stats.matchesCount }}</p>
+          <h3 class="card-title">地图局数量</h3>
+          <p class="card-value">{{ stats.mapGamesCount }}</p>
         </div>
       </div>
     </div>
@@ -46,35 +46,26 @@
     <div class="charts-container">
       <!-- 最近比赛结果 -->
       <div class="chart-card">
-        <h3 class="chart-title">最近比赛结果</h3>
+        <h3 class="chart-title">最近地图局</h3>
         <div class="match-list">
-          <div v-for="match in recentMatches" :key="match.id" class="match-item">
+          <div v-for="game in recentMapGames" :key="game.id" class="match-item">
             <div class="match-info">
-              <span class="match-date">{{ formatDate(match.matchDate) }}</span>
-              <span class="match-season">{{ getSeasonName(match.seasonId) }}</span>
+              <span class="match-season">{{ getSeasonName(game.seasonId) }}</span>
+              <span class="match-map" style="margin-left: 10px; color: #409eff;">{{ getMapName(game.mapId) }}</span>
             </div>
             <div class="match-teams">
-              <div class="team-info" :class="{ winner: match.winnerId === match.team1Id }">
-                <span class="team-name">{{ getTeamName(match.team1Id) }}</span>
+              <div class="team-info" :class="{ winner: game.winnerId === game.team1Id }">
+                <span class="team-name">{{ getTeamName(game.team1Id) }}</span>
               </div>
               <div class="match-vs">VS</div>
-              <div class="team-info" :class="{ winner: match.winnerId === match.team2Id }">
-                <span class="team-name">{{ getTeamName(match.team2Id) }}</span>
+              <div class="team-info" :class="{ winner: game.winnerId === game.team2Id }">
+                <span class="team-name">{{ getTeamName(game.team2Id) }}</span>
               </div>
             </div>
           </div>
-          <div v-if="recentMatches.length === 0" class="empty-state">
-            <p>暂无比赛数据</p>
+          <div v-if="recentMapGames.length === 0" class="empty-state">
+            <p>暂无地图局数据</p>
           </div>
-        </div>
-      </div>
-
-      <!-- 数据趋势 -->
-      <div class="chart-card">
-        <h3 class="chart-title">数据趋势</h3>
-        <div class="chart-placeholder">
-          <el-icon class="placeholder-icon"><DataLine /></el-icon>
-          <p>比赛数据趋势图表</p>
         </div>
       </div>
     </div>
@@ -115,13 +106,13 @@ export default {
         seasonsCount: store.state.seasons.length,
         teamsCount: store.state.teams.length,
         playersCount: store.state.players.length,
-        matchesCount: store.state.matches.length
+        mapGamesCount: store.state.mapGames.length
       };
     });
     
-    // 最近比赛
-    const recentMatches = computed(() => {
-      return store.state.matches.slice(0, 5);
+    // 最近地图局
+    const recentMapGames = computed(() => {
+      return store.state.mapGames.slice(0, 5);
     });
     
     // 格式化日期
@@ -141,19 +132,26 @@ export default {
       const team = store.getters.getTeamById(teamId);
       return team ? team.name : '未知队伍';
     };
+
+    // 获取地图名称
+    const getMapName = (mapId) => {
+      const map = store.getters.getMapById(mapId);
+      return map ? map.name : '未知地图';
+    };
     
     // 组件挂载时加载数据
     onMounted(async () => {
       await store.dispatch('loadBaseData');
-      await store.dispatch('loadMatches');
+      await store.dispatch('loadMapGames');
     });
     
     return {
       stats,
-      recentMatches,
+      recentMapGames,
       formatDate,
       getSeasonName,
-      getTeamName
+      getTeamName,
+      getMapName
     };
   }
 };
@@ -228,7 +226,7 @@ export default {
 /* 图表容器 */
 .charts-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -344,9 +342,14 @@ export default {
 }
 
 .action-buttons {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.action-buttons .el-button {
+  width: 100%;
+  margin-left: 0 !important; /* 覆盖 el-button + el-button 的默认 margin */
 }
 
 /* 响应式设计 */
@@ -360,11 +363,7 @@ export default {
   }
   
   .action-buttons {
-    flex-direction: column;
-  }
-  
-  .action-buttons .el-button {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }
 </style>

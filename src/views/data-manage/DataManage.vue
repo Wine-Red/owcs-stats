@@ -29,8 +29,41 @@
           <el-icon><Connection /></el-icon>
           赛季-队伍-选手关联
         </el-tab-pane>
+        <el-tab-pane label="图表管理" name="charts">
+          <el-icon><PieChart /></el-icon>
+          图表管理
+        </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <!-- 图表管理 -->
+    <div v-show="activeTab === 'charts'">
+      <el-card class="data-card">
+        <template #header>
+          <div class="card-header">
+            <span>图表显示配置</span>
+            <el-button type="primary" size="small" @click="saveChartConfig">保存配置</el-button>
+          </div>
+        </template>
+        <el-form :model="chartConfig" label-width="120px" class="chart-config-form">
+           <h3 class="config-section-title">全局数据统计</h3>
+           <el-form-item label="英雄禁用统计">
+             <el-switch v-model="chartConfig.heroBan" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+           <el-form-item label="地图选取统计">
+             <el-switch v-model="chartConfig.mapPick" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+
+           <h3 class="config-section-title">详细数据统计</h3>
+           <el-form-item label="队伍数据">
+             <el-switch v-model="chartConfig.teamStats" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+           <el-form-item label="选手数据">
+             <el-switch v-model="chartConfig.playerStats" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+        </el-form>
+      </el-card>
+    </div>
 
     <!-- 比赛管理 -->
     <div v-show="activeTab === 'matches'">
@@ -132,10 +165,10 @@
               {{ scope.row.duration }} 分钟
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="scope">
               <el-button type="warning" size="small" @click="editMapGames(scope.row)">
-                <el-icon><EditPen /></el-icon>
+                <el-icon><Edit /></el-icon>
                 编辑
               </el-button>
               <el-button type="danger" size="small" @click="deleteMapGame(scope.row.id)">
@@ -189,7 +222,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="scope">
               <el-button type="primary" size="small" @click="editSeason(scope.row)">
                 <el-icon><Edit /></el-icon>
@@ -225,7 +258,7 @@
         >
           <el-table-column prop="id" label="队伍ID" width="80" />
           <el-table-column prop="name" label="队伍名称" width="200" />
-          <el-table-column label="操作" width="150" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="scope">
               <el-button type="primary" size="small" @click="editTeam(scope.row)">
                 <el-icon><Edit /></el-icon>
@@ -244,7 +277,7 @@
     <!-- 选手管理 -->
     <div v-show="activeTab === 'players'">
       <el-row :gutter="20">
-        <el-col :span="8" v-for="role in ['tank', 'damage', 'support']" :key="role">
+        <el-col :xs="24" :sm="12" :md="8" v-for="role in ['tank', 'damage', 'support']" :key="role">
           <el-card class="data-card">
             <template #header>
               <div class="card-header">
@@ -263,13 +296,15 @@
               max-height="600"
             >
               <el-table-column prop="name" label="选手名称" />
-              <el-table-column label="操作" width="120" fixed="right">
+              <el-table-column label="操作" width="180" fixed="right">
                 <template #default="scope">
                   <el-button type="primary" size="small" @click="editPlayer(scope.row)">
                     <el-icon><Edit /></el-icon>
+                    编辑
                   </el-button>
                   <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
                     <el-icon><Delete /></el-icon>
+                    删除
                   </el-button>
                 </template>
               </el-table-column>
@@ -768,7 +803,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, EditPen, Delete } from '@element-plus/icons-vue';
+import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, Edit, Delete, Plus, PieChart } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 
 export default {
@@ -782,8 +817,10 @@ export default {
     Connection,
     Search,
     Refresh,
-    EditPen,
-    Delete
+    Edit,
+    Delete,
+    Plus,
+    PieChart
   },
   setup() {
     const store = useStore();
@@ -809,6 +846,32 @@ export default {
       seasonId: '',
       seasonTeamId: ''
     });
+
+    // 图表配置
+    const chartConfig = ref({
+      heroBan: true,
+      mapPick: true,
+      teamStats: true,
+      playerStats: true
+    });
+
+    // 加载图表配置
+    const loadChartConfig = () => {
+      const saved = localStorage.getItem('visualize_chart_config');
+      if (saved) {
+        try {
+          chartConfig.value = JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse chart config', e);
+        }
+      }
+    };
+
+    // 保存图表配置
+    const saveChartConfig = () => {
+      localStorage.setItem('visualize_chart_config', JSON.stringify(chartConfig.value));
+      ElMessage.success('图表配置已保存');
+    };
     
     // 比赛列表数据
     const matches = ref([]);
@@ -1158,6 +1221,8 @@ export default {
         loadSeasonTeams();
       } else if (activeTab.value === 'season-team-players') {
         loadSeasonTeamsForPlayers();
+      } else if (activeTab.value === 'charts') {
+        loadChartConfig();
       }
     };
     
@@ -1743,6 +1808,7 @@ export default {
     onMounted(async () => {
       await store.dispatch('loadBaseData');
       loadMatches();
+      loadChartConfig();
     });
     
     return {
@@ -1822,13 +1888,32 @@ export default {
       getHeroesByRole,
       getMatchTeamPlayers,
       getMapGamePlayerStat,
-      handleMapGamePlayerChange
+      handleMapGamePlayerChange,
+      chartConfig,
+      saveChartConfig
     };
   }
 };
 </script>
 
 <style scoped>
+.chart-config-form {
+  padding: 20px;
+}
+
+.config-section-title {
+  margin: 20px 0 15px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  border-left: 4px solid #409eff;
+  padding-left: 10px;
+}
+
+.config-section-title:first-child {
+  margin-top: 0;
+}
+
 .data-manage-container {
   padding: 20px 0;
 }

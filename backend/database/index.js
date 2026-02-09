@@ -114,61 +114,80 @@ const initBasicData = async () => {
 
   // 初始化英雄数据
   const heroes = [
-    // 重装（坦克）
-    { name: '莱因哈特', role: 'tank' },
-    { name: 'D.Va', role: 'tank' },
-    { name: '温斯顿', role: 'tank' },
-    { name: '查莉娅', role: 'tank' },
-    { name: '奥丽莎', role: 'tank' },
-    { name: '西格玛', role: 'tank' },
-    { name: '拉玛刹', role: 'tank' },
-    { name: '渣客女王', role: 'tank' },
-    { name: '骇灾', role: 'tank' },
-    { name: '路霸', role: 'tank' },
-    { name: '毛加', role: 'tank' },
-    { name: '末日铁拳', role: 'tank' },
-    { name: '破坏球', role: 'tank' },
-    // 输出
-    { name: '源氏', role: 'damage' },
-    { name: '半藏', role: 'damage' },
-    { name: '猎空', role: 'damage' },
-    { name: '法老之鹰', role: 'damage' },
-    { name: '卡西迪', role: 'damage' },
-    { name: '艾什', role: 'damage' },
-    { name: '黑百合', role: 'damage' },
-    { name: '索杰恩', role: 'damage' },
-    { name: '堡垒', role: 'damage' },
-    { name: '弗雷娅', role: 'damage' },
-    { name: '黑影', role: 'damage' },
-    { name: '回声', role: 'damage' },
-    { name: '狂鼠', role: 'damage' },
-    { name: '美', role: 'damage' },
-    { name: '士兵：76', role: 'damage' },
-    { name: '死神', role: 'damage' },
-    { name: '探奇', role: 'damage' },
-    { name: '秩序之光', role: 'damage' },
-    { name: '托比昂', role: 'damage' },
-    { name: '斩仇', role: 'damage' },
-    // 辅助
-    { name: '卢西奥', role: 'support' },
-    { name: '安娜', role: 'support' },
-    { name: '天使', role: 'support' },
-    { name: '禅雅塔', role: 'support' },
-    { name: '莫伊拉', role: 'support' },
-    { name: '布丽吉塔', role: 'support' },
-    { name: '巴蒂斯特', role: 'support' },
-    { name: '雾子', role: 'support' },
-    { name: '生命之梭', role: 'support' },
-    { name: '无漾', role: 'support' },
-    { name: '伊拉锐', role: 'support' },
-    { name: '朱诺', role: 'support' }
+    // 重装 - 斗士
+    { name: '毛加', role: 'tank', subRole: '斗士' },
+    { name: '奥丽莎', role: 'tank', subRole: '斗士' },
+    { name: '路霸', role: 'tank', subRole: '斗士' },
+    { name: '查莉娅', role: 'tank', subRole: '斗士' },
+    // 重装 - 先锋
+    { name: 'D.Va', role: 'tank', subRole: '先锋' },
+    { name: '末日铁拳', role: 'tank', subRole: '先锋' },
+    { name: '温斯顿', role: 'tank', subRole: '先锋' },
+    { name: '破坏球', role: 'tank', subRole: '先锋' },
+    // 重装 - 铁壁
+    { name: '金驭', role: 'tank', subRole: '铁壁' },
+    { name: '骇灾', role: 'tank', subRole: '铁壁' },
+    { name: '渣客女王', role: 'tank', subRole: '铁壁' },
+    { name: '拉玛刹', role: 'tank', subRole: '铁壁' },
+    { name: '莱因哈特', role: 'tank', subRole: '铁壁' },
+    { name: '西格玛', role: 'tank', subRole: '铁壁' },
+
+    // 输出 - 神准
+    { name: '艾什', role: 'damage', subRole: '神准' },
+    { name: '卡西迪', role: 'damage', subRole: '神准' },
+    { name: '半藏', role: 'damage', subRole: '神准' },
+    { name: '索杰恩', role: 'damage', subRole: '神准' },
+    { name: '黑百合', role: 'damage', subRole: '神准' },
+    // 输出 - 奇袭
+    { name: '安燃', role: 'damage', subRole: '奇袭' },
+    { name: '源氏', role: 'damage', subRole: '奇袭' },
+    { name: '死神', role: 'damage', subRole: '奇袭' },
+    { name: '猎空', role: 'damage', subRole: '奇袭' },
+    { name: '斩仇', role: 'damage', subRole: '奇袭' },
+    { name: '探奇', role: 'damage', subRole: '奇袭' },
+    // 输出 - 专业
+    { name: '堡垒', role: 'damage', subRole: '专业' },
+    { name: '埃姆雷', role: 'damage', subRole: '专业' },
+    { name: '狂鼠', role: 'damage', subRole: '专业' },
+    { name: '美', role: 'damage', subRole: '专业' },
+    { name: '士兵：76', role: 'damage', subRole: '专业' },
+    { name: '秩序之光', role: 'damage', subRole: '专业' },
+    { name: '托比昂', role: 'damage', subRole: '专业' },
+    // 输出 - 侦察
+    { name: '回声', role: 'damage', subRole: '侦察' },
+    { name: '弗雷娅', role: 'damage', subRole: '侦察' },
+    { name: '法老之鹰', role: 'damage', subRole: '侦察' },
+    { name: '黑影', role: 'damage', subRole: '侦察' },
+
+    // 支援 - 战术
+    { name: '安娜', role: 'support', subRole: '战术' },
+    { name: '巴蒂斯特', role: 'support', subRole: '战术' },
+    { name: '飞天猫', role: 'support', subRole: '战术' },
+    { name: '卢西奥', role: 'support', subRole: '战术' },
+    { name: '禅雅塔', role: 'support', subRole: '战术' },
+    // 支援 - 医疗
+    { name: '雾子', role: 'support', subRole: '医疗' },
+    { name: '生命之梭', role: 'support', subRole: '医疗' },
+    { name: '天使', role: 'support', subRole: '医疗' },
+    { name: '莫伊拉', role: 'support', subRole: '医疗' },
+    // 支援 - 生存
+    { name: '布丽吉塔', role: 'support', subRole: '生存' },
+    { name: '伊拉锐', role: 'support', subRole: '生存' },
+    { name: '朱诺', role: 'support', subRole: '生存' },
+    { name: '瑞稀', role: 'support', subRole: '生存' },
+    { name: '无漾', role: 'support', subRole: '生存' }
   ];
 
   for (const heroData of heroes) {
-    await Hero.findOrCreate({
+    const [hero, created] = await Hero.findOrCreate({
       where: { name: heroData.name },
       defaults: heroData
     });
+    
+    if (!created && hero.subRole !== heroData.subRole) {
+      hero.subRole = heroData.subRole;
+      await hero.save();
+    }
   }
 };
 
