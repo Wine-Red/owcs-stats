@@ -87,7 +87,7 @@ export default {
         case '护送': logoFileName = 'escort.png'; break;
         case '控制': logoFileName = 'control.png'; break;
       }
-      return `/maps/logo/${logoFileName}`;
+      return `${import.meta.env.BASE_URL}maps/logo/${logoFileName}`;
     };
 
     // 更新地图选取情况图表
@@ -175,7 +175,7 @@ export default {
             imgName = imgName.replace(/\s+/g, '_');
           }
           
-          return `/maps/${mapTypeFolder}/${imgName}.jpg`;
+          return `${import.meta.env.BASE_URL}maps/${mapTypeFolder}/${imgName}.jpg`;
         };
         
         // 为每个地图类型创建一个堆叠组

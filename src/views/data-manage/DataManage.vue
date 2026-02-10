@@ -165,16 +165,18 @@
               {{ scope.row.duration }} 分钟
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" :width="actionColWidth" fixed="right">
             <template #default="scope">
-              <el-button type="warning" size="small" @click="editMapGames(scope.row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button type="danger" size="small" @click="deleteMapGame(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="warning" size="small" @click="editMapGames(scope.row)">
+                  <el-icon><Edit /></el-icon>
+                  <span v-if="!isMobile">编辑</span>
+                </el-button>
+                <el-button type="danger" size="small" @click="deleteMapGame(scope.row.id)">
+                  <el-icon><Delete /></el-icon>
+                  <span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -213,7 +215,6 @@
           style="width: 100%"
           border
         >
-          <el-table-column prop="id" label="赛季ID" width="80" />
           <el-table-column prop="name" label="赛季名称" width="200" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="scope">
@@ -222,16 +223,18 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" :width="actionColWidth" fixed="right">
             <template #default="scope">
-              <el-button type="primary" size="small" @click="editSeason(scope.row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button type="danger" size="small" @click="deleteSeason(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="primary" size="small" @click="editSeason(scope.row)">
+                  <el-icon><Edit /></el-icon>
+                  <span v-if="!isMobile">编辑</span>
+                </el-button>
+                <el-button type="danger" size="small" @click="deleteSeason(scope.row.id)">
+                  <el-icon><Delete /></el-icon>
+                  <span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -256,18 +259,19 @@
           style="width: 100%"
           border
         >
-          <el-table-column prop="id" label="队伍ID" width="80" />
           <el-table-column prop="name" label="队伍名称" width="200" />
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" :width="actionColWidth" fixed="right">
             <template #default="scope">
-              <el-button type="primary" size="small" @click="editTeam(scope.row)">
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
-              <el-button type="danger" size="small" @click="deleteTeam(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="primary" size="small" @click="editTeam(scope.row)">
+                  <el-icon><Edit /></el-icon>
+                  <span v-if="!isMobile">编辑</span>
+                </el-button>
+                <el-button type="danger" size="small" @click="deleteTeam(scope.row.id)">
+                  <el-icon><Delete /></el-icon>
+                  <span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -296,16 +300,18 @@
               max-height="600"
             >
               <el-table-column prop="name" label="选手名称" />
-              <el-table-column label="操作" width="180" fixed="right">
+              <el-table-column label="操作" :width="actionColWidth" fixed="right">
                 <template #default="scope">
-                  <el-button type="primary" size="small" @click="editPlayer(scope.row)">
-                    <el-icon><Edit /></el-icon>
-                    编辑
-                  </el-button>
-                  <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
+                  <div class="action-buttons">
+                    <el-button type="primary" size="small" @click="editPlayer(scope.row)">
+                      <el-icon><Edit /></el-icon>
+                      <span v-if="!isMobile">编辑</span>
+                    </el-button>
+                    <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
+                      <el-icon><Delete /></el-icon>
+                      <span v-if="!isMobile">删除</span>
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -348,7 +354,6 @@
           style="width: 100%"
           border
         >
-          <el-table-column prop="id" label="关联ID" width="80" />
           <el-table-column label="赛季" width="180">
             <template #default="scope">
               {{ getSeasonName(scope.row.seasonId) }}
@@ -359,12 +364,14 @@
               {{ getTeamName(scope.row.teamId) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
             <template #default="scope">
-              <el-button type="danger" size="small" @click="deleteSeasonTeam(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="danger" size="small" @click="deleteSeasonTeam(scope.row.id)">
+                  <el-icon><Delete /></el-icon>
+                  <span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -415,18 +422,19 @@
           style="width: 100%"
           border
         >
-          <el-table-column prop="id" label="关联ID" width="80" />
           <el-table-column label="选手" width="180">
             <template #default="scope">
               {{ scope.row.Player ? scope.row.Player.name : getPlayerName(scope.row.playerId) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
             <template #default="scope">
-              <el-button type="danger" size="small" @click="deleteSeasonTeamPlayer(scope.row.id)">
-                <el-icon><Delete /></el-icon>
-                删除
-              </el-button>
+              <div class="action-buttons">
+                <el-button type="danger" size="small" @click="deleteSeasonTeamPlayer(scope.row.id)">
+                  <el-icon><Delete /></el-icon>
+                  <span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -824,6 +832,16 @@ export default {
   },
   setup() {
     const store = useStore();
+    
+    // 响应式布局
+    const isMobile = ref(window.innerWidth < 768);
+    const updateIsMobile = () => {
+      isMobile.value = window.innerWidth < 768;
+    };
+
+    // 操作栏宽度
+    const actionColWidth = computed(() => isMobile.value ? 100 : 180);
+    const deleteActionColWidth = computed(() => isMobile.value ? 70 : 100);
     
     // 标签页管理
     const activeTab = ref('matches');
@@ -1809,6 +1827,8 @@ export default {
       await store.dispatch('loadBaseData');
       loadMatches();
       loadChartConfig();
+      
+      window.addEventListener('resize', updateIsMobile);
     });
     
     return {
@@ -1890,7 +1910,10 @@ export default {
       getMapGamePlayerStat,
       handleMapGamePlayerChange,
       chartConfig,
-      saveChartConfig
+      saveChartConfig,
+      isMobile,
+      actionColWidth,
+      deleteActionColWidth
     };
   }
 };
@@ -1987,6 +2010,17 @@ export default {
   width: 100%;
 }
 
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.action-buttons .el-button {
+  margin: 0 4px;
+}
+
 .el-tabs__content {
   margin-top: 15px;
 }
@@ -2039,13 +2073,14 @@ export default {
   }
   
   .dialog-footer {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    justify-content: flex-end;
     gap: 10px;
   }
   
   .dialog-footer .el-button {
-    width: 100%;
+    width: auto;
+    margin-left: 0;
   }
 }
 

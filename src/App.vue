@@ -6,7 +6,7 @@
         <h1>OWCS Stats</h1>
       </div>
       <nav class="main-nav">
-        <router-link to="/" class="nav-item">仪表盘</router-link>
+        <router-link to="/dashboard" class="nav-item">仪表盘</router-link>
         <router-link to="/data-entry" class="nav-item">数据录入</router-link>
         <router-link to="/data-manage" class="nav-item">数据管理</router-link>
         <router-link to="/visualize" class="nav-item">数据可视化</router-link>

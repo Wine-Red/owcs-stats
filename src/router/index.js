@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 const routes = [
   {
-    path: '/',
+    path: '/dashboard',
     name: 'Dashboard',
     component: () => import('../views/dashboard/Dashboard.vue')
   },
@@ -20,11 +20,14 @@ const routes = [
     path: '/visualize',
     name: 'Visualize',
     component: () => import('../views/visualize/Visualize.vue')
-  }
+  },
+  { 
+    path: '/', 
+    redirect: '/dashboard' },
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 });
 
