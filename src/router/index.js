@@ -22,8 +22,8 @@ const routes = [
     component: () => import('../views/visualize/Visualize.vue')
   },
   { 
-    path: '/', 
-    redirect: '/dashboard' },
+    path: '', 
+    redirect: '/visualize' },
 ];
 
 const router = createRouter({

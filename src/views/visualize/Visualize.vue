@@ -36,11 +36,13 @@
     <div class="filterable-data-section" v-if="chartConfig.teamStats || chartConfig.playerStats">
       <h3 class="section-title">详细数据统计</h3>
       
-      <!-- 队伍数据卡片 -->
-      <TeamStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.teamStats" />
+      <div class="filterable-data-cards">
+        <!-- 队伍数据卡片 -->
+        <TeamStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.teamStats" />
 
-      <!-- 选手个人数据卡片 -->
-      <PlayerStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.playerStats" />
+        <!-- 选手个人数据卡片 -->
+        <PlayerStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.playerStats" />
+      </div>
     </div>
   </div>
 </template>
@@ -172,6 +174,12 @@ export default {
 /* 可筛选数据展示区样式 */
 .filterable-data-section {
   margin-bottom: 30px;
+}
+
+.filterable-data-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* 响应式设计 */

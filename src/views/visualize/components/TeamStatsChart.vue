@@ -52,7 +52,32 @@ export default {
     const teamComparisonChart = ref(null);
     const teamFilter = ref([]);
     const allTeamStats = ref([]);
+    const teamLogoSizes = ref(new Map());
     let teamChart = null;
+
+    const preloadImage = (url) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    };
+
+    const loadTeamLogos = async (stats) => {
+      const promises = stats.map(async (item) => {
+        const logo = item.team ? item.team.logo : null;
+        if (logo && !teamLogoSizes.value.has(item.teamId)) {
+           const size = await preloadImage(logo);
+           if (size && size.height > 0) {
+             const baseHeight = 26;
+             const width = size.width * (baseHeight / size.height);
+             teamLogoSizes.value.set(item.teamId, [width, baseHeight]);
+           }
+        }
+      });
+      await Promise.all(promises);
+    };
 
     // 计算当前赛季的队伍列表
     const teams = computed(() => {
@@ -128,10 +153,15 @@ export default {
                 kd = kills; 
             }
             
+            const logo = item.team ? item.team.logo : null;
+            const symbolSize = teamLogoSizes.value.get(item.teamId) || 25;
+            
             return {
                 name: teamName,
                 value: [damagePer10, kd, teamName],
-                teamId: item.teamId
+                teamId: item.teamId,
+                symbol: logo ? `image://${logo}` : 'circle',
+                symbolSize: symbolSize
             };
         });
 
@@ -226,11 +256,46 @@ export default {
         const response = await apiService.getTeamStatsData(params);
         
         allTeamStats.value = response;
+        await loadTeamLogos(allTeamStats.value);
         
-        // 默认全选该赛季的队伍（如果是首次加载或赛季切换）
-        // 只有当 teamFilter 为空时才自动全选，或者我们可以强制全选
-        // 原有逻辑是：赛季变化时，handleSeasonChange 会全选。
-        // 这里我们在 watch seasonId 时处理全选逻辑。
+        // 自动选择 Top 5 逻辑
+        // 如果 teamFilter 为空，进行 Top 5 选择
+        if (teamFilter.value.length === 0) {
+            const statsWithScore = allTeamStats.value.map(item => {
+                const duration = item.totalDuration || 0;
+                // 如果没有时间数据，得分为负无穷
+                if (duration === 0) return { ...item, score: -Infinity };
+
+                // 计算基础数据
+                const damagePer10 = (item.totalDamage / duration) * 10;
+                const kills = item.totalKills || 0;
+                const deaths = item.totalDeaths || 0;
+                
+                // 计算 K/D
+                let kd = kills;
+                if (deaths > 0) {
+                    kd = kills / deaths;
+                }
+
+                // 评分算法: 优先 K/D，其次伤害
+                const score = kd * 1000 + damagePer10;
+
+                return { ...item, score };
+            });
+
+            // 排序并取前5
+            statsWithScore.sort((a, b) => b.score - a.score);
+            const top5 = statsWithScore.slice(0, 5);
+            
+            // 更新筛选列表
+            teamFilter.value = top5.map(t => t.teamId);
+
+            // 兜底：如果没有选出任何队伍（例如数据都不足），且有队伍数据，则全选
+            const availableTeamIds = allTeamStats.value.map(t => t.teamId);
+            if (teamFilter.value.length === 0 && availableTeamIds.length > 0) {
+                teamFilter.value = availableTeamIds;
+            }
+        }
         
         renderTeamChart();
       } catch (error) {
@@ -264,19 +329,13 @@ export default {
     // 监听 seasonId 变化
     watch(() => props.seasonId, async (newVal) => {
       if (newVal) {
+        // 切换赛季时清空筛选，触发默认 Top 5 逻辑
+        teamFilter.value = [];
         // 更新图表数据
         await updateTeamComparisonChart();
         
-        // 更新默认选中：全选当前赛季的队伍
-        // 注意：store.state.seasonTeams 应该已经在 parent 组件或者全局被加载了
-        // 如果没有被加载，可能需要 dispatch。
-        // Visualize.vue 中 handleSeasonChange 调用了 dispatch('getSeasonTeams')。
-        // 我们最好在这里也调用一下，或者假设 store 已经有数据。
-        // 安全起见，这里 dispatch 一下。
+        // 确保赛季队伍数据已加载
         await store.dispatch('getSeasonTeams', newVal);
-        const seasonTeams = store.state.seasonTeams.filter(st => st.seasonId === newVal);
-        const teamIdsInSeason = seasonTeams.map(st => st.teamId);
-        teamFilter.value = teamIdsInSeason;
       } else {
           // 如果没有赛季ID，清空或显示所有
           teamFilter.value = [];
@@ -292,11 +351,8 @@ export default {
       if (props.seasonId) {
           // 触发一次加载
           await updateTeamComparisonChart();
-           // 初始化选中
+           // 确保赛季队伍数据已加载
           await store.dispatch('getSeasonTeams', props.seasonId);
-          const seasonTeams = store.state.seasonTeams.filter(st => st.seasonId === props.seasonId);
-          const teamIdsInSeason = seasonTeams.map(st => st.teamId);
-          teamFilter.value = teamIdsInSeason;
       } else {
           updateTeamComparisonChart();
       }

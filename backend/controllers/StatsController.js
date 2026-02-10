@@ -42,7 +42,7 @@ const StatsController = {
         where,
         include: [
           playerInclude,
-          { model: Team, as: 'team', attributes: ['id', 'name'] },
+          { model: Team, as: 'team', attributes: ['id', 'name', 'logo'] },
           { model: MapGame, attributes: [] }
         ],
         attributes: [
@@ -56,7 +56,7 @@ const StatsController = {
           [Sequelize.fn('SUM', Sequelize.col('mitigation')), 'totalMitigation'],
           [Sequelize.fn('SUM', Sequelize.col('MapGame.duration')), 'totalDuration']
         ],
-        group: ['playerId', 'teamId', 'player.id', 'player.name', 'player.role', 'team.id', 'team.name']
+        group: ['playerId', 'teamId', 'player.id', 'player.name', 'player.role', 'team.id', 'team.name', 'team.logo']
       });
       
       res.status(200).json(playerStats);

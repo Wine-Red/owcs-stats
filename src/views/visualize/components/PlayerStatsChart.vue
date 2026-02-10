@@ -58,7 +58,35 @@ export default {
     const playerFilter = ref([]);
     const playerRole = ref('damage');
     const allPlayerStats = ref([]);
+    const teamLogoSizes = ref(new Map());
     let playerChart = null;
+
+    const preloadImage = (url) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    };
+
+    const loadTeamLogos = async (stats) => {
+      const promises = stats.map(async (item) => {
+        const logo = item.team ? item.team.logo : null;
+        // 注意：这里我们使用 teamId 作为 key，因为多个选手可能属于同一队
+        const teamId = item.team ? item.team.id : null;
+        
+        if (logo && teamId && !teamLogoSizes.value.has(teamId)) {
+           const size = await preloadImage(logo);
+           if (size && size.height > 0) {
+             const baseHeight = 18; // 缩小选手图标，基准高度设为 18
+             const width = size.width * (baseHeight / size.height);
+             teamLogoSizes.value.set(teamId, [width, baseHeight]);
+           }
+        }
+      });
+      await Promise.all(promises);
+    };
 
     // 根据赛季和队伍筛选选手
     const getFilteredPlayers = computed(() => {
@@ -159,9 +187,19 @@ export default {
             const xVal = parseFloat(((item[xKey] / duration) * 10).toFixed(2));
             const yVal = parseFloat(((item[yKey] / duration) * 10).toFixed(2));
             
+            const logo = item.team ? item.team.logo : null;
+            const teamId = item.team ? item.team.id : null;
+            
+            let symbolSize = 10;
+            if (logo) {
+                symbolSize = teamLogoSizes.value.get(teamId) || 18;
+            }
+
             return {
                 name: item.player?.name || '未知选手',
-                value: [xVal, yVal, item.player?.name, item.team?.name]
+                value: [xVal, yVal, item.player?.name, item.team?.name],
+                symbol: logo ? `image://${logo}` : 'circle',
+                symbolSize: symbolSize
             };
         }).filter(item => item !== null);
         
@@ -245,6 +283,7 @@ export default {
         
         const response = await apiService.getPlayerStatsData(params);
         allPlayerStats.value = response || [];
+        await loadTeamLogos(allPlayerStats.value);
         
         const availablePlayerIds = allPlayerStats.value.map(p => p.playerId);
         
