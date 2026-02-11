@@ -84,6 +84,8 @@ const apiService = {
   updateMapGame: (id, data) => api.put(`/map-games/${id}`, data),
   deleteMapGame: (id) => api.delete(`/map-games/${id}`),
   getMapGamePlayerStats: (mapGameId) => api.get(`/map-games/${mapGameId}/player-stats`),
+  importMapData: (data) => api.post('/map-games/import', data),
+  previewMapData: (data) => api.post('/map-games/preview', data),
 
   // 选手统计数据相关
   getPlayerStats: () => api.get('/player-stats'),

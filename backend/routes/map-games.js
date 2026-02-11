@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const MapGameController = require('../controllers/MapGameController');
 
+// 导入地图数据
+router.post('/import', MapGameController.importMapData);
+
+// 预览地图数据
+router.post('/preview', MapGameController.previewMapData);
+
 // 获取所有地图局
 router.get('/', MapGameController.getAll);
 

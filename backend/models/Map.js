@@ -13,7 +13,7 @@ const Map = sequelize.define('Map', {
     unique: true
   },
   type: {
-    type: DataTypes.ENUM('推进', '护送', '控制', '混合', '闪点'),
+    type: DataTypes.ENUM('机动推进', '运载目标', '占领要点', '攻击/护送', '闪点作战'),
     allowNull: false
   }
 }, {

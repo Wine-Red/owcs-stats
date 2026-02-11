@@ -69,40 +69,40 @@ const initBasicData = async () => {
 
   // 初始化地图数据
   const maps = [
-    // 混合地图
-    { name: '艾兴瓦尔德', type: '混合' },
-    { name: '暴雪世界', type: '混合' },
-    { name: '好莱坞', type: '混合' },
-    { name: '国王大道', type: '混合' },
-    { name: '努巴尼', type: '混合' },
-    { name: '帕拉伊苏', type: '混合' },
-    { name: '中城', type: '混合' },
-    // 护送地图
-    { name: '监测站：直布罗陀', type: '护送' },
-    { name: '多拉多', type: '护送' },
-    { name: '哈瓦那', type: '护送' },
-    { name: '里阿尔托', type: '护送' },
-    { name: '66号公路', type: '护送' },
-    { name: '皇家赛道', type: '护送' },
-    { name: '渣客镇', type: '护送' },
-    { name: '香巴里寺院', type: '护送' },
+    // 攻击/护送地图
+    { name: '艾兴瓦尔德', type: '攻击/护送' },
+    { name: '暴雪世界', type: '攻击/护送' },
+    { name: '好莱坞', type: '攻击/护送' },
+    { name: '国王大道', type: '攻击/护送' },
+    { name: '努巴尼', type: '攻击/护送' },
+    { name: '帕拉伊苏', type: '攻击/护送' },
+    { name: '中城', type: '攻击/护送' },
+    // 运载目标地图
+    { name: '监测站：直布罗陀', type: '运载目标' },
+    { name: '多拉多', type: '运载目标' },
+    { name: '哈瓦那', type: '运载目标' },
+    { name: '里阿尔托', type: '运载目标' },
+    { name: '66号公路', type: '运载目标' },
+    { name: '皇家赛道', type: '运载目标' },
+    { name: '渣客镇', type: '运载目标' },
+    { name: '香巴里寺院', type: '运载目标' },
     // 控制地图
-    { name: '绿洲城', type: '控制' },
-    { name: '南极半岛', type: '控制' },
-    { name: '伊利奥斯', type: '控制' },
-    { name: '漓江塔', type: '控制' },
-    { name: '尼泊尔', type: '控制' },
-    { name: '釜山', type: '控制' },
-    { name: '萨摩亚', type: '控制' },
-    // 闪点地图
-    { name: '阿特利斯', type: '闪点' },
-    { name: '新渣客城', type: '闪点' },
-    { name: '苏拉瓦萨', type: '闪点' },
-    // 推进地图
-    { name: '新皇后街', type: '推进' },
-    { name: '鲁纳塞彼', type: '推进' },
-    { name: '斗兽场', type: '推进' },
-    { name: '埃斯佩兰萨', type: '推进' }
+    { name: '绿洲城', type: '占领要点' },
+    { name: '南极半岛', type: '占领要点' },
+    { name: '伊利奥斯', type: '占领要点' },
+    { name: '漓江塔', type: '占领要点' },
+    { name: '尼泊尔', type: '占领要点' },
+    { name: '釜山', type: '占领要点' },
+    { name: '萨摩亚', type: '占领要点' },
+    // 闪点作战地图
+    { name: '阿特利斯', type: '闪点作战' },
+    { name: '新渣客城', type: '闪点作战' },
+    { name: '苏拉瓦萨', type: '闪点作战' },
+    // 机动推进地图
+    { name: '新皇后街', type: '机动推进' },
+    { name: '鲁纳塞彼', type: '机动推进' },
+    { name: '斗兽场', type: '机动推进' },
+    { name: '埃斯佩兰萨', type: '机动推进' }
   ];
 
   for (const mapData of maps) {
@@ -171,7 +171,7 @@ const initBasicData = async () => {
     { name: '天使', role: 'support', subRole: '医疗' },
     { name: '莫伊拉', role: 'support', subRole: '医疗' },
     // 支援 - 生存
-    { name: '布丽吉塔', role: 'support', subRole: '生存' },
+    { name: '布里吉塔', role: 'support', subRole: '生存' },
     { name: '伊拉锐', role: 'support', subRole: '生存' },
     { name: '朱诺', role: 'support', subRole: '生存' },
     { name: '瑞稀', role: 'support', subRole: '生存' },

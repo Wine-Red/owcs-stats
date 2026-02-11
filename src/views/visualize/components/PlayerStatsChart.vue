@@ -79,9 +79,16 @@ export default {
         if (logo && teamId && !teamLogoSizes.value.has(teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const baseHeight = 18; // 缩小选手图标，基准高度设为 18
-             const width = size.width * (baseHeight / size.height);
-             teamLogoSizes.value.set(teamId, [width, baseHeight]);
+             const MAX_WIDTH = 35;
+             const MAX_HEIGHT = 20;
+             
+             // 计算缩放比例，同时满足宽和高的限制
+             const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
+             
+             const width = size.width * scale;
+             const height = size.height * scale;
+             
+             teamLogoSizes.value.set(teamId, [width, height]);
            }
         }
       });

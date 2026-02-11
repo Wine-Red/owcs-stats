@@ -128,6 +128,10 @@
         <template #header>
           <div class="card-header">
             <span>地图局列表</span>
+            <el-button type="success" size="small" @click="showImportDialog">
+              <el-icon><Upload /></el-icon>
+              导入地图数据
+            </el-button>
           </div>
         </template>
         <el-table
@@ -443,6 +447,16 @@
 
 
     
+    <!-- 导入地图数据对话框 -->
+    <el-dialog
+      v-model="importDialogVisible"
+      title="导入地图局数据"
+      width="80%"
+      destroy-on-close
+    >
+      <map-data-import @success="handleImportSuccess" />
+    </el-dialog>
+
     <!-- 编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
@@ -811,8 +825,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, Edit, Delete, Plus, PieChart } from '@element-plus/icons-vue';
+import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, Edit, Delete, Plus, PieChart, Upload } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
+import MapDataImport from './components/MapDataImport.vue';
 
 export default {
   name: 'DataManage',
@@ -828,7 +843,9 @@ export default {
     Edit,
     Delete,
     Plus,
-    PieChart
+    PieChart,
+    Upload,
+    MapDataImport
   },
   setup() {
     const store = useStore();
@@ -1019,7 +1036,17 @@ export default {
     const mapGamesForEdit = ref([]);
     const mapGameSaving = ref(false);
     
-
+    // 导入相关
+    const importDialogVisible = ref(false);
+    
+    const showImportDialog = () => {
+      importDialogVisible.value = true;
+    };
+    
+    const handleImportSuccess = () => {
+      importDialogVisible.value = false;
+      loadMatches();
+    };
     
     // 获取赛季名称
     const getSeasonName = (seasonId) => {
@@ -1913,7 +1940,10 @@ export default {
       saveChartConfig,
       isMobile,
       actionColWidth,
-      deleteActionColWidth
+      deleteActionColWidth,
+      importDialogVisible,
+      showImportDialog,
+      handleImportSuccess
     };
   }
 };

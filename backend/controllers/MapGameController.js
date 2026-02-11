@@ -4,10 +4,260 @@ const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
+const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+const SeasonTeam = require('../models/SeasonTeam');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
+// Helper function to resolve import data
+const resolveImportData = async (seasonId, mapData, playerStats) => {
+    // 1. 处理地图信息
+    // mapData.mapName 格式如 "66号公路（WBG胜利）"
+    let mapName = mapData.mapName;
+    let winnerName = null;
+    
+    // 提取地图名和获胜者
+    const match = mapName.match(/(.+)[（(](.+?)(?:胜利|胜)[）)]/);
+    if (match) {
+      mapName = match[1].trim();
+      winnerName = match[2].trim();
+    }
+    
+    // 查找地图ID
+    const map = await Map.findOne({ where: { name: mapName } });
+    if (!map) {
+      throw new Error(`找不到地图: ${mapName}`);
+    }
+    
+    // 2. 查找获胜队伍ID (初步)
+    let winnerId = null;
+    let winnerTeam = null;
+    if (winnerName) {
+      winnerTeam = await Team.findOne({ 
+        where: { 
+          name: { [Op.like]: `%${winnerName}%` } 
+        } 
+      });
+      if (winnerTeam) {
+        winnerId = winnerTeam.id;
+      }
+    }
+    
+    // 3. 预处理选手数据，推断 Team1 和 Team2
+    const excelTeam1Players = [];
+    const excelTeam2Players = [];
+    const processedStats = [];
+    
+    // 遍历所有选手数据
+    for (const stat of playerStats) {
+      const excelName = stat.playerName;
+      
+      // 尝试查找选手
+      // 1. 精确查找 (忽略大小写)
+      let player = await Player.findOne({
+        where: sequelize.where(
+          sequelize.fn('LOWER', sequelize.col('name')),
+          excelName.toLowerCase()
+        )
+      });
+      
+      // 2. 如果没找到，且名字含 -，尝试查找后缀
+      if (!player && excelName.includes('-')) {
+        const suffix = excelName.split('-').pop();
+        player = await Player.findOne({
+          where: sequelize.where(
+            sequelize.fn('LOWER', sequelize.col('name')),
+            suffix.toLowerCase()
+          )
+        });
+      }
+      
+      if (!player) {
+        throw new Error(`找不到选手: ${excelName}`);
+      }
+      
+      // 查找英雄
+      const hero = await Hero.findOne({ where: { name: stat.heroName } });
+      // 如果找不到英雄，暂时允许为空，或者抛出错误？这里选择抛出错误以保证数据质量
+      if (!hero && stat.heroName) {
+           throw new Error(`找不到英雄: ${stat.heroName}`);
+      }
+
+      // 记录选手归属的 Excel Team
+      // Excel teamId 可能是 1/2 或 A/B
+      const isTeam1 = (stat.teamId == 1 || stat.teamId == '1' || stat.teamId == 'A');
+      if (isTeam1) {
+          excelTeam1Players.push(player.id);
+      } else {
+          excelTeam2Players.push(player.id);
+      }
+
+      processedStats.push({
+          ...stat,
+          playerId: player.id,
+          playerName: player.name, // Resolved name
+          heroId: hero ? hero.id : null,
+          heroName: hero ? hero.name : null, // Resolved name
+          isTeam1
+      });
+    }
+    
+    // 推断 Team 1 和 Team 2 的真实 ID
+    const findTeamIdForPlayers = async (playerIds) => {
+        if (playerIds.length === 0) return null;
+        
+        // 查找这些选手在当前赛季所属的队伍
+        const seasonTeamPlayers = await SeasonTeamPlayer.findAll({
+            where: {
+                playerId: { [Op.in]: playerIds }
+            },
+            include: [{
+                model: SeasonTeam,
+                where: { seasonId: seasonId },
+                required: true,
+                include: [{ model: Team, as: 'Team' }]
+            }]
+        });
+        
+        if (seasonTeamPlayers.length === 0) return null;
+        
+        // 统计出现次数最多的 teamId
+        const teamCounts = {};
+        seasonTeamPlayers.forEach(stp => {
+            const tid = stp.SeasonTeam.teamId;
+            teamCounts[tid] = (teamCounts[tid] || 0) + 1;
+        });
+        
+        // 找出最大值
+        let maxTeamId = null;
+        let maxCount = 0;
+        for (const [tid, count] of Object.entries(teamCounts)) {
+            if (count > maxCount) {
+                maxCount = count;
+                maxTeamId = tid;
+            }
+        }
+        
+        // 查找对应的 Team 对象
+        let foundTeam = null;
+        if (maxTeamId) {
+            const stp = seasonTeamPlayers.find(s => s.SeasonTeam.teamId == maxTeamId);
+            if (stp) foundTeam = stp.SeasonTeam.Team;
+        }
+
+        return { id: parseInt(maxTeamId), team: foundTeam };
+    };
+
+    const team1Result = await findTeamIdForPlayers(excelTeam1Players);
+    const team2Result = await findTeamIdForPlayers(excelTeam2Players);
+    
+    const realTeam1Id = team1Result ? team1Result.id : null;
+    const realTeam2Id = team2Result ? team2Result.id : null;
+
+    if (!realTeam1Id || !realTeam2Id) {
+        // 如果无法自动识别，尝试回退逻辑：如果只有两个队伍，且能识别出一个，另一个可能是剩余的那个（这里暂不处理复杂情况）
+        throw new Error('无法自动识别队伍，请检查选手是否已注册到赛季队伍中');
+    }
+    
+    // 如果 winnerId 没找到，尝试通过名称再次匹配
+    if (!winnerId) {
+         const team1 = team1Result.team;
+         const team2 = team2Result.team;
+         if (team1 && team1.name.includes(winnerName)) winnerId = realTeam1Id;
+         else if (team2 && team2.name.includes(winnerName)) winnerId = realTeam2Id;
+    }
+    
+    if (!winnerId) {
+        throw new Error(`无法识别获胜队伍: ${winnerName}`);
+    }
+
+    // Attach inferred teams to processed stats
+    const finalStats = processedStats.map(stat => ({
+        ...stat,
+        teamId: stat.isTeam1 ? realTeam1Id : realTeam2Id,
+        teamName: stat.isTeam1 ? (team1Result.team ? team1Result.team.name : '') : (team2Result.team ? team2Result.team.name : '')
+    }));
+
+    return {
+        map,
+        winnerId,
+        winnerName, // original winner name
+        resolvedWinnerName: winnerId === realTeam1Id ? team1Result.team.name : team2Result.team.name,
+        realTeam1Id,
+        realTeam1Name: team1Result.team.name,
+        realTeam2Id,
+        realTeam2Name: team2Result.team.name,
+        duration: Math.round(mapData.duration),
+        finalStats
+    };
+};
+
 const MapGameController = {
+  // 预览地图数据
+  previewMapData: async (req, res) => {
+      try {
+          const { seasonId, mapData, playerStats } = req.body;
+          const result = await resolveImportData(seasonId, mapData, playerStats);
+          res.status(200).json(result);
+      } catch (error) {
+          console.error('预览失败:', error);
+          res.status(400).json({ error: error.message });
+      }
+  },
+
+  // 导入地图数据
+  importMapData: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { seasonId, mapData, playerStats } = req.body;
+      
+      const resolvedData = await resolveImportData(seasonId, mapData, playerStats);
+      
+      const { 
+          map, winnerId, realTeam1Id, realTeam2Id, duration, finalStats 
+      } = resolvedData;
+
+      // 创建 MapGame
+      const newMapGame = await MapGame.create({
+          matchId: null, // 不关联 Match
+          seasonId,
+          team1Id: realTeam1Id,
+          team2Id: realTeam2Id,
+          mapId: map.id,
+          winnerId: winnerId,
+          duration: duration,
+          team1BanHeroId: null,
+          team2BanHeroId: null
+      }, { transaction: t });
+
+      // 创建 PlayerStats
+      const statsToCreate = finalStats.map(stat => ({
+          mapGameId: newMapGame.id,
+          playerId: stat.playerId,
+          heroId: stat.heroId,
+          teamId: stat.teamId,
+          kills: stat.kill || 0,
+          deaths: stat.death || 0,
+          assists: stat.assist || 0,
+          damage: stat.damage || 0,
+          healing: stat.cure || 0,
+          mitigation: stat.resist || 0,
+          finalBlows: stat.finalHit || 0,
+          ultsUsed: 0
+      }));
+
+      await PlayerStat.bulkCreate(statsToCreate, { transaction: t });
+
+      await t.commit();
+      res.status(201).json({ message: '导入成功', mapGameId: newMapGame.id });
+
+    } catch (error) {
+      await t.rollback();
+      console.error('导入失败:', error);
+      res.status(400).json({ error: error.message });
+    }
+  },
+
   // 获取所有地图局
   getAll: async (req, res) => {
     try {

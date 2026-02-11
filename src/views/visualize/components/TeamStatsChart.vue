@@ -70,9 +70,16 @@ export default {
         if (logo && !teamLogoSizes.value.has(item.teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const baseHeight = 26;
-             const width = size.width * (baseHeight / size.height);
-             teamLogoSizes.value.set(item.teamId, [width, baseHeight]);
+             const MAX_WIDTH = 50;
+             const MAX_HEIGHT = 30;
+             
+             // 计算缩放比例，同时满足宽和高的限制
+             const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
+             
+             const width = size.width * scale;
+             const height = size.height * scale;
+             
+             teamLogoSizes.value.set(item.teamId, [width, height]);
            }
         }
       });
