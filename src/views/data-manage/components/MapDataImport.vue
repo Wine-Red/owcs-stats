@@ -13,53 +13,80 @@
           :on-change="handleFileChange"
           :show-file-list="false"
           accept=".xlsx, .xls"
+          multiple
         >
-          <el-button type="primary">选择Excel文件</el-button>
+          <el-button type="primary">批量选择Excel文件</el-button>
         </el-upload>
       </el-form-item>
     </el-form>
 
-    <div v-if="parsedData" class="preview-section">
+    <div v-if="parsedDataList.length > 0" class="preview-section">
       <el-alert
-        title="数据解析成功"
+        title="数据解析完成"
         type="success"
-        description="请核对以下信息，确认无误后点击导入"
+        :description="`成功解析 ${parsedDataList.length} 个文件，请核对信息`"
         show-icon
         :closable="false"
         style="margin-bottom: 20px"
       />
-
-      <div class="section-title">对局信息 (Sheet 1)</div>
-      <el-descriptions border :column="3" class="info-descriptions">
-        <el-descriptions-item label="地图名">{{ parsedData.map.name }}</el-descriptions-item>
-        <el-descriptions-item label="获胜队伍">{{ parsedData.resolvedWinnerName }} (原始: {{ parsedData.winnerName }})</el-descriptions-item>
-        <el-descriptions-item label="时长">{{ parsedData.duration }} 分钟</el-descriptions-item>
-        <el-descriptions-item label="队伍1">{{ parsedData.realTeam1Name }}</el-descriptions-item>
-        <el-descriptions-item label="队伍2">{{ parsedData.realTeam2Name }}</el-descriptions-item>
-      </el-descriptions>
-
-      <div class="section-title">选手数据 (Sheet 2) - 共 {{ parsedData.finalStats.length }} 条</div>
-      <el-table :data="parsedData.finalStats" height="400" border stripe size="small">
-        <el-table-column prop="teamName" label="队伍" width="120" align="center" />
-        <el-table-column label="选手" width="180">
-          <template #default="scope">
-            <span>{{ scope.row.playerName }}</span>
-            <el-tag size="small" type="info" v-if="scope.row.playerName !== scope.row.originalName">({{ scope.row.originalName }})</el-tag>
+      
+      <el-collapse v-model="activeCollapse">
+        <el-collapse-item 
+          v-for="(item, index) in parsedDataList" 
+          :key="index" 
+          :name="index"
+        >
+          <template #title>
+             <div class="collapse-title">
+                <el-tag size="small" :type="item.error ? 'danger' : 'success'" style="margin-right: 10px">
+                    {{ item.error ? '解析失败' : '成功' }}
+                </el-tag>
+                <span>{{ item.fileName }}</span>
+                <span v-if="!item.error" style="margin-left: 10px; color: #666">
+                    - {{ item.map.name }} ({{ item.duration }}分钟)
+                </span>
+             </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="heroName" label="英雄" width="120" />
-        <el-table-column prop="kill" label="击杀" width="80" align="center" />
-        <el-table-column prop="death" label="死亡" width="80" align="center" />
-        <el-table-column prop="assist" label="助攻" width="80" align="center" />
-        <el-table-column prop="damage" label="伤害" width="100" align="right" />
-        <el-table-column prop="cure" label="治疗" width="100" align="right" />
-        <el-table-column prop="resist" label="抵挡" width="100" align="right" />
-        <el-table-column prop="finalHit" label="最后一击" width="100" align="center" />
-      </el-table>
+          
+          <div v-if="item.error" class="error-msg">
+            {{ item.error }}
+          </div>
+          
+          <div v-else>
+            <el-descriptions border :column="3" class="info-descriptions">
+                <el-descriptions-item label="地图名">{{ item.map.name }}</el-descriptions-item>
+                <el-descriptions-item label="获胜队伍">{{ item.resolvedWinnerName }} (原始: {{ item.winnerName }})</el-descriptions-item>
+                <el-descriptions-item label="时长">{{ item.duration }} 分钟</el-descriptions-item>
+                <el-descriptions-item label="队伍1">{{ item.realTeam1Name }}</el-descriptions-item>
+                <el-descriptions-item label="队伍2">{{ item.realTeam2Name }}</el-descriptions-item>
+            </el-descriptions>
+
+            <el-table :data="item.finalStats" border stripe size="small" style="width: 100%">
+                <el-table-column prop="teamName" label="队伍" width="120" align="center" />
+                <el-table-column label="选手" width="180">
+                <template #default="scope">
+                    <span>{{ scope.row.playerName }}</span>
+                    <el-tag size="small" type="info" v-if="scope.row.playerName !== scope.row.originalName">({{ scope.row.originalName }})</el-tag>
+                </template>
+                </el-table-column>
+                <el-table-column prop="heroName" label="英雄" width="120" />
+                <el-table-column prop="kill" label="击杀" width="60" align="center" />
+                <el-table-column prop="death" label="死亡" width="60" align="center" />
+                <el-table-column prop="assist" label="助攻" width="60" align="center" />
+                <el-table-column prop="damage" label="伤害" width="80" align="right" />
+                <el-table-column prop="cure" label="治疗" width="80" align="right" />
+                <el-table-column prop="resist" label="抵挡" width="80" align="right" />
+                <el-table-column prop="finalHit" label="最后一击" width="80" align="center" />
+            </el-table>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
 
       <div class="actions">
-        <el-button @click="parsedData = null">取消</el-button>
-        <el-button type="success" @click="submitImport" :loading="uploading">确认导入</el-button>
+        <el-button @click="clearAll">清空所有</el-button>
+        <el-button type="success" @click="submitBatchImport" :loading="uploading" :disabled="hasErrors">
+            确认批量导入 ({{ validCount }}个)
+        </el-button>
       </div>
     </div>
   </div>
@@ -79,117 +106,158 @@ export default {
     const store = useStore();
     const seasons = computed(() => store.state.seasons);
     const seasonId = ref('');
-    const parsedData = ref(null);
+    const parsedDataList = ref([]); // Store list of parsed results
     const uploading = ref(false);
-    const rawData = ref(null); // Store raw data for final submission
+    const activeCollapse = ref([]); // For collapse component
 
-    const handleFileChange = (file) => {
-      if (!seasonId.value) {
-         ElMessage.warning('请先选择赛季');
-         return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          
-          if (workbook.SheetNames.length < 2) {
-             ElMessage.error('Excel文件必须包含至少两个Sheet');
-             return;
-          }
+    const validCount = computed(() => parsedDataList.value.filter(item => !item.error).length);
+    const hasErrors = computed(() => parsedDataList.value.some(item => item.error));
 
-          // Parse Sheet 1
-          const sheet1 = workbook.Sheets[workbook.SheetNames[0]];
-          const sheet1Json = XLSX.utils.sheet_to_json(sheet1);
-          
-          const mapInfo = {};
-          sheet1Json.forEach(row => {
-             const key = row['key名称'];
-             const value = row['具体值'];
-             if (key) mapInfo[key] = value;
-          });
-
-          // Parse Duration
-          let duration = 0;
-          if (mapInfo.gameTime) {
-             const timeMatch = mapInfo.gameTime.match(/(\d+)分(\d+)秒/);
-             if (timeMatch) {
-                 const m = parseInt(timeMatch[1]);
-                 const s = parseInt(timeMatch[2]);
-                 duration = parseFloat((m + s / 60).toFixed(2));
-             } else {
-                 const num = parseFloat(mapInfo.gameTime);
-                 if (!isNaN(num)) duration = num;
-             }
-          }
-
-          // Parse Sheet 2
-          const sheet2 = workbook.Sheets[workbook.SheetNames[1]];
-          const sheet2Json = XLSX.utils.sheet_to_json(sheet2);
-          
-          const playerStats = sheet2Json.map(row => ({
-              teamId: row['队伍_teamId'],
-              playerName: row['选手名称_playerName'],
-              heroName: row['英雄名称_heroName'],
-              kill: row['击杀数_kill'],
-              death: row['死亡数_death'],
-              assist: row['助攻数_assist'],
-              damage: row['伤害_damage'],
-              cure: row['治疗_cure'],
-              resist: row['抵挡_resist'],
-              finalHit: row['最后一击_finalHit']
-          }));
-
-          const payload = {
-              seasonId: seasonId.value,
-              mapData: {
-                  matchId: mapInfo.matchId,
-                  mapName: mapInfo.mapName, 
-                  gameTimeStr: mapInfo.gameTime,
-                  duration: duration
-              },
-              playerStats
-          };
-          
-          rawData.value = payload;
-          
-          // Call preview API
-          uploading.value = true;
-          try {
-             const result = await apiService.previewMapData(payload);
-             parsedData.value = result;
-             ElMessage.success('解析成功，请确认数据');
-          } catch (err) {
-             const msg = err.response?.data?.error || err.message || '未知错误';
-             ElMessage.error('预览失败: ' + msg);
-             parsedData.value = null;
-          } finally {
-             uploading.value = false;
-          }
-
-        } catch (error) {
-          console.error(error);
-          ElMessage.error('解析Excel失败: ' + error.message);
-        }
-      };
-      reader.readAsArrayBuffer(file.raw);
+    const handleFileChange = async (file, fileList) => {
+      // We handle fileList manually
     };
 
-    const submitImport = async () => {
-        if (!rawData.value) return;
+    // Override the default upload handler to process files one by one or in parallel
+    // Element Plus upload component triggers onChange for each file
+    // To handle batch selection, we can just process the current file
+    
+    const processFile = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    if (workbook.SheetNames.length < 2) {
+                        resolve({ fileName: file.name, error: 'Excel文件必须包含至少两个Sheet' });
+                        return;
+                    }
+
+                    // Parse Sheet 1
+                    const sheet1 = workbook.Sheets[workbook.SheetNames[0]];
+                    const sheet1Json = XLSX.utils.sheet_to_json(sheet1);
+                    
+                    const mapInfo = {};
+                    sheet1Json.forEach(row => {
+                        const key = row['key名称'];
+                        const value = row['具体值'];
+                        if (key) mapInfo[key] = value;
+                    });
+
+                    // Parse Duration
+                    let duration = 0;
+                    if (mapInfo.gameTime) {
+                        const timeMatch = mapInfo.gameTime.match(/(\d+)分(\d+)秒/);
+                        if (timeMatch) {
+                            const m = parseInt(timeMatch[1]);
+                            const s = parseInt(timeMatch[2]);
+                            duration = parseFloat((m + s / 60).toFixed(2));
+                        } else {
+                            const num = parseFloat(mapInfo.gameTime);
+                            if (!isNaN(num)) duration = num;
+                        }
+                    }
+
+                    // Parse Sheet 2
+                    const sheet2 = workbook.Sheets[workbook.SheetNames[1]];
+                    const sheet2Json = XLSX.utils.sheet_to_json(sheet2);
+                    
+                    const playerStats = sheet2Json.map(row => ({
+                        teamId: row['队伍_teamId'],
+                        playerName: row['选手名称_playerName'],
+                        heroName: row['英雄名称_heroName'],
+                        kill: row['击杀数_kill'],
+                        death: row['死亡数_death'],
+                        assist: row['助攻数_assist'],
+                        damage: row['伤害_damage'],
+                        cure: row['治疗_cure'],
+                        resist: row['抵挡_resist'],
+                        finalHit: row['最后一击_finalHit']
+                    }));
+
+                    const payload = {
+                        seasonId: seasonId.value,
+                        mapData: {
+                            matchId: mapInfo.matchId,
+                            mapName: mapInfo.mapName, 
+                            gameTimeStr: mapInfo.gameTime,
+                            duration: duration
+                        },
+                        playerStats
+                    };
+                    
+                    // Preview API call
+                    const result = await apiService.previewMapData(payload);
+                    resolve({
+                        fileName: file.name,
+                        rawData: payload, // Store for final submission
+                        ...result
+                    });
+
+                } catch (err) {
+                    const msg = err.response?.data?.error || err.message || '未知错误';
+                    resolve({ fileName: file.name, error: msg });
+                }
+            };
+            reader.readAsArrayBuffer(file.raw);
+        });
+    };
+
+    const handleFileChangeWrapper = async (uploadFile, uploadFiles) => {
+         if (!seasonId.value) {
+            ElMessage.warning('请先选择赛季');
+            // Remove the file from the list to avoid confusion? 
+            // Element Plus upload list management is a bit tricky with auto-upload=false
+            return;
+         }
+         
+         // Only process the newly added file
+         // uploadFile is the file that triggered the change
+         if (uploadFile.status === 'ready') {
+             const result = await processFile(uploadFile);
+             parsedDataList.value.push(result);
+             // Auto expand the latest one
+             activeCollapse.value = [parsedDataList.value.length - 1];
+         }
+    };
+
+    const clearAll = () => {
+        parsedDataList.value = [];
+        activeCollapse.value = [];
+    };
+
+    const submitBatchImport = async () => {
+        const validItems = parsedDataList.value.filter(item => !item.error);
+        if (validItems.length === 0) return;
 
         uploading.value = true;
+        let successCount = 0;
+        let failCount = 0;
+
         try {
-            await apiService.importMapData(rawData.value);
-            ElMessage.success('导入成功');
-            parsedData.value = null;
-            rawData.value = null;
-            emit('success');
+            // Sequential submission to ensure stability
+            for (const item of validItems) {
+                try {
+                    await apiService.importMapData(item.rawData);
+                    successCount++;
+                    // Mark as imported or remove? Let's just keep going
+                } catch (error) {
+                    console.error(`Import failed for ${item.fileName}:`, error);
+                    failCount++;
+                }
+            }
+
+            if (failCount === 0) {
+                ElMessage.success(`成功导入 ${successCount} 个文件`);
+                clearAll();
+                emit('success');
+            } else {
+                ElMessage.warning(`导入完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+                // Optionally remove successful ones from the list
+            }
         } catch (error) {
-            const msg = error.response?.data?.error || error.message || '未知错误';
-            ElMessage.error('导入失败: ' + msg);
+            ElMessage.error('批量导入过程发生错误');
         } finally {
             uploading.value = false;
         }
@@ -198,9 +266,13 @@ export default {
     return {
         seasons,
         seasonId,
-        parsedData,
-        handleFileChange,
-        submitImport,
+        parsedDataList,
+        activeCollapse,
+        validCount,
+        hasErrors,
+        handleFileChange: handleFileChangeWrapper,
+        submitBatchImport,
+        clearAll,
         uploading
     };
   }
@@ -242,5 +314,15 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.collapse-title {
+  display: flex;
+  align-items: center;
+}
+
+.error-msg {
+  color: #f56c6c;
+  padding: 10px;
 }
 </style>
