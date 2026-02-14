@@ -2,7 +2,8 @@
   <el-card class="chart-card">
     <template #header>
       <div class="card-header">
-        <span>地图选取情况</span>
+        <span class="header-title">地图选取情况</span>
+        <el-tag size="small" effect="plain" type="primary">Pick Rates</el-tag>
       </div>
     </template>
     <div class="chart-wrapper map-chart-wrapper" style="position: relative; height: 400px;">
@@ -14,7 +15,9 @@
           class="map-type-icon-container"
           :style="{ top: `${((mapPickTypes.length - 1 - index) + 0.5) * 100 / mapPickTypes.length}%` }"
         >
-          <img :src="getMapTypeIconUrl(type)" class="map-type-icon" :alt="type" />
+          <div class="icon-wrapper">
+            <img :src="getMapTypeIconUrl(type)" class="map-type-icon" :alt="type" />
+          </div>
         </div>
       </div>
     </div>
@@ -81,11 +84,11 @@ export default {
     const getMapTypeIconUrl = (mapType) => {
       let logoFileName = 'control.png';
       switch(mapType) {
-        case '闪点': logoFileName = 'flashpoint.png'; break;
-        case '推进': logoFileName = 'push.png'; break;
-        case '混合': logoFileName = 'hybrid.png'; break;
-        case '护送': logoFileName = 'escort.png'; break;
-        case '控制': logoFileName = 'control.png'; break;
+        case '闪点作战': logoFileName = 'flashpoint.png'; break;
+        case '机动推进': logoFileName = 'push.png'; break;
+        case '攻击/护送': logoFileName = 'hybrid.png'; break;
+        case '运载目标': logoFileName = 'escort.png'; break;
+        case '占领要点': logoFileName = 'control.png'; break;
       }
       return `${import.meta.env.BASE_URL}maps/logo/${logoFileName}`;
     };
@@ -146,19 +149,19 @@ export default {
           
           // 根据地图类型确定文件夹
           switch(mapType) {
-            case '控制':
+            case '占领要点':
               mapTypeFolder = 'control';
               break;
-            case '护送':
+            case '运载目标':
               mapTypeFolder = 'escort';
               break;
-            case '混合':
+            case '攻击/护送':
               mapTypeFolder = 'hybrid';
               break;
-            case '推进':
+            case '机动推进':
               mapTypeFolder = 'push';
               break;
-            case '闪点':
+            case '闪点作战':
               mapTypeFolder = 'flashpoint';
               break;
             default:
@@ -276,16 +279,31 @@ export default {
               type: 'shadow'
             },
             formatter: function(params) {
-              let result = `${params[0].axisValue}<br/>`;
+              let result = `<div style="font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">${params[0].axisValue}</div>`;
               
               params.forEach(param => {
                 if (param.value > 0) {
-                  result += `${param.marker}${param.seriesName}: ${param.value}%<br/>`;
+                  result += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 12px;">
+                      <span style="display: flex; align-items: center;">
+                        <span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:${param.color.image ? '#ccc' : param.color};"></span>
+                        ${param.seriesName}
+                      </span>
+                      <span style="font-weight: bold;">${param.value}%</span>
+                    </div>`;
                 }
               });
               
               return result;
-            }
+            },
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderColor: '#e4e7ed',
+            borderWidth: 1,
+            textStyle: {
+              color: '#303133'
+            },
+            padding: 12,
+            extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 4px;'
           },
           grid: {
             left: 0,
@@ -387,7 +405,7 @@ export default {
           },
           yAxis: {
             type: 'category',
-            data: ['推进', '护送', '控制', '混合', '闪点'],
+            data: ['机动推进', '运载目标', '占领要点', '攻击/护送', '闪点作战'],
             show: false,
             axisLine: { show: false },
             axisTick: { show: false },
@@ -460,6 +478,15 @@ export default {
   padding: 10px 0;
 }
 
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  border-left: 4px solid #409EFF;
+  padding-left: 12px;
+  line-height: 1.2;
+}
+
 .map-type-icons-overlay {
   position: absolute;
   top: 0;
@@ -476,9 +503,22 @@ export default {
   transform: translate(-50%, -50%);
 }
 
+.icon-wrapper {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  padding: 8px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.3s ease;
+}
+
 .map-type-icon {
-  width: 45px;
-  height: 45px;
+  width: 40px;
+  height: 40px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
 /* 卡片内边距调整，确保图表完全填充 */
@@ -489,7 +529,16 @@ export default {
 /* 移动端适配 */
 @media (max-width: 768px) {
   .chart-wrapper {
-    height: 400px;
+    height: 350px;
+  }
+  
+  .map-type-icon {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .icon-wrapper {
+    padding: 6px;
   }
 }
 </style>

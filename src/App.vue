@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <!-- 顶部导航栏 -->
-    <header class="app-header">
+    <header class="app-header" v-if="showHeader">
       <div class="logo">
         <h1>OWCS Stats</h1>
       </div>
@@ -30,8 +30,24 @@
 </template>
 
 <script>
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
+
 export default {
-  name: 'App'
+  name: 'App',
+  setup() {
+    const route = useRoute();
+
+    // 控制顶部导航栏的显示
+    // 在 /visualize 及其子路由下完全不渲染导航栏
+    const showHeader = computed(() => {
+      return route.path !== '/visualize' && !route.path.startsWith('/visualize/');
+    });
+
+    return {
+      showHeader
+    };
+  }
 }
 </script>
 

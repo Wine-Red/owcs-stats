@@ -421,8 +421,8 @@ const StatsController = {
         });
       }
       
-      // 按地图类型排序（推进、护送、混合、闪点、控制）
-      const mapTypeOrder = ['推进', '护送', '混合', '闪点', '控制'];
+      // 按地图类型排序（机动推进、运载目标、攻击/护送、闪点作战、占领要点）
+      const mapTypeOrder = ['机动推进', '运载目标', '攻击/护送', '闪点作战', '占领要点'];
       result.sort((a, b) => mapTypeOrder.indexOf(a.mapType) - mapTypeOrder.indexOf(b.mapType));
       
       res.status(200).json({

@@ -1,9 +1,14 @@
 <template>
-  <el-card class="filterable-data-card">
+  <el-card class="filterable-data-card" shadow="hover">
     <template #header>
       <div class="card-header">
         <div class="header-left">
-            <span class="header-title">队伍数据</span>
+            <span class="header-title">
+              队伍数据
+              <el-tooltip content="对比各队伍的输出与生存能力（默认显示综合数据Top5选手）" placement="top">
+                <el-icon class="info-icon"><InfoFilled /></el-icon>
+              </el-tooltip>
+            </span>
         </div>
         <div class="card-filter">
           <el-select 
@@ -38,9 +43,13 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
+import { InfoFilled } from '@element-plus/icons-vue';
 
 export default {
   name: 'TeamStatsChart',
+  components: {
+    InfoFilled
+  },
   props: {
     seasonId: {
       type: [String, Number],
@@ -181,15 +190,32 @@ export default {
           tooltip: {
             trigger: 'item',
             formatter: function (params) {
-               return `<b>${params.data.name}</b><br/>` +
-                      `伤害/10min: ${params.data.value[0]}<br/>` +
-                      `K/D: ${params.data.value[1]}`;
-            }
+               return `
+                 <div style="font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 4px;">${params.data.name}</div>
+                 <div style="display: flex; justify-content: space-between; gap: 15px;">
+                   <span>伤害/10min:</span>
+                   <span style="font-weight: bold;">${params.data.value[0]}</span>
+                 </div>
+                 <div style="display: flex; justify-content: space-between; gap: 15px;">
+                   <span>K/D:</span>
+                   <span style="font-weight: bold;">${params.data.value[1]}</span>
+                 </div>
+               `;
+            },
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            borderColor: '#e4e7ed',
+            borderWidth: 1,
+            textStyle: {
+              color: '#303133'
+            },
+            padding: 12,
+            extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 4px;'
           },
           grid: {
             left: '3%',
             right: '7%',
             bottom: '10%',
+            top: '10%',
             containLabel: true
           },
           xAxis: {
@@ -199,14 +225,44 @@ export default {
             nameGap: 30,
             scale: false, 
             min: 0,
-            max: xMax > 0 ? xMax : undefined
+            max: xMax > 0 ? xMax : undefined,
+            splitLine: {
+              lineStyle: {
+                type: 'dashed',
+                color: '#EBEEF5'
+              }
+            },
+            axisLine: {
+              lineStyle: {
+                color: '#909399'
+              }
+            },
+            nameTextStyle: {
+              color: '#606266',
+              fontWeight: 'bold'
+            }
           },
           yAxis: {
             type: 'value',
             name: 'K/D',
             scale: false,
             min: 0,
-            max: yMax > 0 ? yMax : undefined
+            max: yMax > 0 ? yMax : undefined,
+            splitLine: {
+              lineStyle: {
+                type: 'dashed',
+                color: '#EBEEF5'
+              }
+            },
+            axisLine: {
+              lineStyle: {
+                color: '#909399'
+              }
+            },
+            nameTextStyle: {
+              color: '#606266',
+              fontWeight: 'bold'
+            }
           },
           series: [
             {
@@ -217,13 +273,24 @@ export default {
                   show: true,
                   formatter: '{b}',
                   position: 'top',
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
+                  color: '#303133',
+                  fontSize: 12,
+                  textBorderColor: '#fff',
+                  textBorderWidth: 2
               },
               itemStyle: {
                 color: function(params) {
-                  const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+                  // 使用更现代的配色
+                  const colors = [
+                    '#5470c6', '#91cc75', '#fac858', '#ee6666', 
+                    '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc',
+                    '#37A2DA', '#32C5E9', '#67E0E3', '#9FE6B8', '#FFDB5C'
+                  ];
                   return colors[params.dataIndex % colors.length];
-                }
+                },
+                shadowBlur: 10,
+                shadowColor: 'rgba(0, 0, 0, 0.2)'
               }
             }
           ],
@@ -383,15 +450,23 @@ export default {
 
 <style scoped>
 .filterable-data-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.filterable-data-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
+  padding: 4px 0;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -403,7 +478,26 @@ export default {
 }
 
 .header-title {
-    font-weight: bold;
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+    border-left: 4px solid #409EFF;
+    padding-left: 12px;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+}
+
+.info-icon {
+  margin-left: 8px;
+  font-size: 16px;
+  color: #909399;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.info-icon:hover {
+  color: #409EFF;
 }
 
 .card-filter {
@@ -413,7 +507,7 @@ export default {
 
 .chart-container {
   width: 100%;
-  height: 400px;
+  height: 450px;
 }
 
 .team-select-input {
