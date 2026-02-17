@@ -320,6 +320,8 @@ export default {
     const updateTeamComparisonChart = async () => {
       if (!teamChart) return;
       
+      if (!props.seasonId) return;
+
       try {
         teamChart.showLoading();
         

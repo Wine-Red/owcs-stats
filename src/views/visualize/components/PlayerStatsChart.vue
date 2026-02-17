@@ -344,6 +344,8 @@ export default {
     const updatePlayerStatsChart = async () => {
       if (!playerChart) return;
       
+      if (!props.seasonId) return;
+
       try {
         playerChart.showLoading();
         

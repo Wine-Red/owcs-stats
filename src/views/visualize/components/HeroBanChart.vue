@@ -39,6 +39,8 @@ export default {
     const updateHeroBanChart = async () => {
       // 只有当DOM元素存在且echarts实例已初始化（或需要初始化）时才执行
       if (!heroBanChart.value) return;
+
+      if (!props.seasonId) return;
       
       if (!heroBanChartInstance) {
           heroBanChartInstance = echarts.init(heroBanChart.value);

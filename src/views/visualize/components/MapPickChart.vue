@@ -97,6 +97,8 @@ export default {
     const updateMapPickChart = async () => {
       if (!mapPickChart.value) return;
 
+      if (!props.seasonId) return;
+
       if (!mapPickChartInstance) {
         mapPickChartInstance = echarts.init(mapPickChart.value);
       }
