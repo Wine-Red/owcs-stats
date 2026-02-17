@@ -77,7 +77,7 @@ const MapGame = sequelize.define('MapGame', {
     }
   },
   duration: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.FLOAT,
     allowNull: false,
     defaultValue: 0
   }

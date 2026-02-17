@@ -38,8 +38,8 @@
         >
           <template #title>
              <div class="collapse-title">
-                <el-tag size="small" :type="item.error ? 'danger' : 'success'" style="margin-right: 10px">
-                    {{ item.error ? '解析失败' : '成功' }}
+                <el-tag size="small" :type="item.error ? 'danger' : (item.warnings && item.warnings.length > 0 ? 'warning' : 'success')" style="margin-right: 10px">
+                    {{ item.error ? '解析失败' : (item.warnings && item.warnings.length > 0 ? '有警告' : '成功') }}
                 </el-tag>
                 <span>{{ item.fileName }}</span>
                 <span v-if="!item.error" style="margin-left: 10px; color: #666">
@@ -53,6 +53,21 @@
           </div>
           
           <div v-else>
+            <el-alert
+                v-if="item.warnings && item.warnings.length > 0"
+                type="warning"
+                show-icon
+                :closable="false"
+                class="warning-alert"
+            >
+                <template #title>
+                    存在以下问题（这些数据将在导入时被忽略）：
+                </template>
+                <div v-for="(warn, wIdx) in item.warnings" :key="wIdx" class="warning-item">
+                    • {{ warn }}
+                </div>
+            </el-alert>
+
             <el-descriptions border :column="3" class="info-descriptions">
                 <el-descriptions-item label="地图名">{{ item.map.name }}</el-descriptions-item>
                 <el-descriptions-item label="获胜队伍">{{ item.resolvedWinnerName }} (原始: {{ item.winnerName }})</el-descriptions-item>
@@ -305,6 +320,13 @@ export default {
   border-left: 4px solid #409eff;
 }
 
+.warning-alert {
+  margin-bottom: 20px;
+}
+.warning-item {
+  font-size: 12px;
+  line-height: 1.5;
+}
 .info-descriptions {
   margin-bottom: 20px;
 }

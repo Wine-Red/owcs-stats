@@ -164,9 +164,9 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="时长" width="80">
+          <el-table-column label="时长" width="100">
             <template #default="scope">
-              {{ scope.row.duration }} 分钟
+              {{ Number(scope.row.duration).toFixed(2) }} 分钟
             </template>
           </el-table-column>
           <el-table-column label="操作" :width="actionColWidth" fixed="right">
@@ -647,9 +647,10 @@
               <el-form-item label="时长(分钟)">
                 <el-input-number
                   v-model="mapGame.duration"
-                  :min="1"
+                  :min="0.1"
                   :max="120"
-                  :step="1"
+                  :step="0.01"
+                  :precision="2"
                   style="width: 100%"
                 />
               </el-form-item>

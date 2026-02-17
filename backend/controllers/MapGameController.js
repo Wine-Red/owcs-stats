@@ -51,53 +51,70 @@ const resolveImportData = async (seasonId, mapData, playerStats) => {
     // 遍历所有选手数据
     for (const stat of playerStats) {
       const excelName = stat.playerName;
+      let playerId = null;
+      let playerName = null;
+      let heroId = null;
+      let heroName = null;
       
-      // 尝试查找选手
-      // 1. 精确查找 (忽略大小写)
-      let player = await Player.findOne({
-        where: sequelize.where(
-          sequelize.fn('LOWER', sequelize.col('name')),
-          excelName.toLowerCase()
-        )
-      });
-      
-      // 2. 如果没找到，且名字含 -，尝试查找后缀
-      if (!player && excelName.includes('-')) {
-        const suffix = excelName.split('-').pop();
-        player = await Player.findOne({
+      try {
+        // 尝试查找选手
+        let player = await Player.findOne({
           where: sequelize.where(
             sequelize.fn('LOWER', sequelize.col('name')),
-            suffix.toLowerCase()
+            excelName.toLowerCase()
           )
         });
+        
+        // 2. 如果没找到，且名字含 -，尝试查找后缀
+        if (!player && excelName.includes('-')) {
+          const suffix = excelName.split('-').pop();
+          player = await Player.findOne({
+            where: sequelize.where(
+              sequelize.fn('LOWER', sequelize.col('name')),
+              suffix.toLowerCase()
+            )
+          });
+        }
+        
+        if (player) {
+            playerId = player.id;
+            playerName = player.name;
+        }
+      } catch (e) {
+          console.warn(`选手查找失败: ${excelName}`, e);
       }
       
-      if (!player) {
-        throw new Error(`找不到选手: ${excelName}`);
-      }
-      
-      // 查找英雄
-      const hero = await Hero.findOne({ where: { name: stat.heroName } });
-      // 如果找不到英雄，暂时允许为空，或者抛出错误？这里选择抛出错误以保证数据质量
-      if (!hero && stat.heroName) {
-           throw new Error(`找不到英雄: ${stat.heroName}`);
+      try {
+        // 查找英雄
+        if (stat.heroName) {
+            const hero = await Hero.findOne({ where: { name: stat.heroName } });
+            if (hero) {
+                heroId = hero.id;
+                heroName = hero.name;
+            }
+        }
+      } catch (e) {
+          console.warn(`英雄查找失败: ${stat.heroName}`, e);
       }
 
       // 记录选手归属的 Excel Team
       // Excel teamId 可能是 1/2 或 A/B
       const isTeam1 = (stat.teamId == 1 || stat.teamId == '1' || stat.teamId == 'A');
-      if (isTeam1) {
-          excelTeam1Players.push(player.id);
-      } else {
-          excelTeam2Players.push(player.id);
+      if (playerId) {
+          if (isTeam1) {
+              excelTeam1Players.push(playerId);
+          } else {
+              excelTeam2Players.push(playerId);
+          }
       }
 
       processedStats.push({
           ...stat,
-          playerId: player.id,
-          playerName: player.name, // Resolved name
-          heroId: hero ? hero.id : null,
-          heroName: hero ? hero.name : null, // Resolved name
+          playerId,
+          playerName: playerName || excelName, // Use original name if not found
+          originalName: excelName,
+          heroId,
+          heroName: heroName || stat.heroName, // Use original name if not found
           isTeam1
       });
     }
@@ -172,11 +189,33 @@ const resolveImportData = async (seasonId, mapData, playerStats) => {
     }
 
     // Attach inferred teams to processed stats
-    const finalStats = processedStats.map(stat => ({
-        ...stat,
-        teamId: stat.isTeam1 ? realTeam1Id : realTeam2Id,
-        teamName: stat.isTeam1 ? (team1Result.team ? team1Result.team.name : '') : (team2Result.team ? team2Result.team.name : '')
-    }));
+    const finalStats = processedStats.map(stat => {
+        let teamId = null;
+        let teamName = '';
+        
+        if (stat.playerId) {
+            // If player is identified, use the inferred team logic
+            teamId = stat.isTeam1 ? realTeam1Id : realTeam2Id;
+            teamName = stat.isTeam1 ? (team1Result.team ? team1Result.team.name : '') : (team2Result.team ? team2Result.team.name : '');
+        } else {
+            // If player is not identified, try to map based on Excel teamId
+            // This is a best-effort guess
+            teamId = stat.isTeam1 ? realTeam1Id : realTeam2Id;
+            teamName = stat.isTeam1 ? (team1Result.team ? team1Result.team.name : '') : (team2Result.team ? team2Result.team.name : '');
+        }
+        
+        return {
+            ...stat,
+            teamId,
+            teamName
+        };
+    });
+
+    const warnings = [];
+    finalStats.forEach(stat => {
+        if (!stat.playerId) warnings.push(`无法识别选手: ${stat.originalName}`);
+        if (stat.originalName && !stat.heroId && stat.heroName) warnings.push(`无法识别英雄: ${stat.heroName} (选手: ${stat.playerName})`);
+    });
 
     return {
         map,
@@ -187,8 +226,9 @@ const resolveImportData = async (seasonId, mapData, playerStats) => {
         realTeam1Name: team1Result.team.name,
         realTeam2Id,
         realTeam2Name: team2Result.team.name,
-        duration: Math.round(mapData.duration),
-        finalStats
+        duration: mapData.duration,
+        finalStats,
+        warnings
     };
 };
 
@@ -231,7 +271,9 @@ const MapGameController = {
       }, { transaction: t });
 
       // 创建 PlayerStats
-      const statsToCreate = finalStats.map(stat => ({
+      const statsToCreate = finalStats
+        .filter(stat => stat.playerId) // Only create stats for identified players
+        .map(stat => ({
           mapGameId: newMapGame.id,
           playerId: stat.playerId,
           heroId: stat.heroId,
@@ -246,10 +288,16 @@ const MapGameController = {
           ultsUsed: 0
       }));
 
-      await PlayerStat.bulkCreate(statsToCreate, { transaction: t });
+      if (statsToCreate.length > 0) {
+        await PlayerStat.bulkCreate(statsToCreate, { transaction: t });
+      }
 
       await t.commit();
-      res.status(201).json({ message: '导入成功', mapGameId: newMapGame.id });
+      res.status(201).json({ 
+          message: '导入成功', 
+          mapGameId: newMapGame.id,
+          skippedStats: finalStats.length - statsToCreate.length
+      });
 
     } catch (error) {
       await t.rollback();
