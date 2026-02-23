@@ -1,33 +1,32 @@
 <template>
-  <el-card class="chart-card">
-    <template #header>
-      <div class="card-header">
-        <span class="header-title">地图选取情况</span>
-        <el-tag size="small" effect="plain" type="primary">Pick Rates</el-tag>
-      </div>
-    </template>
-    <div class="chart-wrapper map-chart-wrapper" style="position: relative; height: 400px;">
+  <div class="vis-card">
+    <SlantedTitle title="地图选取情况">
+    </SlantedTitle>
+    <div class="chart-wrapper map-chart-wrapper" style="position: relative; height: 400px; padding: 0;">
       <div ref="mapPickChart" class="fog-chart" style="width: 100%; height: 100%"></div>
       <div class="map-type-icons-overlay">
-        <div 
-          v-for="(type, index) in mapPickTypes" 
-          :key="type"
-          class="map-type-icon-container"
-          :style="{ top: `${((mapPickTypes.length - 1 - index) + 0.5) * 100 / mapPickTypes.length}%` }"
-        >
-          <div class="icon-wrapper">
-            <img :src="getMapTypeIconUrl(type)" class="map-type-icon" :alt="type" />
+        <!-- 使用 Flexbox 自动均匀分布 -->
+        <div class="map-type-icon-list">
+          <div 
+            v-for="type in mapPickTypes" 
+            :key="type"
+            class="map-type-icon-item"
+          >
+            <div class="icon-wrapper">
+              <img :src="getMapTypeIconUrl(type)" class="map-type-icon" :alt="type" />
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </el-card>
+  </div>
 </template>
 
 <script>
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
+import SlantedTitle from './SlantedTitle.vue';
 
 // 地图名称到文件名的映射
 const mapNameToFileName = {
@@ -69,6 +68,9 @@ const mapNameToFileName = {
 
 export default {
   name: 'MapPickChart',
+  components: {
+    SlantedTitle
+  },
   props: {
     seasonId: {
       type: [String, Number],
@@ -105,7 +107,11 @@ export default {
       
       try {
         // 显示加载动画
-        mapPickChartInstance.showLoading();
+        mapPickChartInstance.showLoading({
+          color: '#FF9E0F',
+          textColor: '#FF9E0F',
+          maskColor: 'rgba(255, 255, 255, 0.8)'
+        });
         
         // 从API获取地图选取数据
         const params = {
@@ -129,7 +135,7 @@ export default {
                       text: '暂无地图选取数据',
                       fontSize: 16,
                       fontWeight: 'bold',
-                      fill: '#999'
+                      fill: '#909399'
                     }
                   }
                 ]
@@ -213,14 +219,22 @@ export default {
                     repeat: 'repeat-x',
                     imageHeight: '100%'
                   },
-                  opacity: 0.8
+                  opacity: 0.9
                 }
               };
               series.push(mapSeries);
             }
             
             // 设置该地图在对应类型中的选取率
-            mapSeries.data[index] = parseFloat(map.pickRate);
+            // 修改：归一化数据以填满条形图，同时在 extra 中存储真实数据
+            // 计算该类型下所有地图的 pickRate 总和
+            const totalPickRate = typeData.maps.reduce((sum, m) => sum + parseFloat(m.pickRate), 0);
+            
+            mapSeries.data[index] = {
+              value: totalPickRate > 0 ? (parseFloat(map.pickRate) / totalPickRate) * 100 : 0,
+              realValue: parseFloat(map.pickRate),
+              mapName: map.mapName
+            };
           });
         });
 
@@ -242,7 +256,7 @@ export default {
               canvas.height = img.height;
               
               // 应用滤镜: 模糊2px, 亮度1.1, 饱和度0.6, 对比度0.8
-              ctx.filter = 'blur(1.8px) brightness(0.9) saturate(1.2) contrast(0.9)';
+              ctx.filter = 'blur(1px) brightness(0.9) saturate(1.1) contrast(0.95)';
               ctx.drawImage(img, 0, 0);
               
               resolve(canvas.toDataURL());
@@ -281,31 +295,33 @@ export default {
               type: 'shadow'
             },
             formatter: function(params) {
-              let result = `<div style="font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">${params[0].axisValue}</div>`;
+              let result = `<div style="font-weight: 800; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; color: #1A1A1A;">${params[0].axisValue}</div>`;
               
               params.forEach(param => {
-                if (param.value > 0) {
+                // 检查 data 对象中是否有 realValue
+                const val = param.data && param.data.realValue !== undefined ? param.data.realValue : param.value;
+                if (val > 0) {
                   result += `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 12px;">
-                      <span style="display: flex; align-items: center;">
-                        <span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:${param.color.image ? '#ccc' : param.color};"></span>
+                      <span style="display: flex; align-items: center; color: #606266;">
+                        <span style="display:inline-block;margin-right:6px;border-radius:2px;width:12px;height:12px;background-color:#FF9E0F;"></span>
                         ${param.seriesName}
                       </span>
-                      <span style="font-weight: bold;">${param.value}%</span>
+                      <span style="font-weight: bold; color: #1A1A1A;">${val}%</span>
                     </div>`;
                 }
               });
               
               return result;
             },
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            borderColor: '#e4e7ed',
+            backgroundColor: '#FFFFFF',
+            borderColor: '#EBEEF5',
             borderWidth: 1,
             textStyle: {
               color: '#303133'
             },
-            padding: 12,
-            extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 4px;'
+            padding: [12, 16],
+            extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
           },
           grid: {
             left: 0,
@@ -341,7 +357,7 @@ export default {
               right: 0,
               bottom: 0,
               style: {
-                fill: 'rgba(255, 255, 255, 0.2)'
+                fill: 'rgba(0, 0, 0, 0.1)'
               },
               z: 1, // 将 z 值降低，避免遮挡图表（series 默认为 2）
               silent: true
@@ -349,15 +365,18 @@ export default {
           ],
           series: processedSeries.map(item => ({
             ...item,
-            barWidth: '100%', // 使条形图占满整个y轴刻度，消除间距
+            barWidth: '100%', // 使条形图占满整个y轴刻度
+            barCategoryGap: '0%', // 消除类目间隙
+            barGap: '0%', // 消除系列间隙
             itemStyle: {
               ...item.itemStyle,
               borderRadius: 0,
-              borderColor: '#ffffff',
-              borderWidth: 2
+              borderColor: '#FFFFFF',
+              borderWidth: 0 // 移除边框以消除间隙
             }
           })),
-          animationEasing: 'elasticOut',
+          animationEasing: 'cubicOut',
+          animationDuration: 1000,
           animationDelayUpdate: function(idx) {
             return idx * 5;
           },
@@ -383,38 +402,6 @@ export default {
         
         // 显示默认数据
         const option = {
-          tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-              type: 'shadow'
-            }
-          },
-          grid: {
-            left: 0,
-            right: 0,
-            bottom: 0,
-            top: 0,
-            containLabel: false
-          },
-          xAxis: {
-            type: 'value',
-            max: 100,
-            show: false,
-            axisLine: { show: false },
-            axisTick: { show: false },
-            axisLabel: { show: false },
-            splitLine: { show: false }
-          },
-          yAxis: {
-            type: 'category',
-            data: ['机动推进', '运载目标', '占领要点', '攻击/护送', '闪点作战'],
-            show: false,
-            axisLine: { show: false },
-            axisTick: { show: false },
-            axisLabel: { show: false },
-            splitLine: { show: false }
-          },
-          series: [],
           graphic: {
             elements: [
               {
@@ -425,14 +412,14 @@ export default {
                   text: '暂无地图选取数据',
                   fontSize: 16,
                   fontWeight: 'bold',
-                  fill: '#999'
+                  fill: '#909399'
                 }
               }
             ]
           }
         };
         
-        mapPickChartInstance.setOption(option);
+        mapPickChartInstance.setOption(option, true);
       } finally {
         mapPickChartInstance.hideLoading();
       }
@@ -468,27 +455,6 @@ export default {
 </script>
 
 <style scoped>
-.chart-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-}
-
-.header-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-  border-left: 4px solid #409EFF;
-  padding-left: 12px;
-  line-height: 1.2;
-}
-
 .map-type-icons-overlay {
   position: absolute;
   top: 0;
@@ -497,20 +463,32 @@ export default {
   height: 100%;
   pointer-events: none; /* 让鼠标事件穿透到下层图表 */
   z-index: 10;
+  /* 确保 overlay 覆盖在 chart 内容区域上 */
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.map-type-icon-container {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.map-type-icon-list {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse; /* ECharts 默认从下到上，所以我们反转 flex 顺序 */
+  justify-content: space-around; /* 均匀分布，两端留空 (boundaryGap: true) */
+  align-items: center;
+}
+
+.map-type-icon-item {
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .icon-wrapper {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.4);
   border-radius: 50%;
   padding: 8px;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -520,12 +498,7 @@ export default {
 .map-type-icon {
   width: 40px;
   height: 40px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-
-/* 卡片内边距调整，确保图表完全填充 */
-:deep(.el-card__body) {
-  padding: 0 !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 /* 移动端适配 */
@@ -542,5 +515,13 @@ export default {
   .icon-wrapper {
     padding: 6px;
   }
+}
+
+/* 移除 :deep，直接作用于根元素 */
+.vis-card {
+  padding: 0 !important;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  overflow: hidden;
 }
 </style>

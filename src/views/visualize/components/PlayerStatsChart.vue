@@ -1,46 +1,48 @@
 <template>
-  <el-card class="filterable-data-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <div class="header-left">
-            <span class="header-title">
-              选手个人数据
-              <el-tooltip content="展示选手在不同维度的表现分布（默认显示综合数据Top5选手）" placement="top">
-                <el-icon class="info-icon"><InfoFilled /></el-icon>
-              </el-tooltip>
-            </span>
-            <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
-                <el-radio-button label="tank">坦克</el-radio-button>
-                <el-radio-button label="damage">输出</el-radio-button>
-                <el-radio-button label="support">辅助</el-radio-button>
-            </el-radio-group>
+  <div class="vis-card">
+    <SlantedTitle title="选手个人数据">
+      <template #title-suffix>
+        <el-tooltip content="展示选手在不同维度的表现分布（默认显示综合数据Top5选手）" placement="top">
+          <el-icon class="info-icon"><InfoFilled /></el-icon>
+        </el-tooltip>
+      </template>
+      <template #extra>
+        <div class="header-controls">
+          <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
+            <el-radio-button label="tank">坦克</el-radio-button>
+            <el-radio-button label="damage">输出</el-radio-button>
+            <el-radio-button label="support">辅助</el-radio-button>
+          </el-radio-group>
+          <div class="select-wrapper">
+            <el-select 
+              v-model="playerFilter" 
+              placeholder="" 
+              :disabled="!seasonId" 
+              class="player-select-input"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              popper-class="player-select-dropdown"
+              size="small"
+            >
+              <template #prefix>
+                <span class="custom-select-label">选手筛选列表</span>
+              </template>
+              <el-option
+                v-for="player in getFilteredPlayers"
+                :key="player.id"
+                :label="player.name"
+                :value="player.id"
+              />
+            </el-select>
+          </div>
         </div>
-        <div class="card-filter">
-          <el-select 
-            v-model="playerFilter" 
-            placeholder="" 
-            :disabled="!seasonId" 
-            class="player-select-input"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            popper-class="player-select-dropdown"
-          >
-            <template #prefix>
-               <span class="custom-select-placeholder">选手筛选列表</span>
-            </template>
-            <el-option
-              v-for="player in getFilteredPlayers"
-              :key="player.id"
-              :label="player.name"
-              :value="player.id"
-            />
-          </el-select>
-        </div>
-      </div>
-    </template>
-    <div ref="playerStatsChart" class="chart-container"></div>
-  </el-card>
+      </template>
+    </SlantedTitle>
+    <div class="card-content">
+      <div ref="playerStatsChart" class="chart-container"></div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -49,11 +51,13 @@ import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled } from '@element-plus/icons-vue';
+import SlantedTitle from './SlantedTitle.vue';
 
 export default {
   name: 'PlayerStatsChart',
   components: {
-    InfoFilled
+    InfoFilled,
+    SlantedTitle
   },
   props: {
     seasonId: {
@@ -88,8 +92,8 @@ export default {
         if (logo && teamId && !teamLogoSizes.value.has(teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const MAX_WIDTH = 35;
-             const MAX_HEIGHT = 20;
+             const MAX_WIDTH = 25;
+             const MAX_HEIGHT = 15;
              
              // 计算缩放比例，同时满足宽和高的限制
              const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
@@ -206,9 +210,9 @@ export default {
             const logo = item.team ? item.team.logo : null;
             const teamId = item.team ? item.team.id : null;
             
-            let symbolSize = 10;
+            let symbolSize = 8;
             if (logo) {
-                symbolSize = teamLogoSizes.value.get(teamId) || 18;
+                symbolSize = teamLogoSizes.value.get(teamId) || 12;
             }
 
             return {
@@ -229,26 +233,26 @@ export default {
             trigger: 'item',
             formatter: function (params) {
                return `
-                 <div style="font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 4px;">${params.data.value[2]}</div>
-                 <div style="font-size: 12px; color: #666; margin-bottom: 6px;">${params.data.value[3] || '未知队伍'}</div>
-                 <div style="display: flex; justify-content: space-between; gap: 15px;">
-                   <span>${xAxisName}:</span>
-                   <span style="font-weight: bold;">${params.data.value[0]}</span>
+                 <div style="font-weight: 800; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; color: #1A1A1A;">${params.data.value[2]}</div>
+                 <div style="font-size: 12px; color: #606266; margin-bottom: 6px;">${params.data.value[3] || '未知队伍'}</div>
+                 <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
+                   <span style="color: #606266;">${xAxisName}:</span>
+                   <span style="font-weight: bold; color: #FF9E0F;">${params.data.value[0]}</span>
                  </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px;">
-                   <span>${yAxisName}:</span>
-                   <span style="font-weight: bold;">${params.data.value[1]}</span>
+                   <span style="color: #606266;">${yAxisName}:</span>
+                   <span style="font-weight: bold; color: #1A1A1A;">${params.data.value[1]}</span>
                  </div>
                `;
             },
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            borderColor: '#e4e7ed',
+            backgroundColor: '#FFFFFF',
+            borderColor: '#EBEEF5',
             borderWidth: 1,
             textStyle: {
               color: '#303133'
             },
-            padding: 12,
-            extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 4px;'
+            padding: [12, 16],
+            extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
           },
           grid: {
             left: '5%',
@@ -278,7 +282,11 @@ export default {
             },
             nameTextStyle: {
               color: '#606266',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontFamily: 'Inter, sans-serif'
+            },
+            axisLabel: {
+              fontFamily: 'Inter, sans-serif'
             }
           },
           yAxis: {
@@ -301,20 +309,23 @@ export default {
             },
             nameTextStyle: {
               color: '#606266',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontFamily: 'Inter, sans-serif'
+            },
+            axisLabel: {
+              fontFamily: 'Inter, sans-serif'
             }
           },
           series: [
             {
               type: 'scatter',
-              symbolSize: 15,
+              symbolSize: 10,
               data: seriesData,
               itemStyle: {
                   color: function(params) {
                       const colors = [
-                        '#5470c6', '#91cc75', '#fac858', '#ee6666', 
-                        '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc',
-                        '#37A2DA', '#32C5E9', '#67E0E3', '#9FE6B8', '#FFDB5C'
+                        '#FF9E0F', '#FF6A00', '#F56C6C', '#E6A23C', 
+                        '#409EFF', '#67C23A', '#909399', '#303133'
                       ];
                       return colors[params.dataIndex % colors.length];
                   },
@@ -331,7 +342,8 @@ export default {
                   fontSize: 10,
                   color: '#303133',
                   textBorderColor: '#fff',
-                  textBorderWidth: 2
+                  textBorderWidth: 2,
+                  fontFamily: 'Inter, sans-serif'
               }
             }
           ]
@@ -347,7 +359,11 @@ export default {
       if (!props.seasonId) return;
 
       try {
-        playerChart.showLoading();
+        playerChart.showLoading({
+          color: '#FF9E0F',
+          textColor: '#FF9E0F',
+          maskColor: 'rgba(255, 255, 255, 0.8)'
+        });
         
         const params = {
           seasonId: props.seasonId || null,
@@ -363,7 +379,6 @@ export default {
         const availablePlayerIds = allPlayerStats.value.map(p => p.playerId);
         
         // 自动选择Top 5逻辑
-        // 如果 playerFilter 为空，或者切换了角色（这里假设外部已清空），则进行Top 5选择
         if (playerFilter.value.length === 0) {
             const statsWithScore = allPlayerStats.value.map(item => {
                 const duration = item.totalDuration || 0;
@@ -490,60 +505,25 @@ export default {
 </script>
 
 <style scoped>
-.filterable-data-card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  background: #ffffff;
-  transition: all 0.3s ease;
+.card-content {
+  padding: 24px;
 }
 
-.filterable-data-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
+.header-controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.header-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-    border-left: 4px solid #409EFF;
-    padding-left: 12px;
-    line-height: 1.2;
-    display: flex;
-    align-items: center;
+  gap: 12px;
 }
 
 .info-icon {
-  margin-left: 8px;
-  font-size: 16px;
-  color: #909399;
+  font-size: 18px; /* 稍微调大一点 */
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: color 0.3s;
 }
 
 .info-icon:hover {
-  color: #409EFF;
-}
-
-.card-filter {
-  display: flex;
-  gap: 10px;
+  color: #FFFFFF;
 }
 
 .chart-container {
@@ -552,34 +532,66 @@ export default {
 }
 
 .player-select-input {
-  width: 400px;
+  width: 200px;
 }
 
-.custom-select-placeholder {
+.role-radio-group {
+  margin-right: 8px;
+}
+
+.custom-select-label {
   color: #606266;
-  font-size: 14px;
-  line-height: 32px;
-  margin-left: 4px;
+  font-size: 12px;
+  line-height: 24px; /* Match small size input height approx */
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
-  .player-select-input {
-    width: 100% !important;
+  .header-controls {
+    display: flex; /* 改回 flex 以便控制换行 */
+    flex-wrap: wrap;
+    width: 100%;
+    margin-top: 8px;
+    gap: 8px;
   }
   
-  .card-header {
-      flex-direction: column;
-      align-items: flex-start;
+  .role-radio-group {
+    margin-right: 0;
+    width: 100%; /* 独占一行 */
+    display: flex;
+  }
+  
+  /* 让 Radio Button 充满宽度 */
+  :deep(.el-radio-group) {
+    width: 100%;
+    display: flex;
+  }
+  :deep(.el-radio-button) {
+    flex: 1;
+  }
+  :deep(.el-radio-button__inner) {
+    width: 100%;
+    padding: 8px 0;
+    text-align: center;
   }
 
-  .header-left {
-      width: 100%;
-      justify-content: space-between;
-      margin-bottom: 5px;
+  .select-wrapper {
+    width: 100%; /* Select 独占一行 */
+    margin-top: 4px;
   }
 
-  .card-filter {
-      width: 100%;
+  .player-select-input {
+    width: 100%;
+  }
+
+  .card-content {
+    padding: 16px;
+  }
+  
+  /* 调整 Radio Button 在移动端的样式 */
+  :deep(.el-radio-button__inner) {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 }
 

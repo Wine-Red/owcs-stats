@@ -14,7 +14,7 @@
     </header>
 
     <!-- 主内容区 -->
-    <main class="app-main">
+    <main :class="['app-main', { 'visualize-main': !showHeader }]">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -169,5 +169,17 @@ body {
   .app-main {
     padding: 20px;
   }
+  
+  /* 在移动端也要去除 Visualize 页面的 padding */
+  .app-main.visualize-main {
+    padding: 0;
+  }
+}
+
+/* Visualize 页面特殊样式：全宽无内边距 */
+.app-main.visualize-main {
+  padding: 0;
+  max-width: 100%;
+  margin: 0;
 }
 </style>

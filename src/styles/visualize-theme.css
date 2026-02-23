@@ -1,0 +1,42 @@
+:root {
+  /* Color Palette */
+  --vis-primary-color: #FF9E0F;
+  --vis-primary-gradient: linear-gradient(90deg, #FF6A00 0%, #FF9E0F 100%);
+  --vis-bg-color: #F5F7FA;
+  --vis-card-bg: #FFFFFF;
+  --vis-text-primary: #303133;
+  --vis-text-secondary: #606266;
+  --vis-text-placeholder: #909399;
+  --vis-border-color: #EBEEF5;
+
+  /* Layout & Spacing */
+  --vis-border-radius: 16px;
+  --vis-card-padding: 24px;
+  --vis-gap: 24px;
+
+  /* Effects */
+  --vis-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --vis-shadow-hover: 0 8px 30px rgba(255, 158, 15, 0.15);
+  --vis-transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.vis-container {
+  background-color: var(--vis-bg-color);
+  min-height: 100vh;
+  font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: var(--vis-text-primary);
+}
+
+.vis-card {
+  background: var(--vis-card-bg);
+  border-radius: var(--vis-border-radius);
+  box-shadow: var(--vis-shadow);
+  transition: var(--vis-transition);
+  border: 1px solid white;
+  overflow: hidden; /* For the title to fit nicely */
+}
+
+.vis-card:hover {
+  box-shadow: var(--vis-shadow-hover);
+  transform: translateY(-2px);
+}

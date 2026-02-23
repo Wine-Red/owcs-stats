@@ -1,65 +1,76 @@
 <template>
-  <div class="visualize-container">
-    <div class="page-header">
-      <h2 class="page-title">数据可视化</h2>
-    </div>
-
-    <!-- 顶部赛季全局筛选功能 -->
-    <div class="filter-section">
-      <el-card class="global-filter-card" shadow="hover">
-        <div class="global-filter-content">
-          <el-form :model="filterForm" label-position="left" inline class="filter-form">
-            <el-form-item label="选择赛季" class="season-filter-item">
-              <el-select v-model="filterForm.seasonId" placeholder="请选择赛季" @change="handleSeasonChange" class="season-select" size="large">
-                <el-option
-                  v-for="season in seasons"
-                  :key="season.id"
-                  :label="season.name"
-                  :value="season.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-form>
+  <div class="visualize-container vis-container">
+    <!-- 顶部导航栏 (Header) -->
+    <header class="vis-header">
+      <div class="header-left">
+        <div class="logo-placeholder">
+          <img src="/public/OWCS.png" alt="OWCS Logo" class="header-logo" />
         </div>
-      </el-card>
-    </div>
+        <h1 class="vis-title"><span class="title-main">Overwatch</span> <span class="subtitle">电竞数据</span></h1>
+      </div>
+      <div class="header-right">
+        <el-select 
+          v-model="filterForm.seasonId" 
+          placeholder="选择赛季" 
+          @change="handleSeasonChange" 
+          class="vis-season-select" 
+          size="large"
+        >
+          <el-option
+            v-for="season in seasons"
+            :key="season.id"
+            :label="season.name"
+            :value="season.id"
+          />
+        </el-select>
+      </div>
+    </header>
 
-    <!-- 全局数据展示区 -->
-    <transition-group name="fade-up" tag="div">
-      <div class="global-data-section" v-if="chartConfig.heroBan || chartConfig.mapPick" key="global-section">
-        <h3 class="section-title">
-          <span class="title-icon"></span> 全局概览
-        </h3>
-        <div class="global-data-cards" :class="{ 'single-card': (chartConfig.heroBan && !chartConfig.mapPick) || (!chartConfig.heroBan && chartConfig.mapPick) }">
-          <!-- 英雄禁用情况统计 -->
-          <HeroBanChart :seasonId="filterForm.seasonId" v-if="chartConfig.heroBan" />
+    <!-- 主内容网格 (Main Grid) -->
+    <main class="vis-content">
+      <div class="vis-grid">
+        <!-- 第一行: 英雄禁用 & 地图选取 -->
+        <div class="vis-col span-6" v-if="chartConfig.heroBan">
+          <HeroBanChart :seasonId="filterForm.seasonId" />
+        </div>
+        <div class="vis-col span-6" v-if="chartConfig.mapPick">
+          <MapPickChart :seasonId="filterForm.seasonId" />
+        </div>
 
-          <!-- 地图选取情况统计 -->
-          <MapPickChart :seasonId="filterForm.seasonId" v-if="chartConfig.mapPick" />
+        <!-- 第二行: 队伍数据 & 选手数据 -->
+        <!-- 
+          User requested: 
+          - TeamStatsChart (Scatter plot)
+          - PlayerStatsChart (List)
+          Let's put them full width if they need space, or side-by-side.
+          Scatter plots usually need width. Player lists need height.
+          Let's try putting TeamStats full width (span-12) and PlayerStats full width (span-12) 
+          OR split them. The previous layout had them stacked. 
+          If I split them span-6, the scatter plot might be small.
+          However, on 1920px span-6 is ~900px, which is plenty.
+          Let's try span-12 for TeamStats (Scatter) to show detail, 
+          and span-12 for PlayerStats (List).
+          Wait, the user wanted "optimize information density".
+          Maybe span-6 is better. Let's start with span-12 for better readability as per "original design" requests usually implying keeping data visible.
+          Actually, let's do span-12 for TeamStats and span-12 for PlayerStats to be safe, 
+          or span-6 if I want to be aggressive with density.
+          Let's stick to span-12 for now as they are complex charts.
+        -->
+        <div class="vis-col span-12" v-if="chartConfig.teamStats">
+          <TeamStatsChart :seasonId="filterForm.seasonId" />
+        </div>
+        <div class="vis-col span-12" v-if="chartConfig.playerStats">
+          <PlayerStatsChart :seasonId="filterForm.seasonId" />
         </div>
       </div>
-
-      <!-- 可筛选数据展示区 -->
-      <div class="filterable-data-section" v-if="chartConfig.teamStats || chartConfig.playerStats" key="detail-section">
-        <h3 class="section-title">
-          <span class="title-icon"></span> 详细分析
-        </h3>
-        
-        <div class="filterable-data-cards">
-          <!-- 队伍数据卡片 -->
-          <TeamStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.teamStats" />
-
-          <!-- 选手个人数据卡片 -->
-          <PlayerStatsChart :seasonId="filterForm.seasonId" v-if="chartConfig.playerStats" />
-        </div>
-      </div>
-    </transition-group>
+    </main>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import { DataAnalysis, Moon } from '@element-plus/icons-vue';
 import HeroBanChart from './components/HeroBanChart.vue';
 import MapPickChart from './components/MapPickChart.vue';
 import TeamStatsChart from './components/TeamStatsChart.vue';
@@ -71,12 +82,13 @@ export default {
     HeroBanChart,
     MapPickChart,
     TeamStatsChart,
-    PlayerStatsChart
+    PlayerStatsChart,
+    DataAnalysis,
+    Moon
   },
   setup() {
     const store = useStore();
     
-    // 筛选表单
     const filterForm = ref({
       seasonId: '',
       teamIds: [],
@@ -84,7 +96,6 @@ export default {
       heroIds: []
     });
 
-    // 图表显示配置
     const chartConfig = ref({
       heroBan: true,
       mapPick: true,
@@ -92,22 +103,15 @@ export default {
       playerStats: true
     });
     
-    // 计算属性
     const seasons = computed(() => store.state.seasons);
     
-    // 处理赛季变化
     const handleSeasonChange = async () => {
-      // 赛季变化时，重置其他筛选（虽然目前主要只用seasonId）
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
-      
-      // 子组件会监听 seasonId 变化并自行更新数据
     };
     
-    // 组件挂载
     onMounted(async () => {
-      // 加载图表配置
       const savedConfig = localStorage.getItem('visualize_chart_config');
       if (savedConfig) {
         try {
@@ -119,11 +123,11 @@ export default {
 
       await store.dispatch('loadBaseData');
       
-      // 默认选择status为in_progress的赛季
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       if (inProgressSeason) {
         filterForm.value.seasonId = inProgressSeason.id;
-        // 初始赋值也会触发子组件的watch（如果它们immediate: true或者在mounted中处理）
+      } else if (seasons.value.length > 0) {
+         filterForm.value.seasonId = seasons.value[0].id;
       }
     });
     
@@ -138,163 +142,159 @@ export default {
 </script>
 
 <style scoped>
-.visualize-container {
-  padding: 24px 32px;
-  background-color: #f5f7fa;
+.vis-container {
+  background-color: #F5F7FA;
   min-height: 100vh;
-}
-
-.page-header {
-  margin-bottom: 32px;
-}
-
-.page-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 8px;
-  letter-spacing: -0.5px;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: #606266;
-  margin: 0;
-}
-
-/* 顶部全局筛选栏样式 */
-.filter-section {
-  margin-bottom: 32px;
-}
-
-.global-filter-card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  background: #ffffff;
-  transition: all 0.3s ease;
-}
-
-.global-filter-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.global-filter-content {
-  padding: 12px 0;
-}
-
-.filter-form {
-  margin: 0;
-}
-
-.season-filter-item {
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-}
-
-.season-select {
-  width: 240px;
-}
-
-:deep(.el-form-item__label) {
-  font-weight: 600;
-  color: #303133;
-}
-
-/* 区域标题样式 */
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 24px;
-  color: #303133;
-  display: flex;
-  align-items: center;
-  padding-left: 0;
-  border-left: none;
-}
-
-.title-icon {
-  margin-right: 12px;
-  font-size: 20px;
-}
-
-/* 全局数据展示区样式 */
-.global-data-section {
-  margin-bottom: 40px;
-}
-
-.global-data-cards {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-}
-
-/* 可筛选数据展示区样式 */
-.filterable-data-section {
-  margin-bottom: 40px;
-}
-
-.filterable-data-cards {
   display: flex;
   flex-direction: column;
+  font-family: 'Oxanium', sans-serif;
+}
+
+.vis-header {
+  background: #FFFFFF;
+  height: 64px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  box-sizing: border-box; /* 确保 padding 包含在宽度内 */
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-placeholder {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.vis-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1A1A1A;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.vis-title .subtitle {
+  color: #FF9E0F;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vis-season-select {
+  width: 180px;
+}
+
+.vis-content {
+  padding: 32px;
+  width: 100%;
+  flex: 1;
+}
+
+.vis-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
   gap: 24px;
 }
 
-/* 动画效果 */
-.fade-up-enter-active,
-.fade-up-leave-active {
-  transition: all 0.5s ease;
+.vis-col {
+  min-height: 100px;
 }
 
-.fade-up-enter-from,
-.fade-up-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
+.span-6 {
+  grid-column: span 6;
 }
 
-/* 响应式设计 */
+.span-12 {
+  grid-column: span 12;
+}
+
+/* Responsive */
 @media (max-width: 1200px) {
-  .global-data-cards {
-    grid-template-columns: 1fr;
+  .span-6 {
+    grid-column: span 12;
   }
-}
-
-.single-card {
-  grid-template-columns: 1fr !important;
 }
 
 @media (max-width: 768px) {
-  .visualize-container {
-    padding: 16px;
+  .vis-header {
+    padding: 0 8px; /* 减小内边距 */
+    flex-direction: row;
+    align-items: center;
+    height: 64px;
+    gap: 8px; /* 减小间隙 */
   }
   
-  .page-title {
-    font-size: 24px;
+  .header-left {
+    justify-content: flex-start;
+    flex: 0 0 auto;
+    gap: 8px; /* 减小 Logo 和标题的间隙 */
+  }
+
+  .logo-placeholder {
+    width: 32px; /* 稍微缩小 Logo */
+    height: 32px;
   }
   
-  .section-title {
+  .logo-placeholder .el-icon {
     font-size: 18px;
-    margin-bottom: 16px;
+  }
+
+  .vis-title {
+    font-size: 14px; /* 减小标题字体 */
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column; /* 将标题改为上下排列，节省横向空间 */
+    line-height: 1.1;
+    align-items: flex-start;
   }
   
-  .season-select {
-    width: 100% !important;
+  .vis-title .subtitle {
+    font-size: 12px;
+  }
+
+  .header-right {
+    width: auto;
+    flex: 1 1 auto; /* 占据剩余空间 */
+    min-width: 0; /* 允许缩小 */
   }
   
-  .global-filter-content {
-    padding: 0;
-  }
-  
-  .el-form-item {
-    margin-right: 0;
-    margin-bottom: 0;
+  .vis-season-select {
     width: 100%;
+    max-width: none;
   }
-  
-  :deep(.el-form-item__content) {
-    width: 100%;
+
+  /* 解决移动端 Select 下拉框宽度问题 */
+  :deep(.el-select-dropdown) {
+    max-width: 90vw;
   }
+}
+
+/* 全局覆盖 Select 下拉框样式以确保内容显示完整 */
+:deep(.vis-season-select .el-input__inner) {
+  text-overflow: ellipsis;
 }
 </style>

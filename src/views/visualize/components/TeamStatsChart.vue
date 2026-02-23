@@ -1,41 +1,43 @@
 <template>
-  <el-card class="filterable-data-card" shadow="hover">
-    <template #header>
-      <div class="card-header">
-        <div class="header-left">
-            <span class="header-title">
-              队伍数据
-              <el-tooltip content="对比各队伍的输出与生存能力（默认显示综合数据Top5选手）" placement="top">
-                <el-icon class="info-icon"><InfoFilled /></el-icon>
-              </el-tooltip>
-            </span>
+  <div class="vis-card">
+    <SlantedTitle title="队伍数据对比">
+      <template #title-suffix>
+        <el-tooltip content="对比各队伍的输出与生存能力（默认显示综合数据Top5队伍）" placement="top">
+          <el-icon class="info-icon"><InfoFilled /></el-icon>
+        </el-tooltip>
+      </template>
+      <template #extra>
+        <div class="header-controls">
+          <div class="select-wrapper">
+            <el-select 
+              v-model="teamFilter" 
+              placeholder="" 
+              :disabled="!seasonId" 
+              class="team-select-input"
+              multiple
+              collapse-tags
+              collapse-tags-tooltip
+              popper-class="team-select-dropdown"
+              size="small"
+            >
+              <template #prefix>
+                <span class="custom-select-label">队伍筛选列表</span>
+              </template>
+              <el-option
+                v-for="team in teams"
+                :key="team.id"
+                :label="team.name"
+                :value="team.id"
+              />
+            </el-select>
+          </div>
         </div>
-        <div class="card-filter">
-          <el-select 
-            v-model="teamFilter" 
-            placeholder="" 
-            :disabled="!seasonId" 
-            class="team-select-input"
-            multiple
-            collapse-tags
-            collapse-tags-tooltip
-            popper-class="team-select-dropdown"
-          >
-            <template #prefix>
-               <span class="custom-select-placeholder">队伍筛选列表</span>
-            </template>
-            <el-option
-              v-for="team in teams"
-              :key="team.id"
-              :label="team.name"
-              :value="team.id"
-            />
-          </el-select>
-        </div>
-      </div>
-    </template>
-    <div ref="teamComparisonChart" class="chart-container"></div>
-  </el-card>
+      </template>
+    </SlantedTitle>
+    <div class="card-content">
+      <div ref="teamComparisonChart" class="chart-container"></div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -44,11 +46,13 @@ import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled } from '@element-plus/icons-vue';
+import SlantedTitle from './SlantedTitle.vue';
 
 export default {
   name: 'TeamStatsChart',
   components: {
-    InfoFilled
+    InfoFilled,
+    SlantedTitle
   },
   props: {
     seasonId: {
@@ -79,8 +83,8 @@ export default {
         if (logo && !teamLogoSizes.value.has(item.teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const MAX_WIDTH = 50;
-             const MAX_HEIGHT = 30;
+             const MAX_WIDTH = 35;
+             const MAX_HEIGHT = 21;
              
              // 计算缩放比例，同时满足宽和高的限制
              const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
@@ -170,7 +174,7 @@ export default {
             }
             
             const logo = item.team ? item.team.logo : null;
-            const symbolSize = teamLogoSizes.value.get(item.teamId) || 25;
+            const symbolSize = teamLogoSizes.value.get(item.teamId) || 18;
             
             return {
                 name: teamName,
@@ -183,33 +187,31 @@ export default {
 
         const option = {
           title: {
-            show: false,
-            text: '队伍数据散点图 (K/D vs 伤害/10min)',
-            left: 'center'
+            show: false
           },
           tooltip: {
             trigger: 'item',
             formatter: function (params) {
                return `
-                 <div style="font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid #eee; padding-bottom: 4px;">${params.data.name}</div>
-                 <div style="display: flex; justify-content: space-between; gap: 15px;">
-                   <span>伤害/10min:</span>
-                   <span style="font-weight: bold;">${params.data.value[0]}</span>
+                 <div style="font-weight: 800; margin-bottom: 8px; color: #1A1A1A; font-size: 14px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px;">${params.data.name}</div>
+                 <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
+                   <span style="color: #606266;">伤害/10min:</span>
+                   <span style="font-weight: bold; color: #FF9E0F;">${params.data.value[0]}</span>
                  </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px;">
-                   <span>K/D:</span>
-                   <span style="font-weight: bold;">${params.data.value[1]}</span>
+                   <span style="color: #606266;">K/D:</span>
+                   <span style="font-weight: bold; color: #1A1A1A;">${params.data.value[1]}</span>
                  </div>
                `;
             },
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            borderColor: '#e4e7ed',
+            backgroundColor: '#FFFFFF',
+            borderColor: '#EBEEF5',
             borderWidth: 1,
             textStyle: {
               color: '#303133'
             },
-            padding: 12,
-            extraCssText: 'box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border-radius: 4px;'
+            padding: [12, 16],
+            extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
           },
           grid: {
             left: '3%',
@@ -239,7 +241,11 @@ export default {
             },
             nameTextStyle: {
               color: '#606266',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontFamily: 'Inter, sans-serif'
+            },
+            axisLabel: {
+              fontFamily: 'Inter, sans-serif'
             }
           },
           yAxis: {
@@ -261,7 +267,11 @@ export default {
             },
             nameTextStyle: {
               color: '#606266',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontFamily: 'Inter, sans-serif'
+            },
+            axisLabel: {
+              fontFamily: 'Inter, sans-serif'
             }
           },
           series: [
@@ -277,15 +287,15 @@ export default {
                   color: '#303133',
                   fontSize: 12,
                   textBorderColor: '#fff',
-                  textBorderWidth: 2
+                  textBorderWidth: 2,
+                  fontFamily: 'Inter, sans-serif'
               },
               itemStyle: {
                 color: function(params) {
-                  // 使用更现代的配色
+                  // 使用更现代的配色 (Orange-themed palette + accents)
                   const colors = [
-                    '#5470c6', '#91cc75', '#fac858', '#ee6666', 
-                    '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc',
-                    '#37A2DA', '#32C5E9', '#67E0E3', '#9FE6B8', '#FFDB5C'
+                    '#FF9E0F', '#FF6A00', '#F56C6C', '#E6A23C', 
+                    '#409EFF', '#67C23A', '#909399', '#303133'
                   ];
                   return colors[params.dataIndex % colors.length];
                 },
@@ -323,7 +333,11 @@ export default {
       if (!props.seasonId) return;
 
       try {
-        teamChart.showLoading();
+        teamChart.showLoading({
+          color: '#FF9E0F',
+          textColor: '#FF9E0F',
+          maskColor: 'rgba(255, 255, 255, 0.8)'
+        });
         
         const params = {
           seasonId: props.seasonId || null,
@@ -335,38 +349,30 @@ export default {
         await loadTeamLogos(allTeamStats.value);
         
         // 自动选择 Top 5 逻辑
-        // 如果 teamFilter 为空，进行 Top 5 选择
         if (teamFilter.value.length === 0) {
             const statsWithScore = allTeamStats.value.map(item => {
                 const duration = item.totalDuration || 0;
-                // 如果没有时间数据，得分为负无穷
                 if (duration === 0) return { ...item, score: -Infinity };
 
-                // 计算基础数据
                 const damagePer10 = (item.totalDamage / duration) * 10;
                 const kills = item.totalKills || 0;
                 const deaths = item.totalDeaths || 0;
                 
-                // 计算 K/D
                 let kd = kills;
                 if (deaths > 0) {
                     kd = kills / deaths;
                 }
 
-                // 评分算法: 优先 K/D，其次伤害
                 const score = kd * 1000 + damagePer10;
 
                 return { ...item, score };
             });
 
-            // 排序并取前5
             statsWithScore.sort((a, b) => b.score - a.score);
             const top5 = statsWithScore.slice(0, 5);
             
-            // 更新筛选列表
             teamFilter.value = top5.map(t => t.teamId);
 
-            // 兜底：如果没有选出任何队伍（例如数据都不足），且有队伍数据，则全选
             const availableTeamIds = allTeamStats.value.map(t => t.teamId);
             if (teamFilter.value.length === 0 && availableTeamIds.length > 0) {
                 teamFilter.value = availableTeamIds;
@@ -405,15 +411,10 @@ export default {
     // 监听 seasonId 变化
     watch(() => props.seasonId, async (newVal) => {
       if (newVal) {
-        // 切换赛季时清空筛选，触发默认 Top 5 逻辑
         teamFilter.value = [];
-        // 更新图表数据
         await updateTeamComparisonChart();
-        
-        // 确保赛季队伍数据已加载
         await store.dispatch('getSeasonTeams', newVal);
       } else {
-          // 如果没有赛季ID，清空或显示所有
           teamFilter.value = [];
           updateTeamComparisonChart();
       }
@@ -423,11 +424,8 @@ export default {
       await nextTick();
       teamChart = echarts.init(teamComparisonChart.value);
       
-      // 初始化数据
       if (props.seasonId) {
-          // 触发一次加载
           await updateTeamComparisonChart();
-           // 确保赛季队伍数据已加载
           await store.dispatch('getSeasonTeams', props.seasonId);
       } else {
           updateTeamComparisonChart();
@@ -451,60 +449,25 @@ export default {
 </script>
 
 <style scoped>
-.filterable-data-card {
-  border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  background: #ffffff;
-  transition: all 0.3s ease;
+.card-content {
+  padding: 24px;
 }
 
-.filterable-data-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
+.header-controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 4px 0;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.header-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-    border-left: 4px solid #409EFF;
-    padding-left: 12px;
-    line-height: 1.2;
-    display: flex;
-    align-items: center;
+  gap: 12px;
 }
 
 .info-icon {
-  margin-left: 8px;
-  font-size: 16px;
-  color: #909399;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: color 0.3s;
 }
 
 .info-icon:hover {
-  color: #409EFF;
-}
-
-.card-filter {
-  display: flex;
-  gap: 10px;
+  color: #FFFFFF;
 }
 
 .chart-container {
@@ -513,35 +476,35 @@ export default {
 }
 
 .team-select-input {
-  width: 400px;
+  width: 240px;
 }
 
-.custom-select-placeholder {
+.custom-select-label {
   color: #606266;
-  font-size: 14px;
-  line-height: 32px;
-  margin-left: 4px;
+  font-size: 12px;
+  line-height: 24px;
+  white-space: nowrap;
 }
 
-/* 移动端适配 */
 @media (max-width: 768px) {
+  .header-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 8px;
+  }
+
+  .select-wrapper {
+    width: 100%;
+    margin-top: 4px;
+  }
+
   .team-select-input {
-    width: 100% !important;
-  }
-  
-  .card-header {
-      flex-direction: column;
-      align-items: flex-start;
+    width: 100%;
   }
 
-  .header-left {
-      width: 100%;
-      justify-content: space-between;
-      margin-bottom: 5px;
-  }
-
-  .card-filter {
-      width: 100%;
+  .card-content {
+    padding: 16px;
   }
 }
 
@@ -553,7 +516,6 @@ export default {
     display: none !important;
 }
 </style>
-
 <style>
 /* Global styles for the team select dropdown */
 .team-select-dropdown .el-select-dropdown__list {
