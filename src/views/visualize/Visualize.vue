@@ -115,12 +115,19 @@ export default {
     };
     
     onMounted(async () => {
-      const savedConfig = localStorage.getItem('visualize_chart_config');
-      if (savedConfig) {
-        try {
-          chartConfig.value = JSON.parse(savedConfig);
-        } catch (e) {
-          console.error('Failed to parse chart config', e);
+      // 优先从后端加载配置
+      try {
+        const config = await apiService.getConfig('visualize_chart_config');
+        if (config) {
+          chartConfig.value = config;
+        }
+      } catch (error) {
+        console.error('加载图表配置失败，尝试使用本地缓存:', error);
+        const savedConfig = localStorage.getItem('visualize_chart_config');
+        if (savedConfig) {
+          try {
+            chartConfig.value = JSON.parse(savedConfig);
+          } catch (e) { /* ignore */ }
         }
       }
 

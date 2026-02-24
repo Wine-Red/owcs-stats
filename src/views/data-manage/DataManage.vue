@@ -9,6 +9,10 @@
           <el-icon><Map /></el-icon>
           地图局管理
         </el-tab-pane>
+        <el-tab-pane label="赛季数据导入" name="season-stats-upload">
+          <el-icon><Upload /></el-icon>
+          赛季数据导入
+        </el-tab-pane>
         <el-tab-pane label="赛季管理" name="seasons">
           <el-icon><Timer /></el-icon>
           赛季管理
@@ -199,6 +203,11 @@
           <p>暂无地图局数据</p>
         </div>
       </el-card>
+    </div>
+
+    <!-- 赛季数据导入 -->
+    <div v-show="activeTab === 'season-stats-upload'">
+      <SeasonStatsUpload />
     </div>
 
     <!-- 赛季管理 -->
@@ -829,6 +838,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { MapLocation as MapIcon, Timer, UserFilled, Star, Link, Connection, Search, Refresh, Edit, Delete, Plus, PieChart, Upload } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
+import SeasonStatsUpload from './components/SeasonStatsUpload.vue';
 
 export default {
   name: 'DataManage',
@@ -846,7 +856,8 @@ export default {
     Plus,
     PieChart,
     Upload,
-    MapDataImport
+    MapDataImport,
+    SeasonStatsUpload
   },
   setup() {
     const store = useStore();
@@ -892,21 +903,38 @@ export default {
     });
 
     // 加载图表配置
-    const loadChartConfig = () => {
-      const saved = localStorage.getItem('visualize_chart_config');
-      if (saved) {
-        try {
-          chartConfig.value = JSON.parse(saved);
-        } catch (e) {
-          console.error('Failed to parse chart config', e);
+    const loadChartConfig = async () => {
+      try {
+        const config = await apiService.getConfig('visualize_chart_config');
+        if (config) {
+          chartConfig.value = config;
+        }
+      } catch (error) {
+        console.error('加载图表配置失败:', error);
+        // 如果后端没有配置，尝试从本地加载（兼容旧数据）
+        const saved = localStorage.getItem('visualize_chart_config');
+        if (saved) {
+          try {
+            chartConfig.value = JSON.parse(saved);
+          } catch (e) { /* ignore */ }
         }
       }
     };
 
     // 保存图表配置
-    const saveChartConfig = () => {
-      localStorage.setItem('visualize_chart_config', JSON.stringify(chartConfig.value));
-      ElMessage.success('图表配置已保存');
+    const saveChartConfig = async () => {
+      try {
+        await apiService.updateConfig({
+          key: 'visualize_chart_config',
+          value: chartConfig.value,
+          description: '可视化图表显示配置'
+        });
+        localStorage.setItem('visualize_chart_config', JSON.stringify(chartConfig.value)); // 双重备份
+        ElMessage.success('图表配置已保存');
+      } catch (error) {
+        console.error('保存图表配置失败:', error);
+        ElMessage.error('保存配置失败');
+      }
     };
     
     // 比赛列表数据
@@ -1581,7 +1609,9 @@ export default {
     
     // 获取指定位置的选手列表
     const getPlayersByRole = (role) => {
-      return players.value.filter(player => player.role === role);
+      return players.value
+        .filter(player => player.role === role)
+        .sort((a, b) => a.name.localeCompare(b.name));
     };
 
     // 添加选手

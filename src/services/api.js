@@ -118,7 +118,18 @@ const apiService = {
   createSeasonTeamPlayer: (data) => api.post('/season-team-players', data),
   bulkCreateSeasonTeamPlayers: (data) => api.post('/season-team-players/bulk', data),
   updateSeasonTeamPlayer: (id, data) => api.put(`/season-team-players/${id}`, data),
-  deleteSeasonTeamPlayer: (id) => api.delete(`/season-team-players/${id}`)
+  deleteSeasonTeamPlayer: (id) => api.delete(`/season-team-players/${id}`),
+
+  // Season Stats (New)
+  uploadSeasonStats: (formData) => api.post('/season-stats/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
+
+  // Config (New)
+  getAllConfigs: () => api.get('/config'),
+  getConfig: (key) => api.get(`/config/${key}`),
+  updateConfig: (data) => api.post('/config', data)
 };
 
 export default apiService;

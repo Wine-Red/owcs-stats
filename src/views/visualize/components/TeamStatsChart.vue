@@ -122,9 +122,12 @@ export default {
             filteredStats = [];
         }
 
-        // 1. 先计算所有队伍（allTeamStats）的数据，找出全局最大值
-        let globalMaxDamage = 0;
-        let globalMaxKD = 0;
+        // 1. 先计算所有队伍（allTeamStats）的数据，找出全局最大值和最小值
+        // 初始化为极端值
+        let globalMaxDamage = -Infinity;
+        let globalMinDamage = Infinity;
+        let globalMaxKD = -Infinity;
+        let globalMinKD = Infinity;
 
         allTeamStats.value.forEach(item => {
             const durationMinutes = item.totalDuration || 0;
@@ -146,11 +149,27 @@ export default {
             }
 
             if (damagePer10 > globalMaxDamage) globalMaxDamage = damagePer10;
+            if (damagePer10 < globalMinDamage) globalMinDamage = damagePer10;
+            
             if (kd > globalMaxKD) globalMaxKD = kd;
+            if (kd < globalMinKD) globalMinKD = kd;
         });
+        
+        // 如果没有数据，重置为默认值
+        if (globalMaxDamage === -Infinity) { globalMaxDamage = 1000; globalMinDamage = 0; }
+        if (globalMaxKD === -Infinity) { globalMaxKD = 5; globalMinKD = 0; }
 
-        const xMax = Math.ceil(globalMaxDamage * 1.1 / 100) * 100; // 向上取整到百位
-        const yMax = Math.ceil(globalMaxKD * 1.1 * 10) / 10;       // 向上取整到0.1位
+        // 计算 padding，使散点不贴边
+        const damagePadding = (globalMaxDamage - globalMinDamage) * 0.1 || 100;
+        const kdPadding = (globalMaxKD - globalMinKD) * 0.1 || 0.5;
+
+        // 设置坐标轴范围
+        // 确保 min 不小于 0 (除非有负数数据，这里假设没有)
+        const xMin = Math.max(0, Math.floor((globalMinDamage - damagePadding) / 100) * 100); 
+        const xMax = Math.ceil((globalMaxDamage + damagePadding) / 100) * 100;
+        
+        const yMin = Math.max(0, Math.floor((globalMinKD - kdPadding) * 10) / 10);
+        const yMax = Math.ceil((globalMaxKD + kdPadding) * 10) / 10;
 
         // 2. 处理当前筛选出的数据 for Scatter Plot
         const seriesData = filteredStats.map(item => {
@@ -226,8 +245,8 @@ export default {
             nameLocation: 'middle',
             nameGap: 30,
             scale: false, 
-            min: 0,
-            max: xMax > 0 ? xMax : undefined,
+            min: xMin,
+            max: xMax,
             splitLine: {
               lineStyle: {
                 type: 'dashed',
@@ -252,8 +271,8 @@ export default {
             type: 'value',
             name: 'K/D',
             scale: false,
-            min: 0,
-            max: yMax > 0 ? yMax : undefined,
+            min: yMin,
+            max: yMax,
             splitLine: {
               lineStyle: {
                 type: 'dashed',
@@ -339,13 +358,31 @@ export default {
           maskColor: 'rgba(255, 255, 255, 0.8)'
         });
         
-        const params = {
-          seasonId: props.seasonId || null,
-          teamIds: null 
-        };
-        const response = await apiService.getTeamStatsData(params);
+        // 使用新的赛季数据接口并聚合
+        const response = await apiService.getSeasonPlayerStats(props.seasonId);
         
-        allTeamStats.value = response;
+        const teamStatsMap = new Map();
+        response.forEach(p => {
+            if (!p.teamId) return;
+            if (!teamStatsMap.has(p.teamId)) {
+                teamStatsMap.set(p.teamId, {
+                    teamId: p.teamId,
+                    teamName: p.teamName || p.team?.name || '未知队伍',
+                    team: p.team, // 保留 team 对象以获取 logo
+                    totalDamage: 0,
+                    totalDeaths: 0,
+                    totalKills: 0,
+                    totalDuration: 0 // minutes
+                });
+            }
+            const teamStat = teamStatsMap.get(p.teamId);
+            teamStat.totalDamage += (p.damage || 0);
+            teamStat.totalDeaths += (p.deaths || 0);
+            teamStat.totalKills += (p.elims || 0);
+            teamStat.totalDuration += (p.gameTime || 0);
+        });
+        
+        allTeamStats.value = Array.from(teamStatsMap.values());
         await loadTeamLogos(allTeamStats.value);
         
         // 自动选择 Top 5 逻辑

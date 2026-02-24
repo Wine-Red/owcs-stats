@@ -110,27 +110,25 @@ export default {
 
     // 根据赛季和队伍筛选选手
     const getFilteredPlayers = computed(() => {
-      // 首先根据职责筛选
-      let players = store.state.players;
+      // 从 allPlayerStats 中提取选手信息
+      let stats = allPlayerStats.value;
+      
       if (playerRole.value) {
-        players = players.filter(p => p.role === playerRole.value);
+        stats = stats.filter(s => s.role === playerRole.value);
       }
-
-      if (!props.seasonId) return players;
       
-      // 获取当前赛季的所有赛季-队伍关联
-      const seasonTeams = store.state.seasonTeams
-        .filter(st => st.seasonId === props.seasonId);
+      // 去重并返回格式化后的选手列表
+      const playersMap = new Map();
+      stats.forEach(s => {
+        if (s.playerId && !playersMap.has(s.playerId)) {
+          playersMap.set(s.playerId, {
+            id: s.playerId,
+            name: s.playerName || s.player?.name || '未知选手'
+          });
+        }
+      });
       
-      const seasonTeamIds = seasonTeams.map(st => st.id);
-      
-      // 获取这些关联中的所有选手ID
-      const playerIds = store.state.seasonTeamPlayers
-        .filter(stp => seasonTeamIds.includes(stp.seasonTeamId))
-        .map(stp => stp.playerId);
-      
-      // 返回筛选后的选手
-      return players.filter(player => playerIds.includes(player.id));
+      return Array.from(playersMap.values());
     });
 
     // 渲染选手图表（纯前端过滤和渲染）
@@ -139,14 +137,20 @@ export default {
         
         let filteredStats = [];
         
+        // 确保只显示当前角色的数据
+        let roleStats = allPlayerStats.value;
+        if (playerRole.value) {
+            roleStats = roleStats.filter(s => s.role === playerRole.value);
+        }
+        
         if (playerFilter.value && playerFilter.value.length > 0) {
              const selectedIds = playerFilter.value.map(id => Number(id));
              
-             filteredStats = allPlayerStats.value.filter(item => {
+             filteredStats = roleStats.filter(item => {
                  return selectedIds.includes(Number(item.playerId));
              });
         } else {
-             filteredStats = allPlayerStats.value;
+             filteredStats = roleStats;
         }
 
         let xAxisName = '';
@@ -159,56 +163,72 @@ export default {
             case 'tank':
                 xAxisName = '抵挡/10min';
                 yAxisName = '死亡/10min';
-                xKey = 'totalMitigation';
-                yKey = 'totalDeaths';
+                xKey = 'mitigationPerMin';
+                yKey = 'deathsPerMin';
                 yInverse = true; 
                 break;
             case 'damage':
                 xAxisName = '伤害/10min';
                 yAxisName = '消灭/10min';
-                xKey = 'totalDamage';
-                yKey = 'totalKills';
+                xKey = 'damagePerMin';
+                yKey = 'elimsPerMin';
                 break;
             case 'support':
                 xAxisName = '治疗/10min';
                 yAxisName = '助攻/10min';
-                xKey = 'totalHealing';
-                yKey = 'totalAssists';
+                xKey = 'healingPerMin';
+                yKey = 'assistsPerMin';
                 break;
             default:
                 xAxisName = '伤害/10min';
                 yAxisName = '消灭/10min';
-                xKey = 'totalDamage';
-                yKey = 'totalKills';
+                xKey = 'damagePerMin';
+                yKey = 'elimsPerMin';
         }
         
-        // 计算全局最大值用于固定坐标轴
-        let globalMaxX = 0;
-        let globalMaxY = 0;
+        // 计算全局最大值和最小值用于固定坐标轴
+        // 初始化为极端值
+        let globalMaxX = -Infinity;
+        let globalMinX = Infinity;
+        let globalMaxY = -Infinity;
+        let globalMinY = Infinity;
         
-        allPlayerStats.value.forEach(item => {
-            const duration = item.totalDuration || 0;
-            if (duration === 0) return;
-            
-            const xVal = (item[xKey] / duration) * 10;
-            const yVal = (item[yKey] / duration) * 10;
+        roleStats.forEach(item => {
+            const xVal = item[xKey] * 10;
+            const yVal = item[yKey] * 10;
             
             if (xVal > globalMaxX) globalMaxX = xVal;
+            if (xVal < globalMinX) globalMinX = xVal;
+            
             if (yVal > globalMaxY) globalMaxY = yVal;
+            if (yVal < globalMinY) globalMinY = yVal;
         });
 
-        const xMax = Math.ceil(globalMaxX * 1.1); 
-        const yMax = Math.ceil(globalMaxY * 1.1); 
+        // 如果没有数据，重置为默认值
+        if (globalMaxX === -Infinity) { globalMaxX = 100; globalMinX = 0; }
+        if (globalMaxY === -Infinity) { globalMaxY = 100; globalMinY = 0; }
+
+        // 计算 padding，使散点不贴边
+        const xPadding = (globalMaxX - globalMinX) * 0.1 || 10;
+        const yPadding = (globalMaxY - globalMinY) * 0.1 || 10;
+
+        // 设置坐标轴范围
+        // 确保 min 不小于 0 (除非有负数数据，这里假设没有)
+        const xMin = Math.max(0, Math.floor((globalMinX - xPadding) * 100) / 100); 
+        const xMax = Math.ceil((globalMaxX + xPadding) * 100) / 100;
+        
+        const yMin = Math.max(0, Math.floor((globalMinY - yPadding) * 100) / 100);
+        const yMax = Math.ceil((globalMaxY + yPadding) * 100) / 100;
         
         const seriesData = filteredStats.map(item => {
-            const duration = item.totalDuration || 0; 
-            if (duration === 0) return null;
+            const xVal = parseFloat((item[xKey] * 10).toFixed(2));
+            const yVal = parseFloat((item[yKey] * 10).toFixed(2));
             
-            const xVal = parseFloat(((item[xKey] / duration) * 10).toFixed(2));
-            const yVal = parseFloat(((item[yKey] / duration) * 10).toFixed(2));
-            
+            // 使用新数据的关联对象，或者回退到直接存储的字段
             const logo = item.team ? item.team.logo : null;
-            const teamId = item.team ? item.team.id : null;
+            const teamId = item.team ? item.team.id : item.teamId;
+            const playerName = item.playerName || item.player?.name || '未知选手';
+            const teamName = item.teamName || item.team?.name || '未知队伍';
             
             let symbolSize = 8;
             if (logo) {
@@ -216,8 +236,8 @@ export default {
             }
 
             return {
-                name: item.player?.name || '未知选手',
-                value: [xVal, yVal, item.player?.name, item.team?.name],
+                name: playerName,
+                value: [xVal, yVal, playerName, teamName],
                 symbol: logo ? `image://${logo}` : 'circle',
                 symbolSize: symbolSize
             };
@@ -267,8 +287,8 @@ export default {
             nameLocation: 'middle',
             nameGap: 30,
             scale: false,
-            min: 0,
-            max: xMax > 0 ? xMax : undefined,
+            min: xMin,
+            max: xMax,
             splitLine: {
               lineStyle: {
                 type: 'dashed',
@@ -294,8 +314,8 @@ export default {
             name: yAxisName,
             inverse: yInverse,
             scale: false, 
-            min: 0,
-            max: yMax > 0 ? yMax : undefined,
+            min: yMin,
+            max: yMax,
             splitLine: {
               lineStyle: {
                 type: 'dashed',
@@ -365,39 +385,33 @@ export default {
           maskColor: 'rgba(255, 255, 255, 0.8)'
         });
         
-        const params = {
-          seasonId: props.seasonId || null,
-          teamIds: null, // 我们不在这里根据队伍筛选，而是获取所有，前端筛选
-          playerIds: null, 
-          role: playerRole.value
-        };
-        
-        const response = await apiService.getPlayerStatsData(params);
+        // 使用新的赛季数据接口
+        const response = await apiService.getSeasonPlayerStats(props.seasonId);
         allPlayerStats.value = response || [];
         await loadTeamLogos(allPlayerStats.value);
         
-        const availablePlayerIds = allPlayerStats.value.map(p => p.playerId);
+        // 获取当前角色的所有数据用于计算Top 5
+        const roleStats = allPlayerStats.value.filter(s => s.role === playerRole.value);
+        const availablePlayerIds = roleStats.map(p => p.playerId).filter(id => id);
         
         // 自动选择Top 5逻辑
         if (playerFilter.value.length === 0) {
-            const statsWithScore = allPlayerStats.value.map(item => {
-                const duration = item.totalDuration || 0;
-                if (duration === 0) return { ...item, score: -Infinity }; 
-
+            const statsWithScore = roleStats.map(item => {
                 let score = 0;
-                const per10 = (val) => (val / duration) * 10;
+                // 数据已经是每分钟，转换为每10分钟以保持逻辑一致
+                const per10 = (val) => (val || 0) * 10;
 
                 if (playerRole.value === 'tank') {
-                    const mit = per10(item.totalMitigation);
-                    const dth = per10(item.totalDeaths);
+                    const mit = per10(item.mitigationPerMin);
+                    const dth = per10(item.deathsPerMin);
                     score = mit / (dth + 0.1);
                 } else if (playerRole.value === 'damage') {
-                    const dmg = per10(item.totalDamage);
-                    const elim = per10(item.totalKills);
+                    const dmg = per10(item.damagePerMin);
+                    const elim = per10(item.elimsPerMin);
                     score = elim * 1000 + dmg;
                 } else if (playerRole.value === 'support') {
-                    const heal = per10(item.totalHealing);
-                    const ast = per10(item.totalAssists);
+                    const heal = per10(item.healingPerMin);
+                    const ast = per10(item.assistsPerMin);
                     score = heal + ast * 1000;
                 }
 
@@ -407,41 +421,41 @@ export default {
             statsWithScore.sort((a, b) => b.score - a.score);
 
             const top5 = statsWithScore.slice(0, 5);
-            playerFilter.value = top5.map(p => p.playerId);
+            playerFilter.value = top5.map(p => p.playerId).filter(id => id);
             
             if (playerFilter.value.length === 0 && availablePlayerIds.length > 0) {
                  playerFilter.value = availablePlayerIds;
             }
         } else {
              // 过滤掉不再当前列表中的ID
-             playerFilter.value = playerFilter.value.filter(id => availablePlayerIds.includes(id));
+             // 注意：这里需要检查所有 allPlayerStats 中的ID，因为 playerFilter 可能包含其他角色的ID（虽然切换角色会重置，但为了健壮性）
+             const allIds = allPlayerStats.value.map(p => p.playerId);
+             playerFilter.value = playerFilter.value.filter(id => allIds.includes(Number(id)));
              
              if (playerFilter.value.length === 0) {
-                 const statsWithScore = allPlayerStats.value.map(item => {
-                    const duration = item.totalDuration || 0;
-                    if (duration === 0) return { ...item, score: -Infinity };
-
+                 // 如果过滤后为空，重新计算Top 5
+                 const statsWithScore = roleStats.map(item => {
                     let score = 0;
-                    const per10 = (val) => (val / duration) * 10;
+                    const per10 = (val) => (val || 0) * 10;
 
                     if (playerRole.value === 'tank') {
-                        const mit = per10(item.totalMitigation);
-                        const dth = per10(item.totalDeaths);
+                        const mit = per10(item.mitigationPerMin);
+                        const dth = per10(item.deathsPerMin);
                         score = mit / (dth + 0.1);
                     } else if (playerRole.value === 'damage') {
-                        const dmg = per10(item.totalDamage);
-                        const elim = per10(item.totalKills);
+                        const dmg = per10(item.damagePerMin);
+                        const elim = per10(item.elimsPerMin);
                         score = elim * 1000 + dmg;
                     } else if (playerRole.value === 'support') {
-                        const heal = per10(item.totalHealing);
-                        const ast = per10(item.totalAssists);
+                        const heal = per10(item.healingPerMin);
+                        const ast = per10(item.assistsPerMin);
                         score = heal + ast * 1000;
                     }
                     return { ...item, score };
                 });
                 statsWithScore.sort((a, b) => b.score - a.score);
                 const top5 = statsWithScore.slice(0, 5);
-                playerFilter.value = top5.map(p => p.playerId);
+                playerFilter.value = top5.map(p => p.playerId).filter(id => id);
                 
                 if (playerFilter.value.length === 0 && availablePlayerIds.length > 0) {
                     playerFilter.value = availablePlayerIds;

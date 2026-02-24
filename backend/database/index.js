@@ -9,6 +9,8 @@ const Hero = require('../models/Hero');
 const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
 const MapGame = require('../models/MapGame'); // eslint-disable-line no-unused-vars
 const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-unused-vars
+const SeasonPlayerStat = require('../models/SeasonPlayerStat'); // eslint-disable-line no-unused-vars
+const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 
 const initDatabase = async () => {
   try {
@@ -43,6 +45,7 @@ const setupAssociations = () => {
   const Match = require('../models/Match');
   const MapGame = require('../models/MapGame');
   const PlayerStat = require('../models/PlayerStat');
+  const SeasonPlayerStat = require('../models/SeasonPlayerStat');
 
   // PlayerStat 关联
   PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
@@ -52,6 +55,13 @@ const setupAssociations = () => {
 
   // MapGame 关联
   MapGame.hasMany(PlayerStat, { foreignKey: 'mapGameId', as: 'playerStats' });
+
+  // SeasonPlayerStat 关联
+  SeasonPlayerStat.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
+  SeasonPlayerStat.belongsTo(Player, { foreignKey: 'playerId', as: 'player' });
+  SeasonPlayerStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
+
+  Season.hasMany(SeasonPlayerStat, { foreignKey: 'seasonId', as: 'seasonPlayerStats' });
 };
 
 const initBasicData = async () => {
