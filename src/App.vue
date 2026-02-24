@@ -24,7 +24,7 @@
 
     <!-- 页脚 -->
     <footer class="app-footer">
-      <p>© 2025 OWCS Stats System</p>
+      <p>© 2026 OWCS Stats</p>
     </footer>
   </div>
 </template>

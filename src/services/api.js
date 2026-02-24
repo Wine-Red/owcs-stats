@@ -80,6 +80,7 @@ const apiService = {
   // 地图局相关
   getMapGames: (filters) => api.get('/map-games', { params: filters }),
   getMapGameById: (id) => api.get(`/map-games/${id}`),
+  getMapGameEditContext: (id) => api.get(`/map-games/${id}/edit-context`),
   createMapGame: (data) => api.post('/map-games', data),
   updateMapGame: (id, data) => api.put(`/map-games/${id}`, data),
   deleteMapGame: (id) => api.delete(`/map-games/${id}`),

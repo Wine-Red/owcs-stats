@@ -8,6 +8,9 @@ router.post('/import', MapGameController.importMapData);
 // 预览地图数据
 router.post('/preview', MapGameController.previewMapData);
 
+// 获取地图局编辑上下文
+router.get('/:id/edit-context', MapGameController.getEditContext);
+
 // 获取所有地图局
 router.get('/', MapGameController.getAll);
 

@@ -68,13 +68,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
 import { useStore } from 'vuex';
 import { DataAnalysis, Moon } from '@element-plus/icons-vue';
-import HeroBanChart from './components/HeroBanChart.vue';
-import MapPickChart from './components/MapPickChart.vue';
-import TeamStatsChart from './components/TeamStatsChart.vue';
-import PlayerStatsChart from './components/PlayerStatsChart.vue';
+
+const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
+const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
+const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
+const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
+
+import apiService from '@/services/api';
 
 export default {
   name: 'VisualizeView',

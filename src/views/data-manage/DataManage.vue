@@ -1288,112 +1288,112 @@ export default {
         
         // 确保加载了相关的赛季-队伍和选手数据
         try {
-          // 1. 加载所有赛季-队伍关联
-          const allSeasonTeams = await apiService.getAllSeasonTeams();
-          store.commit('setSeasonTeams', allSeasonTeams);
+          // 使用聚合接口一次性获取所有上下文数据
+          console.log('正在获取地图局编辑上下文...');
+          const context = await apiService.getMapGameEditContext(mapGame.id);
+          console.log('获取到编辑上下文:', context);
 
-          // 2. 找到当前比赛两支队伍的赛季关联ID
-          const seasonTeam1 = allSeasonTeams.find(st => 
-            st.seasonId === mapGame.seasonId && st.teamId === mapGame.team1Id
-          );
-          const seasonTeam2 = allSeasonTeams.find(st => 
-            st.seasonId === mapGame.seasonId && st.teamId === mapGame.team2Id
-          );
+          const { playerStats, seasonTeams, team1Players, team2Players } = context;
 
-          // 3. 加载这两支队伍的选手列表
-          if (seasonTeam1) {
-            await store.dispatch('getSeasonTeamPlayers', seasonTeam1.id);
-          }
-          if (seasonTeam2) {
-            await store.dispatch('getSeasonTeamPlayers', seasonTeam2.id);
-          }
-        } catch (e) {
-          console.error('加载队伍选手数据失败:', e);
-          ElMessage.warning('加载队伍选手数据失败，部分选手可能无法显示');
-        }
+          // 更新 Store 中的 seasonTeams
+          store.commit('setSeasonTeams', seasonTeams);
 
-        console.log('获取地图局的选手数据，ID:', mapGame.id);
-        // 获取地图局的选手数据
-        const playerStats = await apiService.getMapGamePlayerStats(mapGame.id);
-        console.log('获取到选手数据:', playerStats);
-        
-        // 为选手数据添加 _slotKey 字段，用于匹配界面上的位置
-        const playerStatsWithSlotKey = [];
-        
-        // 按队伍和角色分组
-        const team1Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team1Id);
-        const team2Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team2Id);
-        
-        // 为每个队伍分配选手数据到位置
-        const assignStatsToSlots = (stats, teamKey) => {
-          const teamId = teamKey === 'team1' ? mapGame.team1Id : mapGame.team2Id;
+          // 更新 Store 中的 seasonTeamPlayers
+          // 我们需要把 team1Players 和 team2Players 合并并更新到 store
+          // 注意：team1Players 是 SeasonTeamPlayer 对象数组，包含 Player 对象
+          const allNewSeasonTeamPlayers = [...team1Players, ...team2Players];
           
-          // 按角色分组
-          const statsByRole = {
-            tank: stats.filter(stat => {
-              const player = stat.player || players.value.find(p => p.id === stat.playerId);
-              return player && player.role === 'tank';
-            }),
-            damage: stats.filter(stat => {
-              const player = stat.player || players.value.find(p => p.id === stat.playerId);
-              return player && player.role === 'damage';
-            }),
-            support: stats.filter(stat => {
-              const player = stat.player || players.value.find(p => p.id === stat.playerId);
-              return player && player.role === 'support';
-            })
-          };
-          
-          // 按角色分配位置：坦克1个，输出2个，辅助2个
-          const roleConfig = {
-            tank: 1,
-            damage: 2,
-            support: 2
-          };
-          
-          Object.entries(roleConfig).forEach(([role, count]) => {
-            for (let index = 1; index <= count; index++) {
-              const slotKey = `${teamKey}-${role}${index}`;
-              
-              // 获取该角色的选手数据
-              const roleStats = statsByRole[role] || [];
-              const stat = roleStats[index - 1]; // 按顺序获取
-              
-              if (stat) {
-                playerStatsWithSlotKey.push({
-                  ...stat,
-                  _slotKey: slotKey
-                });
-              } else {
-                // 如果没有找到匹配的选手数据，创建一个空的占位符
-                playerStatsWithSlotKey.push({
-                  playerId: '',
-                  heroId: '',
-                  kills: 0,
-                  deaths: 0,
-                  assists: 0,
-                  damage: 0,
-                  healing: 0,
-                  mitigation: 0,
-                  ultsUsed: 0,
-                  finalBlows: 0,
-                  teamId: teamId,
-                  _slotKey: slotKey
-                });
-              }
+          const currentStorePlayers = store.state.seasonTeamPlayers;
+          // 简单的去重合并
+          const merged = [...currentStorePlayers];
+          allNewSeasonTeamPlayers.forEach(newP => {
+            if (!merged.find(p => p.id === newP.id)) {
+              merged.push(newP);
             }
           });
-        };
-        
-        assignStatsToSlots(team1Stats, 'team1');
-        assignStatsToSlots(team2Stats, 'team2');
-        
-        mapGame.playerStats = playerStatsWithSlotKey;
-        
-        // 将单个地图局放入编辑数组
-        mapGamesForEdit.value = [mapGame];
-        mapGameEditTab.value = '0';
-        mapGameEditDialogVisible.value = true;
+          store.commit('setSeasonTeamPlayers', merged);
+
+          // 为选手数据添加 _slotKey 字段，用于匹配界面上的位置
+          const playerStatsWithSlotKey = [];
+          
+          // 按队伍和角色分组
+          const team1Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team1Id);
+          const team2Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team2Id);
+          
+          // 为每个队伍分配选手数据到位置
+          const assignStatsToSlots = (stats, teamKey) => {
+            const teamId = teamKey === 'team1' ? mapGame.team1Id : mapGame.team2Id;
+            
+            // 按角色分组
+            const statsByRole = {
+              tank: stats.filter(stat => {
+                const player = stat.player || players.value.find(p => p.id === stat.playerId);
+                return player && player.role === 'tank';
+              }),
+              damage: stats.filter(stat => {
+                const player = stat.player || players.value.find(p => p.id === stat.playerId);
+                return player && player.role === 'damage';
+              }),
+              support: stats.filter(stat => {
+                const player = stat.player || players.value.find(p => p.id === stat.playerId);
+                return player && player.role === 'support';
+              })
+            };
+            
+            // 按角色分配位置：坦克1个，输出2个，辅助2个
+            const roleConfig = {
+              tank: 1,
+              damage: 2,
+              support: 2
+            };
+            
+            Object.entries(roleConfig).forEach(([role, count]) => {
+              for (let index = 1; index <= count; index++) {
+                const slotKey = `${teamKey}-${role}${index}`;
+                
+                // 获取该角色的选手数据
+                const roleStats = statsByRole[role] || [];
+                const stat = roleStats[index - 1]; // 按顺序获取
+                
+                if (stat) {
+                  playerStatsWithSlotKey.push({
+                    ...stat,
+                    _slotKey: slotKey
+                  });
+                } else {
+                  // 如果没有找到匹配的选手数据，创建一个空的占位符
+                  playerStatsWithSlotKey.push({
+                    playerId: '',
+                    heroId: '',
+                    kills: 0,
+                    deaths: 0,
+                    assists: 0,
+                    damage: 0,
+                    healing: 0,
+                    mitigation: 0,
+                    ultsUsed: 0,
+                    finalBlows: 0,
+                    teamId: teamId,
+                    _slotKey: slotKey
+                  });
+                }
+              }
+            });
+          };
+          
+          assignStatsToSlots(team1Stats, 'team1');
+          assignStatsToSlots(team2Stats, 'team2');
+          
+          mapGame.playerStats = playerStatsWithSlotKey;
+          
+          // 将单个地图局放入编辑数组
+          mapGamesForEdit.value = [mapGame];
+          mapGameEditTab.value = '0';
+          mapGameEditDialogVisible.value = true;
+        } catch (e) {
+          console.error('加载地图局数据失败:', e);
+          ElMessage.warning('加载地图局数据失败，部分数据可能无法显示');
+        }
       } catch (error) {
         console.error('编辑地图局失败:', error);
         const errorMessage = error.response?.data?.error || error.message || '未知错误';

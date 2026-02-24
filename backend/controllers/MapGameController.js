@@ -233,6 +233,68 @@ const resolveImportData = async (seasonId, mapData, playerStats) => {
 };
 
 const MapGameController = {
+  // 获取地图局编辑上下文数据
+  getEditContext: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const mapGame = await MapGame.findByPk(id);
+      if (!mapGame) {
+        return res.status(404).json({ error: 'MapGame not found' });
+      }
+      
+      const seasonId = mapGame.seasonId;
+      const team1Id = mapGame.team1Id;
+      const team2Id = mapGame.team2Id;
+
+      const [playerStats, seasonTeams, team1Players, team2Players] = await Promise.all([
+        // 1. 获取选手统计数据
+        PlayerStat.findAll({ 
+          where: { mapGameId: id },
+          include: [
+            { model: Player, as: 'player' },
+            { model: Hero, as: 'hero' },
+            { model: Team, as: 'team' }
+          ]
+        }),
+        // 2. 获取该赛季所有队伍
+        SeasonTeam.findAll({
+          where: { seasonId },
+          include: [{ model: Team, as: 'Team' }]
+        }),
+        // 3. 获取队伍1的选手
+        (async () => {
+          const st = await SeasonTeam.findOne({ where: { seasonId, teamId: team1Id } });
+          if (!st) return [];
+          return SeasonTeamPlayer.findAll({
+            where: { seasonTeamId: st.id },
+            include: [{ model: Player, attributes: ['id', 'name', 'role'] }]
+          });
+        })(),
+        // 4. 获取队伍2的选手
+        (async () => {
+          const st = await SeasonTeam.findOne({ where: { seasonId, teamId: team2Id } });
+          if (!st) return [];
+          return SeasonTeamPlayer.findAll({
+            where: { seasonTeamId: st.id },
+            include: [{ model: Player, attributes: ['id', 'name', 'role'] }]
+          });
+        })()
+      ]);
+
+      res.status(200).json({
+        mapGame,
+        playerStats,
+        seasonTeams,
+        team1Players,
+        team2Players
+      });
+    } catch (error) {
+      console.error('获取地图局编辑上下文失败:', error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // 预览地图数据
   previewMapData: async (req, res) => {
       try {
