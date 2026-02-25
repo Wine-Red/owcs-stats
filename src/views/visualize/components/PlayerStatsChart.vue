@@ -57,13 +57,13 @@
           :row-class-name="tableRowClassName"
           @sort-change="handleSortChange"
         >
-          <el-table-column type="index" label="排名" width="60" align="center">
+          <el-table-column type="index" label="排名" width="60" align="center" fixed>
             <template #default="scope">
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="playerName" label="选手" min-width="120">
+          <el-table-column prop="playerName" label="选手" min-width="120" fixed>
             <template #default="scope">
               <div class="player-cell">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
@@ -77,43 +77,43 @@
 
           <!-- Tank Columns -->
           <template v-if="playerRole === 'tank'">
-            <el-table-column key="tank-mit" prop="mitigationPer10" label="抵挡/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column key="tank-mit" prop="mitigationPer10" label="抵挡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                  <span class="stat-highlight">{{ scope.row.mitigationPer10 }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="tank-kd" prop="kd" label="K/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-assists" prop="assistsPer10" label="助攻/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
           </template>
 
           <!-- Damage Columns -->
           <template v-else-if="playerRole === 'damage'">
-            <el-table-column key="dmg-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column key="dmg-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                  <span class="stat-highlight">{{ scope.row.elimsPer10 }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="dmg-kd" prop="kd" label="K/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="dmg-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
           </template>
 
           <!-- Support Columns -->
           <template v-else-if="playerRole === 'support'">
-            <el-table-column key="supp-kad" prop="kad" label="KA/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <el-table-column key="supp-kad" prop="kad" label="KA/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                  <span class="stat-highlight">{{ scope.row.kad }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="supp-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-heal" prop="healingPer10" label="治疗/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-assists" prop="assistsPer10" label="助攻/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-heal" prop="healingPer10" label="治疗/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
           </template>
           
-          <el-table-column prop="duration" label="时长(分)" width="90" align="right" />
+          <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
         </el-table>
         
         <div class="leaderboard-footer" v-if="playerLeaderboardData.length > 3">
@@ -767,6 +767,33 @@ export default {
 </script>
 
 <style scoped>
+/* 确保固定列有不透明背景 */
+:deep(.el-table .el-table__cell.is-fixed),
+:deep(.el-table .el-table__fixed-right-patch),
+:deep(.el-table__body tr > td:first-child),
+:deep(.el-table__body tr > td:nth-child(2)) {
+  background-color: #ffffff;
+}
+
+/* 修复前三名高亮行在固定列时的背景色问题 */
+:deep(.el-table__body tr.top-rank-row > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row > td:first-child),
+:deep(.el-table__body tr.top-rank-row > td:nth-child(2)) {
+  background-color: #fff9e6 !important;
+}
+:deep(.el-table__body tr.top-rank-row.hover-row > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row:hover > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row.hover-row > td:first-child),
+:deep(.el-table__body tr.top-rank-row:hover > td:first-child),
+:deep(.el-table__body tr.top-rank-row.hover-row > td:nth-child(2)),
+:deep(.el-table__body tr.top-rank-row:hover > td:nth-child(2)) {
+  background-color: #fff9e6 !important; /* 保持高亮背景色，或根据需要调整 hover 颜色 */
+}
+
+:deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background-color: var(--el-table-row-hover-bg-color);
+}
+
 .leaderboard-section {
   margin-top: 24px;
   border-top: 1px solid #EBEEF5;

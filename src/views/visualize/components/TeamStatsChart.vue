@@ -50,12 +50,12 @@
           @sort-change="handleSortChange"
           :default-sort="{ prop: 'kd', order: 'descending' }"
         >
-          <el-table-column type="index" label="排名" width="60" align="center">
+          <el-table-column type="index" label="排名" width="60" align="center" fixed>
             <template #default="scope">
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="teamName" label="队伍" min-width="120">
+          <el-table-column prop="teamName" label="队伍" min-width="120" fixed>
             <template #default="scope">
               <div class="team-cell">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
@@ -63,13 +63,13 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="kd" label="K/D" width="100" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+          <el-table-column prop="kd" label="K/D" width="100" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
             <template #default="scope">
               <span class="stat-highlight">{{ scope.row.kd }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
-          <el-table-column prop="duration" label="总时长(分)" width="100" align="right" />
+          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          <el-table-column prop="duration" label="总时长(分)" width="100" align="center" />
         </el-table>
         
         <div class="leaderboard-footer" v-if="teamLeaderboardData.length > 3">
@@ -770,6 +770,33 @@ export default {
 }
 :deep(.team-select-input .el-select__selection) {
     display: none !important;
+}
+
+/* 确保固定列有不透明背景 */
+:deep(.el-table .el-table__cell.is-fixed),
+:deep(.el-table .el-table__fixed-right-patch),
+:deep(.el-table__body tr > td:first-child),
+:deep(.el-table__body tr > td:nth-child(2)) {
+  background-color: #ffffff;
+}
+
+/* 修复前三名高亮行在固定列时的背景色问题 */
+:deep(.el-table__body tr.top-rank-row > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row > td:first-child),
+:deep(.el-table__body tr.top-rank-row > td:nth-child(2)) {
+  background-color: #fff9e6 !important;
+}
+:deep(.el-table__body tr.top-rank-row.hover-row > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row:hover > td.el-table__cell.is-fixed),
+:deep(.el-table__body tr.top-rank-row.hover-row > td:first-child),
+:deep(.el-table__body tr.top-rank-row:hover > td:first-child),
+:deep(.el-table__body tr.top-rank-row.hover-row > td:nth-child(2)),
+:deep(.el-table__body tr.top-rank-row:hover > td:nth-child(2)) {
+  background-color: #fff9e6 !important; /* 保持高亮背景色，或根据需要调整 hover 颜色 */
+}
+
+:deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background-color: var(--el-table-row-hover-bg-color);
 }
 </style>
 <style>

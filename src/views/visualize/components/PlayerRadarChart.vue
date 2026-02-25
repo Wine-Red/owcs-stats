@@ -18,7 +18,6 @@
              <el-select 
               v-model="player1Id" 
               placeholder="选择选手1 (红)" 
-              filterable
               clearable
               class="player-select player-select-red"
               size="small"
@@ -34,7 +33,6 @@
             <el-select 
               v-model="player2Id" 
               placeholder="选择选手2 (蓝)" 
-              filterable
               clearable
               class="player-select player-select-blue"
               size="small"
