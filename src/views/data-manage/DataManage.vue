@@ -65,6 +65,9 @@
            <el-form-item label="选手数据">
              <el-switch v-model="chartConfig.playerStats" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
+           <el-form-item label="选手雷达图">
+             <el-switch v-model="chartConfig.playerRadar" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
         </el-form>
       </el-card>
     </div>
@@ -899,7 +902,8 @@ export default {
       heroBan: true,
       mapPick: true,
       teamStats: true,
-      playerStats: true
+      playerStats: true,
+      playerRadar: true
     });
 
     // 加载图表配置
@@ -907,7 +911,7 @@ export default {
       try {
         const config = await apiService.getConfig('visualize_chart_config');
         if (config) {
-          chartConfig.value = config;
+          chartConfig.value = { ...chartConfig.value, ...config };
         }
       } catch (error) {
         console.error('加载图表配置失败:', error);
@@ -915,7 +919,8 @@ export default {
         const saved = localStorage.getItem('visualize_chart_config');
         if (saved) {
           try {
-            chartConfig.value = JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            chartConfig.value = { ...chartConfig.value, ...parsed };
           } catch (e) { /* ignore */ }
         }
       }

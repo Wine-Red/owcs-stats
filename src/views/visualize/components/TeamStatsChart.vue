@@ -36,6 +36,51 @@
     </SlantedTitle>
     <div class="card-content">
       <div ref="teamComparisonChart" class="chart-container"></div>
+      
+      <div class="leaderboard-section">
+        <div class="leaderboard-header">
+          <span class="leaderboard-title">队伍排行榜</span>
+        </div>
+        
+        <el-table 
+          :data="displayedTeamLeaderboard" 
+          style="width: 100%" 
+          size="small"
+          :row-class-name="tableRowClassName"
+          @sort-change="handleSortChange"
+          :default-sort="{ prop: 'kd', order: 'descending' }"
+        >
+          <el-table-column type="index" label="排名" width="60" align="center">
+            <template #default="scope">
+              <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="teamName" label="队伍" min-width="120">
+            <template #default="scope">
+              <div class="team-cell">
+                <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
+                <span class="team-name" :title="scope.row.teamName">{{ scope.row.teamName }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="kd" label="K/D" width="100" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <template #default="scope">
+              <span class="stat-highlight">{{ scope.row.kd }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          <el-table-column prop="duration" label="总时长(分)" width="100" align="right" />
+        </el-table>
+        
+        <div class="leaderboard-footer" v-if="teamLeaderboardData.length > 3">
+          <el-button link type="primary" @click="isExpanded = !isExpanded">
+            {{ isExpanded ? '收起全部' : '查看全部' }}
+            <el-icon class="el-icon--right">
+              <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
+            </el-icon>
+          </el-button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -45,14 +90,16 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled } from '@element-plus/icons-vue';
+import { InfoFilled, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
 
 export default {
   name: 'TeamStatsChart',
   components: {
     InfoFilled,
-    SlantedTitle
+    SlantedTitle,
+    ArrowDown,
+    ArrowUp
   },
   props: {
     seasonId: {
@@ -66,7 +113,74 @@ export default {
     const teamFilter = ref([]);
     const allTeamStats = ref([]);
     const teamLogoSizes = ref(new Map());
+    const isExpanded = ref(false);
     let teamChart = null;
+
+    const sortState = ref({ prop: 'kd', order: 'descending' });
+
+    const handleSortChange = ({ prop, order }) => {
+      sortState.value = { prop, order };
+    };
+
+    const teamLeaderboardData = computed(() => {
+        const stats = allTeamStats.value.map(item => {
+            const duration = item.totalDuration || 0;
+            if (duration === 0) return { ...item, kd: 0, damagePer10: 0 };
+
+            const damagePer10 = parseFloat(((item.totalDamage / duration) * 10).toFixed(2));
+            const kills = item.totalKills || 0;
+            const deaths = item.totalDeaths || 0;
+            
+            let kd = kills;
+            if (deaths > 0) {
+                kd = parseFloat((kills / deaths).toFixed(2));
+            }
+
+            return {
+                teamName: item.teamName,
+                kd,
+                damagePer10,
+                duration: Math.round(duration),
+                logo: item.team ? item.team.logo : null
+            };
+        });
+        
+        // Dynamic sorting based on sortState
+        const { prop, order } = sortState.value;
+        if (!prop || !order) {
+            // Default fallback sort if no sort state (though we set default)
+            return stats.sort((a, b) => b.kd - a.kd);
+        }
+
+        return stats.sort((a, b) => {
+            let result = 0;
+            if (a[prop] > b[prop]) result = 1;
+            else if (a[prop] < b[prop]) result = -1;
+            
+            return order === 'descending' ? -result : result;
+        });
+    });
+
+    const displayedTeamLeaderboard = computed(() => {
+        if (isExpanded.value) {
+            return teamLeaderboardData.value;
+        }
+        return teamLeaderboardData.value.slice(0, 3);
+    });
+
+    const getRankClass = (index) => {
+        if (index === 0) return 'rank-1';
+        if (index === 1) return 'rank-2';
+        if (index === 2) return 'rank-3';
+        return 'rank-normal';
+    };
+
+    const tableRowClassName = ({ rowIndex }) => {
+        if (rowIndex < 3) {
+            return 'top-rank-row';
+        }
+        return '';
+    };
 
     const preloadImage = (url) => {
       return new Promise((resolve) => {
@@ -83,8 +197,8 @@ export default {
         if (logo && !teamLogoSizes.value.has(item.teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const MAX_WIDTH = 35;
-             const MAX_HEIGHT = 21;
+             const MAX_WIDTH = 25;
+             const MAX_HEIGHT = 15;
              
              // 计算缩放比例，同时满足宽和高的限制
              const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
@@ -211,8 +325,16 @@ export default {
           tooltip: {
             trigger: 'item',
             formatter: function (params) {
+               const logo = params.data.symbol.replace('image://', '');
+               const logoHtml = logo && logo !== 'circle' 
+                 ? `<img src="${logo}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
+                 : '';
+               
                return `
-                 <div style="font-weight: 800; margin-bottom: 8px; color: #1A1A1A; font-size: 14px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px;">${params.data.name}</div>
+                 <div style="font-weight: 500; margin-bottom: 8px; color: #303133; font-size: 14px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; display: flex; align-items: center;">
+                   ${logoHtml}
+                   <span>${params.data.name}</span>
+                 </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
                    <span style="color: #606266;">伤害/10min:</span>
                    <span style="font-weight: bold; color: #FF9E0F;">${params.data.value[0]}</span>
@@ -264,7 +386,8 @@ export default {
               fontFamily: 'Inter, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, sans-serif',
+              hideOverlap: true
             }
           },
           yAxis: {
@@ -328,10 +451,19 @@ export default {
               query: { maxWidth: 768 },
               option: {
                 grid: {
-                   top: '10%',
-                   left: '5%',
-                   right: '5%',
+                   top: '15%',
+                   left: '8%',
+                   right: '8%',
+                   bottom: '10%',
                    containLabel: true
+                },
+                xAxis: {
+                   nameGap: 25,
+                   splitNumber: 3,
+                   axisLabel: {
+                      rotate: 0,
+                      fontSize: 10
+                   }
                 },
                 series: [
                     {
@@ -479,13 +611,100 @@ export default {
     return {
       teamComparisonChart,
       teamFilter,
-      teams
+      teams,
+      teamLeaderboardData,
+      displayedTeamLeaderboard,
+      isExpanded,
+      getRankClass,
+      tableRowClassName,
+      handleSortChange
     };
   }
 };
 </script>
 
 <style scoped>
+.leaderboard-section {
+  margin-top: 24px;
+  border-top: 1px solid #EBEEF5;
+  padding-top: 20px;
+}
+
+.leaderboard-header {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.leaderboard-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #303133;
+  font-family: 'Inter', sans-serif;
+}
+
+.leaderboard-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.team-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.team-logo-small {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.team-name {
+  font-weight: 500;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-highlight {
+  font-weight: 700;
+  color: #FF9E0F;
+}
+
+.rank-1 {
+  color: #FFD700;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-2 {
+  color: #C0C0C0;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-3 {
+  color: #CD7F32;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-normal {
+  color: #909399;
+  font-weight: 600;
+}
+
+:deep(.top-rank-row) {
+  background-color: rgba(255, 158, 15, 0.05);
+}
+
 .card-content {
   padding: 24px;
 }

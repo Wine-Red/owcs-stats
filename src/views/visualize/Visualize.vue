@@ -62,6 +62,9 @@
         <div class="vis-col span-12" v-if="chartConfig.playerStats">
           <PlayerStatsChart :seasonId="filterForm.seasonId" />
         </div>
+        <div class="vis-col span-6" v-if="chartConfig.playerRadar">
+          <PlayerRadarChart :seasonId="filterForm.seasonId" />
+        </div>
       </div>
     </main>
   </div>
@@ -76,6 +79,7 @@ const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChar
 const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
+const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerRadarChart.vue'));
 
 import apiService from '@/services/api';
 
@@ -86,6 +90,7 @@ export default {
     MapPickChart,
     TeamStatsChart,
     PlayerStatsChart,
+    PlayerRadarChart,
     DataAnalysis,
     Moon
   },
@@ -103,7 +108,8 @@ export default {
       heroBan: true,
       mapPick: true,
       teamStats: true,
-      playerStats: true
+      playerStats: true,
+      playerRadar: true
     });
     
     const seasons = computed(() => store.state.seasons);
@@ -119,14 +125,15 @@ export default {
       try {
         const config = await apiService.getConfig('visualize_chart_config');
         if (config) {
-          chartConfig.value = config;
+          chartConfig.value = { ...chartConfig.value, ...config };
         }
       } catch (error) {
         console.error('加载图表配置失败，尝试使用本地缓存:', error);
         const savedConfig = localStorage.getItem('visualize_chart_config');
         if (savedConfig) {
           try {
-            chartConfig.value = JSON.parse(savedConfig);
+            const parsed = JSON.parse(savedConfig);
+            chartConfig.value = { ...chartConfig.value, ...parsed };
           } catch (e) { /* ignore */ }
         }
       }
@@ -153,11 +160,20 @@ export default {
 
 <style scoped>
 .vis-container {
-  background-color: #F5F7FA;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   font-family: 'Oxanium', sans-serif;
+  
+  /* 科技感背景设计 */
+  background-color: #f5f7fa;
+  background-image: 
+    radial-gradient(circle at 90% 10%, rgba(255, 158, 15, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 10% 90%, rgba(64, 158, 255, 0.08) 0%, transparent 60%),
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-attachment: fixed;
 }
 
 .vis-header {
@@ -307,4 +323,5 @@ export default {
 :deep(.vis-season-select .el-input__inner) {
   text-overflow: ellipsis;
 }
+
 </style>

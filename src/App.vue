@@ -24,7 +24,12 @@
 
     <!-- 页脚 -->
     <footer class="app-footer">
-      <p>© 2026 OWCS Stats</p>
+      <div class="footer-content">
+        <span>数据来源：网易大神</span>
+        <span class="divider">|</span>
+        <span>更多数据仍在开发中，敬请期待</span>
+      </div>
+      <p class="copyright">© 2026 OWCS Stats</p>
     </footer>
   </div>
 </template>
@@ -129,15 +134,49 @@ body {
 /* 页脚 */
 .app-footer {
   background-color: #f8f9fa;
-  padding: 20px;
+  padding: 24px 32px;
   text-align: center;
   border-top: 1px solid #e9ecef;
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
-.app-footer p {
+.footer-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 14px;
-  color: #6c757d;
+  color: #606266;
+}
+
+.divider {
+  color: #DCDFE6;
+  font-size: 12px;
+}
+
+.app-footer .copyright {
+  font-size: 12px;
+  color: #909399;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .app-footer {
+    padding: 16px;
+  }
+  
+  .footer-content {
+    font-size: 12px;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .divider {
+    display: none;
+  }
 }
 
 /* 页面过渡动画 */

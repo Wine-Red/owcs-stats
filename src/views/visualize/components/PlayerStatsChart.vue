@@ -41,6 +41,90 @@
     </SlantedTitle>
     <div class="card-content">
       <div ref="playerStatsChart" class="chart-container"></div>
+      
+      <div class="leaderboard-section">
+        <div class="leaderboard-header">
+          <span class="leaderboard-title" v-if="playerRole === 'tank'">坦克选手排行榜</span>
+          <span class="leaderboard-title" v-else-if="playerRole === 'damage'">输出选手排行榜</span>
+          <span class="leaderboard-title" v-else-if="playerRole === 'support'">辅助选手排行榜</span>
+        </div>
+        
+        <el-table 
+          ref="playerStatsTable"
+          :data="displayedPlayerLeaderboard" 
+          style="width: 100%" 
+          size="small"
+          :row-class-name="tableRowClassName"
+          @sort-change="handleSortChange"
+        >
+          <el-table-column type="index" label="排名" width="60" align="center">
+            <template #default="scope">
+              <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="playerName" label="选手" min-width="120">
+            <template #default="scope">
+              <div class="player-cell">
+                <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
+                <div class="player-info">
+                  <span class="player-name">{{ scope.row.playerName }}</span>
+                  <span class="team-name-sub">{{ scope.row.teamName }}</span>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+
+          <!-- Tank Columns -->
+          <template v-if="playerRole === 'tank'">
+            <el-table-column key="tank-mit" prop="mitigationPer10" label="抵挡/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span class="stat-highlight">{{ scope.row.mitigationPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="tank-kd" prop="kd" label="K/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-assists" prop="assistsPer10" label="助攻/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          </template>
+
+          <!-- Damage Columns -->
+          <template v-else-if="playerRole === 'damage'">
+            <el-table-column key="dmg-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span class="stat-highlight">{{ scope.row.elimsPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="dmg-kd" prop="kd" label="K/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          </template>
+
+          <!-- Support Columns -->
+          <template v-else-if="playerRole === 'support'">
+            <el-table-column key="supp-kad" prop="kad" label="KA/D" width="80" align="right" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span class="stat-highlight">{{ scope.row.kad }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="supp-dmg" prop="damagePer10" label="伤害/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-heal" prop="healingPer10" label="治疗/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-elims" prop="elimsPer10" label="消灭/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-assists" prop="assistsPer10" label="助攻/10min" width="110" align="right" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          </template>
+          
+          <el-table-column prop="duration" label="时长(分)" width="90" align="right" />
+        </el-table>
+        
+        <div class="leaderboard-footer" v-if="playerLeaderboardData.length > 3">
+          <el-button link type="primary" @click="isExpanded = !isExpanded">
+            {{ isExpanded ? '收起全部' : '查看全部' }}
+            <el-icon class="el-icon--right">
+              <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
+            </el-icon>
+          </el-button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -50,14 +134,16 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled } from '@element-plus/icons-vue';
+import { InfoFilled, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
 
 export default {
   name: 'PlayerStatsChart',
   components: {
     InfoFilled,
-    SlantedTitle
+    SlantedTitle,
+    ArrowDown,
+    ArrowUp
   },
   props: {
     seasonId: {
@@ -72,7 +158,117 @@ export default {
     const playerRole = ref('damage');
     const allPlayerStats = ref([]);
     const teamLogoSizes = ref(new Map());
+    const isExpanded = ref(false);
+    const sortState = ref({ prop: '', order: '' });
+    const playerStatsTable = ref(null);
     let playerChart = null;
+    
+    // 初始化默认排序
+    const setDefaultSort = () => {
+        if (playerRole.value === 'tank') {
+            sortState.value = { prop: 'mitigationPer10', order: 'descending' };
+        } else if (playerRole.value === 'damage') {
+            sortState.value = { prop: 'elimsPer10', order: 'descending' };
+        } else if (playerRole.value === 'support') {
+            sortState.value = { prop: 'kad', order: 'descending' };
+        }
+    };
+    
+    // 监听角色变化，重置默认排序
+    watch(playerRole, async () => {
+        setDefaultSort();
+        await nextTick();
+        if (playerStatsTable.value) {
+            const { prop, order } = sortState.value;
+            playerStatsTable.value.sort(prop, order);
+        }
+    }, { immediate: true });
+
+    const handleSortChange = ({ prop, order }) => {
+        sortState.value = { prop, order };
+    };
+
+    const playerLeaderboardData = computed(() => {
+        let stats = allPlayerStats.value.filter(s => s.role === playerRole.value);
+        
+        // Calculate stats
+        const processed = stats.map(item => {
+            const duration = item.gameTime || 0;
+            if (duration === 0) return null;
+            
+            // Helper for per 10min
+            const p10 = (val) => parseFloat(((val || 0) / duration * 10).toFixed(2));
+            
+            const deaths = item.deaths || 0;
+            const kills = item.elims || 0;
+            const assists = item.assists || 0;
+            
+            let kd = kills;
+            if (deaths > 0) kd = parseFloat((kills / deaths).toFixed(2));
+            
+            let kad = kills + assists;
+            if (deaths > 0) kad = parseFloat(((kills + assists) / deaths).toFixed(2));
+
+            return {
+                ...item,
+                playerName: item.playerName || item.player?.name || '未知选手',
+                teamName: item.teamName || item.team?.name || '未知队伍',
+                logo: item.team ? item.team.logo : null,
+                duration: Math.round(duration),
+                
+                // Common stats
+                kd,
+                kad,
+                damagePer10: p10(item.damage),
+                elimsPer10: p10(item.elims),
+                deathsPer10: p10(item.deaths),
+                assistsPer10: p10(item.assists),
+                healingPer10: p10(item.healing),
+                mitigationPer10: p10(item.mitigation)
+            };
+        }).filter(s => s !== null);
+
+        // Dynamic sorting
+        const { prop, order } = sortState.value;
+        if (!prop || !order) {
+             // Fallback to default sort based on role
+             if (playerRole.value === 'tank') {
+                 return processed.sort((a, b) => b.mitigationPer10 - a.mitigationPer10);
+             } else if (playerRole.value === 'damage') {
+                 return processed.sort((a, b) => b.elimsPer10 - a.elimsPer10);
+             } else if (playerRole.value === 'support') {
+                 return processed.sort((a, b) => b.kad - a.kad);
+             }
+             return processed;
+        }
+
+        return processed.sort((a, b) => {
+            let result = 0;
+            if (a[prop] > b[prop]) result = 1;
+            else if (a[prop] < b[prop]) result = -1;
+            
+            return order === 'descending' ? -result : result;
+        });
+    });
+
+    const displayedPlayerLeaderboard = computed(() => {
+        if (isExpanded.value) {
+            return playerLeaderboardData.value;
+        }
+        return playerLeaderboardData.value.slice(0, 3);
+    });
+
+    const getRankClass = (index) => {
+        if (index === 0) return 'rank-1';
+        if (index === 1) return 'rank-2';
+        if (index === 2) return 'rank-3';
+        return 'rank-normal';
+    };
+
+    const tableRowClassName = ({ rowIndex }) => {
+        if (rowIndex < 3) return 'top-rank-row';
+        return '';
+    };
 
     const preloadImage = (url) => {
       return new Promise((resolve) => {
@@ -156,34 +352,46 @@ export default {
         let xAxisName = '';
         let yAxisName = '';
         let xKey = '';
-        let yKey = '';
+        let calculateY = (item) => 0;
         let yInverse = false;
         
         switch (playerRole.value) {
             case 'tank':
                 xAxisName = '抵挡/10min';
-                yAxisName = '死亡/10min';
+                yAxisName = 'K/D';
                 xKey = 'mitigationPerMin';
-                yKey = 'deathsPerMin';
-                yInverse = true; 
+                calculateY = (item) => {
+                    const d = item.deathsPerMin || 0;
+                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
+                };
                 break;
             case 'damage':
                 xAxisName = '伤害/10min';
-                yAxisName = '消灭/10min';
+                yAxisName = 'K/D';
                 xKey = 'damagePerMin';
-                yKey = 'elimsPerMin';
+                calculateY = (item) => {
+                    const d = item.deathsPerMin || 0;
+                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
+                };
                 break;
             case 'support':
                 xAxisName = '治疗/10min';
-                yAxisName = '助攻/10min';
+                yAxisName = 'KA/D';
                 xKey = 'healingPerMin';
-                yKey = 'assistsPerMin';
+                calculateY = (item) => {
+                    const d = item.deathsPerMin || 0;
+                    const ka = (item.elimsPerMin || 0) + (item.assistsPerMin || 0);
+                    return d === 0 ? ka : ka / d;
+                };
                 break;
             default:
                 xAxisName = '伤害/10min';
-                yAxisName = '消灭/10min';
+                yAxisName = 'K/D';
                 xKey = 'damagePerMin';
-                yKey = 'elimsPerMin';
+                calculateY = (item) => {
+                    const d = item.deathsPerMin || 0;
+                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
+                };
         }
         
         // 计算全局最大值和最小值用于固定坐标轴
@@ -195,7 +403,7 @@ export default {
         
         roleStats.forEach(item => {
             const xVal = item[xKey] * 10;
-            const yVal = item[yKey] * 10;
+            const yVal = calculateY(item);
             
             if (xVal > globalMaxX) globalMaxX = xVal;
             if (xVal < globalMinX) globalMinX = xVal;
@@ -222,7 +430,7 @@ export default {
         
         const seriesData = filteredStats.map(item => {
             const xVal = parseFloat((item[xKey] * 10).toFixed(2));
-            const yVal = parseFloat((item[yKey] * 10).toFixed(2));
+            const yVal = parseFloat(calculateY(item).toFixed(2));
             
             // 使用新数据的关联对象，或者回退到直接存储的字段
             const logo = item.team ? item.team.logo : null;
@@ -252,9 +460,19 @@ export default {
           tooltip: {
             trigger: 'item',
             formatter: function (params) {
+               const logo = params.data.symbol.replace('image://', '');
+               const logoHtml = logo && logo !== 'circle' 
+                 ? `<img src="${logo}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
+                 : '';
+
                return `
-                 <div style="font-weight: 800; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; color: #1A1A1A;">${params.data.value[2]}</div>
-                 <div style="font-size: 12px; color: #606266; margin-bottom: 6px;">${params.data.value[3] || '未知队伍'}</div>
+                 <div style="font-weight: 500; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; display: flex; align-items: center;">
+                   ${logoHtml}
+                   <div style="display: flex; flex-direction: column; line-height: 1.2;">
+                     <span style="font-weight: 600; color: #303133; font-size: 13px;">${params.data.value[2]}</span>
+                     <span style="font-size: 11px; color: #909399;">${params.data.value[3] || '未知队伍'}</span>
+                   </div>
+                 </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
                    <span style="color: #606266;">${xAxisName}:</span>
                    <span style="font-weight: bold; color: #FF9E0F;">${params.data.value[0]}</span>
@@ -306,7 +524,8 @@ export default {
               fontFamily: 'Inter, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, sans-serif',
+              hideOverlap: true
             }
           },
           yAxis: {
@@ -364,6 +583,29 @@ export default {
                   textBorderColor: '#fff',
                   textBorderWidth: 2,
                   fontFamily: 'Inter, sans-serif'
+              }
+            }
+          ],
+          media: [
+            {
+              query: { maxWidth: 768 },
+              option: {
+                grid: {
+                   top: '15%',
+                   left: '8%',
+                   right: '8%',
+                   bottom: '10%',
+                   containLabel: true
+                },
+                xAxis: {
+                   nameGap: 25,
+                   splitNumber: 3,
+                   axisLabel: {
+                      rotate: 0,
+                      fontSize: 10
+                   }
+                },
+                series: []
               }
             }
           ]
@@ -512,13 +754,105 @@ export default {
       playerFilter,
       playerRole,
       getFilteredPlayers,
-      updatePlayerStatsChart
+      updatePlayerStatsChart,
+      playerLeaderboardData,
+      displayedPlayerLeaderboard,
+      isExpanded,
+      getRankClass,
+      tableRowClassName,
+      handleSortChange
     };
   }
 };
 </script>
 
 <style scoped>
+.leaderboard-section {
+  margin-top: 24px;
+  border-top: 1px solid #EBEEF5;
+  padding-top: 20px;
+}
+
+.leaderboard-header {
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.leaderboard-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #303133;
+  font-family: 'Inter', sans-serif;
+}
+
+.leaderboard-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.player-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-logo-small {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.player-name {
+  font-weight: 600;
+  color: #303133;
+  font-size: 13px;
+}
+
+.team-name-sub {
+  font-size: 11px;
+  color: #909399;
+}
+
+.stat-highlight {
+  font-weight: 700;
+  color: #FF9E0F;
+}
+
+.rank-1 {
+  color: #FFD700;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-2 {
+  color: #C0C0C0;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-3 {
+  color: #CD7F32;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-normal {
+  color: #909399;
+  font-weight: 600;
+}
+
+:deep(.top-rank-row) {
+  background-color: rgba(255, 158, 15, 0.05);
+}
+
 .card-content {
   padding: 24px;
 }

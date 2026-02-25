@@ -57,7 +57,7 @@ export default {
   clip-path: polygon(
     0 0, 
     100% 0, 
-    100% 50%, 
+    100% 90%, 
     0 100%
   );
   z-index: 1;
