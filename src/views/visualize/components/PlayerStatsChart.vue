@@ -360,38 +360,25 @@ export default {
                 xAxisName = '抵挡/10min';
                 yAxisName = 'K/D';
                 xKey = 'mitigationPerMin';
-                calculateY = (item) => {
-                    const d = item.deathsPerMin || 0;
-                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
-                };
+                calculateY = (item) => item.kd || 0;
                 break;
             case 'damage':
                 xAxisName = '伤害/10min';
                 yAxisName = 'K/D';
                 xKey = 'damagePerMin';
-                calculateY = (item) => {
-                    const d = item.deathsPerMin || 0;
-                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
-                };
+                calculateY = (item) => item.kd || 0;
                 break;
             case 'support':
                 xAxisName = '治疗/10min';
                 yAxisName = 'KA/D';
                 xKey = 'healingPerMin';
-                calculateY = (item) => {
-                    const d = item.deathsPerMin || 0;
-                    const ka = (item.elimsPerMin || 0) + (item.assistsPerMin || 0);
-                    return d === 0 ? ka : ka / d;
-                };
+                calculateY = (item) => item.kad || 0;
                 break;
             default:
                 xAxisName = '伤害/10min';
                 yAxisName = 'K/D';
                 xKey = 'damagePerMin';
-                calculateY = (item) => {
-                    const d = item.deathsPerMin || 0;
-                    return d === 0 ? (item.elimsPerMin || 0) : (item.elimsPerMin || 0) / d;
-                };
+                calculateY = (item) => item.kd || 0;
         }
         
         // 计算全局最大值和最小值用于固定坐标轴
@@ -629,7 +616,39 @@ export default {
         
         // 使用新的赛季数据接口
         const response = await apiService.getSeasonPlayerStats(props.seasonId);
-        allPlayerStats.value = response || [];
+        
+        // Pre-calculate stats from primary data (ignoring backend pre-calculated fields)
+        const processedResponse = (response || []).map(item => {
+            const duration = item.gameTime || 0;
+            const perMin = (val) => duration > 0 ? (val || 0) / duration : 0;
+            
+            // Calculate totals for KD/KAD
+            const kills = item.elims || 0;
+            const deaths = item.deaths || 0;
+            const assists = item.assists || 0;
+            
+            let kd = kills;
+            if (deaths > 0) kd = kills / deaths;
+            
+            let kad = kills + assists;
+            if (deaths > 0) kad = (kills + assists) / deaths;
+
+            return {
+                ...item,
+                // Overwrite pre-calculated fields with on-the-fly calculations
+                mitigationPerMin: perMin(item.mitigation),
+                elimsPerMin: perMin(item.elims),
+                deathsPerMin: perMin(item.deaths),
+                damagePerMin: perMin(item.damage),
+                healingPerMin: perMin(item.healing),
+                assistsPerMin: perMin(item.assists),
+                // Ensure KD/KAD are consistent
+                kd: parseFloat(kd.toFixed(2)),
+                kad: parseFloat(kad.toFixed(2))
+            };
+        });
+
+        allPlayerStats.value = processedResponse;
         await loadTeamLogos(allPlayerStats.value);
         
         // 获取当前角色的所有数据用于计算Top 5

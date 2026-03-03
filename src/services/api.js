@@ -39,6 +39,7 @@ const apiService = {
   createSeason: (data) => api.post('/seasons', data),
   updateSeason: (id, data) => api.put(`/seasons/${id}`, data),
   deleteSeason: (id) => api.delete(`/seasons/${id}`),
+  getSeasonDeletePreview: (id) => api.get(`/seasons/${id}/pre-delete-check`),
 
   // 队伍相关
   getTeams: () => api.get('/teams'),

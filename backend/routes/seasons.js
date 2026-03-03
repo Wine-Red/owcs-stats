@@ -9,6 +9,9 @@ router.get('/', SeasonController.getAll);
 // 获取单个赛季
 router.get('/:id', SeasonController.getById);
 
+// 检查删除赛季前的影响
+router.get('/:id/pre-delete-check', SeasonController.preDeleteCheck);
+
 // 获取赛季的队伍
 router.get('/:seasonId/teams', SeasonTeamController.getTeamsBySeasonId);
 

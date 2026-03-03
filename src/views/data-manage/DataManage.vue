@@ -1788,19 +1788,39 @@ export default {
     // 删除赛季
     const deleteSeason = async (id) => {
       try {
-        await ElMessageBox.confirm('确定要删除这个赛季吗？此操作不可恢复。', '警告', {
-          confirmButtonText: '确定',
+        // 1. 获取删除预览数据
+        const checkResult = await apiService.getSeasonDeletePreview(id);
+        
+        // 2. 构建提示信息
+        const message = `
+          <p>确定要彻底删除该赛季吗？此操作将<strong>不可恢复</strong>。</p>
+          <p>将删除以下关联数据：</p>
+          <ul style="text-align: left; margin-left: 20px;">
+            <li>比赛记录：${checkResult.matchesCount} 场</li>
+            <li>小局记录：${checkResult.mapGamesCount} 局</li>
+            <li>选手数据：${checkResult.playerStatsCount} 条</li>
+            <li>参赛队伍：${checkResult.seasonTeamsCount} 支</li>
+            <li>队伍成员记录：${checkResult.seasonTeamPlayersCount} 条</li>
+            <li>赛季选手统计：${checkResult.seasonPlayerStatsCount} 条</li>
+          </ul>
+        `;
+
+        await ElMessageBox.confirm(message, '彻底删除确认', {
+          confirmButtonText: '确认彻底删除',
           cancelButtonText: '取消',
-          type: 'warning'
+          type: 'warning',
+          dangerouslyUseHTMLString: true,
+          confirmButtonClass: 'el-button--danger'
         });
         
         await store.dispatch('deleteSeason', id);
-        ElMessage.success('赛季删除成功');
+        ElMessage.success('赛季及其关联数据已彻底删除');
         // 重新加载赛季数据
         await store.dispatch('loadBaseData');
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败: ' + error.message);
+          console.error(error);
+          ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
         }
       }
     };
