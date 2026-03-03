@@ -5,6 +5,14 @@
         <el-tooltip content="展示选手五维能力图（默认显示该职责平均水平，可对比两名选手）" placement="top">
           <el-icon class="info-icon"><InfoFilled /></el-icon>
         </el-tooltip>
+        <el-button 
+          link 
+          class="export-btn" 
+          @click="handleExport"
+        >
+          <el-icon><Download /></el-icon>
+          <span class="export-text">导出</span>
+        </el-button>
       </template>
       <template #extra>
         <div class="header-controls">
@@ -52,21 +60,27 @@
     <div class="card-content">
       <div ref="radarChart" class="chart-container"></div>
     </div>
+    <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled } from '@element-plus/icons-vue';
+import { InfoFilled, Download } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
+import ChartExportPreview from './ChartExportPreview.vue';
+import { useChartExport } from '@/composables/useChartExport';
 
 export default {
   name: 'PlayerRadarChart',
   components: {
     InfoFilled,
-    SlantedTitle
+    SlantedTitle,
+    Download,
+    ChartExportPreview
   },
   props: {
     seasonId: {
@@ -75,12 +89,20 @@ export default {
     }
   },
   setup(props) {
+    const store = useStore();
     const radarChart = ref(null);
     const playerRole = ref('tank'); // 默认为坦克
     const player1Id = ref('');
     const player2Id = ref('');
     const allPlayerStats = ref([]);
     let myChart = null;
+
+    const { showPreview, previewImage, handleExportChart } = useChartExport();
+    const handleExport = () => {
+        const season = store.getters.getSeasonById(props.seasonId);
+        const seasonName = season ? season.name : '';
+        handleExportChart(myChart, seasonName);
+    };
 
     // 获取当前职责的所有选手
     const rolePlayers = computed(() => {
@@ -216,9 +238,9 @@ export default {
         });
         
         // 转换数据为雷达图数组
-        const formatRadarData = (stats, name) => {
+        const formatRadarData = (stats) => {
             if (!stats) return null;
-            return dataIndex.map((key, index) => {
+            return dataIndex.map((key) => {
                 if (key === 'deathsPer10') {
                     // 生存 = max - deaths
                     // 注意：这里的 max 应该是我们设定的 survivalMax，或者该次计算中使用的基准
@@ -369,7 +391,10 @@ export default {
         rolePlayers,
         player1Options,
         player2Options,
-        handleRoleChange
+        handleRoleChange,
+        showPreview,
+        previewImage,
+        handleExport
     };
   }
 };
@@ -430,6 +455,28 @@ export default {
 }
 .info-icon:hover {
   color: #fff;
+}
+
+.export-btn {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 0;
+  height: auto;
+}
+.export-btn:hover {
+  color: #FFFFFF;
+}
+.export-text {
+  font-weight: 500;
+}
+@media (max-width: 768px) {
+  .export-text {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {

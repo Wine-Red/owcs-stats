@@ -4,7 +4,7 @@
     <header class="vis-header">
       <div class="header-left">
         <div class="logo-placeholder">
-          <img src="/public/OWCS.png" alt="OWCS Logo" class="header-logo" />
+          <img src="/public/icons/OWCS.png" alt="OWCS Logo" class="header-logo" />
         </div>
         <h1 class="vis-title"><span class="title-main">Overwatch</span> <span class="subtitle">电竞数据</span></h1>
       </div>

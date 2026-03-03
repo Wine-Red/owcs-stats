@@ -5,6 +5,14 @@
         <el-tooltip content="对比各队伍的输出与生存能力（默认显示综合数据Top5队伍）" placement="top">
           <el-icon class="info-icon"><InfoFilled /></el-icon>
         </el-tooltip>
+        <el-button 
+          link 
+          class="export-btn" 
+          @click="handleExport"
+        >
+          <el-icon><Download /></el-icon>
+          <span class="export-text">导出</span>
+        </el-button>
       </template>
       <template #extra>
         <div class="header-controls">
@@ -82,6 +90,7 @@
         </div>
       </div>
     </div>
+    <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
   </div>
 </template>
 
@@ -90,8 +99,10 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled, ArrowDown, ArrowUp } from '@element-plus/icons-vue';
+import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
+import ChartExportPreview from './ChartExportPreview.vue';
+import { useChartExport } from '@/composables/useChartExport';
 
 export default {
   name: 'TeamStatsChart',
@@ -99,7 +110,9 @@ export default {
     InfoFilled,
     SlantedTitle,
     ArrowDown,
-    ArrowUp
+    ArrowUp,
+    Download,
+    ChartExportPreview
   },
   props: {
     seasonId: {
@@ -115,6 +128,13 @@ export default {
     const teamLogoSizes = ref(new Map());
     const isExpanded = ref(false);
     let teamChart = null;
+
+    const { showPreview, previewImage, handleExportChart } = useChartExport();
+    const handleExport = () => {
+        const season = store.getters.getSeasonById(props.seasonId);
+        const seasonName = season ? season.name : '';
+        handleExportChart(teamChart, seasonName);
+    };
 
     const sortState = ref({ prop: 'kd', order: 'descending' });
 
@@ -617,7 +637,10 @@ export default {
       isExpanded,
       getRankClass,
       tableRowClassName,
-      handleSortChange
+      handleSortChange,
+      showPreview,
+      previewImage,
+      handleExport
     };
   }
 };
@@ -724,6 +747,28 @@ export default {
 
 .info-icon:hover {
   color: #FFFFFF;
+}
+
+.export-btn {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 0;
+  height: auto;
+}
+.export-btn:hover {
+  color: #FFFFFF;
+}
+.export-text {
+  font-weight: 500;
+}
+@media (max-width: 768px) {
+  .export-text {
+    display: none; /* Hide text on mobile if needed, or keep it */
+  }
 }
 
 .chart-container {

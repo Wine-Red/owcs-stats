@@ -126,9 +126,13 @@ export default {
   }
 
   .title-left {
-    width: auto;
-    flex-grow: 0;
-    margin-right: auto;
+    width: 100%;
+    flex-grow: 1;
+    margin-right: 0;
+  }
+
+  .title-suffix {
+    margin-left: auto;
   }
 
   .title-right {
