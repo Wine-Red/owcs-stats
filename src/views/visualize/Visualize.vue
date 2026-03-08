@@ -4,7 +4,7 @@
     <header class="vis-header">
       <div class="header-left">
         <div class="logo-placeholder">
-          <img src="/public/icons/OWCS.png" alt="OWCS Logo" class="header-logo" />
+          <img :src="logoUrl" alt="OWCS Logo" class="header-logo" />
         </div>
         <h1 class="vis-title"><span class="title-main">Overwatch</span> <span class="subtitle">电竞数据</span></h1>
       </div>
@@ -115,6 +115,14 @@ export default {
     
     const seasons = computed(() => store.state.seasons);
     
+    // 动态计算 logo URL，确保在非根路径部署时也能正确加载
+    const logoUrl = computed(() => {
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
+        ? import.meta.env.BASE_URL 
+        : `${import.meta.env.BASE_URL}/`;
+      return `${baseUrl}icons/OWCS.png`;
+    });
+    
     const handleSeasonChange = async () => {
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
@@ -122,24 +130,48 @@ export default {
     };
     
     onMounted(async () => {
-      // 立即初始化 ScrollReveal 动画，无需等待数据加载
-      // 增加延时以确保移动端布局完全稳定
-      setTimeout(() => {
+      // 等待 Vue DOM 更新
+      await nextTick();
+      
+      // 强制清理可能存在的旧实例状态，防止刷新时的状态残留
+      ScrollReveal().clean('.vis-col');
+
+      const initReveal = () => {
         ScrollReveal().reveal('.vis-col', {
-          distance: '50px', // 增加移动距离，使动画更明显
+          distance: '50px',
           origin: 'bottom',
           opacity: 0,
           scale: 0.95, // 添加轻微缩放效果
           duration: 600, // 稍微放慢动画速度
           delay: 150, 
-          easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)', // 使用更平滑的缓动函数
-          interval: 200, // 增加间隔，确保移动端能明显看出先后顺序
-          viewFactor: 0.1,
+          easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+          interval: 200,
+          viewFactor: 0.1, // 降低视口触发阈值，确保在视口边缘也能触发
           mobile: true,
-          reset: false,
-          cleanup: true
+          reset: false, // 动画只播放一次
+          useDelay: 'always' // 强制每次都应用延迟，即使是刷新页面
         });
-      }, 150); // 增加初始化等待时间，避免移动端渲染阻塞导致动画丢失
+      };
+
+      // 确保字体加载完成后再初始化，或者最长等待 500ms
+      // 这能解决因字体加载导致的布局偏移（Layout Shift）使 ScrollReveal 计算不准的问题
+      if (document.fonts && document.fonts.ready) {
+        Promise.race([
+          document.fonts.ready,
+          new Promise(resolve => setTimeout(resolve, 500))
+        ]).then(() => {
+          setTimeout(initReveal, 200);
+        });
+      } else {
+        setTimeout(initReveal, 300);
+      }
+
+      // 兜底策略：1秒后手动触发一次滚动事件，强制 ScrollReveal 重新计算
+      // 解决移动端部分浏览器因地址栏变化或图片懒加载导致的视口判断失效
+      setTimeout(() => {
+        window.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+      }, 1000);
 
       // 优先从后端加载配置
       try {
@@ -172,7 +204,8 @@ export default {
       filterForm,
       seasons,
       handleSeasonChange,
-      chartConfig
+      chartConfig,
+      logoUrl
     };
   }
 };
