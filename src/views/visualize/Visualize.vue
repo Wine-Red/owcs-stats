@@ -71,9 +71,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent, nextTick } from 'vue';
 import { useStore } from 'vuex';
 import { DataAnalysis, Moon } from '@element-plus/icons-vue';
+import ScrollReveal from 'scrollreveal';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
 const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
@@ -121,6 +122,25 @@ export default {
     };
     
     onMounted(async () => {
+      // 立即初始化 ScrollReveal 动画，无需等待数据加载
+      // 增加延时以确保移动端布局完全稳定
+      setTimeout(() => {
+        ScrollReveal().reveal('.vis-col', {
+          distance: '50px', // 增加移动距离，使动画更明显
+          origin: 'bottom',
+          opacity: 0,
+          scale: 0.95, // 添加轻微缩放效果
+          duration: 600, // 稍微放慢动画速度
+          delay: 150, 
+          easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)', // 使用更平滑的缓动函数
+          interval: 200, // 增加间隔，确保移动端能明显看出先后顺序
+          viewFactor: 0.1,
+          mobile: true,
+          reset: false,
+          cleanup: true
+        });
+      }, 150); // 增加初始化等待时间，避免移动端渲染阻塞导致动画丢失
+
       // 优先从后端加载配置
       try {
         const config = await apiService.getConfig('visualize_chart_config');
@@ -247,7 +267,8 @@ export default {
 }
 
 .vis-col {
-  min-height: 100px;
+  min-height: 300px; /* 增加最小高度，防止组件未加载时高度塌缩导致 ScrollReveal 误判所有元素都在视口内 */
+  visibility: hidden; /* 初始隐藏，防止闪烁，ScrollReveal 初始化后会自动接管并显示 */
 }
 
 .span-6 {
