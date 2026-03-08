@@ -1,5 +1,4 @@
 const sequelize = require('../config/database');
-const Season = require('../models/Season');
 const Team = require('../models/Team'); // eslint-disable-line no-unused-vars
 const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
@@ -65,18 +64,6 @@ const setupAssociations = () => {
 };
 
 const initBasicData = async () => {
-  // 初始化赛季数据
-  const seasons = [
-    { name: '2026 季前训练营', status: 'in_progress' }
-  ];
-
-  for (const seasonData of seasons) {
-    await Season.findOrCreate({
-      where: { name: seasonData.name },
-      defaults: seasonData
-    });
-  }
-
   // 初始化地图数据
   const maps = [
     // 攻击/护送地图
