@@ -8,27 +8,22 @@ export function useChartExport() {
   const generateChartImage = async (chartInstance, seasonName = '') => {
     if (!chartInstance) return null;
 
-    // 设定目标输出尺寸
-    // 1. 图片比例为 4:3 (横屏)，即 1600x1200
-    // 2. 图表内容要像在 768px 宽度的设备上显示的一样（大字体、清晰）
-    
+    // 设定目标输出尺寸 1600x1200 (4:3)
     const EXPORT_WIDTH = 1600;
-    const EXPORT_HEIGHT = 1200; // 4:3 比例
+    const EXPORT_HEIGHT = 1200;
     
     // 模拟的设备宽度
     const TARGET_LOGICAL_WIDTH = 768;
     
-    // 基于 EXPORT_WIDTH 计算所有尺寸，确保比例一致
-    const footerHeight = Math.round(EXPORT_WIDTH * 0.14); 
-    const padding = Math.round(EXPORT_WIDTH * 0.035); 
-    const contentHeight = EXPORT_HEIGHT - footerHeight;
-
+    // 布局参数
+    const padding = Math.round(EXPORT_WIDTH * 0.05); 
+    const headerHeight = Math.round(EXPORT_HEIGHT * 0.2);
+    const contentHeight = EXPORT_HEIGHT - headerHeight; // 图表区域高度
+    
     // 1. 创建离屏容器并渲染图表
-    // RENDER_SCALE 决定了我们在多大的容器里画图
-    // 768 / 1600 = 0.48，意味着我们在一个 768px 宽的容器里画图
     const RENDER_SCALE = TARGET_LOGICAL_WIDTH / EXPORT_WIDTH; 
     
-    const renderWidth = EXPORT_WIDTH * RENDER_SCALE; // = 768
+    const renderWidth = EXPORT_WIDTH * RENDER_SCALE; 
     const renderHeight = contentHeight * RENDER_SCALE; 
 
     const offscreenDiv = document.createElement('div');
@@ -42,34 +37,85 @@ export function useChartExport() {
     let chartDataUrl = '';
     try {
       const offscreenChart = echarts.init(offscreenDiv);
-      // 深拷贝 options 以免影响原图表，且必须断开引用
-      // 注意：getOption() 返回的是包含默认值的完整配置，直接 setOption 可能会有冗余，
-      // 但通常是安全的。如果有函数（formatter）需要小心 JSON.stringify，但 getOption 返回的是对象。
-      // 最好的方式是直接使用 getOption() 返回的对象，ECharts 会处理。
       const options = chartInstance.getOption();
       
-      // 关闭动画，确保渲染即完成
+      // === 样式重写开始 ===
       options.animation = false;
+      options.backgroundColor = 'transparent'; // 透明背景，由 Canvas 绘制背景
+
+      // 针对雷达图的特定样式优化
+      if (options.radar) {
+        // 雷达图坐标系样式
+        const radarOps = Array.isArray(options.radar) ? options.radar[0] : options.radar;
+        if (radarOps) {
+          radarOps.splitArea = {
+            show: false // 去掉背景色块
+          };
+          radarOps.axisName = {
+            color: '#303133',
+            fontSize: 20,
+            fontWeight: 'bold',
+            fontFamily: '"Microsoft YaHei", sans-serif'
+          };
+        }
+      }
+
+      // 处理其他图表类型的坐标轴颜色 (如柱状图、折线图的 XY 轴)
+      // 提取到雷达图判断之外，确保对所有直角坐标系图表生效
+      // 用户需求：网格线还是变成浅紫色吧
+      const updateAxisStyle = (axis) => {
+        if (!axis) return;
+        const axes = Array.isArray(axis) ? axis : [axis];
+        axes.forEach(ax => {
+          if (!ax.splitLine) ax.splitLine = {};
+          if (!ax.splitLine.lineStyle) ax.splitLine.lineStyle = {};
+          
+          // 仅修改网格线颜色为浅紫色
+          ax.splitLine.lineStyle.color = 'rgba(64, 15, 73, 0.2)';
+        });
+      };
       
-      // 针对雷达图等可能使用固定像素半径的图表，尝试进行适配（如果是百分比则不需要）
-      // 这里主要依靠容器缩小 (RENDER_SCALE) 来让固定像素的元素显得更大
+      updateAxisStyle(options.xAxis);
+      updateAxisStyle(options.yAxis);
       
+      // 数据系列样式 - 保持原图表颜色，不做覆盖
+      // if (options.series) {
+      //   options.series.forEach(series => {
+      //     if (series.type === 'radar') {
+      //        ...
+      //     }
+      //   });
+      // }
+
+      // 针对直角坐标系图表 (散点图、折线图、柱状图) 的 Grid 调整
+      // 避免右下角的 Godlike Logo 遮挡图表内容
+      if (!options.radar && (options.xAxis || options.yAxis)) {
+          if (!options.grid) options.grid = {};
+          const grids = Array.isArray(options.grid) ? options.grid : [options.grid];
+          grids.forEach(g => {
+             // 右侧加大，给二维码/Logo 留位 (Logo 宽 160 + Padding 80 = 240px，约占 15%)
+             g.right = '20%'; 
+             // 底部加大，避免 X 轴标签被遮挡
+             g.containLabel = true;
+          });
+      }
+
+      // === 样式重写结束 ===
+
       offscreenChart.setOption(options);
-      
-      // 必须调用 resize 确保图表适应新的容器大小
       offscreenChart.resize();
       
       chartDataUrl = offscreenChart.getDataURL({
         type: 'png',
-        pixelRatio: 1 / RENDER_SCALE, // 2.0，补偿容器的缩小，输出 1600px 宽的图
-        backgroundColor: '#fff',
+        pixelRatio: 1 / RENDER_SCALE, 
+        backgroundColor: 'transparent',
         excludeComponents: ['toolbox']
       });
       
       offscreenChart.dispose();
     } catch (err) {
       console.error('Offscreen chart render failed:', err);
-      // 降级方案：使用原图表截图（虽然比例可能不对，但总比失败好）
+      // 降级方案
       const currentWidth = chartInstance.getWidth();
       const pixelRatio = EXPORT_WIDTH / currentWidth;
       chartDataUrl = chartInstance.getDataURL({
@@ -82,16 +128,18 @@ export function useChartExport() {
       document.body.removeChild(offscreenDiv);
     }
 
-    // 2. 加载图标
+    // 2. 加载资源 (Logo)
     const logoImg = new Image();
-    // 使用 import.meta.env.BASE_URL 确保在非根路径部署时也能正确加载资源
-    // vite.config.js 中配置了 base: '/stats/'，所以必须加上这个前缀
+    const godlikeImg = new Image();
     const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
       ? import.meta.env.BASE_URL 
       : `${import.meta.env.BASE_URL}/`;
-    logoImg.src = `${baseUrl}icons/godlike.png`;
     
-    // 3. 创建 Canvas 添加水印
+    // 尝试加载 OWCS logo，如果不存在则使用 godlike (或不显示)
+    logoImg.src = `${baseUrl}icons/OWCS_Dark.png`;
+    godlikeImg.src = `${baseUrl}icons/godlike.png`;
+    
+    // 3. 创建 Canvas 绘制海报
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -102,134 +150,209 @@ export function useChartExport() {
       new Promise((resolve) => { 
         logoImg.onload = resolve;
         logoImg.onerror = (e) => {
-          console.error('Failed to load chart footer logo:', logoImg.src, e);
-          resolve(); // 即使加载失败也继续
+          console.warn('Failed to load logo, trying fallback:', logoImg.src);
+          // 尝试回退
+          logoImg.src = `${baseUrl}icons/godlike.png`;
+          logoImg.onload = resolve;
+          logoImg.onerror = resolve; // 再次失败则忽略
+        };
+      }),
+      new Promise((resolve) => {
+        godlikeImg.onload = resolve;
+        godlikeImg.onerror = (e) => {
+          console.warn('Failed to load godlike icon:', godlikeImg.src);
+          resolve();
         };
       })
     ]);
     
-    // 设置 Canvas 尺寸
     canvas.width = EXPORT_WIDTH;
     canvas.height = EXPORT_HEIGHT;
 
-    // 绘制白色背景
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 绘制图表
-    // 此时 img 的尺寸严格等于 EXPORT_WIDTH x contentHeight，直接绘制即可
-    ctx.drawImage(img, 0, 0, EXPORT_WIDTH, contentHeight);
-
-    // 绘制底部背景（浅灰 -> 更深一点的浅灰，增加对比度）
-    // 底部起始 Y 坐标
-    const footerY = contentHeight;
+    // --- 背景绘制 ---
     
-    const gradient = ctx.createLinearGradient(0, footerY, 0, canvas.height);
-    gradient.addColorStop(0, '#f0f2f5'); // Element Plus 背景灰
-    gradient.addColorStop(1, '#e6e8eb');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, footerY, canvas.width, footerHeight);
+    // 1. 底色：浅灰色渐变，比原来的更灰一点
+    const bgGradient = ctx.createLinearGradient(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+    bgGradient.addColorStop(0, '#eef0f4'); // 左上角：浅灰
+    bgGradient.addColorStop(1, '#dce0e6'); // 右下角：稍深的灰
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
 
-    // 绘制六边形蜂巢纹理
+    // 2. 几何图形叠加 (Geometric Overlay) -> 改为柔和光晕叠加，消除硬边
+    // 原来的三角形裁切会导致明显的斜向分割线，现在改为全屏柔和渐变
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, footerY, canvas.width, footerHeight);
-    ctx.clip(); // 限制绘制区域在底部
+    
+    // 调整坐标系比例，实现椭圆渐变 (水平长，垂直短)
+    ctx.scale(1.6, 0.5);
 
-    const hexRadius = Math.round(EXPORT_WIDTH * 0.015); // 约 24px
-    const hexWidth = Math.sqrt(3) * hexRadius;
-    const hexHeight = 2 * hexRadius;
-    const xStep = hexWidth;
-    const yStep = hexHeight * 0.75;
-
-    ctx.lineWidth = 1.5;
-
-    // 覆盖整个底部区域，并应用水平渐隐
-    for (let y = footerY - hexHeight; y < canvas.height + hexHeight; y += yStep) {
-      const row = Math.round((y - (footerY - hexHeight)) / yStep);
-      const xOffset = (row % 2) * (hexWidth / 2);
-      
-      for (let x = -hexWidth; x < canvas.width + hexWidth; x += xStep) {
-        const cx = x + xOffset;
-        
-        // 计算渐隐透明度：从右(100%)向左(0%)渐隐
-        // 最大透明度 0.06，让右侧纹理可见，左侧文字区域保持干净
-        const progress = Math.max(0, Math.min(1, cx / canvas.width));
-        // 使用平方函数让左侧消失得更快，保证文字区域清晰
-        const alpha = Math.pow(progress, 1.5) * 0.06;
-        
-        if (alpha < 0.005) continue; // 几乎不可见则跳过
-
-        const cy = y;
-        
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (Math.PI / 3) * i + Math.PI / 6; // 旋转30度，尖头朝上
-          const px = cx + hexRadius * Math.cos(angle);
-          const py = cy + hexRadius * Math.sin(angle);
-          if (i === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        }
-        ctx.closePath();
-        
-        ctx.strokeStyle = `rgba(0, 0, 0, ${alpha.toFixed(3)})`;
-        ctx.stroke();
-      }
-    }
+    // 使用径向渐变来模拟柔和的光晕
+    // 由于垂直方向被压缩了0.4，所以这里的半径主要决定水平覆盖范围
+    const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, EXPORT_WIDTH * 0.9);
+    glowGradient.addColorStop(0, 'rgba(255, 162, 0, 0.72)'); // OWCS Orange，降低透明度
+    glowGradient.addColorStop(0.5, 'rgba(255, 200, 100, 0.05)'); // 柔和过渡
+    glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // 完全透明
+    
+    ctx.fillStyle = glowGradient;
+    // 填充区域反向拉伸，确保覆盖原定区域
+    ctx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT / 0.4);
     ctx.restore();
 
-    // 绘制顶部装饰线（橙色）
-    const lineHeight = Math.round(EXPORT_WIDTH * 0.005); // 约 8px
-    ctx.fillStyle = '#ff9c07'; // OWCS 风格橙色
-    ctx.fillRect(0, footerY, canvas.width, lineHeight);
+    // 3. 斜向浅灰装饰条 (Tech Style Stripes)
+    // 定义一个绘制旋转矩形的函数
+    const drawStripe = (x, y, length, thickness, opacity) => {
+        ctx.save();
+        ctx.translate(x, y);
+        // 统一旋转角度，例如 -35度 (/)
+        const angle = -15 * Math.PI / 180;
+        ctx.rotate(angle); 
+        ctx.fillStyle = `rgba(144, 147, 153, ${opacity})`;
+        
+        // 计算偏移量以使尾端垂直
+        // 在旋转坐标系中，如果要让切割线在全局坐标系下垂直，需要计算底边的x偏移
+        const skewOffset = thickness * Math.tan(angle);
 
-    // 绘制左侧主标题: "OWCS STATS"
-    const textY = footerY + footerHeight / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(length, 0);
+        // 尾端垂直切口
+        ctx.lineTo(length + skewOffset, thickness);
+        // 首端垂直切口 (使两端都垂直)
+        ctx.lineTo(skewOffset, thickness);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    };
+
+    // 绘制多条装饰纹理 - 加粗，加密
+    // 注意：坐标是旋转前的原点，需要根据旋转角度调整位置以确保线条出现在画面中
     
-    // 主标题字体大小
-    const mainTitleSize = Math.round(EXPORT_WIDTH * 0.045); // 约 72px
-    ctx.font = `900 ${mainTitleSize}px "Orbitron", sans-serif`;
-    ctx.fillStyle = '#303133'; // 主要文字色
+    // 顶部的一组细线 -> 移动到左下
+    drawStripe(EXPORT_WIDTH * 0.5, EXPORT_HEIGHT * 1, EXPORT_WIDTH * 1.5, 150, 0.2); // 加粗
+    drawStripe(EXPORT_WIDTH * -0.12, EXPORT_HEIGHT * 0.88, EXPORT_WIDTH * 1.5, 40, 0.1); // 加粗
+    drawStripe(EXPORT_WIDTH * 0.15, EXPORT_HEIGHT * 0.92, EXPORT_WIDTH * 1.5, 12, 0.15); // 新增细线
+
+    // 中间穿过图表区域的装饰线 (中段)
+    drawStripe(EXPORT_WIDTH * -0.1, EXPORT_HEIGHT * 0.2, EXPORT_WIDTH * 0.2, 200, 0.03); // 更加宽大的淡色带
+    drawStripe(EXPORT_WIDTH * 0.0, EXPORT_HEIGHT * 0.55, EXPORT_WIDTH * 2, 250, 0.02); // 新增宽色带
+    drawStripe(EXPORT_WIDTH * -0.05, EXPORT_HEIGHT * 0.51, EXPORT_WIDTH * 0.7, 20, 0.15); // 加粗细线
+    drawStripe(EXPORT_WIDTH * 0.08, EXPORT_HEIGHT * 0.62, EXPORT_WIDTH * 2, 30, 0.08); // 新增
+
+    // 底部区域 (右下)
+    drawStripe(EXPORT_WIDTH * -0.1, EXPORT_HEIGHT * 0.75, EXPORT_WIDTH*0.5, 110, 0.18); // 加粗
+    drawStripe(EXPORT_WIDTH * 0.35, EXPORT_HEIGHT * 1, EXPORT_WIDTH, 40, 0.1); // 加粗
+    drawStripe(EXPORT_WIDTH * 0.6, EXPORT_HEIGHT * 0.92, EXPORT_WIDTH, 60, 0.06); // 加粗
+    drawStripe(EXPORT_WIDTH * 0.45, EXPORT_HEIGHT * 1, EXPORT_WIDTH, 20, 0.4); // 新增
+
+    // 4. 柔和高光 (Soft Highlight)
+    // 叠加一个大的径向渐变，让整体更柔和
+    const overlayGradient = ctx.createRadialGradient(
+        EXPORT_WIDTH * 0.5, EXPORT_HEIGHT * 0.5, 0,
+        EXPORT_WIDTH * 0.5, EXPORT_HEIGHT * 0.5, EXPORT_WIDTH * 0.8
+    );
+    overlayGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+    overlayGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = overlayGradient;
+    ctx.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
+
+
+
+    // --- 绘制图表 ---
+    // 居中绘制图表
+    const chartY = (canvas.height - contentHeight) / 2 + headerHeight * 0.5;
+    ctx.drawImage(img, 0, chartY, EXPORT_WIDTH, contentHeight);
+
+    // --- 绘制 Header ---
+    // 左上角标题 OWCS STATS
+    const titleX = padding - 30;
+    const titleY = padding - 35;
+    
+    // OWCS STATS 主标题
+    ctx.font = `900 100px "Orbitron", sans-serif`;
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'bottom'; // 基线对齐方便排版
+    ctx.textBaseline = 'top';
     
-    const mainTitle = 'OWCS STATS';
-    ctx.fillText(mainTitle, padding, textY - (footerHeight * 0.04));
+    // 文字描边效果 (实现类似图片中的效果：白字带黄色光晕/描边，或者黄字白边)
+    // 图片看起来是：白字，厚重的黄色/橙色 阴影或描边
+    // 用户需求：黑色字，不需要描边，只需要阴影
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 0; // 移除描边宽度
+    
+    // 设置阴影
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetX = 5;
+    ctx.shadowOffsetY = 5;
+    
+    ctx.fillStyle = '#2B2E34'; // 使用深灰色，比纯黑更柔和且更有质感
+    ctx.fillText('OWCS STATS', titleX, titleY);
+    
+    // 清除阴影设置以免影响后续绘制
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
-    // 如果有赛季名称，绘制在标题下方
-    if (seasonName) {
-      const subTitleSize = Math.round(EXPORT_WIDTH * 0.024); // 约 38px
-      ctx.font = `800 ${subTitleSize}px "Orbitron", sans-serif`;
-      ctx.fillStyle = '#909399'; // 浅灰色
-      ctx.textBaseline = 'top';
-      ctx.fillText(seasonName, padding, textY + (footerHeight * 0.04));
-    }
+    // 副标题 2025 全球总决赛
+    const subTitleText = '2025 全球总决赛';
+    const subTitleY = titleY + 110;
+    ctx.font = `bold 48px "Microsoft YaHei", sans-serif`;
+    
+    // 副标题同样处理：深灰色 + 阴影
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    
+    ctx.fillStyle = '#3A3D42';
+    ctx.fillText(subTitleText, titleX, subTitleY);
 
-    // 绘制右侧 Logo (如果有)
+    // 清除阴影设置
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // --- 绘制右上角 Logo ---
     if (logoImg.complete && logoImg.naturalWidth > 0) {
-      const logoSize = Math.round(EXPORT_WIDTH * 0.09); // 约 144px
-      // 保持正方形或原始比例，这里假设是正方形或者按高度适配
-      const renderHeight = logoSize;
-      const renderWidth = (logoImg.width / logoImg.height) * renderHeight;
+      const logoHeight = 150;
+      const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+      const logoX = canvas.width - padding - logoWidth;
+      const logoY = padding - 35;
       
-      const logoX = canvas.width - padding - renderWidth;
-      const logoY = footerY + (footerHeight - renderHeight) / 2;
-      
-      // 添加 Logo 阴影效果
-      ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
-      ctx.shadowBlur = Math.round(EXPORT_WIDTH * 0.01);
-      ctx.shadowOffsetY = Math.round(EXPORT_WIDTH * 0.003);
-      
-      ctx.drawImage(logoImg, logoX, logoY, renderWidth, renderHeight);
-      
-      // 重置阴影
-      ctx.shadowColor = "transparent";
+      // 添加白色辉光/阴影让Logo在背景上更清晰
+      ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+      ctx.shadowBlur = 20;
+      ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
       ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
     }
 
-       // 如果 Logo 加载失败，回退到文字
-       // 这里可以选择不画或者画文字，暂时不处理
+    // --- 绘制右下角 Godlike Logo ---
+    if (godlikeImg.complete && godlikeImg.naturalWidth > 0) {
+      const glSize = 160;
+      const glX = canvas.width - padding - glSize;
+      const glY = canvas.height - padding - glSize;
+      
+      // 添加柔和阴影
+      ctx.shadowColor = "rgba(0, 0, 0, 0.1)";
+      ctx.shadowBlur = 10;
+      
+      // 保持比例绘制
+      const glAspect = godlikeImg.width / godlikeImg.height;
+      let drawW = glSize;
+      let drawH = glSize;
+      
+      if (glAspect > 1) {
+          drawH = glSize / glAspect;
+      } else {
+          drawW = glSize * glAspect;
+      }
+      
+      // 居中于目标区域
+      const drawX = glX + (glSize - drawW) / 2;
+      const drawY = glY + (glSize - drawH) / 2;
+
+      ctx.drawImage(godlikeImg, drawX, drawY, drawW, drawH);
+      ctx.shadowBlur = 0;
+    }
 
     return canvas.toDataURL('image/png');
   };

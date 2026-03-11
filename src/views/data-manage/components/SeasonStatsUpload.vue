@@ -26,7 +26,8 @@
         
         <el-form-item>
           <div v-if="!previewMode">
-            <el-button type="primary" @click="handlePreview" :loading="uploading">解析预览</el-button>
+            <el-button type="primary" @click="handlePreview" :loading="uploading">普通解析预览</el-button>
+            <el-button type="success" @click="handleAIPreview" :loading="uploading" style="margin-left: 10px;">AI 智能解析预览</el-button>
           </div>
           <div v-else class="action-buttons">
             <el-button type="warning" @click="cancelPreview" :disabled="uploading">取消</el-button>
@@ -107,6 +108,8 @@ export default {
     const uploading = ref(false);
     const fileInput = ref(null);
     const previewMode = ref(false);
+    const aiMode = ref(false);
+    const mapping = ref(null);
     const previewData = ref([]);
 
     onMounted(async () => {
@@ -123,6 +126,8 @@ export default {
     const handleFileChange = (e) => {
       form.value.file = e.target.files[0];
       previewMode.value = false;
+      aiMode.value = false;
+      mapping.value = null;
       previewData.value = [];
     };
 
@@ -140,6 +145,8 @@ export default {
       }
 
       uploading.value = true;
+      aiMode.value = false;
+      mapping.value = null;
       const formData = new FormData();
       formData.append('seasonId', form.value.seasonId);
       formData.append('file', form.value.file);
@@ -150,11 +157,43 @@ export default {
         if (response && response.preview) {
             previewData.value = response.preview;
             previewMode.value = true;
-            ElMessage.success('解析成功，请确认数据');
+            ElMessage.success('普通解析成功，请确认数据');
         }
       } catch (error) {
         console.error(error);
         ElMessage.error('解析失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        uploading.value = false;
+      }
+    };
+
+    const handleAIPreview = async () => {
+      if (!form.value.seasonId) {
+        ElMessage.warning('请选择赛季');
+        return;
+      }
+      if (!form.value.file) {
+        ElMessage.warning('请选择文件');
+        return;
+      }
+
+      uploading.value = true;
+      aiMode.value = true;
+      const formData = new FormData();
+      formData.append('seasonId', form.value.seasonId);
+      formData.append('file', form.value.file);
+
+      try {
+        const response = await apiService.previewAISeasonStats(formData);
+        if (response && response.preview) {
+            previewData.value = response.preview;
+            mapping.value = response.mapping;
+            previewMode.value = true;
+            ElMessage.success('AI 智能解析成功，请确认数据');
+        }
+      } catch (error) {
+        console.error(error);
+        ElMessage.error('AI 解析失败: ' + (error.response?.data?.error || error.message));
       } finally {
         uploading.value = false;
       }
@@ -168,6 +207,10 @@ export default {
       formData.append('seasonId', form.value.seasonId);
       formData.append('file', form.value.file);
       formData.append('dryRun', 'false');
+      
+      if (aiMode.value && mapping.value) {
+          formData.append('mapping', JSON.stringify(mapping.value));
+      }
 
       try {
         const response = await apiService.uploadSeasonStats(formData);
@@ -176,6 +219,8 @@ export default {
         form.value.file = null;
         if (fileInput.value) fileInput.value.value = '';
         previewMode.value = false;
+        aiMode.value = false;
+        mapping.value = null;
         previewData.value = [];
       } catch (error) {
         console.error(error);
@@ -187,6 +232,8 @@ export default {
 
     const cancelPreview = () => {
         previewMode.value = false;
+        aiMode.value = false;
+        mapping.value = null;
         previewData.value = [];
     };
     
@@ -206,6 +253,7 @@ export default {
       uploading,
       handleFileChange,
       handlePreview,
+      handleAIPreview,
       confirmUpload,
       cancelPreview,
       fileInput,

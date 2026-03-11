@@ -23,6 +23,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.post('/upload', upload.single('file'), SeasonStatController.uploadSeasonStats);
+router.post('/ai-preview', upload.single('file'), SeasonStatController.previewAIStats);
 router.get('/:seasonId', SeasonStatController.getSeasonStats);
 
 module.exports = router;
