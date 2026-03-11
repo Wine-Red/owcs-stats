@@ -125,6 +125,9 @@ const apiService = {
   uploadSeasonStats: (formData) => api.post('/season-stats/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  previewAISeasonStats: (formData) => api.post('/season-stats/ai-preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
 
   // Config (New)
