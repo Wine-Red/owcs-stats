@@ -11,12 +11,12 @@ const AIService = require('../services/AIService');
 
 // Helper function to normalize roles
 const normalizeRole = (roleStr) => {
-  if (!roleStr) return 'flex';
+  if (!roleStr) return null;
   const lower = roleStr.toLowerCase();
   if (lower.includes('tank')) return 'tank';
   if (lower.includes('support')) return 'support';
   if (lower.includes('dps') || lower.includes('damage')) return 'damage';
-  return 'flex';
+  return null;
 };
 
 // Helper function to save stats data
@@ -59,10 +59,16 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
 
     // Find or Create Player
     let player = await Player.findOne({ where: { name: playerName }, transaction: t });
+    
+    if (!player && !normalizedRole) {
+        console.warn(`Skipping new player creation for ${playerName} due to invalid role: ${role}`);
+        continue;
+    }
+
     if (!player) {
       player = await Player.create({ name: playerName, teamId: team.id, role: normalizedRole }, { transaction: t });
     } else {
-        if (player.role !== normalizedRole) {
+        if (normalizedRole && player.role !== normalizedRole) {
             await player.update({ role: normalizedRole }, { transaction: t });
         }
     }

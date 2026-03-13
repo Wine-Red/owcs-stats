@@ -514,9 +514,9 @@
           </el-form-item>
           <el-form-item label="位置" prop="role">
             <el-select v-model="editForm.role" placeholder="请选择位置" style="width: 100%">
-              <el-option label="坦克" value="tank" />
+              <el-option label="重装" value="tank" />
               <el-option label="输出" value="damage" />
-              <el-option label="辅助" value="support" />
+              <el-option label="支援" value="support" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -1103,9 +1103,9 @@ export default {
     // 获取选手位置文本
     const getRoleText = (role) => {
       const roleMap = {
-        tank: '坦克',
+        tank: '重装',
         damage: '输出',
-        support: '辅助'
+        support: '支援'
       };
       return roleMap[role] || role;
     };

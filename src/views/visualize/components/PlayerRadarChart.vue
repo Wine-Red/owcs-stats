@@ -17,9 +17,9 @@
       <template #extra>
         <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
-            <el-radio-button label="tank">坦克</el-radio-button>
+            <el-radio-button label="tank">重装</el-radio-button>
             <el-radio-button label="damage">输出</el-radio-button>
-            <el-radio-button label="support">辅助</el-radio-button>
+            <el-radio-button label="support">支援</el-radio-button>
           </el-radio-group>
           
           <div class="player-selectors">

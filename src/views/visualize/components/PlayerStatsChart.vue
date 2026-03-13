@@ -17,9 +17,9 @@
       <template #extra>
         <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
-            <el-radio-button label="tank">坦克</el-radio-button>
+            <el-radio-button label="tank">重装</el-radio-button>
             <el-radio-button label="damage">输出</el-radio-button>
-            <el-radio-button label="support">辅助</el-radio-button>
+            <el-radio-button label="support">支援</el-radio-button>
           </el-radio-group>
           <div class="select-wrapper">
             <el-select 
@@ -52,9 +52,9 @@
       
       <div class="leaderboard-section">
         <div class="leaderboard-header">
-          <span class="leaderboard-title" v-if="playerRole === 'tank'">坦克选手排行榜</span>
+          <span class="leaderboard-title" v-if="playerRole === 'tank'">重装选手排行榜</span>
           <span class="leaderboard-title" v-else-if="playerRole === 'damage'">输出选手排行榜</span>
-          <span class="leaderboard-title" v-else-if="playerRole === 'support'">辅助选手排行榜</span>
+          <span class="leaderboard-title" v-else-if="playerRole === 'support'">支援选手排行榜</span>
         </div>
         
         <el-table 
