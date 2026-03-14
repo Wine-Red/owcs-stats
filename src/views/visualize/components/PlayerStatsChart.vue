@@ -837,23 +837,42 @@ export default {
 }
 
 .leaderboard-section {
-  margin-top: 24px;
-  border-top: 1px solid #EBEEF5;
-  padding-top: 20px;
+  margin-top: 12px; /* 缩减上边距 24px -> 12px */
+  /* 更淡的分隔阴影，营造轻微的层级感 */
+  box-shadow: 0 -4px 12px -2px rgba(0, 0, 0, 0.03); 
+  border-top: 1px solid #f2f3f5; /* 极淡的边框 */
+  padding-top: 20px; /* 稍微缩减内边距 24px -> 20px */
+  background: linear-gradient(to bottom, #fafafa, #ffffff 12px); /* 顶部微弱的浅灰过渡 */
 }
 
 .leaderboard-header {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  padding-left: 12px;
+}
+
+/* 左侧短橙条，强化标题区 */
+.leaderboard-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 16px;
+  background: #FF9E0F;
+  border-radius: 0 4px 4px 0; /* 改为半圆角 */
 }
 
 .leaderboard-title {
-  font-size: 14px;
+  font-size: 16px; /* 稍微加大字号 */
   font-weight: 700;
-  color: #303133;
+  color: #1a1a1a; /* 更深的颜色，增加对比 */
   font-family: 'Inter', sans-serif;
+  letter-spacing: 0.5px;
 }
 
 .leaderboard-footer {
@@ -937,6 +956,7 @@ export default {
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: color 0.3s;
+  /* margin-left: 8px; Removed */
 }
 
 .info-icon:hover {

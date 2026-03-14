@@ -25,11 +25,14 @@
           <div class="player-selectors">
              <el-select 
               v-model="player1Id" 
-              placeholder="选择选手1 (红)" 
+              placeholder="" 
               clearable
-              class="player-select player-select-red"
+              class="player-select"
               size="small"
             >
+              <template #prefix>
+                <span class="custom-select-label">选手1 (红)</span>
+              </template>
               <el-option
                 v-for="player in player1Options"
                 :key="player.id"
@@ -40,11 +43,14 @@
             
             <el-select 
               v-model="player2Id" 
-              placeholder="选择选手2 (蓝)" 
+              placeholder="" 
               clearable
-              class="player-select player-select-blue"
+              class="player-select"
               size="small"
             >
+              <template #prefix>
+                <span class="custom-select-label">选手2 (蓝)</span>
+              </template>
               <el-option
                 v-for="player in player2Options"
                 :key="player.id"
@@ -439,19 +445,54 @@ export default {
   width: 140px;
 }
 
-/* 自定义选框颜色 */
-:deep(.player-select-red .el-input__inner) {
-    color: #F56C6C;
+/* 强制应用磨砂玻璃风格，文字颜色使用深色以保持对比度 */
+:deep(.player-select .el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important;
+  border-radius: 18px !important;
+  padding: 4px 12px !important;
+  transition: all 0.3s ease;
 }
-:deep(.player-select-blue .el-input__inner) {
-    color: #409EFF;
+
+:deep(.player-select .el-input__wrapper:hover) {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+}
+
+:deep(.player-select .el-input__wrapper.is-focus) {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 0 1px #FFFFFF inset !important;
+}
+
+:deep(.player-select .el-input__inner) {
+  color: #303133 !important;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+:deep(.player-select .el-input__inner::placeholder) {
+  color: #606266 !important;
+  opacity: 0.8;
+}
+
+:deep(.player-select .el-input__suffix .el-icon) {
+  color: #606266 !important;
+}
+
+.custom-select-label {
+  color: #606266;
+  font-size: 12px;
+  margin-right: 8px;
+  font-weight: 600;
+  text-shadow: none;
+  white-space: nowrap;
 }
 
 .info-icon {
   font-size: 18px;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  margin-left: 8px;
+  /* margin-left: 8px; 移除这里的margin，由父容器padding控制 */
 }
 .info-icon:hover {
   color: #fff;
