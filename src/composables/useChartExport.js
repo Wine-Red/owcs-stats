@@ -277,8 +277,49 @@ export function useChartExport() {
       }
       // === 样式重写结束 ===
 
-      // 尝试第一次导出
       try {
+          // 尝试使用 fetch -> blob 预先将跨域的 image:// 转换为 base64
+          if (options.series) {
+              const fetchPromises = [];
+              options.series.forEach(s => {
+                  if (s.data) {
+                      s.data.forEach(d => {
+                          if (d.symbol && d.symbol.startsWith('image://')) {
+                              const imgUrl = d.symbol.replace('image://', '');
+                              // 只有以 http 开头的才可能是跨域 URL 需要处理
+                              if (imgUrl.startsWith('http')) {
+                                  const p = fetch(imgUrl, { mode: 'cors' })
+                                      .then(res => res.blob())
+                                      .then(blob => {
+                                          return new Promise(resolve => {
+                                              const reader = new FileReader();
+                                              reader.onloadend = () => {
+                                                  d.symbol = 'image://' + reader.result;
+                                                  resolve();
+                                              };
+                                              reader.readAsDataURL(blob);
+                                          });
+                                      })
+                                      .catch(() => {
+                                          // 失败则降级为 circle
+                                          d.symbol = 'circle';
+                                          d.symbolSize = 10;
+                                      });
+                                  fetchPromises.push(p);
+                              }
+                          }
+                      });
+                  }
+              });
+              
+              if (fetchPromises.length > 0) {
+                  await Promise.all(fetchPromises);
+              }
+          }
+
+          offscreenChart.setOption(options);
+          offscreenChart.resize();
+
           chartDataUrl = offscreenChart.getDataURL({
             type: 'png',
             pixelRatio: 1 / RENDER_SCALE, 
@@ -288,29 +329,25 @@ export function useChartExport() {
       } catch (e) {
           console.warn('First export attempt failed (likely CORS), trying fallback without images...', e);
           
-          // 如果第一次导出失败（通常是因为图片跨域导致 Canvas 被污染），则尝试移除所有图片
-          // 遍历 series，把所有 image:// 开头的 symbol 替换为 circle
+          // 如果依然失败，则终极降级：移除所有图片
           if (options.series) {
               options.series.forEach(s => {
                   if (s.data) {
                       s.data.forEach(d => {
                           if (d.symbol && d.symbol.startsWith('image://')) {
                               d.symbol = 'circle';
-                              // 还可以设置个默认颜色或大小
                               d.symbolSize = 10;
                           }
                       });
                   }
-                  // 处理 series 级别的 symbol
                   if (s.symbol && s.symbol.startsWith('image://')) {
                       s.symbol = 'circle';
                   }
               });
           }
           
-          offscreenChart.setOption(options, true); // update
+          offscreenChart.setOption(options, true); 
           
-          // 再次尝试导出
           chartDataUrl = offscreenChart.getDataURL({
             type: 'png',
             pixelRatio: 1 / RENDER_SCALE, 
@@ -498,7 +535,8 @@ export function useChartExport() {
     ctx.fill();
 
     // 绘制表格右侧的艺术字标题 (竖向排版)
-    const rightAreaX = tableX + tableWidth + (rightMarginForLogo / 2);
+    // 根据表格宽度调整 rightAreaX 的位置
+    const rightAreaX = tableX + tableWidth + (rightMarginForLogo / 2) - 30; // 稍微向左偏移一点，避免重叠
     // 让标题在右侧空间的垂直起始位置
     const rightAreaY = tableY + 40;
     
@@ -574,55 +612,58 @@ export function useChartExport() {
                 ctx.fillStyle = '#303133';
                 ctx.font = 'bold 26px "Microsoft YaHei", sans-serif';
                 
-                let startX = textX;
-                let textContent = row[col.prop] || '';
+                // 固定文字起始位置，不再依赖图标宽度动态计算
+                // 给图标预留 50px 的固定宽度，确保所有文字左对齐
+                const fixedIconWidth = 50; 
+                let textStartX = textX;
+                let textContent = row[col.prop] || ''; // 提前定义 textContent
                 
-                if (row.logo && loadedLogos[row.logo] && loadedLogos[row.logo].complete) {
+                if (col.align === 'left') {
+                    // 左对齐模式：文字从 fixedIconWidth 处开始
+                    textStartX = textX + fixedIconWidth;
+                } else {
+                    // 居中模式：先算好文字总宽度，再推算起始点，但要保证图标和文字整体视觉居中
+                    const textWidth = ctx.measureText(textContent).width;
+                    // 如果是居中对齐，我们让 (图标 + 固定间距 + 文字) 整体居中
+                    const totalContentWidth = 36 + 15 + textWidth; // 假设图标宽36
+                    // 重置 textStartX 为整体内容的左边缘 + 图标位移
+                    // textX 是单元格中心
+                    textStartX = textX - totalContentWidth / 2 + 36 + 15;
+                }
+
+                if (row.logo && loadedLogos[row.logo] && loadedLogos[row.logo].complete && loadedLogos[row.logo].naturalWidth > 0) {
                     const img = loadedLogos[row.logo];
                     const logoSize = 36;
-                    const scale = Math.min(logoSize / img.width, logoSize / img.height);
-                    const drawW = img.width * scale;
-                    const drawH = img.height * scale;
+                    const scale = Math.min(logoSize / img.naturalWidth, logoSize / img.naturalHeight);
+                    const drawW = img.naturalWidth * scale;
+                    const drawH = img.naturalHeight * scale;
                     
+                    // 图标绘制位置：
+                    // 左对齐：在 textX (单元格左侧padding后)
+                    // 居中对齐：在 textStartX 左侧 15px 再减去图标宽度
+                    let iconX = col.align === 'left' ? textX : (textStartX - 15 - drawW);
+                    
+                    // 为了让图标之间对齐，如果是左对齐模式，我们让图标在 0~50px 的区间内居中或者靠左
+                    // 建议图标水平居中于它的 50px 占位区
                     if (col.align === 'left') {
-                        ctx.drawImage(img, startX, textY - drawH / 2, drawW, drawH);
-                        startX += drawW + 15;
-                        ctx.textAlign = 'left';
-                        
-                        if (col.prop === 'playerName' && row.teamName) {
-                            ctx.fillText(textContent, startX, textY - 8);
-                            ctx.fillStyle = '#909399';
-                            ctx.font = '18px "Inter", "Microsoft YaHei", sans-serif';
-                            ctx.fillText(row.teamName, startX, textY + 16);
-                        } else {
-                            ctx.fillText(textContent, startX, textY);
-                        }
-                    } else {
-                        const textWidth = ctx.measureText(textContent).width;
-                        const totalW = drawW + 15 + textWidth;
-                        let cx = textX - totalW / 2;
-                        ctx.drawImage(img, cx, textY - drawH / 2, drawW, drawH);
-                        ctx.textAlign = 'left';
-                        
-                        if (col.prop === 'playerName' && row.teamName) {
-                            ctx.fillText(textContent, cx + drawW + 15, textY - 8);
-                            ctx.fillStyle = '#909399';
-                            ctx.font = '18px "Inter", "Microsoft YaHei", sans-serif';
-                            ctx.fillText(row.teamName, cx + drawW + 15, textY + 16);
-                        } else {
-                            ctx.fillText(textContent, cx + drawW + 15, textY);
-                        }
+                        iconX = textX + (fixedIconWidth - 15 - drawW) / 2; // 15是文字间距
                     }
+
+                    // 图标垂直下移一点，微调视觉中心
+                    const iconY = textY - drawH / 2 + 14;
+
+                    ctx.drawImage(img, iconX, iconY, drawW, drawH);
+                }
+
+                ctx.textAlign = 'left'; // 统一用左对齐绘制文字，因为我们已经算好了 startX
+                
+                if (col.prop === 'playerName' && row.teamName) {
+                    ctx.fillText(textContent, textStartX, textY - 8);
+                    ctx.fillStyle = '#909399';
+                    ctx.font = '18px "Inter", "Microsoft YaHei", sans-serif';
+                    ctx.fillText(row.teamName, textStartX, textY + 16);
                 } else {
-                    if (col.prop === 'playerName' && row.teamName) {
-                        ctx.textAlign = col.align === 'left' ? 'left' : 'center';
-                        ctx.fillText(textContent, textX, textY - 8);
-                        ctx.fillStyle = '#909399';
-                        ctx.font = '18px "Inter", "Microsoft YaHei", sans-serif';
-                        ctx.fillText(row.teamName, textX, textY + 16);
-                    } else {
-                        ctx.fillText(textContent, textX, textY);
-                    }
+                    ctx.fillText(textContent, textStartX, textY);
                 }
             } else {
                 ctx.fillStyle = '#303133';
