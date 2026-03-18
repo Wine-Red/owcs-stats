@@ -17,9 +17,21 @@
       <template #extra>
         <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
-            <el-radio-button label="tank">重装</el-radio-button>
-            <el-radio-button label="damage">输出</el-radio-button>
-            <el-radio-button label="support">支援</el-radio-button>
+            <el-radio-button label="tank">
+              <div class="role-btn-content">
+                <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
+              </div>
+            </el-radio-button>
+            <el-radio-button label="damage">
+              <div class="role-btn-content">
+                <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
+              </div>
+            </el-radio-button>
+            <el-radio-button label="support">
+              <div class="role-btn-content">
+                <img src="/icons/role/Support.png" class="role-icon" alt="support" />
+              </div>
+            </el-radio-button>
           </el-radio-group>
           
           <div class="player-selectors">
@@ -549,5 +561,31 @@ export default {
   :deep(.role-radio-group .el-radio-button__inner) {
     width: 100%;
   }
+}
+
+/* 添加单选按钮内容的 flex 布局及图标大小控制 */
+.role-btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.role-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  /* 默认状态（未激活）：通过极高亮度和零饱和度，强行把任何图标变纯白 */
+  filter: brightness(0) invert(1);
+  transition: all 0.3s;
+}
+
+/* 调整单选按钮的内边距，使其变成更匀称的正方形或小矩形 */
+:deep(.el-radio-button__inner) {
+  padding: 8px 12px; 
+}
+
+/* 当单选按钮被选中时，转换为主题橙色 */
+:deep(.el-radio-button.is-active .role-icon) {
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
 }
 </style>

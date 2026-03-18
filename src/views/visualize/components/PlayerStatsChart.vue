@@ -17,9 +17,21 @@
       <template #extra>
         <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
-            <el-radio-button label="tank">重装</el-radio-button>
-            <el-radio-button label="damage">输出</el-radio-button>
-            <el-radio-button label="support">支援</el-radio-button>
+            <el-radio-button label="tank">
+              <div class="role-btn-content">
+                <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
+              </div>
+            </el-radio-button>
+            <el-radio-button label="damage">
+              <div class="role-btn-content">
+                <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
+              </div>
+            </el-radio-button>
+            <el-radio-button label="support">
+              <div class="role-btn-content">
+                <img src="/icons/role/Support.png" class="role-icon" alt="support" />
+              </div>
+            </el-radio-button>
           </el-radio-group>
           <div class="select-wrapper">
             <el-select 
@@ -52,9 +64,18 @@
       
       <div class="leaderboard-section">
         <div class="leaderboard-header">
-          <span class="leaderboard-title" v-if="playerRole === 'tank'">重装选手排行榜</span>
-          <span class="leaderboard-title" v-else-if="playerRole === 'damage'">输出选手排行榜</span>
-          <span class="leaderboard-title" v-else-if="playerRole === 'support'">支援选手排行榜</span>
+          <span class="leaderboard-title" v-if="playerRole === 'tank'">
+            <img src="/icons/role/Tank.png" class="leaderboard-role-icon" alt="tank" /> 重装选手排行榜
+          </span>
+          <span class="leaderboard-title" v-else-if="playerRole === 'damage'">
+            <img src="/icons/role/DPS.png" class="leaderboard-role-icon" alt="damage" /> 输出选手排行榜
+          </span>
+          <span class="leaderboard-title" v-else-if="playerRole === 'support'">
+            <img src="/icons/role/Support.png" class="leaderboard-role-icon" alt="support" /> 支援选手排行榜
+          </span>
+          <el-button link class="export-btn-small" @click="handleExportLeaderboard">
+            <el-icon><Download /></el-icon> 导出
+          </el-button>
         </div>
         
         <el-table 
@@ -87,38 +108,82 @@
           <template v-if="playerRole === 'tank'">
             <el-table-column key="tank-mit" prop="mitigationPer10" label="抵挡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
-                 <span class="stat-highlight">{{ scope.row.mitigationPer10 }}</span>
+                 <span :class="{ 'stat-highlight': sortState.prop === 'mitigationPer10' }">{{ scope.row.mitigationPer10 }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="tank-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="tank-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="tank-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'kd' }">{{ scope.row.kd }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="tank-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'damagePer10' }">{{ scope.row.damagePer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="tank-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'elimsPer10' }">{{ scope.row.elimsPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="tank-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'assistsPer10' }">{{ scope.row.assistsPer10 }}</span>
+               </template>
+            </el-table-column>
           </template>
 
           <!-- Damage Columns -->
           <template v-else-if="playerRole === 'damage'">
             <el-table-column key="dmg-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
-                 <span class="stat-highlight">{{ scope.row.elimsPer10 }}</span>
+                 <span :class="{ 'stat-highlight': sortState.prop === 'elimsPer10' }">{{ scope.row.elimsPer10 }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="dmg-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="dmg-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="dmg-kd" prop="kd" label="K/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'kd' }">{{ scope.row.kd }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="dmg-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'damagePer10' }">{{ scope.row.damagePer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'deathsPer10' }">{{ scope.row.deathsPer10 }}</span>
+               </template>
+            </el-table-column>
           </template>
 
           <!-- Support Columns -->
           <template v-else-if="playerRole === 'support'">
             <el-table-column key="supp-kad" prop="kad" label="KA/D" width="80" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
-                 <span class="stat-highlight">{{ scope.row.kad }}</span>
+                 <span :class="{ 'stat-highlight': sortState.prop === 'kad' }">{{ scope.row.kad }}</span>
                </template>
             </el-table-column>
-            <el-table-column key="supp-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-heal" prop="healingPer10" label="治疗/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
-            <el-table-column key="supp-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+            <el-table-column key="supp-dmg" prop="damagePer10" label="伤害/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'damagePer10' }">{{ scope.row.damagePer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="supp-heal" prop="healingPer10" label="治疗/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'healingPer10' }">{{ scope.row.healingPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="supp-elims" prop="elimsPer10" label="消灭/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'elimsPer10' }">{{ scope.row.elimsPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column key="supp-assists" prop="assistsPer10" label="助攻/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'assistsPer10' }">{{ scope.row.assistsPer10 }}</span>
+               </template>
+            </el-table-column>
           </template>
           
           <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
@@ -176,11 +241,62 @@ export default {
     const playerStatsTable = ref(null);
     let playerChart = null;
 
-    const { showPreview, previewImage, handleExportChart } = useChartExport();
+    const { showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
     const handleExport = () => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
-        handleExportChart(playerChart, seasonName);
+        let roleName = '选手';
+        if (playerRole.value === 'tank') roleName = '重装选手';
+        else if (playerRole.value === 'damage') roleName = '输出选手';
+        else if (playerRole.value === 'support') roleName = '支援选手';
+        
+        handleExportChart(playerChart, seasonName, `${roleName}表现分布`);
+    };
+
+    const handleExportLeaderboard = () => {
+        const season = store.getters.getSeasonById(props.seasonId);
+        const seasonName = season ? season.name : '';
+        
+        let title = '选手排行榜';
+        let roleColumns = [];
+        if (playerRole.value === 'tank') {
+            title = '重装选手排行榜';
+            roleColumns = [
+                { prop: 'mitigationPer10', label: '抵挡/10min', highlight: sortState.value.prop === 'mitigationPer10', weight: 1.2 },
+                { prop: 'kd', label: 'K/D', highlight: sortState.value.prop === 'kd', weight: 0.8 },
+                { prop: 'damagePer10', label: '伤害/10min', highlight: sortState.value.prop === 'damagePer10', weight: 1.2 },
+                { prop: 'elimsPer10', label: '消灭/10min', highlight: sortState.value.prop === 'elimsPer10', weight: 1.2 },
+                { prop: 'assistsPer10', label: '助攻/10min', highlight: sortState.value.prop === 'assistsPer10', weight: 1.2 }
+            ];
+        } else if (playerRole.value === 'damage') {
+            title = '输出选手排行榜';
+            roleColumns = [
+                { prop: 'elimsPer10', label: '消灭/10min', highlight: sortState.value.prop === 'elimsPer10', weight: 1.2 },
+                { prop: 'kd', label: 'K/D', highlight: sortState.value.prop === 'kd', weight: 0.8 },
+                { prop: 'damagePer10', label: '伤害/10min', highlight: sortState.value.prop === 'damagePer10', weight: 1.2 },
+                { prop: 'deathsPer10', label: '死亡/10min', highlight: sortState.value.prop === 'deathsPer10', weight: 1.2 }
+            ];
+        } else if (playerRole.value === 'support') {
+            title = '支援选手排行榜';
+            roleColumns = [
+                { prop: 'kad', label: 'KA/D', highlight: sortState.value.prop === 'kad', weight: 1 },
+                { prop: 'damagePer10', label: '伤害/10min', highlight: sortState.value.prop === 'damagePer10', weight: 1.2 },
+                { prop: 'healingPer10', label: '治疗/10min', highlight: sortState.value.prop === 'healingPer10', weight: 1.2 },
+                { prop: 'elimsPer10', label: '消灭/10min', highlight: sortState.value.prop === 'elimsPer10', weight: 1.2 },
+                { prop: 'assistsPer10', label: '助攻/10min', highlight: sortState.value.prop === 'assistsPer10', weight: 1.2 }
+            ];
+        }
+
+        const columns = [
+            { prop: 'rank', label: '排名', width: 80, weight: 0.8 },
+            { prop: 'playerName', label: '选手', align: 'left', isTeam: true, weight: 2 },
+            ...roleColumns,
+            { prop: 'duration', label: '时长(分)', weight: 1 }
+        ];
+
+        // Export top 15
+        const exportData = playerLeaderboardData.value.slice(0, 15);
+        handleExportTable(title, columns, exportData, seasonName);
     };
     
     // 初始化默认排序
@@ -308,11 +424,8 @@ export default {
         if (logo && teamId && !teamLogoSizes.value.has(teamId)) {
            const size = await preloadImage(logo);
            if (size && size.height > 0) {
-             const MAX_WIDTH = 25;
-             const MAX_HEIGHT = 15;
-             
-             // 计算缩放比例，同时满足宽和高的限制
-             const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
+             const MAX_SIZE = 18;
+             const scale = Math.min(MAX_SIZE / size.width, MAX_SIZE / size.height);
              
              const width = size.width * scale;
              const height = size.height * scale;
@@ -447,7 +560,7 @@ export default {
             
             let symbolSize = 8;
             if (logo) {
-                symbolSize = teamLogoSizes.value.get(teamId) || 12;
+                symbolSize = teamLogoSizes.value.get(teamId) || 18;
             }
 
             return {
@@ -683,17 +796,17 @@ export default {
                 const per10 = (val) => (val || 0) * 10;
 
                 if (playerRole.value === 'tank') {
+                    // Tank: 以前是 mit / (dth + 0.1)，现在改为以 KD 为核心主导因素，加上抵挡量
                     const mit = per10(item.mitigationPerMin);
-                    const dth = per10(item.deathsPerMin);
-                    score = mit / (dth + 0.1);
+                    score = (item.kd || 0) * 30000 + mit;
                 } else if (playerRole.value === 'damage') {
+                    // Damage: 以前是 elim * 1000 + dmg，现在改为以 KD 为核心主导因素，加上伤害量
                     const dmg = per10(item.damagePerMin);
-                    const elim = per10(item.elimsPerMin);
-                    score = elim * 1000 + dmg;
+                    score = (item.kd || 0) * 30000 + dmg;
                 } else if (playerRole.value === 'support') {
+                    // Support: 以前是 heal + ast * 1000，现在改为以 KAD 为核心主导因素，加上治疗量
                     const heal = per10(item.healingPerMin);
-                    const ast = per10(item.assistsPerMin);
-                    score = heal + ast * 1000;
+                    score = (item.kad || 0) * 30000 + heal;
                 }
 
                 return { ...item, score };
@@ -802,7 +915,9 @@ export default {
       handleSortChange,
       showPreview,
       previewImage,
-      handleExport
+      handleExport,
+      handleExportLeaderboard,
+      sortState
     };
   }
 };
@@ -836,11 +951,42 @@ export default {
   background-color: var(--el-table-row-hover-bg-color);
 }
 
+/* 添加单选按钮内容的 flex 布局及图标大小控制 */
+.role-btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 移除文字后，可以去掉 gap，或者微调居中 */
+}
+
+.role-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  /* 默认状态（未激活）：通过极高亮度和零饱和度，强行把任何图标变纯白 */
+  filter: brightness(0) invert(1);
+  transition: all 0.3s;
+}
+
+/* 调整单选按钮的内边距，使其变成更匀称的正方形或小矩形 */
+:deep(.el-radio-button__inner) {
+  padding: 8px 12px; 
+}
+
+/* 当单选按钮被选中时，由于 .is-active 类会加在父级 el-radio-button 上，
+   我们需要选中其内部的图标，将其颜色变为与主题色 #FF9E0F 接近的样子。
+   如果原图是纯黑色，可以通过 invert 等滤镜调成橙色；
+   如果原图是带有颜色的，可以直接用 sepia/hue-rotate 调色，或者干脆去掉 grayscale 并增加亮度。
+   这里提供一种通用的近似转橙色的滤镜：*/
+:deep(.el-radio-button.is-active .role-icon) {
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
 .leaderboard-section {
   margin-top: 12px; /* 缩减上边距 24px -> 12px */
   /* 更淡的分隔阴影，营造轻微的层级感 */
   box-shadow: 0 -4px 12px -2px rgba(0, 0, 0, 0.03); 
-  border-top: 1px solid #f2f3f5; /* 极淡的边框 */
+  border-top: 1px solid #EBEEF5; /* 极淡的边框 */
   padding-top: 20px; /* 稍微缩减内边距 24px -> 20px */
   background: linear-gradient(to bottom, #fafafa, #ffffff 12px); /* 顶部微弱的浅灰过渡 */
 }
@@ -873,6 +1019,25 @@ export default {
   color: #1a1a1a; /* 更深的颜色，增加对比 */
   font-family: 'Inter', sans-serif;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leaderboard-role-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  /* 标题处的图标也加上颜色滤镜，让它和主题橙色一致，而不是突兀的纯黑或其他杂色 */
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+.export-btn-small {
+  font-size: 13px;
+  color: #909399;
+}
+.export-btn-small:hover {
+  color: #FF9E0F;
 }
 
 .leaderboard-footer {
