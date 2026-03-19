@@ -278,45 +278,7 @@ export function useChartExport() {
       // === 样式重写结束 ===
 
       try {
-          // 尝试使用 fetch -> blob 预先将跨域的 image:// 转换为 base64
-          if (options.series) {
-              const fetchPromises = [];
-              options.series.forEach(s => {
-                  if (s.data) {
-                      s.data.forEach(d => {
-                          if (d.symbol && d.symbol.startsWith('image://')) {
-                              const imgUrl = d.symbol.replace('image://', '');
-                              // 只有以 http 开头的才可能是跨域 URL 需要处理
-                              if (imgUrl.startsWith('http')) {
-                                  const p = fetch(imgUrl, { mode: 'cors' })
-                                      .then(res => res.blob())
-                                      .then(blob => {
-                                          return new Promise(resolve => {
-                                              const reader = new FileReader();
-                                              reader.onloadend = () => {
-                                                  d.symbol = 'image://' + reader.result;
-                                                  resolve();
-                                              };
-                                              reader.readAsDataURL(blob);
-                                          });
-                                      })
-                                      .catch(() => {
-                                          // 失败则降级为 circle
-                                          d.symbol = 'circle';
-                                          d.symbolSize = 10;
-                                      });
-                                  fetchPromises.push(p);
-                              }
-                          }
-                      });
-                  }
-              });
-              
-              if (fetchPromises.length > 0) {
-                  await Promise.all(fetchPromises);
-              }
-          }
-
+          // 既然线上部署没有跨域问题，我们直接渲染 options，不需要转 base64
           offscreenChart.setOption(options);
           offscreenChart.resize();
 
@@ -327,7 +289,7 @@ export function useChartExport() {
             excludeComponents: ['toolbox']
           });
       } catch (e) {
-          console.warn('First export attempt failed (likely CORS), trying fallback without images...', e);
+          console.warn('First export attempt failed, trying fallback without images...', e);
           
           // 如果依然失败，则终极降级：移除所有图片
           if (options.series) {
