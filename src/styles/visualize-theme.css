@@ -40,3 +40,116 @@
   box-shadow: var(--vis-shadow-hover);
   transform: translateY(-2px);
 }
+
+/* Header Controls Styles for SlantedTitle */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Radio Group Styling - Glassmorphism */
+.header-controls .el-radio-group {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 20px !important;
+  padding: 3px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.header-controls .el-radio-button__inner {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 16px !important;
+  padding: 6px 16px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.header-controls .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background-color: #FFFFFF !important;
+  color: #FF6A00 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.header-controls .el-radio-button:hover:not(.is-active) .el-radio-button__inner {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Select Styling - Glassmorphism */
+.header-controls .el-select {
+  --el-select-input-focus-border-color: transparent !important;
+  --el-select-border-color-hover: transparent !important;
+}
+
+.header-controls .el-select .el-input__wrapper {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important;
+  border-radius: 18px !important;
+  padding: 4px 12px !important;
+  transition: all 0.3s ease;
+}
+
+.header-controls .el-select .el-input__wrapper:hover {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+}
+
+.header-controls .el-select .el-input__wrapper.is-focus {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 0 1px #FFFFFF inset !important;
+}
+
+.header-controls .el-select .el-input__inner {
+  color: #FFFFFF !important;
+  font-weight: 500;
+}
+
+.header-controls .el-select .el-input__inner::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.header-controls .el-select .el-input__suffix .el-icon {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Custom Select Label Styling */
+.custom-select-label {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 12px;
+  margin-right: 8px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Tags in Multiple Select */
+.header-controls .el-select__tags .el-tag {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  color: #FF6A00 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-weight: 600;
+}
+
+.header-controls .el-select__tags .el-tag .el-tag__close {
+  color: #FF6A00 !important;
+}
+
+.header-controls .el-select__tags .el-tag .el-tag__close:hover {
+  background-color: #FF6A00 !important;
+  color: #FFFFFF !important;
+}
+
+/* Player Radar Chart Specific Styling - Glassmorphism Red/Blue */
+/* Moved to PlayerRadarChart.vue scoped styles for better isolation */
+
+/* Ensure controls fit well on smaller screens */
+@media (max-width: 768px) {
+  .header-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 8px;
+  }
+}

@@ -47,7 +47,10 @@
       
       <div class="leaderboard-section">
         <div class="leaderboard-header">
-          <span class="leaderboard-title">队伍排行榜</span>
+          <span class="leaderboard-title">参赛队伍排行榜</span>
+          <el-button link class="export-btn-small" @click="handleExportLeaderboard">
+            <el-icon><Download /></el-icon> 导出
+          </el-button>
         </div>
         
         <el-table 
@@ -73,10 +76,19 @@
           </el-table-column>
           <el-table-column prop="kd" label="K/D" width="100" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
             <template #default="scope">
-              <span class="stat-highlight">{{ scope.row.kd }}</span>
+              <span :class="{ 'stat-highlight': sortState.prop === 'kd' }">{{ scope.row.kd }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']" />
+          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <template #default="scope">
+              <span :class="{ 'stat-highlight': sortState.prop === 'damagePer10' }">{{ scope.row.damagePer10 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="healingPer10" label="治疗/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <template #default="scope">
+              <span :class="{ 'stat-highlight': sortState.prop === 'healingPer10' }">{{ scope.row.healingPer10 }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="duration" label="总时长(分)" width="100" align="center" />
         </el-table>
         
@@ -129,11 +141,27 @@ export default {
     const isExpanded = ref(false);
     let teamChart = null;
 
-    const { showPreview, previewImage, handleExportChart } = useChartExport();
+    const { showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
     const handleExport = () => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
-        handleExportChart(teamChart, seasonName);
+        handleExportChart(teamChart, seasonName, '参赛队伍表现分布');
+    };
+
+    const handleExportLeaderboard = () => {
+        const season = store.getters.getSeasonById(props.seasonId);
+        const seasonName = season ? season.name : '';
+        const columns = [
+            { prop: 'rank', label: '排名', width: 80, weight: 0.8 },
+            { prop: 'teamName', label: '队伍', align: 'left', isTeam: true, weight: 2 },
+            { prop: 'kd', label: 'K/D', highlight: sortState.value.prop === 'kd', weight: 1 },
+            { prop: 'damagePer10', label: '伤害/10min', highlight: sortState.value.prop === 'damagePer10', weight: 1.2 },
+            { prop: 'healingPer10', label: '治疗/10min', highlight: sortState.value.prop === 'healingPer10', weight: 1.2 },
+            { prop: 'duration', label: '总时长(分)', weight: 1 }
+        ];
+        // Export top 10 or all depending on requirement. Let's export top 15 max to avoid extreme tall images
+        const exportData = teamLeaderboardData.value.slice(0, 15);
+        handleExportTable('参赛队伍排行榜', columns, exportData, seasonName);
     };
 
     const sortState = ref({ prop: 'kd', order: 'descending' });
@@ -145,9 +173,10 @@ export default {
     const teamLeaderboardData = computed(() => {
         const stats = allTeamStats.value.map(item => {
             const duration = item.totalDuration || 0;
-            if (duration === 0) return { ...item, kd: 0, damagePer10: 0 };
+            if (duration === 0) return { ...item, kd: 0, damagePer10: 0, healingPer10: 0 };
 
             const damagePer10 = parseFloat(((item.totalDamage / duration) * 10).toFixed(2));
+            const healingPer10 = parseFloat((((item.totalHealing || 0) / duration) * 10).toFixed(2));
             const kills = item.totalKills || 0;
             const deaths = item.totalDeaths || 0;
             
@@ -160,6 +189,7 @@ export default {
                 teamName: item.teamName,
                 kd,
                 damagePer10,
+                healingPer10,
                 duration: Math.round(duration),
                 logo: item.team ? item.team.logo : null
             };
@@ -215,19 +245,14 @@ export default {
       const promises = stats.map(async (item) => {
         const logo = item.team ? item.team.logo : null;
         if (logo && !teamLogoSizes.value.has(item.teamId)) {
-           const size = await preloadImage(logo);
-           if (size && size.height > 0) {
-             const MAX_WIDTH = 25;
-             const MAX_HEIGHT = 15;
-             
-             // 计算缩放比例，同时满足宽和高的限制
-             const scale = Math.min(MAX_WIDTH / size.width, MAX_HEIGHT / size.height);
-             
-             const width = size.width * scale;
-             const height = size.height * scale;
-             
-             teamLogoSizes.value.set(item.teamId, [width, height]);
-           }
+          const size = await preloadImage(logo);
+          if (size && size.height > 0) {
+            const MAX_SIZE = 20;
+            const scale = Math.min(MAX_SIZE / size.width, MAX_SIZE / size.height);
+            const width = size.width * scale;
+            const height = size.height * scale;
+            teamLogoSizes.value.set(item.teamId, [width, height]);
+          }
         }
       });
       await Promise.all(promises);
@@ -327,7 +352,7 @@ export default {
             }
             
             const logo = item.team ? item.team.logo : null;
-            const symbolSize = teamLogoSizes.value.get(item.teamId) || 18;
+            const symbolSize = teamLogoSizes.value.get(item.teamId) || 20;
             
             return {
                 name: teamName,
@@ -514,6 +539,9 @@ export default {
         const response = await apiService.getSeasonPlayerStats(props.seasonId);
         
         const teamStatsMap = new Map();
+        // 因为每个选手的数据里都包含了他打的时长，一个队伍5个人打一局，时间会累加5次
+        // 为了计算队伍真正的“10分钟数据”，我们需要取队伍中上场时间最长的人的时间作为这局队伍的游戏时间，或者粗略地将总时间除以 5。
+        // 由于这里返回的是每个选手的聚合数据，我们使用最大上场时间代表队伍比赛时间
         response.forEach(p => {
             if (!p.teamId) return;
             if (!teamStatsMap.has(p.teamId)) {
@@ -522,6 +550,7 @@ export default {
                     teamName: p.teamName || p.team?.name || '未知队伍',
                     team: p.team, // 保留 team 对象以获取 logo
                     totalDamage: 0,
+                    totalHealing: 0,
                     totalDeaths: 0,
                     totalKills: 0,
                     totalDuration: 0 // minutes
@@ -529,9 +558,13 @@ export default {
             }
             const teamStat = teamStatsMap.get(p.teamId);
             teamStat.totalDamage += (p.damage || 0);
+            teamStat.totalHealing += (p.healing || 0);
             teamStat.totalDeaths += (p.deaths || 0);
             teamStat.totalKills += (p.elims || 0);
-            teamStat.totalDuration += (p.gameTime || 0);
+            // 队伍的比赛时间应该是该队任一选手打的时间的最大值，而不是所有选手时间相加
+            if ((p.gameTime || 0) > teamStat.totalDuration) {
+                teamStat.totalDuration = (p.gameTime || 0);
+            }
         });
         
         allTeamStats.value = Array.from(teamStatsMap.values());
@@ -552,7 +585,9 @@ export default {
                     kd = kills / deaths;
                 }
 
-                const score = kd * 1000 + damagePer10;
+                // 队伍的伤害一般在 60000~90000 之间，而 KD 一般在 1~3 之间
+                // 为了让 KD 的权重更高，将 KD 的放大系数从 1000 提升到 30000，使其成为主要决定因素
+                const score = kd * 30000 + damagePer10;
 
                 return { ...item, score };
             });
@@ -640,7 +675,9 @@ export default {
       handleSortChange,
       showPreview,
       previewImage,
-      handleExport
+      handleExport,
+      handleExportLeaderboard,
+      sortState
     };
   }
 };
@@ -648,23 +685,50 @@ export default {
 
 <style scoped>
 .leaderboard-section {
-  margin-top: 24px;
-  border-top: 1px solid #EBEEF5;
-  padding-top: 20px;
+  margin-top: 12px; /* 缩减上边距 24px -> 12px */
+  /* 更淡的分隔阴影，营造轻微的层级感 */
+  box-shadow: 0 -4px 12px -2px rgba(0, 0, 0, 0.03); 
+  border-top: 1px solid #EBEEF5; /* 极淡的边框 */
+  padding-top: 20px; /* 稍微缩减内边距 24px -> 20px */
+  background: linear-gradient(to bottom, #fafafa, #ffffff 12px); /* 顶部微弱的浅灰过渡 */
 }
 
 .leaderboard-header {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  padding-left: 12px;
+}
+
+/* 左侧短橙条，强化标题区 */
+.leaderboard-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 16px;
+  background: #FF9E0F;
+  border-radius: 0 4px 4px 0; /* 改为半圆角 */
 }
 
 .leaderboard-title {
-  font-size: 14px;
+  font-size: 16px; /* 稍微加大字号 */
   font-weight: 700;
-  color: #303133;
+  color: #1a1a1a; /* 更深的颜色，增加对比 */
   font-family: 'Inter', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.export-btn-small {
+  font-size: 13px;
+  color: #909399;
+}
+.export-btn-small:hover {
+  color: #FF9E0F;
 }
 
 .leaderboard-footer {
@@ -743,6 +807,7 @@ export default {
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: color 0.3s;
+  /* margin-left: 8px; Removed */
 }
 
 .info-icon:hover {

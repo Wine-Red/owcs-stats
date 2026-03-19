@@ -14,6 +14,7 @@
     "core-js": "^3.8.3",
     "echarts": "^6.0.0",
     "element-plus": "^2.13.2",
+    "html2canvas": "^1.4.1",
     "scrollreveal": "^4.0.9",
     "vee-validate": "^4.5.8",
     "vue": "^3.2.13",

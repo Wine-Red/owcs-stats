@@ -386,9 +386,9 @@ export default {
 
     const getRoleText = (role) => {
       const roleMap = {
-        tank: '坦克',
+        tank: '重装',
         damage: '输出',
-        support: '辅助'
+        support: '支援'
       };
       return roleMap[role] || role;
     };

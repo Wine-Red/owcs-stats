@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="图表导出预览"
+    :show-close="true"
     width="90%"
     top="5vh"
     append-to-body
@@ -63,5 +63,16 @@ export default {
   color: #909399;
   font-size: 14px;
   font-weight: 500;
+}
+
+/* 隐藏弹窗的 header 区域（如果不想要标题栏但想要右上角的关闭按钮，可以只隐藏标题文字） */
+:deep(.el-dialog__header) {
+  padding: 0;
+  margin: 0;
+}
+:deep(.el-dialog__headerbtn) {
+  top: 15px;
+  right: 15px;
+  z-index: 10;
 }
 </style>
