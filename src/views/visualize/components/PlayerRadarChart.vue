@@ -40,6 +40,7 @@
               placeholder="" 
               clearable
               class="player-select"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>
@@ -58,6 +59,7 @@
               placeholder="" 
               clearable
               class="player-select"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>

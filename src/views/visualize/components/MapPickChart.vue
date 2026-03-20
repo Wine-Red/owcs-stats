@@ -27,6 +27,7 @@ import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import SlantedTitle from './SlantedTitle.vue';
+import { escapeHtml } from '@/utils/security';
 
 // 地图名称到文件名的映射
 const mapNameToFileName = {
@@ -295,7 +296,7 @@ export default {
               type: 'shadow'
             },
             formatter: function(params) {
-              let result = `<div style="font-weight: 800; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; color: #1A1A1A;">${params[0].axisValue}</div>`;
+              let result = `<div style="font-weight: 800; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; color: #1A1A1A;">${escapeHtml(params[0].axisValue)}</div>`;
               
               params.forEach(param => {
                 // 检查 data 对象中是否有 realValue
@@ -305,7 +306,7 @@ export default {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 12px;">
                       <span style="display: flex; align-items: center; color: #606266;">
                         <span style="display:inline-block;margin-right:6px;border-radius:2px;width:12px;height:12px;background-color:#FF9E0F;"></span>
-                        ${param.seriesName}
+                        ${escapeHtml(param.seriesName)}
                       </span>
                       <span style="font-weight: bold; color: #1A1A1A;">${val}%</span>
                     </div>`;

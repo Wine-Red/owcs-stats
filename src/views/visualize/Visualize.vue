@@ -14,6 +14,7 @@
           placeholder="选择赛季" 
           @change="handleSeasonChange" 
           class="vis-season-select" 
+          popper-class="vis-dropdown"
           size="large"
         >
           <el-option
@@ -378,4 +379,54 @@ export default {
   text-overflow: ellipsis;
 }
 
+</style>
+
+<style>
+/* 统一的可视化页面下拉菜单基础样式 */
+.vis-dropdown .el-select-dropdown__list {
+  display: grid !important;
+  grid-template-columns: 1fr; /* 默认一栏，适合赛季等短列表 */
+  gap: 4px;
+  padding: 8px !important;
+}
+
+.vis-dropdown .el-select-dropdown__item {
+  border-radius: 4px;
+  margin: 0;
+  transition: all 0.2s ease;
+  padding: 0 16px;
+  height: 36px;
+  line-height: 36px;
+}
+
+/* 针对长列表（队伍、选手）在桌面端的网格布局 */
+@media (min-width: 769px) {
+  .vis-dropdown-long {
+    min-width: 480px !important; /* 加宽下拉框以适应多列 */
+  }
+  .vis-dropdown-long .el-select-dropdown__list {
+    grid-template-columns: repeat(3, 1fr) !important; /* 桌面端三栏 */
+    gap: 8px;
+  }
+}
+
+/* 移动端行为：长列表分两栏，下拉框占满屏幕宽度 */
+@media (max-width: 768px) {
+  .vis-dropdown-long .el-select-dropdown__list {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+  }
+  
+  .vis-dropdown, .vis-dropdown-long {
+    width: 90vw !important;
+    min-width: unset !important;
+    max-width: 90vw !important;
+    left: 5vw !important;
+    margin: 0 !important;
+  }
+  
+  .vis-dropdown .el-scrollbar {
+    padding-right: 0 !important;
+  }
+}
 </style>

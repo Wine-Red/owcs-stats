@@ -42,7 +42,7 @@
               multiple
               collapse-tags
               collapse-tags-tooltip
-              popper-class="player-select-dropdown"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>
@@ -212,6 +212,7 @@ import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vu
 import SlantedTitle from './SlantedTitle.vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { escapeHtml } from '@/utils/security';
 
 export default {
   name: 'PlayerStatsChart',
@@ -582,23 +583,23 @@ export default {
             formatter: function (params) {
                const logo = params.data.symbol.replace('image://', '');
                const logoHtml = logo && logo !== 'circle' 
-                 ? `<img src="${logo}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
+                 ? `<img src="${escapeHtml(logo)}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
                  : '';
 
                return `
                  <div style="font-weight: 500; margin-bottom: 8px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; display: flex; align-items: center;">
                    ${logoHtml}
                    <div style="display: flex; flex-direction: column; line-height: 1.2;">
-                     <span style="font-weight: 600; color: #303133; font-size: 13px;">${params.data.value[2]}</span>
-                     <span style="font-size: 11px; color: #909399;">${params.data.value[3] || '未知队伍'}</span>
+                     <span style="font-weight: 600; color: #303133; font-size: 13px;">${escapeHtml(params.data.value[2])}</span>
+                     <span style="font-size: 11px; color: #909399;">${escapeHtml(params.data.value[3] || '未知队伍')}</span>
                    </div>
                  </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
-                   <span style="color: #606266;">${xAxisName}:</span>
+                   <span style="color: #606266;">${escapeHtml(xAxisName)}:</span>
                    <span style="font-weight: bold; color: #FF9E0F;">${params.data.value[0]}</span>
                  </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px;">
-                   <span style="color: #606266;">${yAxisName}:</span>
+                   <span style="color: #606266;">${escapeHtml(yAxisName)}:</span>
                    <span style="font-weight: bold; color: #1A1A1A;">${params.data.value[1]}</span>
                  </div>
                `;
@@ -1224,43 +1225,5 @@ export default {
 }
 :deep(.player-select-input .el-select__selection) {
   display: none !important;
-}
-</style>
-
-<style>
-/* Player Filter Styles */
-.player-select-dropdown .el-select-dropdown__list {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr) !important;
-  gap: 10px;
-  padding: 10px;
-  min-width: 400px;
-}
-
-.player-select-dropdown .el-select-dropdown__item {
-  height: auto;
-  line-height: 2;
-}
-
-.player-select-dropdown .el-select-dropdown__wrap {
-  max-height: 600px !important;
-}
-
-@media (max-width: 768px) {
-  .player-select-dropdown .el-select-dropdown__list {
-    min-width: unset !important;
-    width: 100%;
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  
-  .player-select-dropdown {
-    width: 90vw !important;
-    left: 5vw !important;
-    margin: 0 !important;
-  }
-  
-  .player-select-dropdown .el-scrollbar {
-      padding-right: 0 !important;
-  }
 }
 </style>

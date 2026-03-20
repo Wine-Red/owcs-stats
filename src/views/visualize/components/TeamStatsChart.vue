@@ -25,7 +25,7 @@
               multiple
               collapse-tags
               collapse-tags-tooltip
-              popper-class="team-select-dropdown"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>
@@ -115,6 +115,7 @@ import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vu
 import SlantedTitle from './SlantedTitle.vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { escapeHtml } from '@/utils/security';
 
 export default {
   name: 'TeamStatsChart',
@@ -372,13 +373,13 @@ export default {
             formatter: function (params) {
                const logo = params.data.symbol.replace('image://', '');
                const logoHtml = logo && logo !== 'circle' 
-                 ? `<img src="${logo}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
+                 ? `<img src="${escapeHtml(logo)}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 8px;">` 
                  : '';
                
                return `
                  <div style="font-weight: 500; margin-bottom: 8px; color: #303133; font-size: 14px; border-bottom: 1px solid #EBEEF5; padding-bottom: 4px; display: flex; align-items: center;">
                    ${logoHtml}
-                   <span>${params.data.name}</span>
+                   <span>${escapeHtml(params.data.name)}</span>
                  </div>
                  <div style="display: flex; justify-content: space-between; gap: 15px; margin-bottom: 4px;">
                    <span style="color: #606266;">伤害/10min:</span>
@@ -907,36 +908,5 @@ export default {
 
 :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
   background-color: var(--el-table-row-hover-bg-color);
-}
-</style>
-<style>
-/* Global styles for the team select dropdown */
-.team-select-dropdown .el-select-dropdown__list {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
-  gap: 10px;
-  padding: 10px;
-  min-width: 400px;
-}
-
-.team-select-dropdown .el-select-dropdown__item {
-  height: auto;
-  line-height: 2;
-}
-
-.team-select-dropdown .el-select-dropdown__wrap {
-  max-height: 600px !important;
-}
-
-@media (max-width: 768px) {
-  .team-select-dropdown .el-select-dropdown__list {
-    min-width: unset !important;
-    width: 100%;
-  }
-  
-  .team-select-dropdown {
-    width: 90vw !important;
-    left: 5vw !important;
-  }
 }
 </style>
