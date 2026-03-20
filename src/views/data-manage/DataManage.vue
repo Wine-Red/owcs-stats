@@ -232,6 +232,7 @@
           border
         >
           <el-table-column prop="name" label="赛季名称" width="200" />
+          <el-table-column prop="stage" label="所属赛段" width="150" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="scope">
               <el-tag :type="scope.row.status === 'in_progress' ? 'success' : 'info'">
@@ -481,6 +482,9 @@
         <el-form :model="editForm" :rules="seasonRules" ref="editFormRef" label-width="120px">
           <el-form-item label="赛季名称" prop="name">
             <el-input v-model="editForm.name" placeholder="请输入赛季名称" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="所属赛段" prop="stage">
+            <el-input v-model="editForm.stage" placeholder="请输入所属赛段（如：2024 亚洲赛区）" style="width: 100%" />
           </el-form-item>
           <el-form-item label="状态" prop="status">
             <el-select v-model="editForm.status" placeholder="请选择状态" style="width: 100%">
@@ -1577,6 +1581,7 @@ export default {
       dialogType.value = 'season';
       editForm.value = {
         name: '',
+        stage: '',
         status: 'in_progress'
       };
       dialogVisible.value = true;

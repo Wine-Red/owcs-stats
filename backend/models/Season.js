@@ -12,6 +12,11 @@ const Season = sequelize.define('Season', {
     allowNull: false,
     unique: true
   },
+  stage: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null
+  },
   status: {
     type: DataTypes.ENUM('in_progress', 'completed'),
     allowNull: false,

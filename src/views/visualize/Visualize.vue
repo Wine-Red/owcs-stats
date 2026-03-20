@@ -14,15 +14,30 @@
           placeholder="选择赛季" 
           @change="handleSeasonChange" 
           class="vis-season-select" 
-          popper-class="vis-dropdown"
+          popper-class="vis-dropdown-tabs"
           size="large"
+          @visible-change="handleDropdownVisible"
         >
-          <el-option
-            v-for="season in seasons"
-            :key="season.id"
-            :label="season.name"
-            :value="season.id"
-          />
+          <div class="stage-tabs-header">
+            <div 
+              v-for="group in groupedSeasons" 
+              :key="'tab-' + group.label"
+              class="stage-tab"
+              :class="{ active: activeStage === group.label }"
+              @click.stop="activeStage = group.label"
+            >
+              {{ group.label }}
+            </div>
+          </div>
+          <template v-for="group in groupedSeasons" :key="'opt-' + group.label">
+            <el-option
+              v-for="season in group.options"
+              :key="season.id"
+              :label="season.name"
+              :value="season.id"
+              :style="{ display: activeStage === group.label ? '' : 'none' }"
+            />
+          </template>
         </el-select>
       </div>
     </header>
@@ -115,6 +130,38 @@ export default {
     });
     
     const seasons = computed(() => store.state.seasons);
+
+    const groupedSeasons = computed(() => {
+      const groups = {};
+      const ungrouped = [];
+      
+      seasons.value.forEach(season => {
+        if (season.stage) {
+          if (!groups[season.stage]) {
+            groups[season.stage] = [];
+          }
+          groups[season.stage].push(season);
+        } else {
+          ungrouped.push(season);
+        }
+      });
+      
+      const result = [];
+      
+      for (const [stage, options] of Object.entries(groups)) {
+        result.push({ label: stage, options });
+      }
+      
+      if (ungrouped.length > 0) {
+        if (result.length > 0) {
+          result.push({ label: '其他赛季', options: ungrouped });
+        } else {
+          result.push({ label: '', options: ungrouped });
+        }
+      }
+      
+      return result;
+    });
     
     // 动态计算 logo URL，确保在非根路径部署时也能正确加载
     const logoUrl = computed(() => {
@@ -124,6 +171,19 @@ export default {
       return `${baseUrl}icons/OWCS.png`;
     });
     
+    const activeStage = ref('');
+
+    const handleDropdownVisible = (visible) => {
+      if (visible) {
+        const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
+        if (selectedSeason) {
+          activeStage.value = selectedSeason.stage || '其他';
+        } else if (groupedSeasons.value.length > 0) {
+          activeStage.value = groupedSeasons.value[0].label;
+        }
+      }
+    };
+
     const handleSeasonChange = async () => {
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
@@ -196,14 +256,19 @@ export default {
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       if (inProgressSeason) {
         filterForm.value.seasonId = inProgressSeason.id;
+        activeStage.value = inProgressSeason.stage || '其他';
       } else if (seasons.value.length > 0) {
          filterForm.value.seasonId = seasons.value[0].id;
+         activeStage.value = seasons.value[0].stage || '其他';
       }
     });
     
     return {
       filterForm,
       seasons,
+      groupedSeasons,
+      activeStage,
+      handleDropdownVisible,
       handleSeasonChange,
       chartConfig,
       logoUrl
@@ -382,6 +447,58 @@ export default {
 </style>
 
 <style>
+/* 赛段切换标签下拉框样式 */
+.vis-dropdown-tabs .el-select-dropdown__list {
+  padding: 0 !important;
+  display: block !important;
+}
+
+.stage-tabs-header {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border-bottom: 1px solid #ebeef5;
+  padding: 8px 12px 0;
+  background: #fafafa;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.stage-tabs-header::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+.stage-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.stage-tab:hover {
+  color: #000;
+}
+
+.stage-tab.active {
+  color: #000;
+  border-bottom-color: #333;
+}
+
+.vis-dropdown-tabs .el-select-dropdown__item {
+  margin: 4px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  height: 36px;
+  line-height: 36px;
+}
+
 /* 统一的可视化页面下拉菜单基础样式 */
 .vis-dropdown .el-select-dropdown__list {
   display: grid !important;
@@ -401,10 +518,17 @@ export default {
 
 /* 针对长列表（队伍、选手）在桌面端的网格布局 */
 @media (min-width: 769px) {
+  .vis-dropdown-tabs {
+    min-width: 320px !important;
+  }
+  .vis-dropdown {
+    min-width: max-content !important;
+  }
   .vis-dropdown-long {
     min-width: 480px !important; /* 加宽下拉框以适应多列 */
   }
   .vis-dropdown-long .el-select-dropdown__list {
+    display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important; /* 桌面端三栏 */
     gap: 8px;
   }
@@ -412,17 +536,23 @@ export default {
 
 /* 移动端行为：长列表分两栏，下拉框占满屏幕宽度 */
 @media (max-width: 768px) {
-  .vis-dropdown-long .el-select-dropdown__list {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px;
-  }
-  
-  .vis-dropdown, .vis-dropdown-long {
+  .vis-dropdown-tabs, .vis-dropdown, .vis-dropdown-long {
     width: 90vw !important;
     min-width: unset !important;
     max-width: 90vw !important;
     left: 5vw !important;
     margin: 0 !important;
+  }
+  
+  .vis-dropdown .el-select-dropdown__list {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+  .vis-dropdown-long .el-select-dropdown__list {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
   }
   
   .vis-dropdown .el-scrollbar {

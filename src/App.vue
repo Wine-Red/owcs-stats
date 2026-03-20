@@ -24,12 +24,17 @@
 
     <!-- 页脚 -->
     <footer class="app-footer">
-      <div class="footer-content">
+      <div class="footer-row footer-source">
         <span>数据来源：网易大神</span>
-        <span class="divider">|</span>
-        <span>更多数据仍在开发中，敬请期待</span>
       </div>
-      <p class="copyright">© 2026 OWCS Stats</p>
+      <div class="footer-row footer-disclaimer">
+        <span>部分素材版权归原权利方所有</span>
+        <span class="divider">|</span>
+        <span>统计数据仅供参考，赛场表现不止于数据</span>
+      </div>
+      <div class="footer-row footer-copyright">
+        <span class="trademark">© 2026 OWCS Stats</span>
+      </div>
     </footer>
   </div>
 </template>
@@ -134,7 +139,7 @@ body {
 /* 页脚 */
 .app-footer {
   background-color: #f8f9fa;
-  padding: 24px 32px;
+  padding: 32px 0;
   text-align: center;
   border-top: 1px solid #e9ecef;
   margin-top: auto;
@@ -144,12 +149,27 @@ body {
   gap: 8px;
 }
 
-.footer-content {
+.footer-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  font-size: 14px;
+}
+
+.footer-source {
+  font-size: 13px;
   color: #606266;
+}
+
+.footer-disclaimer {
+  font-size: 12px;
+  color: #909399;
+}
+
+.footer-copyright {
+  font-size: 12px;
+  color: #c0c4cc;
+  margin-top: 4px;
 }
 
 .divider {
@@ -157,24 +177,19 @@ body {
   font-size: 12px;
 }
 
-.app-footer .copyright {
-  font-size: 12px;
-  color: #909399;
-  margin: 0;
-}
-
 @media (max-width: 768px) {
   .app-footer {
-    padding: 16px;
+    padding: 20px 16px;
+    gap: 12px;
   }
   
-  .footer-content {
-    font-size: 12px;
+  .footer-row {
     flex-direction: column;
     gap: 4px;
+    text-align: center;
   }
   
-  .divider {
+  .footer-disclaimer .divider {
     display: none;
   }
 }
