@@ -51,7 +51,12 @@
                 :key="player.id"
                 :label="player.name"
                 :value="player.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                  <span>{{ player.name }}</span>
+                </div>
+              </el-option>
             </el-select>
             
             <el-select 
@@ -70,7 +75,12 @@
                 :key="player.id"
                 :label="player.name"
                 :value="player.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                  <span>{{ player.name }}</span>
+                </div>
+              </el-option>
             </el-select>
           </div>
         </div>
@@ -132,7 +142,8 @@ export default {
         if (s.playerId && !uniquePlayers.has(s.playerId)) {
           uniquePlayers.set(s.playerId, {
             id: s.playerId,
-            name: s.playerName || s.player?.name || '未知选手'
+            name: s.playerName || s.player?.name || '未知选手',
+            teamLogo: s.team ? s.team.logo : null
           });
         }
       });
@@ -589,5 +600,17 @@ export default {
 /* 当单选按钮被选中时，转换为主题橙色 */
 :deep(.el-radio-button.is-active .role-icon) {
   filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+.option-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 </style>

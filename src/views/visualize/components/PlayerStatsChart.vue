@@ -53,7 +53,12 @@
                 :key="player.id"
                 :label="player.name"
                 :value="player.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                  <span>{{ player.name }}</span>
+                </div>
+              </el-option>
             </el-select>
           </div>
         </div>
@@ -295,8 +300,8 @@ export default {
             { prop: 'duration', label: '时长(分)', weight: 1 }
         ];
 
-        // Export top 15
-        const exportData = playerLeaderboardData.value.slice(0, 15);
+        // Export all players instead of top 15
+        const exportData = playerLeaderboardData.value;
         handleExportTable(title, columns, exportData, seasonName);
     };
     
@@ -453,7 +458,8 @@ export default {
         if (s.playerId && !playersMap.has(s.playerId)) {
           playersMap.set(s.playerId, {
             id: s.playerId,
-            name: s.playerName || s.player?.name || '未知选手'
+            name: s.playerName || s.player?.name || '未知选手',
+            teamLogo: s.team ? s.team.logo : null
           });
         }
       });
@@ -1225,5 +1231,16 @@ export default {
 }
 :deep(.player-select-input .el-select__selection) {
   display: none !important;
+}
+.option-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 </style>

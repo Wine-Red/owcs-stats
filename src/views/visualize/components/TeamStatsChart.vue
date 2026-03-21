@@ -36,7 +36,12 @@
                 :key="team.id"
                 :label="team.name"
                 :value="team.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="team.logo" :src="team.logo" class="option-logo" alt="" />
+                  <span>{{ team.name }}</span>
+                </div>
+              </el-option>
             </el-select>
           </div>
         </div>
@@ -160,8 +165,8 @@ export default {
             { prop: 'healingPer10', label: '治疗/10min', highlight: sortState.value.prop === 'healingPer10', weight: 1.2 },
             { prop: 'duration', label: '总时长(分)', weight: 1 }
         ];
-        // Export top 10 or all depending on requirement. Let's export top 15 max to avoid extreme tall images
-        const exportData = teamLeaderboardData.value.slice(0, 15);
+        // Export all teams depending on requirement.
+        const exportData = teamLeaderboardData.value;
         handleExportTable('参赛队伍排行榜', columns, exportData, seasonName);
     };
 
@@ -908,5 +913,16 @@ export default {
 
 :deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
   background-color: var(--el-table-row-hover-bg-color);
+}
+.option-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 </style>
