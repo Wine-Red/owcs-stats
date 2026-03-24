@@ -237,7 +237,7 @@ export default {
     };
 
     // 监听 seasonId 变化
-    watch(() => props.seasonId, (newVal) => {
+    watch(() => props.seasonId, () => {
       // 只有在组件已挂载且图表初始化后才更新
       updateHeroBanChart();
     });

@@ -607,7 +607,7 @@
         </el-form>
 
         <div v-if="mapGamesForEdit.length > 0">
-          <div v-for="(mapGame, index) in mapGamesForEdit" :key="mapGame.id">
+          <div v-for="mapGame in mapGamesForEdit" :key="mapGame.id">
             <el-form :model="mapGame" label-width="120px" style="margin-top: 20px;">
               <el-form-item label="地图">
                 <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">

@@ -128,10 +128,6 @@ export default {
     const validCount = computed(() => parsedDataList.value.filter(item => !item.error).length);
     const hasErrors = computed(() => parsedDataList.value.some(item => item.error));
 
-    const handleFileChange = async (file, fileList) => {
-      // We handle fileList manually
-    };
-
     // Override the default upload handler to process files one by one or in parallel
     // Element Plus upload component triggers onChange for each file
     // To handle batch selection, we can just process the current file
@@ -219,7 +215,7 @@ export default {
         });
     };
 
-    const handleFileChangeWrapper = async (uploadFile, uploadFiles) => {
+    const handleFileChangeWrapper = async (uploadFile) => {
          if (!seasonId.value) {
             ElMessage.warning('请先选择赛季');
             // Remove the file from the list to avoid confusion? 

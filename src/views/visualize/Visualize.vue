@@ -44,7 +44,45 @@
 
     <!-- 主内容网格 (Main Grid) -->
     <main class="vis-content">
-      <div class="vis-grid">
+      <!-- 赛事概览横幅 -->
+      <TournamentBanner :seasonId="filterForm.seasonId" />
+
+      <!-- 标签页导航 -->
+      <div class="vis-tabs-container">
+        <div class="vis-tabs">
+          <div 
+            class="vis-tab-item" 
+            :class="{ active: currentTab === 'overview' }"
+            @click="currentTab = 'overview'"
+          >
+            赛事概览
+          </div>
+          <div 
+            class="vis-tab-item" 
+            :class="{ active: currentTab === 'stats' }"
+            @click="currentTab = 'stats'"
+          >
+            赛事数据
+          </div>
+        </div>
+      </div>
+
+      <!-- 概览内容 -->
+      <div v-show="currentTab === 'overview'" class="tab-content" style="width: 100%;">
+        <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
+        
+        <div class="vis-grid" style="margin-bottom: 24px;">
+          <div class="vis-col span-12">
+            <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" />
+          </div>
+        </div>
+
+        <MapPool :seasonId="filterForm.seasonId" />
+      </div>
+
+      <!-- 进阶数据分析内容 -->
+      <div v-if="currentTab === 'stats'" class="tab-content">
+        <div class="vis-grid">
         <!-- 第一行: 英雄禁用 & 地图选取 -->
         <div class="vis-col span-6" v-if="chartConfig.heroBan">
           <HeroBanChart :seasonId="filterForm.seasonId" />
@@ -82,21 +120,25 @@
           <PlayerRadarChart :seasonId="filterForm.seasonId" />
         </div>
       </div>
+      </div>
     </main>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, defineAsyncComponent, nextTick } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
-import { DataAnalysis, Moon } from '@element-plus/icons-vue';
-import ScrollReveal from 'scrollreveal';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
 const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
 const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerRadarChart.vue'));
+
+import TournamentBanner from './components/TournamentBanner.vue';
+import RecentMatches from './components/RecentMatches.vue';
+import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
+import MapPool from './components/MapPool.vue';
 
 import apiService from '@/services/api';
 
@@ -108,18 +150,46 @@ export default {
     TeamStatsChart,
     PlayerStatsChart,
     PlayerRadarChart,
-    DataAnalysis,
-    Moon
+    TournamentBanner,
+    RecentMatches,
+    RegularSeasonBoard,
+    MapPool
   },
   setup() {
     const store = useStore();
     
+    const currentTab = ref('overview');
+
     const filterForm = ref({
       seasonId: '',
       teamIds: [],
       playerIds: [],
       heroIds: []
     });
+
+    const seasonMatches = ref([]);
+    const seasonMapGames = ref([]);
+
+    // 当切换到数据图表时，确保 ECharts 正确获取宽高
+    watch(currentTab, async (newTab) => {
+      if (newTab === 'stats') {
+        await nextTick();
+        window.dispatchEvent(new Event('resize'));
+      }
+    });
+
+    const loadSeasonData = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const matchesRes = await apiService.getMatches({ seasonId });
+        seasonMatches.value = Array.isArray(matchesRes) ? matchesRes : matchesRes.data || [];
+        
+        const mapGamesRes = await apiService.getMapGames({ seasonId });
+        seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || [];
+      } catch (error) {
+        console.error('Failed to load season data', error);
+      }
+    };
 
     const chartConfig = ref({
       heroBan: true,
@@ -188,51 +258,12 @@ export default {
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
+      await loadSeasonData(filterForm.value.seasonId);
     };
     
     onMounted(async () => {
       // 等待 Vue DOM 更新
       await nextTick();
-      
-      // 强制清理可能存在的旧实例状态，防止刷新时的状态残留
-      ScrollReveal().clean('.vis-col');
-
-      const initReveal = () => {
-        ScrollReveal().reveal('.vis-col', {
-          distance: '50px',
-          origin: 'bottom',
-          opacity: 0,
-          scale: 0.95, // 添加轻微缩放效果
-          duration: 600, // 稍微放慢动画速度
-          delay: 150, 
-          easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
-          interval: 200,
-          viewFactor: 0.1, // 降低视口触发阈值，确保在视口边缘也能触发
-          mobile: true,
-          reset: false, // 动画只播放一次
-          useDelay: 'always' // 强制每次都应用延迟，即使是刷新页面
-        });
-      };
-
-      // 确保字体加载完成后再初始化，或者最长等待 500ms
-      // 这能解决因字体加载导致的布局偏移（Layout Shift）使 ScrollReveal 计算不准的问题
-      if (document.fonts && document.fonts.ready) {
-        Promise.race([
-          document.fonts.ready,
-          new Promise(resolve => setTimeout(resolve, 500))
-        ]).then(() => {
-          setTimeout(initReveal, 200);
-        });
-      } else {
-        setTimeout(initReveal, 300);
-      }
-
-      // 兜底策略：1秒后手动触发一次滚动事件，强制 ScrollReveal 重新计算
-      // 解决移动端部分浏览器因地址栏变化或图片懒加载导致的视口判断失效
-      setTimeout(() => {
-        window.dispatchEvent(new Event('scroll'));
-        window.dispatchEvent(new Event('resize'));
-      }, 1000);
 
       // 优先从后端加载配置
       try {
@@ -261,10 +292,25 @@ export default {
          filterForm.value.seasonId = seasons.value[0].id;
          activeStage.value = seasons.value[0].stage || '其他';
       }
+
+      if (filterForm.value.seasonId) {
+        await loadSeasonData(filterForm.value.seasonId);
+      }
     });
+
+    // 修复：确保选择器变化时或初始加载后，子组件能够接收到数据并渲染
+    watch(() => filterForm.value.seasonId, async (newVal, oldVal) => {
+      // 只有当值真正改变时才触发重新加载，避免与 onMounted 重复
+      if (newVal && newVal !== oldVal) {
+        await loadSeasonData(newVal);
+      }
+    }, { immediate: true });
     
     return {
+      currentTab,
       filterForm,
+      seasonMatches,
+      seasonMapGames,
       seasons,
       groupedSeasons,
       activeStage,
@@ -293,6 +339,54 @@ export default {
     linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
   background-attachment: fixed;
+}
+
+/* 标签页导航样式 */
+.vis-tabs-container {
+  display: flex;
+  margin-bottom: 32px;
+  width: 100%;
+}
+
+.vis-tabs {
+  display: flex;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  width: 100%;
+}
+
+.vis-tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #606266;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.vis-tab-item:hover {
+  color: #1a1a1a;
+}
+
+.vis-tab-item.active {
+  background: #f0f2f5;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.tab-content {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .vis-header {
@@ -366,8 +460,7 @@ export default {
 }
 
 .vis-col {
-  min-height: 300px; /* 增加最小高度，防止组件未加载时高度塌缩导致 ScrollReveal 误判所有元素都在视口内 */
-  visibility: hidden; /* 初始隐藏，防止闪烁，ScrollReveal 初始化后会自动接管并显示 */
+  /* Removed min-height and visibility hidden to disable scrollreveal behavior */
 }
 
 .span-6 {
