@@ -5,10 +5,6 @@
     <!-- 管理标签页 -->
     <el-card class="nav-card">
       <el-tabs v-model="activeTab" @tab-click="handleTabClick">
-        <el-tab-pane label="地图局管理" name="matches">
-          <el-icon><Map /></el-icon>
-          地图局管理
-        </el-tab-pane>
         <el-tab-pane label="赛季数据导入" name="season-stats-upload">
           <el-icon><Upload /></el-icon>
           赛季数据导入
@@ -16,6 +12,10 @@
         <el-tab-pane label="赛季管理" name="seasons">
           <el-icon><Timer /></el-icon>
           赛季管理
+        </el-tab-pane>
+        <el-tab-pane label="赛季可视化配置" name="season-visualize">
+          <el-icon><PieChart /></el-icon>
+          赛季可视化配置
         </el-tab-pane>
         <el-tab-pane label="队伍管理" name="teams">
           <el-icon><UserFilled /></el-icon>
@@ -37,6 +37,10 @@
           <el-icon><PieChart /></el-icon>
           图表管理
         </el-tab-pane>
+        <el-tab-pane label="地图局管理" name="matches">
+          <el-icon><Map /></el-icon>
+          地图局管理
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -54,9 +58,6 @@
            <el-form-item label="英雄禁用统计">
              <el-switch v-model="chartConfig.heroBan" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
-           <el-form-item label="地图选取统计">
-             <el-switch v-model="chartConfig.mapPick" active-text="显示" inactive-text="隐藏" />
-           </el-form-item>
 
            <h3 class="config-section-title">详细数据统计</h3>
            <el-form-item label="队伍数据">
@@ -68,6 +69,53 @@
            <el-form-item label="选手雷达图">
              <el-switch v-model="chartConfig.playerRadar" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
+        </el-form>
+      </el-card>
+    </div>
+
+    <div v-show="activeTab === 'season-visualize'">
+      <el-card class="data-card">
+        <template #header>
+          <div class="card-header">
+            <span>赛季可视化配置</span>
+            <el-button type="primary" size="small" @click="saveSeasonVisualConfig" :disabled="!seasonVisualForm.seasonId">保存配置</el-button>
+          </div>
+        </template>
+        <el-form :model="seasonVisualForm" label-width="140px">
+          <el-form-item label="赛季">
+            <el-select v-model="seasonVisualForm.seasonId" placeholder="请选择赛季" style="width: 280px" @change="loadSeasonVisualConfig">
+              <el-option
+                v-for="season in seasons"
+                :key="season.id"
+                :label="season.name"
+                :value="season.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="标签">
+            <el-select v-model="seasonVisualForm.tags" multiple filterable allow-create default-first-option style="width: 100%" placeholder="输入后回车新增标签">
+              <el-option v-for="tag in seasonVisualForm.tags" :key="tag" :label="tag" :value="tag" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="比赛日期">
+            <el-input v-model="seasonVisualForm.dateRange" placeholder="如：2026.03.05 - 2026.04.12" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="地图池">
+            <el-select v-model="seasonVisualForm.mapIds" multiple filterable style="width: 100%" placeholder="选择该赛季地图池">
+              <el-option
+                v-for="map in maps"
+                :key="map.id"
+                :label="map.name"
+                :value="map.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="积分榜模板">
+            <el-select v-model="seasonVisualForm.standingsTemplate" placeholder="请选择模板" style="width: 240px">
+              <el-option label="W-L / Maps / +/-" value="wl_maps" />
+              <el-option label="Points(3-0)" value="points_3_0" />
+            </el-select>
+          </el-form-item>
         </el-form>
       </el-card>
     </div>
@@ -904,7 +952,6 @@ export default {
     // 图表配置
     const chartConfig = ref({
       heroBan: true,
-      mapPick: true,
       teamStats: true,
       playerStats: true,
       playerRadar: true
@@ -942,6 +989,69 @@ export default {
         ElMessage.success('图表配置已保存');
       } catch (error) {
         console.error('保存图表配置失败:', error);
+        ElMessage.error('保存配置失败');
+      }
+    };
+
+    const seasonVisualForm = ref({
+      seasonId: '',
+      tags: [],
+      dateRange: '',
+      mapIds: [],
+      standingsTemplate: 'wl_maps'
+    });
+
+    const buildSeasonVisualKey = (seasonId) => `visualize_season_${seasonId}`;
+
+    const normalizeStringArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => String(v).trim()).filter(Boolean);
+    };
+
+    const normalizeIdArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => Number(v)).filter(v => Number.isFinite(v));
+    };
+
+    const loadSeasonVisualConfig = async (seasonId) => {
+      const id = seasonId || seasonVisualForm.value.seasonId;
+      if (!id) return;
+      try {
+        const config = await apiService.getConfig(buildSeasonVisualKey(id));
+        const tags = normalizeStringArray(config?.tags);
+        const dateRange = config?.dateRange || '';
+        const mapIds = normalizeIdArray(config?.mapPool?.mapIds);
+        const standingsTemplate = config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
+
+        seasonVisualForm.value.tags = tags;
+        seasonVisualForm.value.dateRange = dateRange;
+        seasonVisualForm.value.mapIds = mapIds;
+        seasonVisualForm.value.standingsTemplate = standingsTemplate;
+      } catch (error) {
+        seasonVisualForm.value.tags = [];
+        seasonVisualForm.value.dateRange = '';
+        seasonVisualForm.value.mapIds = [];
+        seasonVisualForm.value.standingsTemplate = 'wl_maps';
+      }
+    };
+
+    const saveSeasonVisualConfig = async () => {
+      if (!seasonVisualForm.value.seasonId) return;
+      try {
+        const value = {
+          tags: normalizeStringArray(seasonVisualForm.value.tags),
+          dateRange: seasonVisualForm.value.dateRange,
+          mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) },
+          standings: { template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps' }
+        };
+        await apiService.updateConfig({
+          key: buildSeasonVisualKey(seasonVisualForm.value.seasonId),
+          value,
+          description: '赛季可视化配置（标签/地图池/积分榜模板）'
+        });
+        ElMessage.success('赛季可视化配置已保存');
+      } catch (error) {
+        console.error('保存赛季可视化配置失败:', error);
         ElMessage.error('保存配置失败');
       }
     };
@@ -1306,6 +1416,10 @@ export default {
         loadSeasonTeamsForPlayers();
       } else if (activeTab.value === 'charts') {
         loadChartConfig();
+      } else if (activeTab.value === 'season-visualize') {
+        if (seasonVisualForm.value.seasonId) {
+          loadSeasonVisualConfig(seasonVisualForm.value.seasonId);
+        }
       }
     };
     
@@ -1999,6 +2113,9 @@ export default {
       handleMapGamePlayerChange,
       chartConfig,
       saveChartConfig,
+      seasonVisualForm,
+      loadSeasonVisualConfig,
+      saveSeasonVisualConfig,
       isMobile,
       actionColWidth,
       deleteActionColWidth,
@@ -2099,6 +2216,21 @@ export default {
 /* 标签页样式 */
 .el-tabs {
   width: 100%;
+}
+
+:deep(.el-tabs__nav-wrap) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+:deep(.el-tabs__nav-wrap::-webkit-scrollbar) {
+  display: none;
+}
+
+:deep(.el-tabs__nav) {
+  flex-wrap: nowrap;
 }
 
 .action-buttons {
