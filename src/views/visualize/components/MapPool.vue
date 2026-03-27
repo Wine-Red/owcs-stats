@@ -1,6 +1,6 @@
 <template>
   <div class="map-pool-container">
-    <h3 class="section-title">Map Pool</h3>
+    <h3 class="section-title">地图池</h3>
     <div class="map-groups">
       <div 
         v-for="group in mapGroups" 
@@ -18,6 +18,7 @@
             class="map-card"
             :style="{ backgroundImage: `url(${getMapImage(map)})` }"
           >
+            <div class="map-pick-rate">{{ getPickRateText(map) }}</div>
             <div class="map-name">{{ map.name }}</div>
           </div>
         </div>
@@ -36,23 +37,72 @@ export default {
     seasonId: {
       type: [Number, String],
       required: true
+    },
+    mapIds: {
+      type: Array,
+      default: () => []
+    },
+    mapPickStats: {
+      type: Array,
+      default: () => []
     }
   },
-  setup() {
+  setup(props) {
     const store = useStore();
 
-    // Since we don't have a season-map relation in DB, 
-    // we assume the map pool is all maps, or we could filter by mapGames in the season.
-    // For now, let's display all maps in the system.
-    const maps = computed(() => store.state.maps || []);
+    const maps = computed(() => {
+      const allMaps = store.state.maps || [];
+      const ids = Array.isArray(props.mapIds) ? props.mapIds.map(v => Number(v)).filter(v => Number.isFinite(v)) : [];
+      if (ids.length === 0) return allMaps;
+      const set = new Set(ids);
+      return allMaps.filter(m => set.has(Number(m.id)));
+    });
+
+    const pickCountByMapId = computed(() => {
+      const m = new Map();
+      (Array.isArray(props.mapPickStats) ? props.mapPickStats : []).forEach(row => {
+        const id = Number(row.mapId);
+        const count = Number(row.pickCount);
+        if (Number.isFinite(id) && Number.isFinite(count)) {
+          m.set(id, Math.trunc(count));
+        }
+      });
+      return m;
+    });
+
+    const totalPickCountByMode = computed(() => {
+      const totals = {};
+      (Array.isArray(props.mapPickStats) ? props.mapPickStats : []).forEach(row => {
+        const mode = String(row.mapType || '').trim();
+        const count = Number(row.pickCount);
+        if (!mode || !Number.isFinite(count)) return;
+        totals[mode] = (totals[mode] || 0) + Math.trunc(count);
+      });
+      return totals;
+    });
+
+    const getPickRateText = (map) => {
+      const count = pickCountByMapId.value.get(Number(map.id)) || 0;
+      const total = totalPickCountByMode.value[map.type] || 0;
+      if (!total || !count) return '0%';
+      const pct = Math.round((count / total) * 100);
+      return `${pct}%`;
+    };
+
+    const getPickRateValue = (map) => {
+      const count = pickCountByMapId.value.get(Number(map.id)) || 0;
+      const total = totalPickCountByMode.value[map.type] || 0;
+      if (!total || !count) return 0;
+      return (count / total) * 100;
+    };
 
     const mapGroups = computed(() => {
       const groups = [
-        { type: '占领要点', label: 'CONTROL', cssClass: 'bg-control', maps: [] },
-        { type: '运载目标', label: 'ESCORT', cssClass: 'bg-escort', maps: [] },
-        { type: '攻击/护送', label: 'HYBRID', cssClass: 'bg-hybrid', maps: [] },
-        { type: '机动推进', label: 'PUSH', cssClass: 'bg-push', maps: [] },
-        { type: '闪点作战', label: 'FLASHPOINT', cssClass: 'bg-flashpoint', maps: [] }
+        { type: '占领要点', label: '占领要点', cssClass: 'bg-control', maps: [] },
+        { type: '运载目标', label: '运载目标', cssClass: 'bg-escort', maps: [] },
+        { type: '攻击/护送', label: '攻击/护送', cssClass: 'bg-hybrid', maps: [] },
+        { type: '机动推进', label: '机动推进', cssClass: 'bg-push', maps: [] },
+        { type: '闪点作战', label: '闪点作战', cssClass: 'bg-flashpoint', maps: [] }
       ];
 
       maps.value.forEach(map => {
@@ -60,6 +110,10 @@ export default {
         if (group) {
           group.maps.push(map);
         }
+      });
+
+      groups.forEach(group => {
+        group.maps.sort((a, b) => getPickRateValue(b) - getPickRateValue(a));
       });
 
       return groups;
@@ -104,12 +158,15 @@ export default {
         '中城': 'Midtown.jpg',
         '努巴尼': 'Numbani.jpg',
         '帕拉伊索': 'Paraiso.jpg',
+        '帕拉伊苏': 'Paraiso.jpg',
         '斗兽场': 'Colosseo.jpg',
         '埃斯佩兰萨': 'Esperanca.jpg',
         '新皇后街': 'NewQueenStreet.jpg',
         '卢纳萨皮': 'Runasapi.jpg',
+        '鲁纳塞彼': 'Runasapi.jpg',
         '新渣客城': 'New_Junk_City.jpg',
         '苏拉瓦萨': 'Suravasa.jpg',
+        '阿特利斯': 'Aatlis.jpg',
         
         // English fallbacks just in case
         'Antarctic Peninsula': 'Antarctic_Peninsula.jpg',
@@ -153,6 +210,7 @@ export default {
 
     return {
       mapGroups,
+      getPickRateText,
       getMapImage
     };
   }
@@ -161,14 +219,14 @@ export default {
 
 <style scoped>
 .map-pool-container {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .section-title {
   font-family: 'Orbitron', sans-serif;
   font-size: 20px;
   color: #1a1a1a;
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-weight: 700;
 }
 
@@ -224,6 +282,20 @@ export default {
   align-items: flex-end;
 }
 
+.map-pick-rate {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  z-index: 2;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
 .map-card::after {
   content: '';
   position: absolute;
@@ -247,5 +319,14 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .map-pool-container {
+    margin-bottom: 12px;
+  }
+  .section-title {
+    margin: 0 0 10px 0;
+  }
 }
 </style>

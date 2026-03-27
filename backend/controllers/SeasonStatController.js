@@ -1,10 +1,14 @@
 const SeasonPlayerStat = require('../models/SeasonPlayerStat');
 const Player = require('../models/Player');
 const Team = require('../models/Team');
+const Map = require('../models/Map');
 const Season = require('../models/Season');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
+const SeasonMapPickStat = require('../models/SeasonMapPickStat');
 const sequelize = require('../config/database');
+const { Op } = require('sequelize');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const AIService = require('../services/AIService');
@@ -116,6 +120,248 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
   return insertedCount;
 };
 
+const getSheetByNameOrIndex = (workbook, preferredName, fallbackIndex) => {
+  if (preferredName && workbook.Sheets[preferredName]) {
+    return { sheet: workbook.Sheets[preferredName], sheetName: preferredName, source: 'name' };
+  }
+  const nameByIndex = workbook.SheetNames[fallbackIndex];
+  if (nameByIndex && workbook.Sheets[nameByIndex]) {
+    return { sheet: workbook.Sheets[nameByIndex], sheetName: nameByIndex, source: 'index' };
+  }
+  return { sheet: null, sheetName: null, source: 'missing' };
+};
+
+const findHeaderRowIndex = (rawData, requiredHeaders, maxScanRows = 30) => {
+  const required = (requiredHeaders || []).filter(Boolean);
+  if (required.length === 0) return -1;
+  for (let i = 0; i < Math.min(rawData.length, maxScanRows); i++) {
+    const row = rawData[i];
+    if (!Array.isArray(row) || row.length === 0) continue;
+    const cellStrings = row.map(v => String(v ?? '').trim()).filter(Boolean);
+    const ok = required.every(h => cellStrings.includes(h));
+    if (ok) return i;
+  }
+  return -1;
+};
+
+const toInt = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+};
+
+const aliasMapName = (name) => {
+  const dict = {
+    '直布罗陀': '监测站：直布罗陀',
+    '帕拉伊苏': '帕拉伊索',
+    '卢纳萨皮': '鲁纳塞彼'
+  };
+  return dict[name] || name;
+};
+
+const mapNameCandidates = (name) => {
+  const n = aliasMapName(name);
+  const set = new Set([n, n.replace(/:/g, '：'), n.replace(/：/g, ':')]);
+  if (!/^监测站[:：]/.test(n) && (n.includes('直布罗陀') || n.toLowerCase().includes('gibraltar'))) {
+    set.add('监测站：直布罗陀');
+    set.add('监测站:Gibraltar');
+  }
+  return Array.from(set);
+};
+
+const parseTeamScoreSheet = (workbook) => {
+  const { sheet, sheetName, source } = getSheetByNameOrIndex(workbook, '战队比分统计', 1);
+  if (!sheet) {
+    return {
+      items: [],
+      summary: { found: false, sheetName: null, source, validCount: 0, warningCount: 1, warnings: ['未找到“战队比分统计”sheet'] }
+    };
+  }
+
+  const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+  const requiredHeaders = ['战队名称', '大比分胜', '大比分负', '小比分胜', '小比分负'];
+  const headerRowIndex = findHeaderRowIndex(rawData, requiredHeaders);
+  if (headerRowIndex === -1) {
+    return {
+      items: [],
+      summary: { found: true, sheetName, source, validCount: 0, warningCount: 1, warnings: ['战队比分统计：无法识别表头'] }
+    };
+  }
+
+  const objects = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex });
+  const items = [];
+  let warningCount = 0;
+  const warnings = [];
+
+  for (const row of objects) {
+    const teamName = String(row['战队名称'] ?? '').trim();
+    const teamShortName = String(row['战队简称'] ?? '').trim();
+    if (!teamName) {
+      warningCount++;
+      if (warnings.length < 10) warnings.push('战队比分统计：存在空战队名称行');
+      continue;
+    }
+    items.push({
+      teamName,
+      teamShortName: teamShortName || null,
+      matchWin: toInt(row['大比分胜']),
+      matchLoss: toInt(row['大比分负']),
+      matchDiff: toInt(row['净胜大比分']),
+      mapWin: toInt(row['小比分胜']),
+      mapLoss: toInt(row['小比分负']),
+      mapDiff: toInt(row['净胜小比分'])
+    });
+  }
+
+  return {
+    items,
+    summary: { found: true, sheetName, source, validCount: items.length, warningCount, warnings }
+  };
+};
+
+const parseMapPickSheet = (workbook) => {
+  const { sheet, sheetName, source } = getSheetByNameOrIndex(workbook, '地图选取次数', 2);
+  if (!sheet) {
+    return {
+      items: [],
+      summary: { found: false, sheetName: null, source, validCount: 0, warningCount: 1, warnings: ['未找到“地图选取次数”sheet'] }
+    };
+  }
+
+  const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+  const requiredHeaders = ['地图名称', '地图模式', '选取次数'];
+  const headerRowIndex = findHeaderRowIndex(rawData, requiredHeaders);
+  if (headerRowIndex === -1) {
+    return {
+      items: [],
+      summary: { found: true, sheetName, source, validCount: 0, warningCount: 1, warnings: ['地图选取次数：无法识别表头'] }
+    };
+  }
+
+  const objects = xlsx.utils.sheet_to_json(sheet, { range: headerRowIndex });
+  const items = [];
+  let warningCount = 0;
+  const warnings = [];
+
+  for (const row of objects) {
+    const mapName = String(row['地图名称'] ?? '').trim();
+    const mapType = String(row['地图模式'] ?? '').trim();
+    if (!mapName || !mapType) {
+      warningCount++;
+      if (warnings.length < 10) warnings.push('地图选取次数：存在空地图名称/模式行');
+      continue;
+    }
+    items.push({
+      mapName,
+      mapType,
+      pickCount: toInt(row['选取次数'])
+    });
+  }
+
+  return {
+    items,
+    summary: { found: true, sheetName, source, validCount: items.length, warningCount, warnings }
+  };
+};
+
+const saveSeasonTeamScoreStats = async (seasonId, items, t) => {
+  await SeasonTeamScoreStat.destroy({ where: { seasonId }, transaction: t });
+  let insertedCount = 0;
+
+  for (const item of items) {
+    let team = await Team.findOne({ where: { name: item.teamName }, transaction: t });
+    if (!team) {
+      team = await Team.create({ name: item.teamName, region: 'ap' }, { transaction: t });
+    }
+
+    await SeasonTeam.findOrCreate({
+      where: { seasonId, teamId: team.id },
+      defaults: { seasonId, teamId: team.id },
+      transaction: t
+    });
+
+    await SeasonTeamScoreStat.create({
+      seasonId,
+      teamId: team.id,
+      teamName: item.teamName,
+      teamShortName: item.teamShortName,
+      matchWin: item.matchWin,
+      matchLoss: item.matchLoss,
+      matchDiff: item.matchDiff,
+      mapWin: item.mapWin,
+      mapLoss: item.mapLoss,
+      mapDiff: item.mapDiff
+    }, { transaction: t });
+
+    insertedCount++;
+  }
+
+  return insertedCount;
+};
+
+const saveSeasonMapPickStats = async (seasonId, items, t) => {
+  await SeasonMapPickStat.destroy({ where: { seasonId }, transaction: t });
+  let insertedCount = 0;
+  let skippedCount = 0;
+  const skipped = [];
+
+  for (const item of items) {
+    const candidates = mapNameCandidates(item.mapName);
+    const map = await Map.findOne({ where: { name: { [Op.in]: candidates } }, transaction: t });
+    if (!map) {
+      skippedCount++;
+      if (skipped.length < 10) skipped.push(item.mapName);
+      continue;
+    }
+
+    await SeasonMapPickStat.create({
+      seasonId,
+      mapId: map.id,
+      mapName: map.name,
+      mapType: map.type,
+      pickCount: item.pickCount
+    }, { transaction: t });
+    insertedCount++;
+  }
+
+  return { insertedCount, skippedCount, skipped };
+};
+
+// Ensure SeasonTeam reflects current import (remove stale teams for the season)
+const cleanupSeasonTeams = async (seasonId, t) => {
+  // Collect teamIds that appear in player stats and team score stats
+  const playerTeamRows = await SeasonPlayerStat.findAll({
+    where: { seasonId },
+    attributes: ['teamId'],
+    transaction: t
+  });
+  const scoreTeamRows = await SeasonTeamScoreStat.findAll({
+    where: { seasonId },
+    attributes: ['teamId'],
+    transaction: t
+  });
+  const validTeamIdSet = new Set();
+  playerTeamRows.forEach(r => Number.isFinite(Number(r.teamId)) && validTeamIdSet.add(Number(r.teamId)));
+  scoreTeamRows.forEach(r => Number.isFinite(Number(r.teamId)) && validTeamIdSet.add(Number(r.teamId)));
+  const validTeamIds = Array.from(validTeamIdSet);
+
+  // Find SeasonTeam rows to delete
+  const whereSeasonTeams = { seasonId };
+  const allSeasonTeams = await SeasonTeam.findAll({ where: whereSeasonTeams, transaction: t });
+  const toDeleteSeasonTeamIds = allSeasonTeams
+    .filter(st => validTeamIds.length === 0 || !validTeamIdSet.has(Number(st.teamId)))
+    .map(st => st.id);
+
+  if (toDeleteSeasonTeamIds.length > 0) {
+    await SeasonTeamPlayer.destroy({
+      where: { seasonTeamId: { [Op.in]: toDeleteSeasonTeamIds } },
+      transaction: t
+    });
+    await SeasonTeam.destroy({
+      where: { id: { [Op.in]: toDeleteSeasonTeamIds } },
+      transaction: t
+    });
+  }
+};
 const SeasonStatController = {
   // AI Preview
   previewAIStats: async (req, res) => {
@@ -224,6 +470,9 @@ const SeasonStatController = {
       
       let dataList = [];
       let headerRowIndex = -1;
+
+      const teamScoreParsed = parseTeamScoreSheet(workbook);
+      const mapPickParsed = parseMapPickSheet(workbook);
 
       if (mapping) {
           // AI Mapping Mode
@@ -347,11 +596,20 @@ const SeasonStatController = {
         
         await t.commit(); // 只读操作，commit也没事
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-        return res.json({ preview: previewData, total: dataList.length });
+        return res.json({
+          preview: previewData,
+          total: dataList.length,
+          teamScorePreviewSummary: teamScoreParsed.summary,
+          mapPickPreviewSummary: mapPickParsed.summary
+        });
       }
 
       // 真实写入逻辑
       const insertedCount = await saveSeasonStatsData(seasonId, dataList, t);
+      const teamScoreCount = await saveSeasonTeamScoreStats(seasonId, teamScoreParsed.items, t);
+      const { insertedCount: mapPickCount, skippedCount: mapPickSkippedCount, skipped: mapPickSkipped } = await saveSeasonMapPickStats(seasonId, mapPickParsed.items, t);
+      // Cleanup stale SeasonTeam entries (teams removed in this import)
+      await cleanupSeasonTeams(seasonId, t);
 
       await t.commit();
       
@@ -360,7 +618,14 @@ const SeasonStatController = {
         fs.unlinkSync(req.file.path);
       }
 
-      res.json({ message: '赛季数据导入成功', count: insertedCount });
+      res.json({
+        message: '赛季数据导入成功',
+        count: insertedCount,
+        teamScoreCount,
+        mapPickCount,
+        mapPickSkippedCount,
+        mapPickSkipped
+      });
     } catch (error) {
       if (t) await t.rollback();
       if (req.file && fs.existsSync(req.file.path)) {
@@ -385,6 +650,34 @@ const SeasonStatController = {
       res.json(stats);
     } catch (error) {
       console.error('获取赛季数据失败:', error);
+      res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  getSeasonTeamScoreStats: async (req, res) => {
+    try {
+      const { seasonId } = req.params;
+      const stats = await SeasonTeamScoreStat.findAll({
+        where: { seasonId },
+        include: [{ model: Team, as: 'team' }]
+      });
+      res.json(stats);
+    } catch (error) {
+      console.error('获取赛季战队比分统计失败:', error);
+      res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  getSeasonMapPickStats: async (req, res) => {
+    try {
+      const { seasonId } = req.params;
+      const stats = await SeasonMapPickStat.findAll({
+        where: { seasonId },
+        include: [{ model: Map, as: 'map' }]
+      });
+      res.json(stats);
+    } catch (error) {
+      console.error('获取赛季地图选取统计失败:', error);
       res.status(500).json({ error: '获取数据失败' });
     }
   }

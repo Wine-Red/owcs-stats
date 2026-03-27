@@ -48,6 +48,25 @@
         </div>
       </template>
       
+      <div class="extra-summaries">
+        <div class="summary-row">
+          <span class="summary-label">战队比分统计</span>
+          <template v-if="teamScorePreviewSummary && teamScorePreviewSummary.found">
+            <el-tag type="success">有效: {{ teamScorePreviewSummary.validCount }}</el-tag>
+            <el-tag v-if="teamScorePreviewSummary.warningCount" type="warning">警告: {{ teamScorePreviewSummary.warningCount }}</el-tag>
+          </template>
+          <el-tag v-else type="warning">未找到/无法识别</el-tag>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">地图选取次数</span>
+          <template v-if="mapPickPreviewSummary && mapPickPreviewSummary.found">
+            <el-tag type="success">有效: {{ mapPickPreviewSummary.validCount }}</el-tag>
+            <el-tag v-if="mapPickPreviewSummary.warningCount" type="warning">警告: {{ mapPickPreviewSummary.warningCount }}</el-tag>
+          </template>
+          <el-tag v-else type="warning">未找到/无法识别</el-tag>
+        </div>
+      </div>
+
       <el-table :data="previewData" style="width: 100%" height="500" stripe border>
         <el-table-column prop="status" label="状态" width="100" fixed>
           <template #default="scope">
@@ -111,6 +130,8 @@ export default {
     const aiMode = ref(false);
     const mapping = ref(null);
     const previewData = ref([]);
+    const teamScorePreviewSummary = ref(null);
+    const mapPickPreviewSummary = ref(null);
 
     onMounted(async () => {
         if (seasons.value.length === 0) {
@@ -129,6 +150,8 @@ export default {
       aiMode.value = false;
       mapping.value = null;
       previewData.value = [];
+      teamScorePreviewSummary.value = null;
+      mapPickPreviewSummary.value = null;
     };
 
     const validCount = computed(() => previewData.value.filter(item => item.status === 'valid').length);
@@ -156,6 +179,8 @@ export default {
         const response = await apiService.uploadSeasonStats(formData);
         if (response && response.preview) {
             previewData.value = response.preview;
+            teamScorePreviewSummary.value = response.teamScorePreviewSummary || null;
+            mapPickPreviewSummary.value = response.mapPickPreviewSummary || null;
             previewMode.value = true;
             ElMessage.success('普通解析成功，请确认数据');
         }
@@ -188,6 +213,8 @@ export default {
         if (response && response.preview) {
             previewData.value = response.preview;
             mapping.value = response.mapping;
+            teamScorePreviewSummary.value = response.teamScorePreviewSummary || null;
+            mapPickPreviewSummary.value = response.mapPickPreviewSummary || null;
             previewMode.value = true;
             ElMessage.success('AI 智能解析成功，请确认数据');
         }
@@ -235,6 +262,8 @@ export default {
         aiMode.value = false;
         mapping.value = null;
         previewData.value = [];
+        teamScorePreviewSummary.value = null;
+        mapPickPreviewSummary.value = null;
     };
     
     const getRoleText = (role) => {
@@ -260,6 +289,8 @@ export default {
       previewData,
       validCount,
       warningCount,
+      teamScorePreviewSummary,
+      mapPickPreviewSummary,
       getRoleText
     };
   }
@@ -291,6 +322,23 @@ export default {
 .preview-stats {
     display: flex;
     gap: 10px;
+}
+.extra-summaries {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.summary-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.summary-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
 }
 .error-text {
     color: #F56C6C;

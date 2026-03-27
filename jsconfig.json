@@ -15,5 +15,18 @@
       "dom.iterable",
       "scripthost"
     ]
-  }
+  },
+  "include": [
+    "src/**/*.js",
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "src/**/*.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".trae",
+    "stats.html",
+    "src/views/visualize/components/MapPickChart.vue"
+  ]
 }

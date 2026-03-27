@@ -1,6 +1,6 @@
 <template>
   <div class="regular-season-container">
-    <h3 class="section-title">Regular Season Standings</h3>
+    <h3 class="section-title">积分榜</h3>
     <div class="standings-table-container">
       <el-table
         :data="standings"
@@ -10,12 +10,12 @@
         :header-cell-style="{ background: '#f8f9fa', color: '#495057', fontWeight: '700', borderBottom: '2px solid #dee2e6' }"
         :cell-style="{ borderBottom: '1px solid #edf2f7' }"
       >
-        <el-table-column label="#" width="40" align="center">
+        <el-table-column label="#" width="50" align="center">
           <template #default="scope">
             <span class="rank-number">{{ scope.$index + 1 }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Team" min-width="120">
+        <el-table-column label="队伍" min-width="100">
           <template #default="scope">
             <div class="team-cell">
               <img v-if="scope.row.team.logo" :src="scope.row.team.logo" class="team-logo" />
@@ -24,17 +24,22 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="W-L" width="70" align="center">
+        <el-table-column v-if="template === 'wl_maps'" label="W-L" width="65" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.matchesWon }}-{{ scope.row.matchesLost }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Maps" width="70" align="center">
+        <el-table-column v-if="template === 'points_3_0'" label="PTS" width="55" align="center">
+          <template #default="scope">
+            <span class="font-mono">{{ scope.row.points }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="Maps" width="65" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.mapsWon }}-{{ scope.row.mapsLost }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="+/-" width="60" align="center">
+        <el-table-column label="+/-" width="55" align="center">
           <template #default="scope">
             <span class="font-mono map-diff" :class="getDiffClass(scope.row.mapDiff)">
               {{ scope.row.mapDiff > 0 ? '+' : '' }}{{ scope.row.mapDiff }}
@@ -64,13 +69,63 @@ export default {
     mapGames: {
       type: Array,
       default: () => []
+    },
+    template: {
+      type: String,
+      default: 'wl_maps'
+    },
+    scoreStats: {
+      type: Array,
+      default: () => []
     }
   },
   setup(props) {
     const store = useStore();
 
+    const normalizedTemplate = computed(() => {
+      return props.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
+    });
+
     const standings = computed(() => {
       if (!props.seasonId) return [];
+
+      if (Array.isArray(props.scoreStats) && props.scoreStats.length > 0) {
+        const standingsArray = props.scoreStats.map(item => {
+          const team = item.team || store.getters.getTeamById(item.teamId) || { id: item.teamId, name: item.teamName || 'Unknown', logo: null };
+          const matchesWon = Number(item.matchWin ?? item.matchesWon ?? 0) || 0;
+          const matchesLost = Number(item.matchLoss ?? item.matchesLost ?? 0) || 0;
+          const mapsWon = Number(item.mapWin ?? item.mapsWon ?? 0) || 0;
+          const mapsLost = Number(item.mapLoss ?? item.mapsLost ?? 0) || 0;
+          const mapDiff = Number(item.mapDiff ?? (mapsWon - mapsLost)) || 0;
+          const points = matchesWon * 3;
+
+          return {
+            team,
+            matchesWon,
+            matchesLost,
+            mapsWon,
+            mapsLost,
+            mapDiff,
+            points
+          };
+        });
+
+        standingsArray.sort((a, b) => {
+          if (normalizedTemplate.value === 'points_3_0') {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.mapDiff !== a.mapDiff) return b.mapDiff - a.mapDiff;
+            if (b.mapsWon !== a.mapsWon) return b.mapsWon - a.mapsWon;
+            return a.team.name.localeCompare(b.team.name);
+          }
+
+          if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
+          if (b.mapDiff !== a.mapDiff) return b.mapDiff - a.mapDiff;
+          if (b.mapsWon !== a.mapsWon) return b.mapsWon - a.mapsWon;
+          return a.team.name.localeCompare(b.team.name);
+        });
+
+        return standingsArray;
+      }
 
       const teams = store.getters.getTeamsBySeasonId(props.seasonId) || [];
       const teamStats = {};
@@ -118,18 +173,22 @@ export default {
       // Calculate Diff and Convert to Array
       const standingsArray = Object.values(teamStats).map(stat => {
         stat.mapDiff = stat.mapsWon - stat.mapsLost;
+        stat.points = stat.matchesWon * 3;
         return stat;
       });
 
       // Sort
       standingsArray.sort((a, b) => {
-        // 1. Match wins
+        if (normalizedTemplate.value === 'points_3_0') {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.mapDiff !== a.mapDiff) return b.mapDiff - a.mapDiff;
+          if (b.mapsWon !== a.mapsWon) return b.mapsWon - a.mapsWon;
+          return a.team.name.localeCompare(b.team.name);
+        }
+
         if (b.matchesWon !== a.matchesWon) return b.matchesWon - a.matchesWon;
-        // 2. Map diff
         if (b.mapDiff !== a.mapDiff) return b.mapDiff - a.mapDiff;
-        // 3. Map wins
         if (b.mapsWon !== a.mapsWon) return b.mapsWon - a.mapsWon;
-        // 4. Alphabetical
         return a.team.name.localeCompare(b.team.name);
       });
 
@@ -152,7 +211,8 @@ export default {
     return {
       standings,
       getDiffClass,
-      tableRowClassName
+      tableRowClassName,
+      template: normalizedTemplate
     };
   }
 };
@@ -160,14 +220,14 @@ export default {
 
 <style scoped>
 .regular-season-container {
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
 .section-title {
   font-family: 'Orbitron', sans-serif;
   font-size: 20px;
   color: #1a1a1a;
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-weight: 700;
 }
 
@@ -261,5 +321,29 @@ export default {
 
 :deep(.el-table td.el-table__cell) {
   border-bottom: 1px solid #edf2f7;
+}
+
+@media (max-width: 768px) {
+  .section-title {
+    margin: 0 0 10px 0;
+  }
+  :deep(.el-table .cell) {
+    padding: 0 4px;
+  }
+  :deep(.el-table th.el-table__cell) {
+    padding: 6px 0;
+  }
+  :deep(.el-table td.el-table__cell) {
+    padding: 6px 0;
+  }
+  .team-name {
+    font-size: 13px;
+  }
+  .font-mono {
+    font-size: 13px;
+  }
+  .team-cell {
+    gap: 4px;
+  }
 }
 </style>

@@ -44,99 +44,88 @@
 
     <!-- 主内容网格 (Main Grid) -->
     <main class="vis-content">
-      <!-- 赛事概览横幅 -->
-      <TournamentBanner :seasonId="filterForm.seasonId" />
+      <div v-if="isPageLoading" class="page-loading">
+        <div class="loading-panel">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">加载中...</div>
+        </div>
+      </div>
 
-      <!-- 标签页导航 -->
-      <div class="vis-tabs-container">
-        <div class="vis-tabs">
-          <div 
-            class="vis-tab-item" 
-            :class="{ active: currentTab === 'overview' }"
-            @click="currentTab = 'overview'"
-          >
-            赛事概览
+      <Transition name="page-fade" mode="out-in">
+        <div v-if="!isPageLoading" class="vis-body">
+          <!-- 赛事概览横幅 -->
+          <TournamentBanner 
+            :seasonId="filterForm.seasonId" 
+            :tags="seasonVisualConfig.tags" 
+            :dateRange="seasonVisualConfig.dateRange"
+          />
+
+          <!-- 标签页导航 -->
+          <div class="vis-tabs-container">
+            <div class="vis-tabs">
+              <div 
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'overview' }"
+                @click="currentTab = 'overview'"
+              >
+                赛事概览
+              </div>
+              <div 
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'stats' }"
+                @click="currentTab = 'stats'"
+              >
+                赛事数据
+              </div>
+            </div>
           </div>
-          <div 
-            class="vis-tab-item" 
-            :class="{ active: currentTab === 'stats' }"
-            @click="currentTab = 'stats'"
-          >
-            赛事数据
-          </div>
-        </div>
-      </div>
 
-      <!-- 概览内容 -->
-      <div v-show="currentTab === 'overview'" class="tab-content" style="width: 100%;">
-        <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
-        
-        <div class="vis-grid" style="margin-bottom: 24px;">
-          <div class="vis-col span-12">
-            <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" />
-          </div>
-        </div>
+          <Transition name="tab-fade" mode="out-in" @after-enter="handleTabAfterEnter">
+            <div :key="currentTab" class="tab-content" style="width: 100%;">
+              <template v-if="currentTab === 'overview'">
+                <div class="vis-grid overview-section">
+                  <div class="vis-col span-12">
+                    <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" :template="seasonVisualConfig.standings.template" :score-stats="seasonTeamScoreStats" />
+                  </div>
+                </div>
 
-        <MapPool :seasonId="filterForm.seasonId" />
-      </div>
+                <MapPool :seasonId="filterForm.seasonId" :map-ids="seasonVisualConfig.mapPool.mapIds" :map-pick-stats="seasonMapPickStats" />
+              </template>
+              <template v-else>
+                <div class="vis-grid">
+                  <div class="vis-col span-6" v-if="chartConfig.heroBan">
+                    <HeroBanChart :seasonId="filterForm.seasonId" />
+                  </div>
 
-      <!-- 进阶数据分析内容 -->
-      <div v-if="currentTab === 'stats'" class="tab-content">
-        <div class="vis-grid">
-        <!-- 第一行: 英雄禁用 & 地图选取 -->
-        <div class="vis-col span-6" v-if="chartConfig.heroBan">
-          <HeroBanChart :seasonId="filterForm.seasonId" />
+                  <div class="vis-col span-12" v-if="chartConfig.teamStats">
+                    <TeamStatsChart :seasonId="filterForm.seasonId" />
+                  </div>
+                  <div class="vis-col span-12" v-if="chartConfig.playerStats">
+                    <PlayerStatsChart :seasonId="filterForm.seasonId" />
+                  </div>
+                  <div class="vis-col span-6" v-if="chartConfig.playerRadar">
+                    <PlayerRadarChart :seasonId="filterForm.seasonId" />
+                  </div>
+                </div>
+              </template>
+            </div>
+          </Transition>
         </div>
-        <div class="vis-col span-6" v-if="chartConfig.mapPick">
-          <MapPickChart :seasonId="filterForm.seasonId" />
-        </div>
-
-        <!-- 第二行: 队伍数据 & 选手数据 -->
-        <!-- 
-          User requested: 
-          - TeamStatsChart (Scatter plot)
-          - PlayerStatsChart (List)
-          Let's put them full width if they need space, or side-by-side.
-          Scatter plots usually need width. Player lists need height.
-          Let's try putting TeamStats full width (span-12) and PlayerStats full width (span-12) 
-          OR split them. The previous layout had them stacked. 
-          If I split them span-6, the scatter plot might be small.
-          However, on 1920px span-6 is ~900px, which is plenty.
-          Let's try span-12 for TeamStats (Scatter) to show detail, 
-          and span-12 for PlayerStats (List).
-          Wait, the user wanted "optimize information density".
-          Maybe span-6 is better. Let's start with span-12 for better readability as per "original design" requests usually implying keeping data visible.
-          Actually, let's do span-12 for TeamStats and span-12 for PlayerStats to be safe, 
-          or span-6 if I want to be aggressive with density.
-          Let's stick to span-12 for now as they are complex charts.
-        -->
-        <div class="vis-col span-12" v-if="chartConfig.teamStats">
-          <TeamStatsChart :seasonId="filterForm.seasonId" />
-        </div>
-        <div class="vis-col span-12" v-if="chartConfig.playerStats">
-          <PlayerStatsChart :seasonId="filterForm.seasonId" />
-        </div>
-        <div class="vis-col span-6" v-if="chartConfig.playerRadar">
-          <PlayerRadarChart :seasonId="filterForm.seasonId" />
-        </div>
-      </div>
-      </div>
+      </Transition>
     </main>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent, nextTick } from 'vue';
 import { useStore } from 'vuex';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
-const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
 const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerRadarChart.vue'));
 
 import TournamentBanner from './components/TournamentBanner.vue';
-import RecentMatches from './components/RecentMatches.vue';
 import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
 import MapPool from './components/MapPool.vue';
 
@@ -146,12 +135,10 @@ export default {
   name: 'VisualizeView',
   components: {
     HeroBanChart,
-    MapPickChart,
     TeamStatsChart,
     PlayerStatsChart,
     PlayerRadarChart,
     TournamentBanner,
-    RecentMatches,
     RegularSeasonBoard,
     MapPool
   },
@@ -169,14 +156,16 @@ export default {
 
     const seasonMatches = ref([]);
     const seasonMapGames = ref([]);
+    const seasonTeamScoreStats = ref([]);
+    const seasonMapPickStats = ref([]);
+    const isPageLoading = ref(true);
 
-    // 当切换到数据图表时，确保 ECharts 正确获取宽高
-    watch(currentTab, async (newTab) => {
-      if (newTab === 'stats') {
+    const handleTabAfterEnter = async () => {
+      if (currentTab.value === 'stats') {
         await nextTick();
         window.dispatchEvent(new Event('resize'));
       }
-    });
+    };
 
     const loadSeasonData = async (seasonId) => {
       if (!seasonId) return;
@@ -191,9 +180,78 @@ export default {
       }
     };
 
+    const loadSeasonTeamsMapping = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const allSeasonTeams = await apiService.getAllSeasonTeams();
+        const seasonIdNum = Number(seasonId);
+        const filteredSeasonTeams = (allSeasonTeams || []).filter(st => Number(st.seasonId) === seasonIdNum);
+        store.commit('setSeasonTeams', filteredSeasonTeams);
+      } catch (error) {
+        console.error('Failed to load season teams mapping', error);
+        store.commit('setSeasonTeams', []);
+      }
+    };
+
+    const loadSeasonOverviewStats = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const [teamScoreRes, mapPickRes] = await Promise.all([
+          apiService.getSeasonTeamScoreStats(seasonId),
+          apiService.getSeasonMapPickStats(seasonId)
+        ]);
+        seasonTeamScoreStats.value = Array.isArray(teamScoreRes) ? teamScoreRes : teamScoreRes?.data || [];
+        seasonMapPickStats.value = Array.isArray(mapPickRes) ? mapPickRes : mapPickRes?.data || [];
+      } catch (error) {
+        console.error('Failed to load season overview stats', error);
+        seasonTeamScoreStats.value = [];
+        seasonMapPickStats.value = [];
+      }
+    };
+
+    const seasonVisualConfig = ref({
+      tags: [],
+      dateRange: '',
+      mapPool: {
+        mapIds: []
+      },
+      standings: {
+        template: 'wl_maps'
+      }
+    });
+
+    const normalizeStringArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => String(v).trim()).filter(Boolean);
+    };
+
+    const normalizeIdArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => Number(v)).filter(v => Number.isFinite(v));
+    };
+
+    const loadSeasonVisualConfig = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const config = await apiService.getConfig(`visualize_season_${seasonId}`);
+        seasonVisualConfig.value = {
+          tags: normalizeStringArray(config?.tags),
+          dateRange: config?.dateRange || '',
+          mapPool: { mapIds: normalizeIdArray(config?.mapPool?.mapIds) },
+          standings: { template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps' }
+        };
+      } catch (error) {
+        seasonVisualConfig.value = {
+          tags: [],
+          dateRange: '',
+          mapPool: { mapIds: [] },
+          standings: { template: 'wl_maps' }
+        };
+      }
+    };
+
     const chartConfig = ref({
       heroBan: true,
-      mapPick: true,
       teamStats: true,
       playerStats: true,
       playerRadar: true
@@ -258,10 +316,22 @@ export default {
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
-      await loadSeasonData(filterForm.value.seasonId);
+      isPageLoading.value = true;
+      try {
+        await Promise.all([
+          loadSeasonData(filterForm.value.seasonId),
+          loadSeasonTeamsMapping(filterForm.value.seasonId),
+          loadSeasonVisualConfig(filterForm.value.seasonId),
+          loadSeasonOverviewStats(filterForm.value.seasonId)
+        ]);
+      } finally {
+        await nextTick();
+        isPageLoading.value = false;
+      }
     };
     
     onMounted(async () => {
+      isPageLoading.value = true;
       // 等待 Vue DOM 更新
       await nextTick();
 
@@ -294,30 +364,39 @@ export default {
       }
 
       if (filterForm.value.seasonId) {
-        await loadSeasonData(filterForm.value.seasonId);
+        try {
+          await Promise.all([
+            loadSeasonData(filterForm.value.seasonId),
+            loadSeasonTeamsMapping(filterForm.value.seasonId),
+            loadSeasonVisualConfig(filterForm.value.seasonId),
+            loadSeasonOverviewStats(filterForm.value.seasonId)
+          ]);
+        } finally {
+          await nextTick();
+          isPageLoading.value = false;
+        }
+      } else {
+        isPageLoading.value = false;
       }
     });
-
-    // 修复：确保选择器变化时或初始加载后，子组件能够接收到数据并渲染
-    watch(() => filterForm.value.seasonId, async (newVal, oldVal) => {
-      // 只有当值真正改变时才触发重新加载，避免与 onMounted 重复
-      if (newVal && newVal !== oldVal) {
-        await loadSeasonData(newVal);
-      }
-    }, { immediate: true });
     
     return {
       currentTab,
       filterForm,
       seasonMatches,
       seasonMapGames,
+      seasonTeamScoreStats,
+      seasonMapPickStats,
+      seasonVisualConfig,
       seasons,
       groupedSeasons,
       activeStage,
       handleDropdownVisible,
       handleSeasonChange,
       chartConfig,
-      logoUrl
+      logoUrl,
+      isPageLoading,
+      handleTabAfterEnter
     };
   }
 };
@@ -344,7 +423,8 @@ export default {
 /* 标签页导航样式 */
 .vis-tabs-container {
   display: flex;
-  margin-bottom: 32px;
+  margin-top: -12px;
+  margin-bottom: 20px;
   width: 100%;
 }
 
@@ -380,13 +460,14 @@ export default {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.tab-content {
-  animation: fadeIn 0.4s ease-out;
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
 }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .vis-header {
@@ -451,6 +532,62 @@ export default {
   padding: 32px;
   width: 100%;
   flex: 1;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.page-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.loading-panel {
+  width: 100%;
+  max-width: 360px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: rgba(255, 158, 15, 0.9);
+  animation: spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .vis-grid {
@@ -459,8 +596,8 @@ export default {
   gap: 24px;
 }
 
-.vis-col {
-  /* Removed min-height and visibility hidden to disable scrollreveal behavior */
+.overview-section {
+  margin-bottom: 16px;
 }
 
 .span-6 {
@@ -479,6 +616,19 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .vis-content {
+    padding: 16px 8px;
+  }
+
+  .vis-tabs-container {
+    margin-top: -14px;
+    margin-bottom: 14px;
+  }
+
+  .overview-section {
+    margin-bottom: 10px;
+  }
+  
   .vis-header {
     padding: 0 8px; /* 减小内边距 */
     flex-direction: row;

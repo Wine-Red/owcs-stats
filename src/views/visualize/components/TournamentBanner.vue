@@ -6,8 +6,9 @@
       </div>
       <div class="banner-info">
         <div class="badges">
-          <span class="badge badge-owcs">OWCS</span>
-          <span class="badge badge-tier">A-Tier</span>
+          <span v-for="(tag, idx) in displayTags" :key="`${tag}-${idx}`" class="badge" :class="idx === 0 ? 'badge-owcs' : 'badge-tier'">
+            {{ tag }}
+          </span>
           <span class="badge badge-status" :class="season.status">{{ season.status === 'in_progress' ? 'Ongoing' : 'Completed' }}</span>
         </div>
         <h1 class="season-name">{{ season.name }}</h1>
@@ -15,6 +16,10 @@
           <div class="meta-item">
             <el-icon><User /></el-icon>
             <span>{{ teamCount }} teams</span>
+          </div>
+          <div class="meta-item" v-if="dateRange">
+            <el-icon><Calendar /></el-icon>
+            <span>{{ dateRange }}</span>
           </div>
         </div>
       </div>
@@ -25,17 +30,26 @@
 <script>
 import { computed } from 'vue';
 import { useStore } from 'vuex';
-import { User } from '@element-plus/icons-vue';
+import { User, Calendar } from '@element-plus/icons-vue';
 
 export default {
   name: 'TournamentBanner',
   components: {
-    User
+    User,
+    Calendar
   },
   props: {
     seasonId: {
       type: [Number, String],
       required: true
+    },
+    tags: {
+      type: Array,
+      default: () => []
+    },
+    dateRange: {
+      type: String,
+      default: ''
     }
   },
   setup(props) {
@@ -51,17 +65,36 @@ export default {
       return teams ? teams.length : 0;
     });
 
+    const displayTags = computed(() => {
+      const tags = Array.isArray(props.tags) ? props.tags.map(v => String(v).trim()).filter(Boolean) : [];
+      return tags.length > 0 ? tags : ['OWCS', 'A-Tier'];
+    });
+
     const logoUrl = computed(() => {
       const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
         ? import.meta.env.BASE_URL 
         : `${import.meta.env.BASE_URL}/`;
-      return `${baseUrl}icons/OWCS.png`;
+      
+      const tagsUpper = displayTags.value.map(t => t.toUpperCase());
+      
+      if (tagsUpper.includes('KR')) {
+        return `${baseUrl}icons/areas/KR.png`;
+      } else if (tagsUpper.includes('NA')) {
+        return `${baseUrl}icons/areas/NA.png`;
+      } else if (tagsUpper.includes('CN')) {
+        return `${baseUrl}icons/areas/CN.png`;
+      } else if (tagsUpper.includes('EMEA')) {
+        return `${baseUrl}icons/areas/EMEA.png`;
+      }
+      
+      return `${baseUrl}icons/OWCS_Dark.png`;
     });
 
     return {
       season,
       teamCount,
-      logoUrl
+      logoUrl,
+      displayTags
     };
   }
 };
@@ -85,18 +118,22 @@ export default {
 .banner-logo {
   width: 120px;
   height: 120px;
-  background: #111;
-  border-radius: 8px;
+  background: linear-gradient(135deg, #4a4e69 0%, #2b2d42 100%);
+  border-radius: 16px;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 14px;
+  box-sizing: border-box;
 }
 
 .banner-logo img {
-  width: 80%;
-  height: 80%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 .banner-info {

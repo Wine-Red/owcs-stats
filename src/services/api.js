@@ -129,6 +129,8 @@ const apiService = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
+  getSeasonTeamScoreStats: (seasonId) => api.get(`/season-stats/${seasonId}/team-score`),
+  getSeasonMapPickStats: (seasonId) => api.get(`/season-stats/${seasonId}/map-picks`),
 
   // Config (New)
   getAllConfigs: () => api.get('/config'),
