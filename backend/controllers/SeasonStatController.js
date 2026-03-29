@@ -228,7 +228,7 @@ const parseMapPickSheet = (workbook) => {
   }
 
   const rawData = xlsx.utils.sheet_to_json(sheet, { header: 1 });
-  const requiredHeaders = ['地图名称', '地图模式', '选取次数'];
+  const requiredHeaders = ['地图名称', '选取次数'];
   const headerRowIndex = findHeaderRowIndex(rawData, requiredHeaders);
   if (headerRowIndex === -1) {
     return {
@@ -244,15 +244,13 @@ const parseMapPickSheet = (workbook) => {
 
   for (const row of objects) {
     const mapName = String(row['地图名称'] ?? '').trim();
-    const mapType = String(row['地图模式'] ?? '').trim();
-    if (!mapName || !mapType) {
+    if (!mapName) {
       warningCount++;
-      if (warnings.length < 10) warnings.push('地图选取次数：存在空地图名称/模式行');
+      if (warnings.length < 10) warnings.push('地图选取次数：存在空地图名称行');
       continue;
     }
     items.push({
       mapName,
-      mapType,
       pickCount: toInt(row['选取次数'])
     });
   }

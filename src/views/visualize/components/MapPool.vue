@@ -73,7 +73,7 @@ export default {
     const totalPickCountByMode = computed(() => {
       const totals = {};
       (Array.isArray(props.mapPickStats) ? props.mapPickStats : []).forEach(row => {
-        const mode = String(row.mapType || '').trim();
+        const mode = String(row.mapType || row.map?.type || '').trim();
         const count = Number(row.pickCount);
         if (!mode || !Number.isFinite(count)) return;
         totals[mode] = (totals[mode] || 0) + Math.trunc(count);
