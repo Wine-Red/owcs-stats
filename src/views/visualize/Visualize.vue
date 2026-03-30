@@ -85,7 +85,7 @@
               <template v-if="currentTab === 'overview'">
                 <div class="vis-grid overview-section">
                   <div class="vis-col span-12">
-                    <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" :template="seasonVisualConfig.standings.template" :score-stats="seasonTeamScoreStats" />
+                    <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" :template="seasonVisualConfig.standings.template" :score-stats="seasonTeamScoreStats" :stage-overrides="seasonVisualConfig.standings.stageOverrides" :current-stage-label="seasonVisualConfig.standings.currentStageLabel" />
                   </div>
                 </div>
 
@@ -238,14 +238,18 @@ export default {
           tags: normalizeStringArray(config?.tags),
           dateRange: config?.dateRange || '',
           mapPool: { mapIds: normalizeIdArray(config?.mapPool?.mapIds) },
-          standings: { template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps' }
+          standings: {
+            template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
+            stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {},
+            currentStageLabel: String(config?.standings?.currentStageLabel || '当前阶段')
+          }
         };
       } catch (error) {
         seasonVisualConfig.value = {
           tags: [],
           dateRange: '',
           mapPool: { mapIds: [] },
-          standings: { template: 'wl_maps' }
+          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段' }
         };
       }
     };

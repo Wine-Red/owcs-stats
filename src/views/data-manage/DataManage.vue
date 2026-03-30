@@ -116,6 +116,77 @@
               <el-option label="Points(3-0)" value="points_3_0" />
             </el-select>
           </el-form-item>
+          <el-form-item label="当前阶段名称">
+            <el-input v-model="seasonVisualForm.currentStageLabel" placeholder="例如：季后赛" style="max-width: 240px" />
+          </el-form-item>
+
+          <el-divider content-position="left">阶段积分榜覆盖</el-divider>
+
+          <div v-if="stageSegments.length > 0" class="stage-overrides">
+            <div v-for="seg in stageSegments" :key="seg.key" class="stage-override-card">
+              <div class="stage-override-title">
+                <span>{{ seg.label }}</span>
+                <span class="stage-override-key">{{ seg.key }}</span>
+              </div>
+
+              <el-form-item label="隐藏队伍">
+                <el-select
+                  v-model="getStageOverride(seg.key).hiddenTeamIds"
+                  multiple
+                  filterable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                  placeholder="选择需要隐藏的队伍（淘汰队伍可隐藏）"
+                >
+                  <el-option
+                    v-for="team in seasonVisualTeams"
+                    :key="'hide-' + team.id"
+                    :label="team.name"
+                    :value="team.id"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <el-form-item label="手动排序队伍">
+                <el-select
+                  :model-value="getStageOverride(seg.key).orderedTeamIds"
+                  multiple
+                  filterable
+                  collapse-tags
+                  collapse-tags-tooltip
+                  style="width: 100%"
+                  placeholder="选择需要手动排序的队伍（未选择的队伍仍按默认排序）"
+                  @update:modelValue="val => handleOrderedTeamIdsChange(seg.key, val)"
+                >
+                  <el-option
+                    v-for="team in seasonVisualTeams"
+                    :key="'order-' + team.id"
+                    :label="team.name"
+                    :value="team.id"
+                  />
+                </el-select>
+
+                <div class="ordered-list" v-if="getStageOverride(seg.key).orderedTeamIds.length > 0">
+                  <div
+                    v-for="(teamId, idx) in getStageOverride(seg.key).orderedTeamIds"
+                    :key="seg.key + '-row-' + teamId"
+                    class="ordered-row"
+                  >
+                    <div class="ordered-row-left">
+                      <span class="ordered-index">{{ idx + 1 }}</span>
+                      <span class="ordered-name">{{ getTeamName(teamId) }}</span>
+                    </div>
+                    <div class="ordered-row-actions">
+                      <el-button size="small" @click="moveOrderedTeam(seg.key, idx, -1)" :disabled="idx === 0">上移</el-button>
+                      <el-button size="small" @click="moveOrderedTeam(seg.key, idx, 1)" :disabled="idx === getStageOverride(seg.key).orderedTeamIds.length - 1">下移</el-button>
+                      <el-button size="small" type="danger" @click="removeOrderedTeam(seg.key, teamId)">移除</el-button>
+                    </div>
+                  </div>
+                </div>
+              </el-form-item>
+            </div>
+          </div>
         </el-form>
       </el-card>
     </div>
@@ -998,7 +1069,9 @@ export default {
       tags: [],
       dateRange: '',
       mapIds: [],
-      standingsTemplate: 'wl_maps'
+      standingsTemplate: 'wl_maps',
+      currentStageLabel: '当前阶段',
+      stageOverrides: {}
     });
 
     const buildSeasonVisualKey = (seasonId) => `visualize_season_${seasonId}`;
@@ -1013,6 +1086,112 @@ export default {
       return arr.map(v => Number(v)).filter(v => Number.isFinite(v));
     };
 
+    const stageSnapshots = ref([]);
+
+    const buildStageSegments = (snapshotList, currentStageLabel) => {
+      const list = Array.isArray(snapshotList) ? snapshotList : [];
+      const segments = [];
+      for (let i = 0; i < list.length; i++) {
+        const to = list[i];
+        const from = i > 0 ? list[i - 1] : null;
+        segments.push({
+          key: `snap:${from ? from.id : 0}->${to.id}`,
+          label: String(to.name || `阶段${i + 1}`),
+          fromSnapshotId: from ? from.id : null,
+          toSnapshotId: to.id
+        });
+      }
+      if (list.length > 0) {
+        const last = list[list.length - 1];
+        segments.push({
+          key: `snap:${last.id}->current`,
+          label: String(currentStageLabel || '当前阶段'),
+          fromSnapshotId: last.id,
+          toSnapshotId: null
+        });
+      }
+      return segments;
+    };
+
+    const stageSegments = computed(() => buildStageSegments(stageSnapshots.value, seasonVisualForm.value.currentStageLabel));
+
+    const loadStageSnapshots = async (seasonId) => {
+      if (!seasonId) {
+        stageSnapshots.value = [];
+        return;
+      }
+      try {
+        const res = await apiService.getSeasonStageSnapshots(seasonId);
+        stageSnapshots.value = Array.isArray(res) ? res : res?.data || [];
+      } catch (e) {
+        stageSnapshots.value = [];
+      }
+    };
+
+    const loadSeasonTeamsForVisualConfig = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const allSeasonTeams = await apiService.getAllSeasonTeams();
+        const seasonIdNum = Number(seasonId);
+        const filtered = (allSeasonTeams || []).filter(st => Number(st.seasonId) === seasonIdNum);
+        store.commit('setSeasonTeams', filtered);
+      } catch (e) {
+        store.commit('setSeasonTeams', []);
+      }
+    };
+
+    const getStageOverride = (segmentKey) => {
+      if (!seasonVisualForm.value.stageOverrides || typeof seasonVisualForm.value.stageOverrides !== 'object') {
+        seasonVisualForm.value.stageOverrides = {};
+      }
+      if (!seasonVisualForm.value.stageOverrides[segmentKey]) {
+        seasonVisualForm.value.stageOverrides[segmentKey] = { orderedTeamIds: [], hiddenTeamIds: [] };
+      }
+      const current = seasonVisualForm.value.stageOverrides[segmentKey];
+      if (!Array.isArray(current.orderedTeamIds)) current.orderedTeamIds = [];
+      if (!Array.isArray(current.hiddenTeamIds)) current.hiddenTeamIds = [];
+      return current;
+    };
+
+    const handleOrderedTeamIdsChange = (segmentKey, selectedIds) => {
+      const next = (Array.isArray(selectedIds) ? selectedIds : []).map(v => Number(v)).filter(v => Number.isFinite(v));
+      const override = getStageOverride(segmentKey);
+      const prev = override.orderedTeamIds.map(v => Number(v)).filter(v => Number.isFinite(v));
+      const kept = prev.filter(id => next.includes(id));
+      const appended = next.filter(id => !kept.includes(id));
+      override.orderedTeamIds = kept.concat(appended);
+    };
+
+    const moveOrderedTeam = (segmentKey, index, delta) => {
+      const override = getStageOverride(segmentKey);
+      const list = override.orderedTeamIds;
+      const nextIndex = index + delta;
+      if (nextIndex < 0 || nextIndex >= list.length) return;
+      const copy = list.slice();
+      const tmp = copy[index];
+      copy[index] = copy[nextIndex];
+      copy[nextIndex] = tmp;
+      override.orderedTeamIds = copy;
+    };
+
+    const removeOrderedTeam = (segmentKey, teamId) => {
+      const override = getStageOverride(segmentKey);
+      const id = Number(teamId);
+      override.orderedTeamIds = override.orderedTeamIds.filter(v => Number(v) !== id);
+    };
+
+    const seasonVisualTeams = computed(() => {
+      const seasonIdNum = Number(seasonVisualForm.value.seasonId);
+      if (!Number.isFinite(seasonIdNum)) return [];
+      const ids = (seasonTeams.value || [])
+        .filter(st => Number(st.seasonId) === seasonIdNum)
+        .map(st => Number(st.teamId))
+        .filter(v => Number.isFinite(v));
+      const uniqueIds = Array.from(new Set(ids));
+      const list = (teams.value || []).filter(t => uniqueIds.includes(Number(t.id)));
+      return list;
+    });
+
     const loadSeasonVisualConfig = async (seasonId) => {
       const id = seasonId || seasonVisualForm.value.seasonId;
       if (!id) return;
@@ -1022,16 +1201,28 @@ export default {
         const dateRange = config?.dateRange || '';
         const mapIds = normalizeIdArray(config?.mapPool?.mapIds);
         const standingsTemplate = config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
+        const stageOverrides = (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object')
+          ? config.standings.stageOverrides
+          : {};
+        const currentStageLabel = String(config?.standings?.currentStageLabel || '当前阶段');
 
         seasonVisualForm.value.tags = tags;
         seasonVisualForm.value.dateRange = dateRange;
         seasonVisualForm.value.mapIds = mapIds;
         seasonVisualForm.value.standingsTemplate = standingsTemplate;
+        seasonVisualForm.value.currentStageLabel = currentStageLabel;
+        seasonVisualForm.value.stageOverrides = stageOverrides;
+        await loadStageSnapshots(id);
+        await loadSeasonTeamsForVisualConfig(id);
       } catch (error) {
         seasonVisualForm.value.tags = [];
         seasonVisualForm.value.dateRange = '';
         seasonVisualForm.value.mapIds = [];
         seasonVisualForm.value.standingsTemplate = 'wl_maps';
+        seasonVisualForm.value.currentStageLabel = '当前阶段';
+        seasonVisualForm.value.stageOverrides = {};
+        await loadStageSnapshots(id);
+        await loadSeasonTeamsForVisualConfig(id);
       }
     };
 
@@ -1042,7 +1233,11 @@ export default {
           tags: normalizeStringArray(seasonVisualForm.value.tags),
           dateRange: seasonVisualForm.value.dateRange,
           mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) },
-          standings: { template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps' }
+          standings: {
+            template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps',
+            currentStageLabel: String(seasonVisualForm.value.currentStageLabel || '当前阶段'),
+            stageOverrides: (seasonVisualForm.value.stageOverrides && typeof seasonVisualForm.value.stageOverrides === 'object') ? seasonVisualForm.value.stageOverrides : {}
+          }
         };
         await apiService.updateConfig({
           key: buildSeasonVisualKey(seasonVisualForm.value.seasonId),
@@ -2116,6 +2311,12 @@ export default {
       seasonVisualForm,
       loadSeasonVisualConfig,
       saveSeasonVisualConfig,
+      stageSegments,
+      seasonVisualTeams,
+      getStageOverride,
+      handleOrderedTeamIdsChange,
+      moveOrderedTeam,
+      removeOrderedTeam,
       isMobile,
       actionColWidth,
       deleteActionColWidth,
@@ -2143,6 +2344,79 @@ export default {
 
 .config-section-title:first-child {
   margin-top: 0;
+}
+
+.stage-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0 0 0;
+}
+
+.stage-override-card {
+  border: 1px solid #EBEEF5;
+  border-radius: 8px;
+  padding: 14px 14px 6px 14px;
+  background: #ffffff;
+}
+
+.stage-override-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.stage-override-key {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 400;
+}
+
+.ordered-list {
+  margin-top: 10px;
+  border: 1px solid #EBEEF5;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fafafa;
+}
+
+.ordered-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px dashed #E4E7ED;
+}
+
+.ordered-row:last-child {
+  border-bottom: none;
+}
+
+.ordered-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ordered-index {
+  width: 22px;
+  text-align: right;
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+}
+
+.ordered-name {
+  font-weight: 500;
+  color: #303133;
+}
+
+.ordered-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .data-manage-container {

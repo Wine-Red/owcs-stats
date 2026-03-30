@@ -11,6 +11,8 @@ const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-un
 const SeasonPlayerStat = require('../models/SeasonPlayerStat'); // eslint-disable-line no-unused-vars
 const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat'); // eslint-disable-line no-unused-vars
 const SeasonMapPickStat = require('../models/SeasonMapPickStat'); // eslint-disable-line no-unused-vars
+const SeasonStageSnapshot = require('../models/SeasonStageSnapshot'); // eslint-disable-line no-unused-vars
+const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 
 const initDatabase = async () => {
@@ -49,6 +51,8 @@ const setupAssociations = () => {
   const SeasonPlayerStat = require('../models/SeasonPlayerStat');
   const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
   const SeasonMapPickStat = require('../models/SeasonMapPickStat');
+  const SeasonStageSnapshot = require('../models/SeasonStageSnapshot');
+  const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
 
   // PlayerStat 关联
   PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
@@ -73,6 +77,13 @@ const setupAssociations = () => {
   SeasonMapPickStat.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
   SeasonMapPickStat.belongsTo(Map, { foreignKey: 'mapId', as: 'map' });
   Season.hasMany(SeasonMapPickStat, { foreignKey: 'seasonId', as: 'seasonMapPickStats' });
+
+  SeasonStageSnapshot.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
+  Season.hasMany(SeasonStageSnapshot, { foreignKey: 'seasonId', as: 'stageSnapshots' });
+
+  SeasonStageSnapshot.hasMany(SeasonStageSnapshotTeamScoreStat, { foreignKey: 'snapshotId', as: 'teamScoreStats' });
+  SeasonStageSnapshotTeamScoreStat.belongsTo(SeasonStageSnapshot, { foreignKey: 'snapshotId', as: 'snapshot' });
+  SeasonStageSnapshotTeamScoreStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
 };
 
 const initBasicData = async () => {

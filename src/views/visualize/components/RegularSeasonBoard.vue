@@ -1,6 +1,20 @@
 <template>
   <div class="regular-season-container">
-    <h3 class="section-title">积分榜</h3>
+    <div class="section-header">
+      <h3 class="section-title">积分榜</h3>
+      <div v-if="segments.length > 0" class="stage-tabs" :key="segmentSelectKey">
+        <div
+          v-for="seg in segments"
+          :key="seg.key"
+          class="stage-tab"
+          :class="{ active: seg.key === selectedSegmentKey }"
+          :title="seg.title || seg.label"
+          @click="selectSegment(seg.key)"
+        >
+          {{ seg.label }}
+        </div>
+      </div>
+    </div>
     <div class="standings-table-container">
       <el-table
         :data="standings"
@@ -52,8 +66,9 @@
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import apiService from '@/services/api';
 
 export default {
   name: 'RegularSeasonBoard',
@@ -77,20 +92,91 @@ export default {
     scoreStats: {
       type: Array,
       default: () => []
+    },
+    stageOverrides: {
+      type: Object,
+      default: () => ({})
+    },
+    currentStageLabel: {
+      type: String,
+      default: '当前阶段'
     }
   },
   setup(props) {
     const store = useStore();
+    const snapshots = ref([]);
+    const selectedSegmentKey = ref('cumulative');
+    const activeScoreStats = ref([]);
 
     const normalizedTemplate = computed(() => {
       return props.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
     });
 
+    const buildSegments = (snapshotList) => {
+      const list = Array.isArray(snapshotList) ? snapshotList : [];
+      const segments = [];
+      for (let i = 0; i < list.length; i++) {
+        const to = list[i];
+        const from = i > 0 ? list[i - 1] : null;
+        segments.push({
+          key: `snap:${from ? from.id : 0}->${to.id}`,
+          label: String(to.name || `阶段${i + 1}`),
+          title: String(to.name || `阶段${i + 1}`),
+          fromSnapshotId: from ? from.id : null,
+          toSnapshotId: to.id
+        });
+      }
+      if (list.length > 0) {
+        const last = list[list.length - 1];
+        const currentLabel = String(props.currentStageLabel || '当前阶段');
+        segments.push({
+          key: `snap:${last.id}->current`,
+          label: currentLabel,
+          title: currentLabel,
+          fromSnapshotId: last.id,
+          toSnapshotId: null
+        });
+      }
+      return segments;
+    };
+
+    const segments = computed(() => buildSegments(snapshots.value));
+    const segmentSelectKey = computed(() => segments.value.map(s => s.key).join('|'));
+
+    const applyStageOverrides = (rows) => {
+      const key = selectedSegmentKey.value;
+      const override = props.stageOverrides && typeof props.stageOverrides === 'object' ? props.stageOverrides[key] : null;
+      if (!override) return rows;
+
+      const hiddenSet = new Set((override.hiddenTeamIds || []).map(v => Number(v)).filter(v => Number.isFinite(v)));
+      let filtered = rows.filter(r => !hiddenSet.has(Number(r.team?.id ?? r.teamId)));
+
+      const orderedTeamIds = (override.orderedTeamIds || []).map(v => Number(v)).filter(v => Number.isFinite(v));
+      if (orderedTeamIds.length === 0) return filtered;
+
+      const byId = new Map(filtered.map(r => [Number(r.team?.id ?? r.teamId), r]));
+      const ordered = [];
+      const used = new Set();
+      orderedTeamIds.forEach(id => {
+        const row = byId.get(id);
+        if (row) {
+          ordered.push(row);
+          used.add(id);
+        }
+      });
+      const rest = filtered.filter(r => !used.has(Number(r.team?.id ?? r.teamId)));
+      return ordered.concat(rest);
+    };
+
     const standings = computed(() => {
       if (!props.seasonId) return [];
 
-      if (Array.isArray(props.scoreStats) && props.scoreStats.length > 0) {
-        const standingsArray = props.scoreStats.map(item => {
+      const scoreStatsSource = selectedSegmentKey.value === 'cumulative'
+        ? (Array.isArray(props.scoreStats) ? props.scoreStats : [])
+        : (Array.isArray(activeScoreStats.value) ? activeScoreStats.value : []);
+
+      if (scoreStatsSource.length > 0) {
+        const standingsArray = scoreStatsSource.map(item => {
           const team = item.team || store.getters.getTeamById(item.teamId) || { id: item.teamId, name: item.teamName || 'Unknown', logo: null };
           const matchesWon = Number(item.matchWin ?? item.matchesWon ?? 0) || 0;
           const matchesLost = Number(item.matchLoss ?? item.matchesLost ?? 0) || 0;
@@ -124,7 +210,11 @@ export default {
           return a.team.name.localeCompare(b.team.name);
         });
 
-        return standingsArray;
+        return applyStageOverrides(standingsArray);
+      }
+
+      if (selectedSegmentKey.value !== 'cumulative') {
+        return [];
       }
 
       const teams = store.getters.getTeamsBySeasonId(props.seasonId) || [];
@@ -192,7 +282,76 @@ export default {
         return a.team.name.localeCompare(b.team.name);
       });
 
-      return standingsArray;
+      return applyStageOverrides(standingsArray);
+    });
+
+    const loadSnapshots = async () => {
+      if (!props.seasonId) {
+        snapshots.value = [];
+        return;
+      }
+      try {
+        const res = await apiService.getSeasonStageSnapshots(props.seasonId);
+        snapshots.value = Array.isArray(res) ? res : res?.data || [];
+      } catch (e) {
+        snapshots.value = [];
+      }
+    };
+
+    const refreshScoreStatsForSelection = async () => {
+      const seg = segments.value.find(s => s.key === selectedSegmentKey.value);
+      if (!seg) {
+        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+        return;
+      }
+      try {
+        const params = {};
+        if (seg.fromSnapshotId) params.fromSnapshotId = seg.fromSnapshotId;
+        if (seg.toSnapshotId) params.toSnapshotId = seg.toSnapshotId;
+        const res = await apiService.getSeasonTeamScoreStats(props.seasonId, params);
+        activeScoreStats.value = Array.isArray(res) ? res : res?.data || [];
+      } catch (e) {
+        activeScoreStats.value = [];
+      }
+    };
+
+    const pickDefaultSegmentKey = () => {
+      const segs = segments.value;
+      if (segs.length === 0) return 'cumulative';
+      const current = segs.find(s => s.key.endsWith('->current'));
+      return current ? current.key : segs[segs.length - 1].key;
+    };
+
+    const selectSegment = async (key) => {
+      if (key === selectedSegmentKey.value) return;
+      selectedSegmentKey.value = key;
+      await refreshScoreStatsForSelection();
+    };
+
+    watch(() => props.seasonId, async () => {
+      activeScoreStats.value = [];
+      selectedSegmentKey.value = 'cumulative';
+      await loadSnapshots();
+      const segs = segments.value;
+      if (segs.length === 0) {
+        selectedSegmentKey.value = 'cumulative';
+        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+        return;
+      }
+      selectedSegmentKey.value = pickDefaultSegmentKey();
+      await refreshScoreStatsForSelection();
+    }, { immediate: true });
+
+    watch(() => props.scoreStats, () => {
+      if (selectedSegmentKey.value === 'cumulative') {
+        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+      }
+    }, { deep: true });
+
+    onMounted(() => {
+      if (selectedSegmentKey.value === 'cumulative') {
+        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+      }
     });
 
     const getDiffClass = (diff) => {
@@ -212,7 +371,11 @@ export default {
       standings,
       getDiffClass,
       tableRowClassName,
-      template: normalizedTemplate
+      template: normalizedTemplate,
+      segments,
+      segmentSelectKey,
+      selectedSegmentKey,
+      selectSegment
     };
   }
 };
@@ -223,12 +386,55 @@ export default {
   margin-bottom: 0;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .section-title {
   font-family: 'Orbitron', sans-serif;
   font-size: 20px;
   color: #1a1a1a;
-  margin: 0 0 12px 0;
+  margin: 0;
   font-weight: 700;
+}
+
+.stage-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: #f0f2f5;
+  overflow-x: auto;
+  max-width: calc(100% - 120px);
+}
+
+.stage-tab {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #606266;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.stage-tab:hover {
+  color: #1a1a1a;
+}
+
+.stage-tab.active {
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .standings-table-container {

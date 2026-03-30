@@ -129,8 +129,11 @@ const apiService = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
-  getSeasonTeamScoreStats: (seasonId) => api.get(`/season-stats/${seasonId}/team-score`),
+  getSeasonTeamScoreStats: (seasonId, params) => api.get(`/season-stats/${seasonId}/team-score`, params ? { params } : undefined),
   getSeasonMapPickStats: (seasonId) => api.get(`/season-stats/${seasonId}/map-picks`),
+  getSeasonStageSnapshots: (seasonId) => api.get(`/season-stats/${seasonId}/stage-snapshots`),
+  createSeasonStageSnapshot: (seasonId, data) => api.post(`/season-stats/${seasonId}/stage-snapshots`, data),
+  deleteSeasonStageSnapshot: (snapshotId) => api.delete(`/season-stats/stage-snapshots/${snapshotId}`),
 
   // Config (New)
   getAllConfigs: () => api.get('/config'),

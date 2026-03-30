@@ -37,6 +37,38 @@
       </el-form>
     </el-card>
 
+    <el-card class="upload-card">
+      <template #header>
+        <div class="card-header">
+          <span>阶段快照（仅积分榜）</span>
+        </div>
+      </template>
+
+      <el-form label-width="120px">
+        <el-form-item label="快照名称">
+          <el-input v-model="currentStageLabel" style="max-width: 240px" disabled />
+          <div class="file-tip" style="margin-left: 10px; margin-top: 0;">来自“赛季可视化配置”的当前阶段名称</div>
+          <el-button type="primary" style="margin-left: 10px" @click="createSnapshot" :loading="snapshotBusy" :disabled="!form.seasonId">保存快照</el-button>
+        </el-form-item>
+
+        <el-form-item label="已有快照">
+          <el-table :data="snapshots" style="width: 100%" size="small" border>
+            <el-table-column prop="name" label="名称" min-width="180" />
+            <el-table-column label="创建时间" width="200">
+              <template #default="scope">
+                {{ formatDateTime(scope.row.createdAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" align="center">
+              <template #default="scope">
+                <el-button type="danger" size="small" @click="deleteSnapshot(scope.row.id)" :loading="snapshotBusy">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <el-card v-if="previewMode && previewData.length > 0" class="preview-card">
       <template #header>
         <div class="card-header">
@@ -110,7 +142,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import apiService from '@/services/api';
 import { ElMessage } from 'element-plus';
@@ -132,6 +164,9 @@ export default {
     const previewData = ref([]);
     const teamScorePreviewSummary = ref(null);
     const mapPickPreviewSummary = ref(null);
+    const snapshots = ref([]);
+    const currentStageLabel = ref('当前阶段');
+    const snapshotBusy = ref(false);
 
     onMounted(async () => {
         if (seasons.value.length === 0) {
@@ -142,7 +177,83 @@ export default {
         if (activeSeason) {
             form.value.seasonId = activeSeason.id;
         }
+        await loadCurrentStageLabel();
+        await loadSnapshots();
     });
+
+    const loadSnapshots = async () => {
+      if (!form.value.seasonId) {
+        snapshots.value = [];
+        return;
+      }
+      try {
+        snapshotBusy.value = true;
+        const res = await apiService.getSeasonStageSnapshots(form.value.seasonId);
+        snapshots.value = Array.isArray(res) ? res : res?.data || [];
+      } catch (error) {
+        snapshots.value = [];
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    watch(() => form.value.seasonId, () => {
+      loadSnapshots();
+      loadCurrentStageLabel();
+    });
+
+    const loadCurrentStageLabel = async () => {
+      if (!form.value.seasonId) {
+        currentStageLabel.value = '当前阶段';
+        return;
+      }
+      try {
+        const config = await apiService.getConfig(`visualize_season_${form.value.seasonId}`);
+        const label = String(config?.standings?.currentStageLabel || '当前阶段').trim();
+        currentStageLabel.value = label || '当前阶段';
+      } catch (e) {
+        currentStageLabel.value = '当前阶段';
+      }
+    };
+
+    const createSnapshot = async () => {
+      if (!form.value.seasonId) return;
+      const name = String(currentStageLabel.value || '').trim();
+      if (!name) {
+        ElMessage.warning('请输入快照名称');
+        return;
+      }
+      snapshotBusy.value = true;
+      try {
+        await apiService.createSeasonStageSnapshot(form.value.seasonId, { name });
+        ElMessage.success('快照已保存');
+        await loadSnapshots();
+      } catch (error) {
+        ElMessage.error('保存失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    const deleteSnapshot = async (snapshotId) => {
+      snapshotBusy.value = true;
+      try {
+        await apiService.deleteSeasonStageSnapshot(snapshotId);
+        ElMessage.success('快照已删除');
+        await loadSnapshots();
+      } catch (error) {
+        ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    const formatDateTime = (value) => {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    };
 
     const handleFileChange = (e) => {
       form.value.file = e.target.files[0];
@@ -291,7 +402,13 @@ export default {
       warningCount,
       teamScorePreviewSummary,
       mapPickPreviewSummary,
-      getRoleText
+      getRoleText,
+      snapshots,
+      currentStageLabel,
+      snapshotBusy,
+      createSnapshot,
+      deleteSnapshot,
+      formatDateTime
     };
   }
 };
