@@ -432,10 +432,11 @@ export default {
 
 .vis-tabs {
   display: flex;
-  gap: 32px;
+  width: 100%;
 }
 
 .vis-tab-item {
+  flex: 1;
   text-align: center;
   padding: 12px 0;
   font-size: 15px;
