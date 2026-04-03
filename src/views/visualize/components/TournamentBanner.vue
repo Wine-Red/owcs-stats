@@ -78,13 +78,13 @@ export default {
       const tagsUpper = displayTags.value.map(t => t.toUpperCase());
       
       if (tagsUpper.includes('KR')) {
-        return `${baseUrl}icons/areas/KR.png`;
+        return `${baseUrl}icons/areas/KR_light.png`;
       } else if (tagsUpper.includes('NA')) {
-        return `${baseUrl}icons/areas/NA.png`;
+        return `${baseUrl}icons/areas/NA_light.png`;
       } else if (tagsUpper.includes('CN')) {
-        return `${baseUrl}icons/areas/CN.png`;
+        return `${baseUrl}icons/areas/CN_light.png`;
       } else if (tagsUpper.includes('EMEA')) {
-        return `${baseUrl}icons/areas/EMEA.png`;
+        return `${baseUrl}icons/areas/EMEA_light.png`;
       }
       
       return `${baseUrl}icons/OWCS_Dark.png`;
