@@ -2,7 +2,7 @@
   <div class="tournament-banner vis-col" v-if="season">
     <div class="banner-content">
       <div class="banner-logo">
-        <img :src="logoUrl" alt="OWCS Logo" width="96" height="96" />
+        <img :src="logoUrl" alt="OWCS Logo" width="104" height="104" />
       </div>
       <div class="banner-info">
         <div class="badges">
@@ -102,7 +102,7 @@ export default {
 
 <style scoped>
 .tournament-banner {
-  padding: 0 0 32px 0;
+  padding: 0 0 40px 0;
   margin-bottom: 0;
   background: transparent;
 }
@@ -110,12 +110,12 @@ export default {
 .banner-content {
   display: flex;
   align-items: flex-start;
-  gap: 32px;
+  gap: 36px;
 }
 
 .banner-logo {
-  width: 96px;
-  height: 96px;
+  width: 104px;
+  height: 104px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
@@ -124,7 +124,7 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 16px;
+  padding: 18px;
   box-sizing: border-box;
 }
 
@@ -137,32 +137,34 @@ export default {
 .banner-info {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 16px;
+  padding-top: 6px;
 }
 
 .season-name {
   margin: 0;
-  font-size: 36px;
+  font-size: 38px;
   font-family: 'Inter', -apple-system, sans-serif;
   font-weight: 800;
   letter-spacing: -0.5px;
   color: #111;
-  line-height: 1.1;
+  line-height: 1.15;
   text-wrap: balance;
 }
 
 .meta-data {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 28px;
   color: #666;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .badges {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

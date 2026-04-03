@@ -25,6 +25,7 @@
               :key="'tab-' + group.label"
               class="stage-tab"
               :class="{ active: activeStage === group.label }"
+              :aria-label="`切换到${group.label}赛段`"
               @click.stop="activeStage = group.label"
             >
               {{ group.label }}
@@ -538,7 +539,7 @@ export default {
 }
 
 .vis-content {
-  padding: 32px;
+  padding: 48px 32px 32px;
   width: 100%;
   flex: 1;
   box-sizing: border-box;
