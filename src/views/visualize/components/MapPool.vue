@@ -9,7 +9,8 @@
         v-show="group.maps.length > 0"
       >
         <div class="group-header" :class="group.cssClass">
-          {{ group.label }}
+          <span>{{ group.label }}</span>
+          <div class="group-icon-mask" :style="{ WebkitMaskImage: `url(${getGroupIcon(group.type)})`, maskImage: `url(${getGroupIcon(group.type)})` }"></div>
         </div>
         <div class="map-cards">
           <div 
@@ -208,10 +209,28 @@ export default {
       return `${baseUrl}maps/${folder}/${filename}`;
     };
 
+    const getGroupIcon = (type) => {
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
+        ? import.meta.env.BASE_URL 
+        : `${import.meta.env.BASE_URL}/`;
+        
+      const iconMap = {
+        '占领要点': 'control.png',
+        '运载目标': 'escort.png',
+        '攻击/护送': 'hybrid.png',
+        '机动推进': 'push.png',
+        '闪点作战': 'flashpoint.png'
+      };
+      
+      const filename = iconMap[type] || 'control.png';
+      return `${baseUrl}maps/logo/${filename}`;
+    };
+
     return {
       mapGroups,
       getPickRateText,
-      getMapImage
+      getMapImage,
+      getGroupIcon
     };
   }
 };
@@ -243,37 +262,63 @@ export default {
   display: flex;
   flex-direction: column;
   background: transparent;
-  gap: 8px;
+  gap: 12px;
 }
 
 .group-header {
   font-family: 'Inter', -apple-system, sans-serif;
-  font-weight: 700;
-  font-size: 12px;
-  padding: 4px 8px;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 8px 12px;
   color: #111;
-  border-radius: 4px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  display: inline-block;
-  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px;
 }
 
-.bg-control { background-color: rgba(0, 230, 230, 0.15); color: #008080; }
-.bg-escort { background-color: rgba(255, 77, 77, 0.15); color: #cc0000; }
-.bg-hybrid { background-color: rgba(153, 51, 255, 0.15); color: #6600cc; }
-.bg-push { background-color: rgba(255, 26, 140, 0.15); color: #cc0066; }
-.bg-flashpoint { background-color: rgba(230, 230, 0, 0.2); color: #999900; }
+.group-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  /* Filter to colorize the icon based on the parent's color.
+     We start with a white or black icon and use CSS filters to tint it.
+     Alternatively, if the original icon is colored, it might just display as is. 
+     If it's black/white, we can force a mask or filter, but simplest is relying on the image.
+     Since we want it to match the text color and CSS filters are complex to get exact hex values, 
+     a CSS trick is to use it as a mask, but `mask-image` is better. */
+}
+
+/* We use mask-image to make the icon take the color of the text (currentColor) */
+.group-icon-mask {
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.bg-control { background-color: rgba(0, 230, 230, 0.12); color: #008080; border-left: 3px solid #008080; }
+.bg-escort { background-color: rgba(255, 77, 77, 0.12); color: #cc0000; border-left: 3px solid #cc0000; }
+.bg-hybrid { background-color: rgba(153, 51, 255, 0.12); color: #6600cc; border-left: 3px solid #6600cc; }
+.bg-push { background-color: rgba(255, 26, 140, 0.12); color: #cc0066; border-left: 3px solid #cc0066; }
+.bg-flashpoint { background-color: rgba(230, 230, 0, 0.15); color: #999900; border-left: 3px solid #999900; }
 
 .map-cards {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .map-card {
-  height: 60px;
-  border-radius: 4px;
+  height: 64px;
+  border-radius: 6px;
   background-size: cover;
   background-position: center;
   position: relative;
