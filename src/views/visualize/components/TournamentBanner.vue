@@ -202,16 +202,38 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .tournament-banner {
+    padding: 0 0 16px 0;
+  }
   .banner-content {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
   }
   .banner-logo {
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+  .banner-info {
+    gap: 8px;
+    padding-top: 0;
   }
   .season-name {
     font-size: 20px;
+  }
+  .meta-data {
+    gap: 12px;
+    margin-top: 0;
+    flex-wrap: wrap;
+  }
+  .badges {
+    flex-wrap: wrap;
+  }
+  .badge {
+    padding: 2px 6px;
+    font-size: 10px;
   }
 }
 </style>
