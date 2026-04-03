@@ -999,7 +999,7 @@ export default {
     const deleteActionColWidth = computed(() => isMobile.value ? 70 : 100);
     
     // 标签页管理
-    const activeTab = ref('matches');
+    const activeTab = ref('season-stats-upload');
     
     // 筛选表单
     const filterForm = ref({
