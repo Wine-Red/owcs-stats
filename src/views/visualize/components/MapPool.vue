@@ -242,33 +242,33 @@ export default {
   min-width: 180px;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: transparent;
+  gap: 8px;
 }
 
 .group-header {
-  text-align: center;
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 800;
-  font-size: 14px;
-  padding: 8px 0;
-  color: #fff;
-  letter-spacing: 1px;
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 8px;
+  color: #111;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: inline-block;
+  align-self: flex-start;
 }
 
-.bg-control { background-color: #00e6e6; color: #000; }
-.bg-escort { background-color: #ff4d4d; }
-.bg-hybrid { background-color: #9933ff; }
-.bg-push { background-color: #ff1a8c; }
-.bg-flashpoint { background-color: #e6e600; color: #000; }
+.bg-control { background-color: rgba(0, 230, 230, 0.15); color: #008080; }
+.bg-escort { background-color: rgba(255, 77, 77, 0.15); color: #cc0000; }
+.bg-hybrid { background-color: rgba(153, 51, 255, 0.15); color: #6600cc; }
+.bg-push { background-color: rgba(255, 26, 140, 0.15); color: #cc0066; }
+.bg-flashpoint { background-color: rgba(230, 230, 0, 0.2); color: #999900; }
 
 .map-cards {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: 4px;
 }
 
 .map-card {

@@ -4,7 +4,7 @@
     <header class="vis-header">
       <div class="header-left">
         <div class="logo-placeholder">
-          <img :src="logoUrl" alt="OWCS Logo" class="header-logo" />
+          <img :src="logoUrl" alt="OWCS Logo" class="header-logo" width="40" height="40" />
         </div>
         <h1 class="vis-title"><span class="title-main">Overwatch</span> <span class="subtitle">电竞数据</span></h1>
       </div>
@@ -12,6 +12,7 @@
         <el-select 
           v-model="filterForm.seasonId" 
           placeholder="选择赛季" 
+          aria-label="选择赛季"
           @change="handleSeasonChange" 
           class="vis-season-select" 
           popper-class="vis-dropdown-tabs"
@@ -19,7 +20,7 @@
           @visible-change="handleDropdownVisible"
         >
           <div class="stage-tabs-header">
-            <div 
+            <button 
               v-for="group in groupedSeasons" 
               :key="'tab-' + group.label"
               class="stage-tab"
@@ -27,7 +28,7 @@
               @click.stop="activeStage = group.label"
             >
               {{ group.label }}
-            </div>
+            </button>
           </div>
           <template v-for="group in groupedSeasons" :key="'opt-' + group.label">
             <el-option
@@ -62,21 +63,25 @@
 
           <!-- 标签页导航 -->
           <div class="vis-tabs-container">
-            <div class="vis-tabs">
-              <div 
+            <div class="vis-tabs" role="tablist">
+              <button 
                 class="vis-tab-item" 
                 :class="{ active: currentTab === 'overview' }"
                 @click="currentTab = 'overview'"
+                role="tab"
+                :aria-selected="currentTab === 'overview'"
               >
                 赛事概览
-              </div>
-              <div 
+              </button>
+              <button 
                 class="vis-tab-item" 
                 :class="{ active: currentTab === 'stats' }"
                 @click="currentTab = 'stats'"
+                role="tab"
+                :aria-selected="currentTab === 'stats'"
               >
                 赛事数据
-              </div>
+              </button>
             </div>
           </div>
 
@@ -411,57 +416,54 @@ export default {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Oxanium', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   
-  /* 科技感背景设计 */
-  background-color: #f5f7fa;
-  background-image: 
-    radial-gradient(circle at 90% 10%, rgba(255, 158, 15, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 10% 90%, rgba(64, 158, 255, 0.08) 0%, transparent 60%),
-    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-  background-attachment: fixed;
+  background-color: #fafafa;
 }
 
 /* 标签页导航样式 */
 .vis-tabs-container {
   display: flex;
-  margin-top: -12px;
-  margin-bottom: 20px;
+  margin-top: 0;
+  margin-bottom: 32px;
   width: 100%;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .vis-tabs {
   display: flex;
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  width: 100%;
+  gap: 32px;
 }
 
 .vis-tab-item {
-  flex: 1;
   text-align: center;
   padding: 12px 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #606266;
+  font-size: 15px;
+  font-weight: 500;
+  color: #666;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.3s ease;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
   user-select: none;
+  margin-bottom: -1px;
+  outline: none;
+}
+
+.vis-tab-item:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.4);
 }
 
 .vis-tab-item:hover {
-  color: #1a1a1a;
+  color: #111;
 }
 
 .vis-tab-item.active {
-  background: #f0f2f5;
-  color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  color: #111;
+  font-weight: 600;
+  border-bottom: 2px solid #111;
 }
 
 .tab-fade-enter-active,
@@ -475,18 +477,20 @@ export default {
 }
 
 .vis-header {
-  background: #FFFFFF;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   height: 64px;
   padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
-  box-sizing: border-box; /* 确保 padding 包含在宽度内 */
+  box-sizing: border-box;
 }
 
 .header-left {
@@ -546,38 +550,29 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
+  background: #fafafa;
+  z-index: 10;
 }
 
 .loading-panel {
-  width: 100%;
-  max-width: 360px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  padding: 18px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  backdrop-filter: blur(8px);
 }
 
 .loading-spinner {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-top-color: rgba(255, 158, 15, 0.9);
+  border: 2px solid rgba(0, 0, 0, 0.05);
+  border-top-color: #111;
   animation: spin 0.8s linear infinite;
-  flex: 0 0 auto;
 }
 
 .loading-text {
   font-size: 14px;
-  color: #333;
-  font-weight: 600;
+  color: #111;
+  font-weight: 500;
 }
 
 @keyframes spin {
@@ -723,10 +718,18 @@ export default {
   font-size: 13px;
   font-weight: bold;
   color: #333;
+  border: none;
+  background: transparent;
   border-bottom: 2px solid transparent;
-  transition: all 0.3s;
+  transition: color 0.3s, border-color 0.3s;
   white-space: nowrap;
   margin-bottom: -1px;
+  outline: none;
+}
+
+.stage-tab:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.4);
 }
 
 .stage-tab:hover {
@@ -741,7 +744,7 @@ export default {
 .vis-dropdown-tabs .el-select-dropdown__item {
   margin: 4px 12px;
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   height: 36px;
   line-height: 36px;
 }
@@ -757,7 +760,7 @@ export default {
 .vis-dropdown .el-select-dropdown__item {
   border-radius: 4px;
   margin: 0;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   padding: 0 16px;
   height: 36px;
   line-height: 36px;

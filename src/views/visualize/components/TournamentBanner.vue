@@ -2,7 +2,7 @@
   <div class="tournament-banner vis-col" v-if="season">
     <div class="banner-content">
       <div class="banner-logo">
-        <img :src="logoUrl" alt="OWCS Logo" />
+        <img :src="logoUrl" alt="OWCS Logo" width="64" height="64" />
       </div>
       <div class="banner-info">
         <div class="badges">
@@ -14,11 +14,11 @@
         <h1 class="season-name">{{ season.name }}</h1>
         <div class="meta-data">
           <div class="meta-item">
-            <el-icon><User /></el-icon>
+            <el-icon aria-hidden="true"><User /></el-icon>
             <span>{{ teamCount }} teams</span>
           </div>
           <div class="meta-item" v-if="dateRange">
-            <el-icon><Calendar /></el-icon>
+            <el-icon aria-hidden="true"><Calendar /></el-icon>
             <span>{{ dateRange }}</span>
           </div>
         </div>
@@ -102,30 +102,29 @@ export default {
 
 <style scoped>
 .tournament-banner {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  padding: 0 0 32px 0;
+  margin-bottom: 0;
+  background: transparent;
 }
 
 .banner-content {
   display: flex;
-  align-items: center;
-  gap: 24px;
+  align-items: flex-start;
+  gap: 32px;
 }
 
 .banner-logo {
-  width: 120px;
-  height: 120px;
-  background: linear-gradient(135deg, #4a4e69 0%, #2b2d42 100%);
-  border-radius: 16px;
-  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
+  width: 96px;
+  height: 96px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 14px;
+  padding: 16px;
   box-sizing: border-box;
 }
 
@@ -133,13 +132,13 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
 .banner-info {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding-top: 4px;
 }
 
 .badges {
@@ -149,46 +148,51 @@ export default {
 
 .badge {
   padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
 .badge-owcs {
-  background: #3a75c4;
+  background: #111;
   color: #fff;
 }
 
 .badge-tier {
-  background: #e6a822;
-  color: #fff;
+  background: #f0f0f0;
+  color: #333;
 }
 
 .badge-status.in_progress {
-  background: #28a745;
-  color: #fff;
+  background: #e8f5e9;
+  color: #28a745;
 }
 
 .badge-status.completed {
-  background: #6c757d;
-  color: #fff;
+  background: #f8f9fa;
+  color: #6c757d;
 }
 
 .season-name {
   margin: 0;
-  font-size: 28px;
-  font-family: 'Orbitron', sans-serif;
+  font-size: 36px;
+  font-family: 'Inter', -apple-system, sans-serif;
   font-weight: 800;
-  color: #1a1a1a;
-  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  color: #111;
+  line-height: 1.1;
+  text-wrap: balance;
 }
 
 .meta-data {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   color: #666;
   font-size: 14px;
+  font-weight: 500;
+  margin-top: 4px;
 }
 
 .meta-item {
