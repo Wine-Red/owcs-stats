@@ -1,15 +1,18 @@
 <template>
   <div class="tournament-banner vis-col" v-if="season">
     <div class="banner-content">
+      <div class="banner-logo">
+        <img :src="logoUrl" alt="OWCS Logo" width="96" height="96" />
+      </div>
       <div class="banner-info">
+        <div class="badges">
+          <span v-for="(tag, idx) in displayTags" :key="`${tag}-${idx}`" class="badge" :class="idx === 0 ? 'badge-owcs' : 'badge-tier'">
+            {{ tag }}
+          </span>
+          <span class="badge badge-status" :class="season.status">{{ season.status === 'in_progress' ? 'Ongoing' : 'Completed' }}</span>
+        </div>
         <h1 class="season-name">{{ season.name }}</h1>
         <div class="meta-data">
-          <div class="badges">
-            <span v-for="(tag, idx) in displayTags" :key="`${tag}-${idx}`" class="badge" :class="idx === 0 ? 'badge-owcs' : 'badge-tier'">
-              {{ tag }}
-            </span>
-            <span class="badge badge-status" :class="season.status">{{ season.status === 'in_progress' ? 'Ongoing' : 'Completed' }}</span>
-          </div>
           <div class="meta-item">
             <el-icon aria-hidden="true"><User /></el-icon>
             <span>{{ teamCount }} teams</span>
@@ -19,9 +22,6 @@
             <span>{{ dateRange }}</span>
           </div>
         </div>
-      </div>
-      <div class="banner-logo">
-        <img :src="logoUrl" alt="OWCS Logo" width="80" height="80" />
       </div>
     </div>
   </div>
@@ -109,20 +109,23 @@ export default {
 
 .banner-content {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 32px;
 }
 
 .banner-logo {
-  width: 100px;
-  height: 100px;
-  background: transparent;
+  width: 96px;
+  height: 96px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 0;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .banner-logo img {
@@ -134,15 +137,16 @@ export default {
 .banner-info {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  padding-top: 4px;
 }
 
 .season-name {
   margin: 0;
-  font-size: 42px;
+  font-size: 36px;
   font-family: 'Inter', -apple-system, sans-serif;
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
   color: #111;
   line-height: 1.1;
   text-wrap: balance;
@@ -150,12 +154,11 @@ export default {
 
 .meta-data {
   display: flex;
-  align-items: center;
   gap: 24px;
   color: #666;
   font-size: 14px;
   font-weight: 500;
-  margin-top: 0;
+  margin-top: 4px;
 }
 
 .badges {
@@ -200,20 +203,15 @@ export default {
 
 @media (max-width: 768px) {
   .banner-content {
-    flex-direction: column-reverse;
+    flex-direction: column;
     align-items: flex-start;
-    gap: 24px;
   }
   .banner-logo {
-    width: 64px;
-    height: 64px;
+    width: 80px;
+    height: 80px;
   }
   .season-name {
-    font-size: 28px;
-  }
-  .meta-data {
-    flex-wrap: wrap;
-    gap: 12px;
+    font-size: 20px;
   }
 }
 </style>
