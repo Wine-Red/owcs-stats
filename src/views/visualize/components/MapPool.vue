@@ -334,6 +334,7 @@ export default {
   transform: translateY(-50%);
   z-index: 2;
   color: #fff;
+  font-family: 'Oxanium', sans-serif;
   font-size: 20px;
   font-weight: 900;
   font-style: italic;
