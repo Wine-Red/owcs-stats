@@ -5,6 +5,9 @@ const MatchController = require('../controllers/MatchController');
 // 获取所有比赛
 router.get('/', MatchController.getAll);
 
+// 从外部API同步比赛数据
+router.post('/sync-external', MatchController.syncExternalMatches);
+
 // 获取单个比赛
 router.get('/:id', MatchController.getById);
 

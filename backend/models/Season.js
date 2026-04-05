@@ -21,6 +21,11 @@ const Season = sequelize.define('Season', {
     type: DataTypes.ENUM('in_progress', 'completed'),
     allowNull: false,
     defaultValue: 'in_progress'
+  },
+  externalEventName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '关联的外部API事件名称，如 OWCSCNS1'
   }
 }, {
   tableName: 'seasons',

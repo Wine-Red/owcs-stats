@@ -44,6 +44,29 @@ const Match = sequelize.define('Match', {
   matchDate: {
     type: DataTypes.DATEONLY,
     allowNull: false
+  },
+  externalId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    comment: '外部API的比赛唯一ID'
+  },
+  boFormat: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '比赛赛制，如 BO5'
+  },
+  team1Score: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
+    comment: '队伍1大场得分'
+  },
+  team2Score: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 0,
+    comment: '队伍2大场得分'
   }
 }, {
   tableName: 'matches',

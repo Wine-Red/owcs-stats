@@ -37,9 +37,9 @@
           <el-icon><PieChart /></el-icon>
           图表管理
         </el-tab-pane>
-        <el-tab-pane label="地图局管理" name="matches">
+        <el-tab-pane label="比赛管理" name="matches">
           <el-icon><Map /></el-icon>
-          地图局管理
+          比赛管理
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -249,15 +249,21 @@
       </el-form>
     </el-card>
 
-      <!-- 地图局列表 -->
+      <!-- 比赛列表 -->
       <el-card class="data-card" style="margin-top: 20px">
         <template #header>
           <div class="card-header">
-            <span>地图局列表</span>
-            <el-button type="success" size="small" @click="showImportDialog">
-              <el-icon><Upload /></el-icon>
-              导入地图数据
-            </el-button>
+            <span>比赛列表</span>
+            <div class="header-actions">
+              <el-button type="primary" size="small" @click="syncExternalMatches" :loading="syncing">
+                <el-icon><Refresh /></el-icon>
+                从API同步
+              </el-button>
+              <el-button type="success" size="small" @click="showImportDialog">
+                <el-icon><Upload /></el-icon>
+                导入地图数据
+              </el-button>
+            </div>
           </div>
         </template>
         <el-table
@@ -266,9 +272,9 @@
           style="width: 100%"
           border
         >
-          <el-table-column label="创建时间" width="180">
+          <el-table-column label="比赛日期" width="120">
             <template #default="scope">
-              {{ formatDate(scope.row.createdAt) }}
+              {{ scope.row.matchDate }}
             </template>
           </el-table-column>
           <el-table-column label="赛季" width="180">
@@ -276,23 +282,21 @@
               {{ getSeasonName(scope.row.seasonId) }}
             </template>
           </el-table-column>
-          <el-table-column label="地图" width="150">
-            <template #default="scope">
-              {{ getMapName(scope.row.mapId) }}
-            </template>
-          </el-table-column>
           <el-table-column label="对阵" width="300">
             <template #default="scope">
               <div class="match-up">
-                <span>{{ getTeamName(scope.row.team1Id) }}</span>
-                <span class="vs">VS</span>
-                <span>{{ getTeamName(scope.row.team2Id) }}</span>
+                <span :class="{'winner': scope.row.winnerId === scope.row.team1Id}">{{ getTeamName(scope.row.team1Id) }}</span>
+                <span class="score" v-if="scope.row.team1Score !== null && scope.row.team2Score !== null">
+                  {{ scope.row.team1Score }} - {{ scope.row.team2Score }}
+                </span>
+                <span class="vs" v-else>VS</span>
+                <span :class="{'winner': scope.row.winnerId === scope.row.team2Id}">{{ getTeamName(scope.row.team2Id) }}</span>
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="时长" width="100">
+          <el-table-column label="赛制" width="100">
             <template #default="scope">
-              {{ Number(scope.row.duration).toFixed(2) }} 分钟
+              {{ scope.row.boFormat || '-' }}
             </template>
           </el-table-column>
           <el-table-column label="操作" :width="actionColWidth" fixed="right">
@@ -300,9 +304,9 @@
               <div class="action-buttons">
                 <el-button type="warning" size="small" @click="editMapGames(scope.row)">
                   <el-icon><Edit /></el-icon>
-                  <span v-if="!isMobile">编辑</span>
+                  <span v-if="!isMobile">编辑比赛</span>
                 </el-button>
-                <el-button type="danger" size="small" @click="deleteMapGame(scope.row.id)">
+                <el-button type="danger" size="small" @click="deleteMatch(scope.row.id)">
                   <el-icon><Delete /></el-icon>
                   <span v-if="!isMobile">删除</span>
                 </el-button>
@@ -322,7 +326,7 @@
           />
         </div>
         <div v-if="matches.length === 0 && !loading" class="empty-state">
-          <p>暂无地图局数据</p>
+          <p>暂无比赛数据</p>
         </div>
       </el-card>
     </div>
@@ -351,6 +355,7 @@
           border
         >
           <el-table-column prop="name" label="赛季名称" width="200" />
+          <el-table-column prop="externalEventName" label="外部事件关联名" width="200" />
           <el-table-column prop="stage" label="所属赛段" width="150" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="scope">
@@ -602,6 +607,9 @@
           <el-form-item label="赛季名称" prop="name">
             <el-input v-model="editForm.name" placeholder="请输入赛季名称" style="width: 100%" />
           </el-form-item>
+          <el-form-item label="外部事件关联名" prop="externalEventName">
+            <el-input v-model="editForm.externalEventName" placeholder="请输入外部API事件名称（如：OWCSCNS1）" style="width: 100%" />
+          </el-form-item>
           <el-form-item label="所属赛段" prop="stage">
             <el-input v-model="editForm.stage" placeholder="请输入所属赛段（如：2024 亚洲赛区）" style="width: 100%" />
           </el-form-item>
@@ -710,241 +718,280 @@
       </template>
     </el-dialog>
 
-    <!-- 编辑地图局对话框 -->
+    <!-- 编辑比赛对话框 -->
     <el-dialog
       v-model="mapGameEditDialogVisible"
-      title="编辑地图局"
+      title="编辑比赛及地图局"
       width="90%"
       destroy-on-close
       @close="resetMapGameEditForm"
     >
       <div v-if="currentMatchForEdit">
-        <el-form :model="currentMatchForEdit" label-width="120px">
-          <el-form-item label="比赛">
-            <span>{{ getTeamName(currentMatchForEdit.team1Id) }} vs {{ getTeamName(currentMatchForEdit.team2Id) }}</span>
-          </el-form-item>
-        </el-form>
+        <!-- 比赛信息编辑 -->
+        <el-card shadow="never" style="margin-bottom: 20px;">
+          <template #header>
+            <div class="card-header">
+              <span>比赛基础信息</span>
+            </div>
+          </template>
+          <el-form :model="currentMatchForEdit" label-width="120px" :inline="false">
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="队伍1 (左侧)">
+                  <el-select v-model="currentMatchForEdit.team1Id" placeholder="选择队伍" style="width: 100%">
+                    <el-option v-for="team in teams" :key="team.id" :label="team.name" :value="team.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="队伍2 (右侧)">
+                  <el-select v-model="currentMatchForEdit.team2Id" placeholder="选择队伍" style="width: 100%">
+                    <el-option v-for="team in teams" :key="team.id" :label="team.name" :value="team.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="大场获胜方">
+                  <el-select v-model="currentMatchForEdit.winnerId" placeholder="选择获胜队伍" style="width: 100%">
+                    <el-option :label="getTeamName(currentMatchForEdit.team1Id)" :value="currentMatchForEdit.team1Id" />
+                    <el-option :label="getTeamName(currentMatchForEdit.team2Id)" :value="currentMatchForEdit.team2Id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="队伍1得分">
+                  <el-input-number v-model="currentMatchForEdit.team1Score" :min="0" :max="10" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="队伍2得分">
+                  <el-input-number v-model="currentMatchForEdit.team2Score" :min="0" :max="10" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="赛制">
+                  <el-select v-model="currentMatchForEdit.boFormat" placeholder="如: BO5" style="width: 100%">
+                    <el-option label="BO3" value="BO3" />
+                    <el-option label="BO5" value="BO5" />
+                    <el-option label="BO7" value="BO7" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </el-card>
 
+        <!-- 地图局列表编辑 -->
         <div v-if="mapGamesForEdit.length > 0">
-          <div v-for="mapGame in mapGamesForEdit" :key="mapGame.id">
-            <el-form :model="mapGame" label-width="120px" style="margin-top: 20px;">
-              <el-form-item label="地图">
-                <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">
-                  <el-option
-                    v-for="map in maps"
-                    :key="map.id"
-                    :label="map.name"
-                    :value="map.id"
-                  >
-                    <span>{{ map.name }}</span>
-                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ map.type }})</span>
-                  </el-option>
-                </el-select>
-              </el-form-item>
-              <el-form-item label="获胜队伍">
-                <el-select v-model="mapGame.winnerId" placeholder="请选择获胜队伍" style="width: 100%">
-                  <el-option
-                    :label="getTeamName(currentMatchForEdit.team1Id)"
-                    :value="currentMatchForEdit.team1Id"
+          <el-tabs v-model="mapGameEditTab" type="border-card">
+            <el-tab-pane
+              v-for="(mapGame, index) in mapGamesForEdit"
+              :key="mapGame.id"
+              :label="getMapName(mapGame.mapId) || `地图 ${index + 1}`"
+              :name="mapGame.id.toString()"
+            >
+              <el-form :model="mapGame" label-width="120px" style="margin-top: 20px;">
+                <el-form-item label="地图">
+                  <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">
+                    <el-option
+                      v-for="map in maps"
+                      :key="map.id"
+                      :label="map.name"
+                      :value="map.id"
+                    >
+                      <span>{{ map.name }}</span>
+                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ map.type }})</span>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="获胜队伍">
+                  <el-select v-model="mapGame.winnerId" placeholder="请选择获胜队伍" style="width: 100%">
+                    <el-option
+                      :label="getTeamName(currentMatchForEdit.team1Id)"
+                      :value="currentMatchForEdit.team1Id"
+                    />
+                    <el-option
+                      :label="getTeamName(currentMatchForEdit.team2Id)"
+                      :value="currentMatchForEdit.team2Id"
+                    />
+                  </el-select>
+                </el-form-item>
+                <el-row :gutter="20">
+                  <el-col :span="8">
+                    <el-form-item label="队伍1得分">
+                      <el-input-number v-model="mapGame.team1Score" :min="0" :max="10" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="队伍2得分">
+                      <el-input-number v-model="mapGame.team2Score" :min="0" :max="10" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="录像代码">
+                      <el-input v-model="mapGame.replayId" placeholder="回放代码" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-form-item label="队伍1 Ban">
+                  <el-select v-model="mapGame.team1BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                    <el-option
+                      v-for="hero in heroes"
+                      :key="hero.id"
+                      :label="hero.name"
+                      :value="hero.id"
+                    >
+                      <span>{{ hero.name }}</span>
+                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="队伍2 Ban">
+                  <el-select v-model="mapGame.team2BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                    <el-option
+                      v-for="hero in heroes"
+                      :key="hero.id"
+                      :label="hero.name"
+                      :value="hero.id"
+                    >
+                      <span>{{ hero.name }}</span>
+                      <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="时长(分钟)">
+                  <el-input-number
+                    v-model="mapGame.duration"
+                    :min="0.1"
+                    :max="120"
+                    :step="0.01"
+                    :precision="2"
+                    style="width: 100%"
                   />
-                  <el-option
-                    :label="getTeamName(currentMatchForEdit.team2Id)"
-                    :value="currentMatchForEdit.team2Id"
-                  />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="队伍1 Ban">
-                <el-select v-model="mapGame.team1BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
-                  <el-option
-                    v-for="hero in heroes"
-                    :key="hero.id"
-                    :label="hero.name"
-                    :value="hero.id"
-                  >
-                    <span>{{ hero.name }}</span>
-                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
-                  </el-option>
-                </el-select>
-              </el-form-item>
-              <el-form-item label="队伍2 Ban">
-                <el-select v-model="mapGame.team2BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
-                  <el-option
-                    v-for="hero in heroes"
-                    :key="hero.id"
-                    :label="hero.name"
-                    :value="hero.id"
-                  >
-                    <span>{{ hero.name }}</span>
-                    <span style="color: #8492a6; font-size: 12px; margin-left: 10px">({{ getRoleText(hero.role) }})</span>
-                  </el-option>
-                </el-select>
-              </el-form-item>
-              <el-form-item label="时长(分钟)">
-                <el-input-number
-                  v-model="mapGame.duration"
-                  :min="0.1"
-                  :max="120"
-                  :step="0.01"
-                  :precision="2"
-                  style="width: 100%"
-                />
-              </el-form-item>
-            </el-form>
+                </el-form-item>
+              </el-form>
 
-            <el-divider>{{ getTeamName(currentMatchForEdit.team1Id) }} 上场阵容</el-divider>
-            <div class="lineup-section">
-              <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team1-' + role" :data-role="role">
-                <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
-                <div class="player-slots">
-                  <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team1-' + role + '-' + index">
-                    <div class="player-info">
-                      <span class="player-label">选手{{ index + 1 }}:</span>
-                      <el-select
-                        v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).playerId"
-                        :placeholder="'选择' + getRoleText(role) + '选手'"
-                        style="width: 100%"
-                        @change="handleMapGamePlayerChange(mapGame, 'team1', role, index + 1)"
-                      >
-                        <el-option
-                          v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team1', role)"
-                          :key="player.id"
-                          :label="player.name"
-                          :value="player.id"
-                        />
-                      </el-select>
-                    </div>
-                    <div class="player-stats-form">
-                      <el-form-item label="英雄">
-                        <el-select
-                          v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).heroId"
-                          :placeholder="'选择' + getRoleText(role) + '英雄'"
-                          style="width: 100%"
-                        >
-                          <el-option
-                            v-for="hero in getHeroesByRole(role)"
-                            :key="hero.id"
-                            :label="hero.name"
-                            :value="hero.id"
-                          />
-                        </el-select>
-                      </el-form-item>
-                      <div class="stats-grid">
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
-                          <span class="stat-label">击杀</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
-                          <span class="stat-label">死亡</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
-                          <span class="stat-label">助攻</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
-                          <span class="stat-label">伤害</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
-                          <span class="stat-label">治疗</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
-                          <span class="stat-label">抵挡</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
-                          <span class="stat-label">大招</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team1', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
-                          <span class="stat-label">最后一击</span>
-                        </el-form-item>
+              <div class="player-stats-container">
+                <el-row :gutter="20">
+                  <!-- 队伍1 选手 -->
+                  <el-col :span="12">
+                    <div class="team-panel team-a-panel">
+                      <h3 class="team-panel-title a-title">{{ getTeamName(currentMatchForEdit.team1Id) }} 选手</h3>
+                      
+                      <div class="player-stats-header">
+                        <div class="col-name">名称</div>
+                        <div class="col-role">职责</div>
+                        <div class="col-kad">K/A/D</div>
+                        <div class="col-dmg">伤害</div>
+                        <div class="col-heal">治疗</div>
+                        <div class="col-mit">抵挡</div>
+                        <div class="col-action"></div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <el-divider>{{ getTeamName(currentMatchForEdit.team2Id) }} 上场阵容</el-divider>
-            <div class="lineup-section">
-              <div class="role-section" v-for="role in ['tank', 'damage', 'support']" :key="'team2-' + role" :data-role="role">
-                <h4>{{ getRoleText(role) }} ({{ getRoleCount(role) }}人)</h4>
-                <div class="player-slots">
-                  <div class="player-slot" v-for="(slot, index) in getRoleSlots(role)" :key="'team2-' + role + '-' + index">
-                    <div class="player-info">
-                      <span class="player-label">选手{{ index + 1 }}:</span>
-                      <el-select
-                        v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).playerId"
-                        :placeholder="'选择' + getRoleText(role) + '选手'"
-                        style="width: 100%"
-                        @change="handleMapGamePlayerChange(mapGame, 'team2', role, index + 1)"
-                      >
-                        <el-option
-                          v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team2', role)"
-                          :key="player.id"
-                          :label="player.name"
-                          :value="player.id"
-                        />
-                      </el-select>
-                    </div>
-                    <div class="player-stats-form">
-                      <el-form-item label="英雄">
-                        <el-select
-                          v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).heroId"
-                          :placeholder="'选择' + getRoleText(role) + '英雄'"
-                          style="width: 100%"
-                        >
-                          <el-option
-                            v-for="hero in getHeroesByRole(role)"
-                            :key="hero.id"
-                            :label="hero.name"
-                            :value="hero.id"
-                          />
-                        </el-select>
-                      </el-form-item>
-                      <div class="stats-grid">
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).kills" :min="0" :controls="false" placeholder="击杀" />
-                          <span class="stat-label">击杀</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).deaths" :min="0" :controls="false" placeholder="死亡" />
-                          <span class="stat-label">死亡</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).assists" :min="0" :controls="false" placeholder="助攻" />
-                          <span class="stat-label">助攻</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).damage" :min="0" :controls="false" placeholder="伤害" />
-                          <span class="stat-label">伤害</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).healing" :min="0" :controls="false" placeholder="治疗" />
-                          <span class="stat-label">治疗</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).mitigation" :min="0" :controls="false" placeholder="抵挡" />
-                          <span class="stat-label">抵挡</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).ultsUsed" :min="0" :controls="false" placeholder="大招" />
-                          <span class="stat-label">大招</span>
-                        </el-form-item>
-                        <el-form-item>
-                          <el-input-number v-model="getMapGamePlayerStat(mapGame, 'team2', role, index + 1).finalBlows" :min="0" :controls="false" placeholder="最后一击" />
-                          <span class="stat-label">最后一击</span>
-                        </el-form-item>
+                      <div class="player-stat-row" v-for="(stat, idx) in mapGame.team1Stats" :key="'t1-'+idx">
+                        <div class="col-name">
+                          <el-select v-model="stat.playerId" placeholder="选择选手" filterable @change="handlePlayerChange(stat)">
+                            <el-option
+                              v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team1')"
+                              :key="player.id"
+                              :label="player.name"
+                              :value="player.id"
+                            >
+                              <span style="float: left">{{ player.name }}</span>
+                              <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px;">{{ getRoleText(player.role) }}</span>
+                            </el-option>
+                          </el-select>
+                        </div>
+                        <div class="col-role">
+                          <el-select v-model="stat.role" @change="stat.playerId = ''">
+                            <el-option label="T" value="tank" />
+                            <el-option label="D" value="damage" />
+                            <el-option label="S" value="support" />
+                          </el-select>
+                        </div>
+                        <div class="col-kad">
+                          <el-input v-model="stat.kad" placeholder="0/0/0" />
+                        </div>
+                        <div class="col-dmg">
+                          <el-input-number v-model="stat.damage" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-heal">
+                          <el-input-number v-model="stat.healing" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-mit">
+                          <el-input-number v-model="stat.mitigation" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-action">
+                          <el-button type="danger" icon="Delete" circle size="small" @click="clearStatRow(stat)" />
+                        </div>
                       </div>
+                      
+                      <el-button type="primary" plain size="small" @click="addStatRow(mapGame.team1Stats, currentMatchForEdit.team1Id)" style="margin-top: 10px; width: 100%">+ 添加选手</el-button>
                     </div>
-                  </div>
-                </div>
+                  </el-col>
+
+                  <!-- 队伍2 选手 -->
+                  <el-col :span="12">
+                    <div class="team-panel team-b-panel">
+                      <h3 class="team-panel-title b-title">{{ getTeamName(currentMatchForEdit.team2Id) }} 选手</h3>
+                      
+                      <div class="player-stats-header">
+                        <div class="col-name">名称</div>
+                        <div class="col-role">职责</div>
+                        <div class="col-kad">K/A/D</div>
+                        <div class="col-dmg">伤害</div>
+                        <div class="col-heal">治疗</div>
+                        <div class="col-mit">抵挡</div>
+                        <div class="col-action"></div>
+                      </div>
+
+                      <div class="player-stat-row" v-for="(stat, idx) in mapGame.team2Stats" :key="'t2-'+idx">
+                        <div class="col-name">
+                          <el-select v-model="stat.playerId" placeholder="选择选手" filterable @change="handlePlayerChange(stat)">
+                            <el-option
+                              v-for="player in getMatchTeamPlayers(currentMatchForEdit, 'team2')"
+                              :key="player.id"
+                              :label="player.name"
+                              :value="player.id"
+                            >
+                              <span style="float: left">{{ player.name }}</span>
+                              <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px;">{{ getRoleText(player.role) }}</span>
+                            </el-option>
+                          </el-select>
+                        </div>
+                        <div class="col-role">
+                          <el-select v-model="stat.role" @change="stat.playerId = ''">
+                            <el-option label="T" value="tank" />
+                            <el-option label="D" value="damage" />
+                            <el-option label="S" value="support" />
+                          </el-select>
+                        </div>
+                        <div class="col-kad">
+                          <el-input v-model="stat.kad" placeholder="0/0/0" />
+                        </div>
+                        <div class="col-dmg">
+                          <el-input-number v-model="stat.damage" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-heal">
+                          <el-input-number v-model="stat.healing" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-mit">
+                          <el-input-number v-model="stat.mitigation" :min="0" :controls="false" />
+                        </div>
+                        <div class="col-action">
+                          <el-button type="danger" icon="Delete" circle size="small" @click="clearStatRow(stat)" />
+                        </div>
+                      </div>
+                      
+                      <el-button type="primary" plain size="small" @click="addStatRow(mapGame.team2Stats, currentMatchForEdit.team2Id)" style="margin-top: 10px; width: 100%">+ 添加选手</el-button>
+                    </div>
+                  </el-col>
+                </el-row>
               </div>
-            </div>
-          </div>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </div>
       <template #footer>
@@ -1000,6 +1047,30 @@ export default {
     
     // 标签页管理
     const activeTab = ref('season-stats-upload');
+    
+    // API 同步状态
+    const syncing = ref(false);
+    
+    // 从外部 API 同步比赛数据
+    const syncExternalMatches = async () => {
+      try {
+        syncing.value = true;
+        const response = await apiService.syncExternalMatches();
+        const data = response.data || response;
+        
+        if (data.errors && data.errors.length > 0) {
+          ElMessage.warning(`同步结束。新增比赛: ${data.newMatchesCount || 0}场。但有 ${data.errors.length} 场失败（请看控制台日志）。`);
+          console.warn('同步失败的比赛详情:', data.errors);
+        } else {
+          ElMessage.success(`同步完成！新增比赛: ${data.newMatchesCount || 0}，新增地图局: ${data.newMapGamesCount || 0}，新增选手数据: ${data.newPlayerStatsCount || 0}`);
+        }
+        searchMatches();
+      } catch (error) {
+        ElMessage.error(error.response?.data?.error || error.message || '同步失败');
+      } finally {
+        syncing.value = false;
+      }
+    };
     
     // 筛选表单
     const filterForm = ref({
@@ -1482,29 +1553,29 @@ export default {
         
         console.log('发送筛选条件:', filters);
         
-        // 直接调用API服务，绕过store，以便获取更详细的错误信息
-        const result = await apiService.getMapGames(filters);
+        // 调用API服务获取Match数据而不是MapGame数据
+        const result = await apiService.getMatches(filters);
         
         // 处理返回的数据，支持多种可能的返回格式
-        let mapGamesData = [];
+        let matchData = [];
         if (Array.isArray(result)) {
-          mapGamesData = result;
+          matchData = result;
         } else if (result && result.data && Array.isArray(result.data)) {
-          mapGamesData = result.data;
+          matchData = result.data;
         } else if (result && result.list && Array.isArray(result.list)) {
-          mapGamesData = result.list;
+          matchData = result.list;
         } else if (result && result.items && Array.isArray(result.items)) {
-          mapGamesData = result.items;
+          matchData = result.items;
         }
         
-        matches.value = mapGamesData;
-        total.value = mapGamesData.length;
+        matches.value = matchData;
+        total.value = matchData.length;
         
-        console.log('加载地图局数据成功，共', mapGamesData.length, '条');
+        console.log('加载比赛数据成功，共', matchData.length, '条');
       } catch (error) {
-        console.error('加载地图局数据失败:', error);
+        console.error('加载比赛数据失败:', error);
         const errorMessage = error.response?.data?.error || error.message || '未知错误';
-        ElMessage.error('加载地图局数据失败: ' + errorMessage);
+        ElMessage.error('加载比赛数据失败: ' + errorMessage);
         matches.value = [];
         total.value = 0;
       } finally {
@@ -1620,130 +1691,98 @@ export default {
     
 
 
-    // 编辑地图局
-    const editMapGames = async (mapGame) => {
+    // 编辑比赛下的地图局数据
+    const editMapGames = async (row) => {
       try {
-        console.log('开始编辑地图局，ID:', mapGame.id);
+        const matchId = row.id;
+        const result = await apiService.getMatchMapGames(matchId);
         
-        // 创建地图局的比赛信息对象，用于显示队伍对阵
-        currentMatchForEdit.value = {
-          team1Id: mapGame.team1Id,
-          team2Id: mapGame.team2Id,
-          seasonId: mapGame.seasonId
-        };
-        
-        // 确保加载了相关的赛季-队伍和选手数据
-        try {
-          // 使用聚合接口一次性获取所有上下文数据
-          console.log('正在获取地图局编辑上下文...');
-          const context = await apiService.getMapGameEditContext(mapGame.id);
-          console.log('获取到编辑上下文:', context);
-
-          const { playerStats, seasonTeams, team1Players, team2Players } = context;
-
-          // 更新 Store 中的 seasonTeams
-          store.commit('setSeasonTeams', seasonTeams);
-
-          // 更新 Store 中的 seasonTeamPlayers
-          // 我们需要把 team1Players 和 team2Players 合并并更新到 store
-          // 注意：team1Players 是 SeasonTeamPlayer 对象数组，包含 Player 对象
-          const allNewSeasonTeamPlayers = [...team1Players, ...team2Players];
-          
-          const currentStorePlayers = store.state.seasonTeamPlayers;
-          // 简单的去重合并
-          const merged = [...currentStorePlayers];
-          allNewSeasonTeamPlayers.forEach(newP => {
-            if (!merged.find(p => p.id === newP.id)) {
-              merged.push(newP);
-            }
-          });
-          store.commit('setSeasonTeamPlayers', merged);
-
-          // 为选手数据添加 _slotKey 字段，用于匹配界面上的位置
-          const playerStatsWithSlotKey = [];
-          
-          // 按队伍和角色分组
-          const team1Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team1Id);
-          const team2Stats = (playerStats || []).filter(stat => stat.teamId === mapGame.team2Id);
-          
-          // 为每个队伍分配选手数据到位置
-          const assignStatsToSlots = (stats, teamKey) => {
-            const teamId = teamKey === 'team1' ? mapGame.team1Id : mapGame.team2Id;
-            
-            // 按角色分组
-            const statsByRole = {
-              tank: stats.filter(stat => {
-                const player = stat.player || players.value.find(p => p.id === stat.playerId);
-                return player && player.role === 'tank';
-              }),
-              damage: stats.filter(stat => {
-                const player = stat.player || players.value.find(p => p.id === stat.playerId);
-                return player && player.role === 'damage';
-              }),
-              support: stats.filter(stat => {
-                const player = stat.player || players.value.find(p => p.id === stat.playerId);
-                return player && player.role === 'support';
-              })
-            };
-            
-            // 按角色分配位置：坦克1个，输出2个，辅助2个
-            const roleConfig = {
-              tank: 1,
-              damage: 2,
-              support: 2
-            };
-            
-            Object.entries(roleConfig).forEach(([role, count]) => {
-              for (let index = 1; index <= count; index++) {
-                const slotKey = `${teamKey}-${role}${index}`;
-                
-                // 获取该角色的选手数据
-                const roleStats = statsByRole[role] || [];
-                const stat = roleStats[index - 1]; // 按顺序获取
-                
-                if (stat) {
-                  playerStatsWithSlotKey.push({
-                    ...stat,
-                    _slotKey: slotKey
-                  });
-                } else {
-                  // 如果没有找到匹配的选手数据，创建一个空的占位符
-                  playerStatsWithSlotKey.push({
-                    playerId: '',
-                    heroId: '',
-                    kills: 0,
-                    deaths: 0,
-                    assists: 0,
-                    damage: 0,
-                    healing: 0,
-                    mitigation: 0,
-                    ultsUsed: 0,
-                    finalBlows: 0,
-                    teamId: teamId,
-                    _slotKey: slotKey
-                  });
-                }
-              }
-            });
-          };
-          
-          assignStatsToSlots(team1Stats, 'team1');
-          assignStatsToSlots(team2Stats, 'team2');
-          
-          mapGame.playerStats = playerStatsWithSlotKey;
-          
-          // 将单个地图局放入编辑数组
-          mapGamesForEdit.value = [mapGame];
-          mapGameEditTab.value = '0';
-          mapGameEditDialogVisible.value = true;
-        } catch (e) {
-          console.error('加载地图局数据失败:', e);
-          ElMessage.warning('加载地图局数据失败，部分数据可能无法显示');
+        let mapGamesData = [];
+        if (Array.isArray(result)) {
+          mapGamesData = result;
+        } else if (result && result.data && Array.isArray(result.data)) {
+          mapGamesData = result.data;
         }
+        
+        if (mapGamesData.length === 0) {
+          ElMessage.info('该比赛暂无地图局数据');
+          return;
+        }
+
+        // 继续之前的编辑地图局逻辑，获取每个地图局的编辑上下文
+        mapGameSaving.value = true;
+        mapGameEditDialogVisible.value = true;
+        currentMatchForEdit.value = row;
+        
+        const mapGamesWithContext = await Promise.all(
+          mapGamesData.map(async (mg) => {
+            const contextResult = await apiService.getMapGameEditContext(mg.id);
+            const contextData = contextResult.data || contextResult;
+            
+            // 为每个地图局处理 team1Stats 和 team2Stats，以便在分栏 UI 中使用
+            const buildTeamStats = (stats, teamId) => {
+              const teamStats = stats.filter(stat => stat.teamId === teamId).map(stat => {
+                const player = stat.player || players.value.find(p => p.id === stat.playerId);
+                return {
+                  ...stat,
+                  role: player ? (player.role === 'tank' ? 'tank' : player.role === 'damage' ? 'damage' : 'support') : 'tank',
+                  kad: `${stat.kills || 0}/${stat.assists || 0}/${stat.deaths || 0}`
+                };
+              });
+              // 补充至5条记录
+              while (teamStats.length < 5) {
+                teamStats.push({ 
+                  playerId: '', 
+                  role: 'tank', 
+                  kad: '', 
+                  damage: 0, 
+                  healing: 0, 
+                  mitigation: 0, 
+                  teamId: teamId 
+                });
+              }
+              return teamStats;
+            };
+
+            const team1StatsList = buildTeamStats(contextData.playerStats || [], mg.team1Id);
+            const team2StatsList = buildTeamStats(contextData.playerStats || [], mg.team2Id);
+            
+            return {
+              ...mg,
+              team1Stats: team1StatsList,
+              team2Stats: team2StatsList
+            };
+          })
+        );
+        
+        mapGamesForEdit.value = mapGamesWithContext;
+        mapGameEditTab.value = mapGamesWithContext[0]?.id?.toString() || '';
+        
       } catch (error) {
-        console.error('编辑地图局失败:', error);
-        const errorMessage = error.response?.data?.error || error.message || '未知错误';
-        ElMessage.error('加载地图局数据失败: ' + errorMessage);
+        console.error('获取比赛地图局数据失败:', error);
+        ElMessage.error('获取地图局数据失败');
+        mapGameEditDialogVisible.value = false;
+      } finally {
+        mapGameSaving.value = false;
+      }
+    };
+    
+    // 删除比赛
+    const deleteMatch = async (id) => {
+      try {
+        await ElMessageBox.confirm('确定要删除这场比赛及其所有的地图局和选手数据吗？此操作不可恢复。', '警告', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        
+        await apiService.deleteMatch(id);
+        ElMessage.success('比赛删除成功');
+        loadMatches();
+      } catch (error) {
+        if (error !== 'cancel') {
+          ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
+        }
       }
     };
 
@@ -1774,72 +1813,92 @@ export default {
     const getMatchTeamPlayers = (match, teamKey, role) => {
       const teamId = teamKey === 'team1' ? match.team1Id : match.team2Id;
       const seasonTeam = store.getters.getSeasonTeamBySeasonAndTeam(match.seasonId, teamId);
-      if (!seasonTeam) return [];
-      const players = store.getters.getPlayersBySeasonTeamId(seasonTeam.id);
-      return players.filter(p => p.role === role);
-    };
-
-    const getMapGamePlayerStat = (mapGame, teamKey, role, index) => {
-      const teamId = teamKey === 'team1' ? mapGame.team1Id : mapGame.team2Id;
-      const slotKey = `${teamKey}-${role}${index}`;
       
-      let stat = mapGame.playerStats.find(ps => ps.teamId === teamId && ps._slotKey === slotKey);
-      
-      if (!stat) {
-        stat = {
-          playerId: '',
-          heroId: '',
-          kills: 0,
-          deaths: 0,
-          assists: 0,
-          damage: 0,
-          healing: 0,
-          mitigation: 0,
-          ultsUsed: 0,
-          finalBlows: 0,
-          teamId: teamId,
-          _slotKey: slotKey
-        };
-        mapGame.playerStats.push(stat);
+      let teamPlayers = [];
+      if (seasonTeam) {
+        // 如果队伍在赛季里有关联的选手，优先使用关联的选手
+        teamPlayers = store.getters.getPlayersBySeasonTeamId(seasonTeam.id);
       }
       
-      return stat;
+      // 如果队伍没有关联任何选手，回退到显示所有选手（这是一种兜底方案，防止没有数据时显示 ID）
+      if (!teamPlayers || teamPlayers.length === 0) {
+        teamPlayers = players.value;
+      }
+      
+      return role ? teamPlayers.filter(p => p.role === role) : teamPlayers;
     };
 
-    const handleMapGamePlayerChange = (mapGame, teamKey, role, index) => {
-      const stat = getMapGamePlayerStat(mapGame, teamKey, role, index);
+    const handlePlayerChange = (stat) => {
       if (stat.playerId) {
-        stat.heroId = '';
-        stat.kills = 0;
-        stat.deaths = 0;
-        stat.assists = 0;
-        stat.damage = 0;
-        stat.healing = 0;
-        stat.mitigation = 0;
-        stat.ultsUsed = 0;
-        stat.finalBlows = 0;
+        const player = players.value.find(p => p.id === stat.playerId);
+        if (player) {
+          stat.role = player.role === 'tank' ? 'tank' : player.role === 'damage' ? 'damage' : 'support';
+        }
       }
+    };
+
+    const addStatRow = (statsArray, teamId) => {
+      statsArray.push({
+        playerId: '',
+        role: 'tank',
+        kad: '',
+        damage: 0,
+        healing: 0,
+        mitigation: 0,
+        teamId: teamId
+      });
+    };
+
+    const clearStatRow = (stat) => {
+      stat.playerId = '';
+      stat.kad = '';
+      stat.damage = 0;
+      stat.healing = 0;
+      stat.mitigation = 0;
     };
 
     const saveMapGameEdit = async () => {
       mapGameSaving.value = true;
       try {
+        // 1. 保存 Match 的修改
+        await apiService.updateMatch(currentMatchForEdit.value.id, {
+          team1Id: currentMatchForEdit.value.team1Id,
+          team2Id: currentMatchForEdit.value.team2Id,
+          winnerId: currentMatchForEdit.value.winnerId,
+          team1Score: currentMatchForEdit.value.team1Score,
+          team2Score: currentMatchForEdit.value.team2Score,
+          boFormat: currentMatchForEdit.value.boFormat
+        });
+
+        // 2. 保存 MapGame 的修改
         for (const mapGame of mapGamesForEdit.value) {
-          const playerStats = mapGame.playerStats
+          const allStats = [...mapGame.team1Stats, ...mapGame.team2Stats];
+          const playerStats = allStats
             .filter(ps => ps.playerId)
-            .map(ps => ({
-              playerId: ps.playerId,
-              teamId: ps.teamId,
-              heroId: ps.heroId || null,
-              kills: ps.kills,
-              deaths: ps.deaths,
-              assists: ps.assists,
-              damage: ps.damage,
-              healing: ps.healing,
-              mitigation: ps.mitigation,
-              ultsUsed: ps.ultsUsed,
-              finalBlows: ps.finalBlows
-            }));
+            .map(ps => {
+              let kills = 0, assists = 0, deaths = 0;
+              if (ps.kad) {
+                const parts = ps.kad.split('/');
+                if (parts.length === 3) {
+                  kills = parseInt(parts[0]) || 0;
+                  assists = parseInt(parts[1]) || 0;
+                  deaths = parseInt(parts[2]) || 0;
+                }
+              }
+              return {
+                playerId: ps.playerId,
+                teamId: ps.teamId,
+                heroId: ps.heroId || null,
+                kills,
+                deaths,
+                assists,
+                damage: ps.damage || 0,
+                healing: ps.healing || 0,
+                mitigation: ps.mitigation || 0,
+                ultsUsed: ps.ultsUsed || 0,
+                finalBlows: ps.finalBlows || 0
+              };
+            });
           
           await apiService.updateMapGame(mapGame.id, {
             mapId: mapGame.mapId,
@@ -1851,11 +1910,11 @@ export default {
           });
         }
         
-        ElMessage.success('地图局数据保存成功');
+        ElMessage.success('比赛及地图局数据保存成功');
         mapGameEditDialogVisible.value = false;
         await loadMatches();
       } catch (error) {
-        ElMessage.error('保存地图局数据失败: ' + error.message);
+        ElMessage.error('保存数据失败: ' + error.message);
       } finally {
         mapGameSaving.value = false;
       }
@@ -2230,6 +2289,8 @@ export default {
     
     return {
       activeTab,
+      syncing,
+      syncExternalMatches,
       filterForm,
       seasonTeamFilter,
       seasonTeamPlayerFilter,
@@ -2277,7 +2338,7 @@ export default {
       handleCurrentChange,
       handleTabClick,
       editMapGames,
-      deleteMapGame,
+      deleteMatch,
       addSeason,
       editSeason,
       addTeam,
@@ -2304,8 +2365,9 @@ export default {
       getPlayersByRole,
       getHeroesByRole,
       getMatchTeamPlayers,
-      getMapGamePlayerStat,
-      handleMapGamePlayerChange,
+      handlePlayerChange,
+      addStatRow,
+      clearStatRow,
       chartConfig,
       saveChartConfig,
       seasonVisualForm,
@@ -2417,6 +2479,59 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 新的选手数据表格样式 */
+.player-stats-container {
+  margin-top: 10px;
+}
+.team-panel {
+  background: var(--el-bg-color-overlay);
+  border-radius: 8px;
+  padding: 15px;
+  border-left: 4px solid transparent;
+  box-shadow: var(--el-box-shadow-light);
+  border: 1px solid var(--el-border-color-light);
+}
+.team-a-panel {
+  border-left-color: #ff5722;
+}
+.team-b-panel {
+  border-left-color: #00bcd4;
+}
+.team-panel-title {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.a-title {
+  color: #ff5722;
+}
+.b-title {
+  color: #00bcd4;
+}
+.player-stats-header {
+  display: flex;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+  padding: 0 5px;
+}
+.player-stat-row {
+  display: flex;
+  margin-bottom: 10px;
+  gap: 8px;
+  align-items: center;
+}
+.col-name { flex: 3; }
+.col-role { flex: 1.2; }
+.col-kad { flex: 2; }
+.col-dmg, .col-heal, .col-mit { flex: 2; }
+.col-action { flex: 0 0 32px; display: flex; justify-content: center; }
+
+.player-stat-row .el-input-number {
+  width: 100%;
 }
 
 .data-manage-container {

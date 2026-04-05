@@ -80,6 +80,21 @@ const MapGame = sequelize.define('MapGame', {
     type: DataTypes.FLOAT,
     allowNull: false,
     defaultValue: 0
+  },
+  team1Score: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '队伍1单局得分'
+  },
+  team2Score: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: '队伍2单局得分'
+  },
+  replayId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: '比赛回放代码'
   }
 }, {
   tableName: 'map_games',
