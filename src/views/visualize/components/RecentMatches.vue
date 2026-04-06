@@ -46,7 +46,7 @@
     
     <div v-if="hasMoreMatches" class="show-more-container">
       <el-button @click="toggleShowAll" plain size="large" class="show-more-btn">
-        {{ showAllMatches ? '收起早期比赛' : '查看所有比赛' }}
+        {{ showAllMatches ? '收起全部比赛' : '查看全部比赛' }}
         <el-icon class="el-icon--right">
           <component :is="showAllMatches ? 'ArrowUp' : 'ArrowDown'" />
         </el-icon>
@@ -58,9 +58,14 @@
 <script>
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
+import { ArrowUp, ArrowDown } from '@element-plus/icons-vue';
 
 export default {
   name: 'RecentMatches',
+  components: {
+    ArrowUp,
+    ArrowDown
+  },
   props: {
     matches: {
       type: Array,
