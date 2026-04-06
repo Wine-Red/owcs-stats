@@ -13,15 +13,39 @@
           <div class="group-icon-mask" :style="{ WebkitMaskImage: `url(${getGroupIcon(group.type)})`, maskImage: `url(${getGroupIcon(group.type)})` }"></div>
         </div>
         <div class="map-cards">
-          <div 
+          <el-popover
             v-for="map in group.maps" 
-            :key="map.id" 
-            class="map-card"
-            :style="{ backgroundImage: `url(${getMapImage(map)})` }"
+            :key="map.id"
+            placement="top"
+            trigger="hover"
+            :width="220"
+            popper-class="map-stats-popover"
+            :show-after="200"
+            :hide-after="200"
           >
-            <div class="map-pick-rate">{{ getPickRateText(map) }}</div>
-            <div class="map-name">{{ map.name }}</div>
-          </div>
+            <template #reference>
+              <div 
+                class="map-card"
+                :style="{ backgroundImage: `url(${getMapImage(map)})` }"
+              >
+                <div class="map-pick-rate">{{ getPickRateText(map) }}</div>
+                <div class="map-name">{{ map.name }}</div>
+              </div>
+            </template>
+            <!-- Popover Content -->
+            <div class="map-popover-content">
+              <div class="popover-title">{{ map.name }} - 队伍胜率</div>
+              <div class="popover-stats" v-if="getStatsForMap(map).length > 0">
+                <div class="stat-row" v-for="stat in getStatsForMap(map)" :key="stat.team.id">
+                  <span class="stat-team">{{ stat.team.name }}</span>
+                  <span class="stat-winrate" :class="getWinRateClass(stat.winRate)">
+                    {{ stat.winRate.toFixed(1) }}% <span class="stat-detail">({{ stat.won }}W - {{ stat.lost }}L)</span>
+                  </span>
+                </div>
+              </div>
+              <div v-else class="popover-no-data">暂无比赛数据</div>
+            </div>
+          </el-popover>
         </div>
       </div>
     </div>
@@ -44,6 +68,10 @@ export default {
       default: () => []
     },
     mapPickStats: {
+      type: Array,
+      default: () => []
+    },
+    mapGames: {
       type: Array,
       default: () => []
     }
@@ -226,11 +254,85 @@ export default {
       return `${baseUrl}maps/logo/${filename}`;
     };
 
+    const allMapTeamStats = computed(() => {
+      if (!props.mapGames || props.mapGames.length === 0) return {};
+      
+      const statsByMap = {};
+      const teams = store.state.teams || [];
+
+      props.mapGames.forEach(game => {
+        const mapId = Number(game.mapId);
+        if (!mapId || !game.team1Id || !game.team2Id || !game.winnerId) return;
+
+        if (!statsByMap[mapId]) {
+          statsByMap[mapId] = new Map();
+        }
+        const teamStatsMap = statsByMap[mapId];
+
+        const processTeam = (teamId, isWinner) => {
+          if (!teamStatsMap.has(teamId)) {
+            let teamData = store.getters.getTeamById ? store.getters.getTeamById(teamId) : null;
+            if (!teamData) {
+              teamData = teams.find(t => t.id === teamId) || { id: teamId, name: `Team ${teamId}`, logo: null };
+            }
+            teamStatsMap.set(teamId, {
+              team: teamData,
+              played: 0,
+              won: 0,
+              lost: 0
+            });
+          }
+          const stat = teamStatsMap.get(teamId);
+          stat.played++;
+          if (isWinner) {
+            stat.won++;
+          } else {
+            stat.lost++;
+          }
+        };
+
+        processTeam(game.team1Id, game.winnerId === game.team1Id);
+        processTeam(game.team2Id, game.winnerId === game.team2Id);
+      });
+
+      const result = {};
+      for (const [mapId, teamStatsMap] of Object.entries(statsByMap)) {
+        const arr = Array.from(teamStatsMap.values()).map(stat => ({
+          ...stat,
+          winRate: stat.played > 0 ? (stat.won / stat.played) * 100 : 0
+        }));
+
+        // Sort by Win Rate (desc), then Matches Played (desc), then Wins (desc)
+        arr.sort((a, b) => {
+          if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+          if (b.played !== a.played) return b.played - a.played;
+          if (b.won !== a.won) return b.won - a.won;
+          return a.team.name.localeCompare(b.team.name);
+        });
+
+        result[mapId] = arr;
+      }
+
+      return result;
+    });
+
+    const getStatsForMap = (map) => {
+      return allMapTeamStats.value[map.id] || [];
+    };
+
+    const getWinRateClass = (winRate) => {
+      if (winRate >= 60) return 'text-success';
+      if (winRate < 40) return 'text-danger';
+      return 'text-neutral';
+    };
+
     return {
       mapGroups,
       getPickRateText,
       getMapImage,
-      getGroupIcon
+      getGroupIcon,
+      getStatsForMap,
+      getWinRateClass
     };
   }
 };
@@ -325,6 +427,13 @@ export default {
   overflow: hidden;
   display: flex;
   align-items: flex-end;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.map-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .map-pick-rate {
@@ -374,5 +483,92 @@ export default {
   .section-title {
     margin: 0 0 10px 0;
   }
+}
+
+/* Popover Styles */
+:deep(.map-stats-popover) {
+  padding: 12px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+.map-popover-content {
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.popover-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.popover-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.popover-stats::-webkit-scrollbar {
+  width: 4px;
+}
+
+.popover-stats::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 2px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.stat-team {
+  color: #606266;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.stat-winrate {
+  font-weight: 700;
+  font-family: 'Mono', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-detail {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 500;
+}
+
+.popover-no-data {
+  color: #909399;
+  font-size: 13px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.text-success {
+  color: #e6a23c; /* Match requested orange/yellow highlight style */
+}
+
+.text-danger {
+  color: #f56c6c;
+}
+
+.text-neutral {
+  color: #909399;
 }
 </style>
