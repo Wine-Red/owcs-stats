@@ -66,6 +66,7 @@
           <div class="vis-tabs-container">
             <div class="vis-tabs" role="tablist">
               <button 
+                v-if="chartConfig.overviewTab"
                 class="vis-tab-item" 
                 :class="{ active: currentTab === 'overview' }"
                 @click="currentTab = 'overview'"
@@ -75,6 +76,17 @@
                 赛事概览
               </button>
               <button 
+                v-if="chartConfig.recentTab"
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'recent' }"
+                @click="currentTab = 'recent'"
+                role="tab"
+                :aria-selected="currentTab === 'recent'"
+              >
+                近期比赛
+              </button>
+              <button 
+                v-if="chartConfig.statsTab"
                 class="vis-tab-item" 
                 :class="{ active: currentTab === 'stats' }"
                 @click="currentTab = 'stats'"
@@ -96,6 +108,9 @@
                 </div>
 
                 <MapPool :seasonId="filterForm.seasonId" :map-ids="seasonVisualConfig.mapPool.mapIds" :map-pick-stats="seasonMapPickStats" />
+              </template>
+              <template v-else-if="currentTab === 'recent'">
+                <RecentMatches :matches="seasonMatches" />
               </template>
               <template v-else>
                 <div class="vis-grid">
@@ -134,6 +149,7 @@ const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerR
 import TournamentBanner from './components/TournamentBanner.vue';
 import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
 import MapPool from './components/MapPool.vue';
+import RecentMatches from './components/RecentMatches.vue';
 
 import apiService from '@/services/api';
 
@@ -146,7 +162,8 @@ export default {
     PlayerRadarChart,
     TournamentBanner,
     RegularSeasonBoard,
-    MapPool
+    MapPool,
+    RecentMatches
   },
   setup() {
     const store = useStore();
@@ -176,11 +193,11 @@ export default {
     const loadSeasonData = async (seasonId) => {
       if (!seasonId) return;
       try {
-        const matchesRes = await apiService.getMatches({ seasonId });
-        seasonMatches.value = Array.isArray(matchesRes) ? matchesRes : matchesRes.data || [];
+        const matchesRes = await apiService.getMatches({ seasonId, pageSize: 1000 });
+        seasonMatches.value = Array.isArray(matchesRes) ? matchesRes : matchesRes.data || matchesRes.list || [];
         
-        const mapGamesRes = await apiService.getMapGames({ seasonId });
-        seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || [];
+        const mapGamesRes = await apiService.getMapGames({ seasonId, pageSize: 1000 });
+        seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || mapGamesRes.list || [];
       } catch (error) {
         console.error('Failed to load season data', error);
       }
@@ -261,6 +278,9 @@ export default {
     };
 
     const chartConfig = ref({
+      overviewTab: true,
+      recentTab: true,
+      statsTab: true,
       heroBan: true,
       teamStats: true,
       playerStats: true,

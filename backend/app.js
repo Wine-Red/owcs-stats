@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const MatchController = require('./controllers/MatchController');
 
 // 加载环境变量
 dotenv.config();
@@ -42,6 +43,23 @@ app.use((err, req, res) => {
 
 // 启动服务器
 const PORT = process.env.PORT || 3000;
+const MATCH_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+const startMatchSyncPolling = () => {
+  const runSync = async () => {
+    try {
+      const result = await MatchController.runExternalMatchSync({ source: 'scheduler' });
+      if (!result?.data?.skipped) {
+        console.log(`[match-sync] ${result.message}`);
+      }
+    } catch (error) {
+      console.error('[match-sync] 自动同步失败:', error.message);
+    }
+  };
+
+  runSync();
+  setInterval(runSync, MATCH_SYNC_INTERVAL_MS);
+};
 
 const startServer = async () => {
   try {
@@ -51,6 +69,7 @@ const startServer = async () => {
     // 启动服务器
     app.listen(PORT, () => {
       console.log(`服务器运行在 http://localhost:${PORT}`);
+      startMatchSyncPolling();
     });
   } catch (error) {
     console.error('服务器启动失败:', error);

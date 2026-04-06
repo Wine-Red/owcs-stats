@@ -298,22 +298,26 @@ export default {
 .upload-form {
   margin-bottom: 20px;
   padding: 20px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
+  background-color: #1a1a1a;
+  border-radius: 2px;
+  border: 1px solid #333;
 }
 
 .preview-section {
-  border: 1px solid #ebeef5;
+  border: 1px solid #333;
   padding: 20px;
-  border-radius: 4px;
+  border-radius: 2px;
+  background-color: #141414;
 }
 
 .section-title {
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
   margin: 20px 0 15px;
   padding-left: 10px;
-  border-left: 4px solid #409eff;
+  border-left: 4px solid #facc15;
+  color: #e0e0e0;
+  font-family: 'Oxanium', sans-serif;
 }
 
 .warning-alert {
@@ -337,6 +341,7 @@ export default {
 .collapse-title {
   display: flex;
   align-items: center;
+  color: #e0e0e0;
 }
 
 .error-msg {

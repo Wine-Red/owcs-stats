@@ -38,12 +38,12 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column v-if="template === 'wl_maps'" label="W-L" width="65" align="center">
+        <el-table-column v-if="currentTemplate === 'wl_maps'" label="W-L" width="65" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.matchesWon }}-{{ scope.row.matchesLost }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="template === 'points_3_0'" label="PTS" width="55" align="center">
+        <el-table-column v-if="currentTemplate === 'points_3_0'" label="PTS" width="55" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.points }}</span>
           </template>
@@ -371,7 +371,7 @@ export default {
       standings,
       getDiffClass,
       tableRowClassName,
-      template: normalizedTemplate,
+      currentTemplate: normalizedTemplate,
       segments,
       segmentSelectKey,
       selectedSegmentKey,

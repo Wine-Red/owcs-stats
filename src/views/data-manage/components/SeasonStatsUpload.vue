@@ -418,50 +418,59 @@ export default {
 .upload-card {
   max-width: 800px;
   margin: 20px 0;
+  border-radius: 2px;
+  background-color: #141414;
+  border: 1px solid #2a2a2a;
 }
 .preview-card {
-    margin-top: 20px;
+  margin-top: 20px;
+  border-radius: 2px;
+  background-color: #141414;
+  border: 1px solid #2a2a2a;
 }
 .file-tip {
   font-size: 12px;
-  color: #999;
+  color: #888;
   margin-top: 5px;
 }
 .action-buttons {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ffffff;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
 }
 .preview-stats {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 .extra-summaries {
-    margin-bottom: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .summary-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .summary-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
 }
 .error-text {
-    color: #F56C6C;
+  color: #f56c6c;
 }
 .detail-text {
-    color: #909399;
-    font-size: 12px;
+  color: #888;
+  font-size: 12px;
 }
 </style>

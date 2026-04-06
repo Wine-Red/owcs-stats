@@ -12,7 +12,7 @@ const routes = [
     component: () => import('../views/data-entry/DataEntry.vue')
   },
   {
-    path: '/data-manage',
+    path: '/data-manage/:tab?',
     name: 'DataManage',
     component: () => import('../views/data-manage/DataManage.vue')
   },
