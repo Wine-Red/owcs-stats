@@ -7,7 +7,6 @@ const Season = require('../models/Season');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
 const sequelize = require('../config/database');
-const axios = require('axios');
 
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const EXTERNAL_MATCH_API_HEADERS = {
@@ -77,6 +76,32 @@ const persistSyncSummary = async (summary) => {
   }
 };
 
+const fetchExternalMatches = async () => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const response = await fetch('https://match.owmini.xyz/api/matches', {
+      method: 'GET',
+      headers: EXTERNAL_MATCH_API_HEADERS,
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`外部接口请求失败: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('外部接口请求超时');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
   if (syncInProgress) {
     return {
@@ -92,11 +117,8 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
   syncInProgress = true;
 
   try {
-    const response = await axios.get('https://match.owmini.xyz/api/matches', {
-      timeout: 60000,
-      headers: EXTERNAL_MATCH_API_HEADERS
-    });
-    const matchesData = Array.isArray(response.data) ? response.data : [];
+    const matchesDataRaw = await fetchExternalMatches();
+    const matchesData = Array.isArray(matchesDataRaw) ? matchesDataRaw : [];
     let newMatchesCount = 0;
     let updatedMatchesCount = 0;
     let newMapGamesCount = 0;
