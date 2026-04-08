@@ -83,7 +83,7 @@
                 role="tab"
                 :aria-selected="currentTab === 'recent'"
               >
-                近期比赛
+                比赛列表
               </button>
               <button 
                 v-if="chartConfig.statsTab"
