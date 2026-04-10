@@ -212,6 +212,16 @@
           <div class="card-header">
             <span>比赛列表</span>
             <div class="header-actions">
+              <el-button v-if="!exportMode" type="primary" plain @click="toggleExportMode">
+                <el-icon><Download /></el-icon> 选择比赛导出
+              </el-button>
+              <div v-else class="export-mode-controls">
+                <span class="selected-count">已选 {{ selectedMatchIds.length }} 场</span>
+                <el-button type="primary" :disabled="selectedMatchIds.length === 0" @click="exportSelectedMatches" :loading="isExporting">
+                  确认导出
+                </el-button>
+                <el-button @click="toggleExportMode">取消</el-button>
+              </div>
               <el-button type="primary" @click="syncExternalMatches" :loading="syncing">
                 <el-icon><Refresh /></el-icon>
                 从API同步
@@ -228,7 +238,9 @@
           :data="matches"
           style="width: 100%"
           border
+          @selection-change="handleSelectionChange"
         >
+          <el-table-column v-if="exportMode" type="selection" width="55" />
           <el-table-column label="比赛日期" width="120">
             <template #default="scope">
               {{ scope.row.matchDate }}
@@ -975,7 +987,7 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
-  Search, Refresh, Edit, Delete, Plus, Upload
+  Search, Refresh, Edit, Delete, Plus, Upload, Download
 } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
@@ -990,6 +1002,7 @@ export default {
     Delete,
     Plus,
     Upload,
+    Download,
     MapDataImport,
     SeasonStatsUpload
   },
@@ -1078,11 +1091,50 @@ export default {
         } else {
           ElMessage.success(`同步完成！${summaryText}`);
         }
-        searchMatches();
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || error.message || '同步失败');
+        ElMessage.error('同步失败: ' + (error.response?.data?.error || error.message));
       } finally {
         syncing.value = false;
+      }
+    };
+
+    // Export State
+    const exportMode = ref(false);
+    const selectedMatchIds = ref([]);
+    const isExporting = ref(false);
+
+    const toggleExportMode = () => {
+      exportMode.value = !exportMode.value;
+      if (!exportMode.value) {
+        selectedMatchIds.value = [];
+      }
+    };
+
+    const handleSelectionChange = (selection) => {
+      selectedMatchIds.value = selection.map(item => item.id);
+    };
+
+    const exportSelectedMatches = async () => {
+      if (selectedMatchIds.value.length === 0) return;
+      isExporting.value = true;
+      try {
+        const response = await apiService.exportMatches(selectedMatchIds.value);
+        const blob = new Blob([response], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `matches_export_${new Date().getTime()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        ElMessage.success('导出成功');
+        toggleExportMode();
+      } catch (err) {
+        console.error('Failed to export matches:', err);
+        ElMessage.error('导出失败');
+      } finally {
+        isExporting.value = false;
       }
     };
     
@@ -2554,13 +2606,36 @@ export default {
       deleteActionColWidth,
       importDialogVisible,
       showImportDialog,
-      handleImportSuccess
+      handleImportSuccess,
+      exportMode,
+      selectedMatchIds,
+      isExporting,
+      toggleExportMode,
+      handleSelectionChange,
+      exportSelectedMatches
     };
   }
 };
 </script>
 
 <style scoped>
+.export-mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0f9eb;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid #e1f3d8;
+  margin-right: 8px;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: #67c23a;
+  font-weight: bold;
+}
+
 .chart-config-form {
   padding: 20px;
 }

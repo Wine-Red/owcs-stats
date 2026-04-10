@@ -601,6 +601,212 @@ const MatchController = {
       console.error('同步外部API失败:', error);
       res.status(400).json({ error: error.message });
     }
+  },
+
+  // 导出比赛数据
+  exportMatches: async (req, res) => {
+    try {
+      const { matchIds } = req.body;
+      if (!matchIds || !Array.isArray(matchIds) || matchIds.length === 0) {
+        return res.status(400).json({ error: 'matchIds is required and must be a non-empty array' });
+      }
+
+      const xlsx = require('xlsx');
+
+      // 获取比赛数据，包含MapGame和PlayerStat
+      const matches = await Match.findAll({
+        where: { id: matchIds },
+        include: [
+          { model: Team, as: 'team1' },
+          { model: Team, as: 'team2' },
+          { model: Team, as: 'winner' },
+        ]
+      });
+
+      if (matches.length === 0) {
+        return res.status(404).json({ error: 'No matches found for the given IDs' });
+      }
+
+      const mapGames = await MapGame.findAll({
+        where: { matchId: matchIds },
+        include: [
+          { model: Map },
+          { model: Team, as: 'winner' }
+        ]
+      });
+
+      const playerStats = await PlayerStat.findAll({
+        where: { mapGameId: mapGames.map(mg => mg.id) },
+        include: [
+          { model: Player, as: 'player' },
+          { model: Team, as: 'team' }
+        ]
+      });
+
+      // 1. 选手数据总表
+      const playerAgg = {};
+      const mapGameDurationMap = {};
+      mapGames.forEach(mg => {
+        mapGameDurationMap[mg.id] = mg.duration || 0;
+      });
+
+      playerStats.forEach(ps => {
+        if (!ps.player) return;
+        const pId = ps.playerId;
+        if (!playerAgg[pId]) {
+          let roleDisplay = ps.player.role;
+          if (roleDisplay === 'tank') roleDisplay = 'Tank';
+          else if (roleDisplay === 'support') roleDisplay = 'Support';
+          else if (roleDisplay === 'damage') roleDisplay = 'DPS';
+
+          playerAgg[pId] = {
+            Player: ps.player.name,
+            Roles: roleDisplay,
+            Team: ps.team ? ps.team.name : '',
+            Elims: 0,
+            Assists: 0,
+            Deaths: 0,
+            DMG: 0,
+            Healing: 0,
+            Mit: 0,
+            GameTime: 0,
+            seenMapGames: new Set()
+          };
+        }
+
+        const p = playerAgg[pId];
+        p.Elims += ps.kills || 0;
+        p.Assists += ps.assists || 0;
+        p.Deaths += ps.deaths || 0;
+        p.DMG += ps.damage || 0;
+        p.Healing += ps.healing || 0;
+        p.Mit += ps.mitigation || 0;
+
+        if (!p.seenMapGames.has(ps.mapGameId)) {
+          p.seenMapGames.add(ps.mapGameId);
+          p.GameTime += mapGameDurationMap[ps.mapGameId] || 0;
+        }
+      });
+
+      const roleOrder = { 'Tank': 1, 'DPS': 2, 'Support': 3 };
+
+      const sheet1Data = Object.values(playerAgg).map(p => {
+        const timeMins = p.GameTime;
+        const kd = p.Deaths === 0 ? p.Elims : p.Elims / p.Deaths;
+        const kad = p.Deaths === 0 ? (p.Elims + p.Assists) : (p.Elims + p.Assists) / p.Deaths;
+        return {
+          'Player': p.Player,
+          'Roles': p.Roles,
+          'Team': p.Team,
+          'Elims': p.Elims,
+          'Assists': p.Assists,
+          'Deaths': p.Deaths,
+          'DMG': p.DMG,
+          'Healing': p.Healing,
+          'Mit': p.Mit,
+          'Game Time': p.GameTime,
+          ' ': '', // Empty column separator
+          'K/D': kd,
+          'KA/D': kad,
+          '  ': '', // Empty column separator
+          'Elims / 10min': timeMins > 0 ? (p.Elims * 10 / timeMins) : 0,
+          'Assists / 10min': timeMins > 0 ? (p.Assists * 10 / timeMins) : 0,
+          'Deaths / 10min': timeMins > 0 ? (p.Deaths * 10 / timeMins) : 0,
+          'DMG / 10min': timeMins > 0 ? (p.DMG * 10 / timeMins) : 0,
+          'Mit / 10min': timeMins > 0 ? (p.Mit * 10 / timeMins) : 0,
+          'Heals / 10min': timeMins > 0 ? (p.Healing * 10 / timeMins) : 0
+        };
+      }).sort((a, b) => {
+        // 优先按队伍名字母排序
+        const teamComp = a.Team.localeCompare(b.Team);
+        if (teamComp !== 0) return teamComp;
+        // 队伍相同则按位置排序: Tank(1) -> DPS(2) -> Support(3)
+        return (roleOrder[a.Roles] || 99) - (roleOrder[b.Roles] || 99);
+      });
+
+      // 2. 战队比分统计
+      const teamAgg = {};
+      matches.forEach(m => {
+        const addTeam = (team) => {
+          if (!team) return;
+          if (!teamAgg[team.id]) {
+            teamAgg[team.id] = {
+              name: team.name,
+              shortName: team.name,
+              matchWins: 0,
+              matchLosses: 0,
+              mapWins: 0,
+              mapLosses: 0
+            };
+          }
+        };
+        addTeam(m.team1);
+        addTeam(m.team2);
+
+        if (m.winnerId && teamAgg[m.winnerId]) {
+          teamAgg[m.winnerId].matchWins++;
+          const loserId = m.team1Id === m.winnerId ? m.team2Id : m.team1Id;
+          if (teamAgg[loserId]) {
+            teamAgg[loserId].matchLosses++;
+          }
+        }
+      });
+
+      mapGames.forEach(mg => {
+        if (mg.winnerId && teamAgg[mg.winnerId]) {
+          teamAgg[mg.winnerId].mapWins++;
+          const loserId = mg.team1Id === mg.winnerId ? mg.team2Id : mg.team1Id;
+          if (teamAgg[loserId]) {
+            teamAgg[loserId].mapLosses++;
+          }
+        }
+      });
+
+      const sheet2Data = Object.values(teamAgg).map(t => {
+        return {
+          '战队名称': t.name,
+          '战队简称': t.shortName,
+          '大比分胜': t.matchWins,
+          '大比分负': t.matchLosses,
+          '净胜大比分': t.matchWins - t.matchLosses,
+          '小比分胜': t.mapWins,
+          '小比分负': t.mapLosses,
+          '净胜小比分': t.mapWins - t.mapLosses
+        };
+      });
+
+      // 3. 地图选取次数
+      const mapAgg = {};
+      mapGames.forEach(mg => {
+        if (mg.Map) {
+          const mapName = mg.Map.name;
+          mapAgg[mapName] = (mapAgg[mapName] || 0) + 1;
+        }
+      });
+      const sheet3Data = Object.entries(mapAgg)
+        .map(([name, count]) => ({ '地图名称': name, '选取次数': count }))
+        .sort((a, b) => b['选取次数'] - a['选取次数']);
+
+      // 生成 Excel
+      const wb = xlsx.utils.book_new();
+      const ws1 = xlsx.utils.json_to_sheet(sheet1Data);
+      const ws2 = xlsx.utils.json_to_sheet(sheet2Data);
+      const ws3 = xlsx.utils.json_to_sheet(sheet3Data);
+
+      xlsx.utils.book_append_sheet(wb, ws1, '选手数据总表');
+      xlsx.utils.book_append_sheet(wb, ws2, '战队比分统计');
+      xlsx.utils.book_append_sheet(wb, ws3, '地图选取次数');
+
+      const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Disposition', 'attachment; filename="matches_export.xlsx"');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      return res.send(buffer);
+
+    } catch (error) {
+      console.error('导出比赛数据失败:', error);
+      res.status(500).json({ error: error.message });
+    }
   }
 };
 

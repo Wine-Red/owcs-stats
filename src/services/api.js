@@ -78,6 +78,7 @@ const apiService = {
   deleteMatch: (id) => api.delete(`/matches/${id}`),
   getMatchMapGames: (matchId) => api.get(`/matches/${matchId}/map-games`),
   syncExternalMatches: () => api.post('/matches/sync-external'),
+  exportMatches: (matchIds) => api.post('/matches/export', { matchIds }, { responseType: 'blob' }),
 
   // 地图局相关
   getMapGames: (filters) => api.get('/map-games', { params: filters }),
