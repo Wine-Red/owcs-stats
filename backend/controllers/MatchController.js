@@ -755,8 +755,21 @@ const MatchController = {
       mapGames.forEach(mg => {
         if (mg.winnerId && teamAgg[mg.winnerId]) {
           teamAgg[mg.winnerId].mapWins++;
-          const loserId = mg.team1Id === mg.winnerId ? mg.team2Id : mg.team1Id;
-          if (teamAgg[loserId]) {
+          // mg.team1Id 和 mg.team2Id 可能在某些情况下与 match 里的队伍对调
+          // 应该从 mg 中找到另外一个队伍
+          let loserId = null;
+          if (mg.team1Id && mg.team1Id !== mg.winnerId) loserId = mg.team1Id;
+          else if (mg.team2Id && mg.team2Id !== mg.winnerId) loserId = mg.team2Id;
+
+          // 回退策略：如果 mapGame 本身没存对战双方（仅关联match），则从关联的 match 中找失败方
+          if (!loserId) {
+             const match = matches.find(m => m.id === mg.matchId);
+             if (match) {
+                 loserId = match.team1Id === mg.winnerId ? match.team2Id : match.team1Id;
+             }
+          }
+          
+          if (loserId && teamAgg[loserId]) {
             teamAgg[loserId].mapLosses++;
           }
         }
