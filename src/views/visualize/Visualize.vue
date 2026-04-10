@@ -110,7 +110,7 @@
                 <MapPool :seasonId="filterForm.seasonId" :map-ids="seasonVisualConfig.mapPool.mapIds" :map-pick-stats="seasonMapPickStats" :map-games="seasonMapGames" />
               </template>
               <template v-else-if="currentTab === 'recent'">
-                <RecentMatches :matches="seasonMatches" />
+                <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
               </template>
               <template v-else>
                 <div class="vis-grid">

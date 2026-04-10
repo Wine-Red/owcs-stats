@@ -38,6 +38,35 @@
                   <span class="team-name" :class="{'winner-name': match.winnerId === match.team2Id}">{{ getTeamName(match.team2Id) }}</span>
                 </div>
               </div>
+              
+              <!-- 录像代码 (Replay Codes) -->
+              <div class="match-replays" v-if="hasMapGames(match.id)">
+                <div class="replay-label" @click.stop="toggleReplays(match.id)">
+                  <el-icon><VideoCamera /></el-icon>
+                  <span>回放</span>
+                  <el-icon class="expand-icon" :class="{ 'is-expanded': isReplaysExpanded(match.id) }"><ArrowDown /></el-icon>
+                </div>
+                
+                <el-collapse-transition>
+                  <div v-show="isReplaysExpanded(match.id)">
+                    <div class="replay-tags">
+                      <template v-for="(item, index) in getMapGamesInfo(match.id)" :key="item.mapId + '-' + index">
+                        <!-- 有代码时显示可复制的胶囊 -->
+                        <span class="replay-tag" v-if="item.code" @click.stop="copyCode(item.code, $event)" :title="`点击复制 ${item.mapName} 代码`">
+                          <span class="replay-map-name">{{ item.mapName }}</span>
+                          <span class="replay-code">{{ item.code }}</span>
+                          <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+                        </span>
+                        <!-- 无代码时显示置灰禁用的地图名称 -->
+                        <span class="replay-tag disabled" v-else title="暂无回放代码" @click.stop>
+                          <span class="replay-map-name">{{ item.mapName }}</span>
+                          <span class="replay-code empty-code">-</span>
+                        </span>
+                      </template>
+                    </div>
+                  </div>
+                </el-collapse-transition>
+              </div>
             </div>
           </div>
         </div>
@@ -224,8 +253,10 @@
 <script>
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
-import { ArrowUp, ArrowDown, Close, Timer, VideoCamera } from '@element-plus/icons-vue';
+import { ArrowUp, ArrowDown, Close, Timer, VideoCamera, DocumentCopy } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
+import { getMapImageUrl } from '@/utils/mapImages';
 
 export default {
   name: 'RecentMatches',
@@ -234,10 +265,15 @@ export default {
     ArrowDown,
     Close,
     Timer,
-    VideoCamera
+    VideoCamera,
+    DocumentCopy
   },
   props: {
     matches: {
+      type: Array,
+      default: () => []
+    },
+    mapGames: {
       type: Array,
       default: () => []
     }
@@ -251,6 +287,21 @@ export default {
     const isLoadingDetails = ref(false);
     const matchDetails = ref({ mapGames: [], playerStats: [] });
     const activeTab = ref('overall');
+    
+    // Replay Expand State
+    const expandedReplays = ref(new Set());
+    
+    const toggleReplays = (matchId) => {
+      if (expandedReplays.value.has(matchId)) {
+        expandedReplays.value.delete(matchId);
+      } else {
+        expandedReplays.value.add(matchId);
+      }
+    };
+    
+    const isReplaysExpanded = (matchId) => {
+      return expandedReplays.value.has(matchId);
+    };
 
     // 提取所有有效的日期并去重排序（降序）
     const allDatesSorted = computed(() => {
@@ -326,84 +377,9 @@ export default {
       return map ? map.name : '未知地图';
     };
 
-    const typeFolderMap = {
-      '占领要点': 'control',
-      '运载目标': 'escort',
-      '攻击/护送': 'hybrid',
-      '机动推进': 'push',
-      '闪点作战': 'flashpoint'
-    };
-
-    const fileMap = {
-      '南极半岛': 'Antarctic_Peninsula.jpg',
-      '釜山': 'Busan.jpg',
-      '伊利奥斯': 'Ilios.jpg',
-      '漓江塔': 'Lijiang-tower.jpg',
-      '尼泊尔': 'Nepal.jpg',
-      '绿洲城': 'Oasis.jpg',
-      '萨摩亚': 'Samoa.jpg',
-      '香巴里寺院': '1067px-Shambali.jpg',
-      '多拉多': 'Dorado.jpg',
-      '哈瓦那': 'Havana.jpg',
-      '渣客镇': 'Junkertown.jpg',
-      '皇家赛道': 'Monte_Carlo.jpg', 
-      '里阿尔托': 'Rialto.jpg',
-      '66号公路': 'Route-66.jpg',
-      '监测站：直布罗陀': 'Watchpoint-gibraltar.jpg',
-      '暴雪世界': 'Blizzard-world.jpg',
-      '艾兴瓦尔德': 'Eichenwalde.jpg',
-      '好莱坞': 'Hollywood.jpg',
-      '国王大道': 'Kings-row.jpg',
-      '中城': 'Midtown.jpg',
-      '努巴尼': 'Numbani.jpg',
-      '帕拉伊索': 'Paraiso.jpg',
-      '帕拉伊苏': 'Paraiso.jpg',
-      '斗兽场': 'Colosseo.jpg',
-      '埃斯佩兰萨': 'Esperanca.jpg',
-      '新皇后街': 'NewQueenStreet.jpg',
-      '卢纳萨皮': 'Runasapi.jpg',
-      '鲁纳塞彼': 'Runasapi.jpg',
-      '新渣客城': 'New_Junk_City.jpg',
-      '苏拉瓦萨': 'Suravasa.jpg',
-      '阿特利斯': 'Aatlis.jpg',
-      // English fallbacks
-      'Antarctic Peninsula': 'Antarctic_Peninsula.jpg',
-      'Busan': 'Busan.jpg',
-      'Ilios': 'Ilios.jpg',
-      'Lijiang Tower': 'Lijiang-tower.jpg',
-      'Nepal': 'Nepal.jpg',
-      'Oasis': 'Oasis.jpg',
-      'Samoa': 'Samoa.jpg',
-      'Shambali Monastery': '1067px-Shambali.jpg',
-      'Dorado': 'Dorado.jpg',
-      'Havana': 'Havana.jpg',
-      'Junkertown': 'Junkertown.jpg',
-      'Circuit royal': 'Monte_Carlo.jpg',
-      'Rialto': 'Rialto.jpg',
-      'Route 66': 'Route-66.jpg',
-      'Watchpoint: Gibraltar': 'Watchpoint-gibraltar.jpg',
-      'Blizzard World': 'Blizzard-world.jpg',
-      'Eichenwalde': 'Eichenwalde.jpg',
-      'Hollywood': 'Hollywood.jpg',
-      'King\'s Row': 'Kings-row.jpg',
-      'Midtown': 'Midtown.jpg',
-      'Numbani': 'Numbani.jpg',
-      'Paraíso': 'Paraiso.jpg',
-      'Colosseo': 'Colosseo.jpg',
-      'Esperança': 'Esperanca.jpg',
-      'New Queen Street': 'NewQueenStreet.jpg',
-      'Runasapi': 'Runasapi.jpg',
-      'New Junk City': 'New_Junk_City.jpg',
-      'Suravasa': 'Suravasa.jpg'
-    };
-
-    const getMapImageUrl = (mapId) => {
+    const getMapImageUrlWrapper = (mapId) => {
       const map = store.state.maps.find(m => m.id === mapId);
-      if (!map) return '';
-      const folder = typeFolderMap[map.type] || 'hybrid';
-      const filename = fileMap[map.name] || 'Kings-row.jpg';
-      const baseUrl = import.meta.env.BASE_URL || '/';
-      return `${baseUrl}maps/${folder}/${filename}`;
+      return getMapImageUrl(map);
     };
 
     const formatDuration = (minutesFloat) => {
@@ -472,6 +448,33 @@ export default {
       if (!matchDetails.value || !matchDetails.value.mapGames) return null;
       return matchDetails.value.mapGames.find(mg => mg.id === activeTab.value) || null;
     });
+
+    const hasMapGames = (matchId) => {
+      if (!props.mapGames || !Array.isArray(props.mapGames)) return false;
+      return props.mapGames.some(mg => mg.matchId === matchId);
+    };
+
+    const getMapGamesInfo = (matchId) => {
+      if (!props.mapGames || !Array.isArray(props.mapGames)) return [];
+      const games = props.mapGames.filter(mg => mg.matchId === matchId);
+      // 根据 mapGame 的 ID 或创建时间正序排序，确保地图顺序与比赛实际发生顺序一致
+      const sortedGames = [...games].sort((a, b) => a.id - b.id);
+      return sortedGames.map(mg => ({
+        mapId: mg.mapId,
+        code: mg.replayId && mg.replayId.trim() !== '' ? mg.replayId.trim() : null,
+        mapName: getMapName(mg.mapId)
+      }));
+    };
+
+    const copyCode = async (code, event) => {
+      if (event) event.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(code);
+        ElMessage.success({ message: `录像代码 ${code} 已复制`, duration: 2000 });
+      } catch (err) {
+        ElMessage.error('复制失败');
+      }
+    };
 
     const currentStatsRows = computed(() => {
       if (!selectedMatch.value || !matchDetails.value || !matchDetails.value.playerStats) {
@@ -600,7 +603,7 @@ export default {
       getTeamName,
       getTeamLogo,
       getMapName,
-      getMapImageUrl,
+      getMapImageUrl: getMapImageUrlWrapper,
       formatDuration,
       selectedMatch,
       isLoadingDetails,
@@ -611,7 +614,12 @@ export default {
       closeMatchDetails,
       currentStatsRows,
       formatNumber,
-      getRoleIconUrl
+      getRoleIconUrl,
+      hasMapGames,
+      getMapGamesInfo,
+      copyCode,
+      toggleReplays,
+      isReplaysExpanded
     };
   }
 };
@@ -688,6 +696,149 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
+}
+
+.match-replays {
+  display: flex;
+  flex-direction: column;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+}
+
+.replay-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.replay-label:hover {
+  color: #111;
+  background: #f0f0f0;
+}
+
+.expand-icon {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+}
+
+.expand-icon.is-expanded {
+  transform: rotate(180deg);
+}
+
+.replay-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 20px 8px;
+}
+
+.replay-tag {
+  display: inline-flex;
+  align-items: stretch;
+  background: #ffffff;
+  color: #333;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e8e8e8;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  line-height: 1;
+}
+
+.replay-map-name {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #555;
+  border-right: 1px solid #e8e8e8;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.replay-code {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-family: 'Oxanium', monospace;
+  font-weight: 500;
+  color: #444;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+
+.copy-icon {
+  align-self: center;
+  font-size: 20px;
+  opacity: 0.4;
+  padding-right: 8px;
+  padding-left: 2px;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.replay-tag:hover {
+  border-color: #d9d9d9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.replay-tag:hover .replay-map-name {
+  background: #111;
+  color: #fff;
+  border-right-color: #111;
+}
+
+.replay-tag:hover .replay-code {
+  color: #111;
+}
+
+.replay-tag:hover .copy-icon {
+  opacity: 1;
+  color: #111;
+}
+
+/* 禁用状态样式 (无代码时) */
+.replay-tag.disabled {
+  cursor: default;
+  background: #f9f9f9;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+
+.replay-tag.disabled:hover {
+  transform: none;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+
+.replay-tag.disabled .replay-map-name {
+  background: #f9f9f9;
+  color: #a0a0a0;
+  border-right-color: #f0f0f0;
+}
+
+.replay-tag.disabled .replay-code.empty-code {
+  color: #c0c0c0;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 12px;
+  line-height: 1;
 }
 
 .team-side {
@@ -804,6 +955,25 @@ export default {
   }
   .match-content {
     padding: 10px 12px;
+  }
+  .match-replays {
+    flex-direction: column;
+  }
+  .replay-label {
+    padding: 6px 0;
+    font-size: 12px;
+  }
+  .replay-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 12px 4px;
+  }
+  .replay-tag {
+    font-size: 11px;
+  }
+  .replay-map-name, .replay-code {
+    padding: 3px 6px;
   }
   .team-logo-container {
     width: 24px;
