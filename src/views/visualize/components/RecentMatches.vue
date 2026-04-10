@@ -121,6 +121,13 @@
             <!-- Tabs -->
             <div class="modal-tabs">
               <button 
+                class="modal-tab" 
+                :class="{ active: activeTab === 'overall' }"
+                @click="activeTab = 'overall'"
+              >
+                全局数据
+              </button>
+              <button 
                 v-for="mapGame in matchDetails.mapGames" 
                 :key="mapGame.id"
                 class="modal-tab" 
@@ -132,7 +139,7 @@
             </div>
 
             <!-- Map Info Banner -->
-            <div class="map-info-banner" v-if="currentMapGame" :style="{ backgroundImage: `url(${getMapImageUrl(currentMapGame.mapId)})` }">
+            <div class="map-info-banner" v-if="currentMapGame && activeTab !== 'overall'" :style="{ backgroundImage: `url(${getMapImageUrl(currentMapGame.mapId)})` }">
               <div class="banner-overlay"></div>
               <div class="banner-content">
                 <div class="banner-left">
@@ -156,7 +163,38 @@
 
             <!-- Content Area (Dual Column Grid) -->
             <div class="modal-stats-area">
-              <div class="stats-grid">
+              <div v-if="activeTab === 'overall'" class="overall-stats-container">
+                <div class="overall-team-section" v-for="(teamPlayers, index) in [overallStats.team1, overallStats.team2]" :key="index">
+                  <div class="overall-team-header" :class="index === 0 ? 'team1-header' : 'team2-header'">
+                    <img v-if="getTeamLogo(index === 0 ? selectedMatch.team1Id : selectedMatch.team2Id)" 
+                         :src="getTeamLogo(index === 0 ? selectedMatch.team1Id : selectedMatch.team2Id)" 
+                         class="overall-team-logo" alt="" />
+                    <span>{{ index === 0 ? getTeamName(selectedMatch.team1Id) : getTeamName(selectedMatch.team2Id) }}</span>
+                  </div>
+                  <div class="overall-table">
+                    <div class="overall-table-header">
+                      <div class="col-role"></div>
+                      <div class="col-name">选手</div>
+                      <div class="col-kda">K / D / A</div>
+                      <div class="col-kd">K/D</div>
+                      <div class="col-dmg">伤害</div>
+                      <div class="col-heal">治疗</div>
+                      <div class="col-mit">抵挡</div>
+                    </div>
+                    <div class="overall-table-row" v-for="player in teamPlayers" :key="player.playerId">
+                      <div class="col-role"><img :src="getRoleIconUrl(player.role)" class="role-icon" alt="" /></div>
+                      <div class="col-name" :class="player.role">{{ player.name }}</div>
+                      <div class="col-kda">{{ player.kills }} / {{ player.deaths }} / {{ player.assists }}</div>
+                      <div class="col-kd" :class="{ 'highlight-kd': true, 'match-best': player.kdValue > 0 && player.kdValue === overallStats.maxStats.kd }">{{ player.kd }}</div>
+                      <div class="col-dmg" :class="{ 'match-best': player.damage > 0 && player.damage === overallStats.maxStats.damage }">{{ formatNumber(player.damage) }}</div>
+                      <div class="col-heal" :class="{ 'match-best': player.healing > 0 && player.healing === overallStats.maxStats.healing }">{{ formatNumber(player.healing) }}</div>
+                      <div class="col-mit" :class="{ 'match-best': player.mitigation > 0 && player.mitigation === overallStats.maxStats.mitigation }">{{ formatNumber(player.mitigation) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="stats-grid">
                 <!-- Columns header -->
                 <div class="team-col-header team1-header">{{ getTeamName(selectedMatch.team1Id) }}</div>
                 <div class="team-col-header team2-header">{{ getTeamName(selectedMatch.team2Id) }}</div>
@@ -253,7 +291,7 @@
 <script>
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
-import { ArrowUp, ArrowDown, Close, Timer, VideoCamera, DocumentCopy } from '@element-plus/icons-vue';
+import { ArrowUp, ArrowDown, Close, Timer, VideoCamera, DocumentCopy, DataLine, MapLocation } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
@@ -266,7 +304,9 @@ export default {
     Close,
     Timer,
     VideoCamera,
-    DocumentCopy
+    DocumentCopy,
+    DataLine,
+    MapLocation
   },
   props: {
     matches: {
@@ -401,9 +441,7 @@ export default {
         const mapGamesList = Array.isArray(mapGames) ? mapGames : mapGames.data || [];
         matchDetails.value.mapGames = mapGamesList;
         
-        if (mapGamesList.length > 0) {
-          activeTab.value = mapGamesList[0].id;
-        }
+        activeTab.value = 'overall';
         
         // Fetch player stats for all map games concurrently
         const statsPromises = mapGamesList.map(mg => apiService.getMapGamePlayerStats(mg.id));
@@ -476,8 +514,74 @@ export default {
       }
     };
 
-    const currentStatsRows = computed(() => {
+    const overallStats = computed(() => {
       if (!selectedMatch.value || !matchDetails.value || !matchDetails.value.playerStats) {
+        return { team1: [], team2: [] };
+      }
+
+      const team1Id = selectedMatch.value.team1Id;
+      const team2Id = selectedMatch.value.team2Id;
+
+      const playerMap = new Map();
+      matchDetails.value.playerStats.forEach(stat => {
+        const pId = stat.playerId;
+        if (!playerMap.has(pId)) {
+          playerMap.set(pId, {
+            playerId: pId,
+            teamId: stat.teamId,
+            name: stat.player?.name || 'Unknown',
+            role: stat.player?.role || 'damage',
+            kills: 0,
+            deaths: 0,
+            assists: 0,
+            damage: 0,
+            healing: 0,
+            mitigation: 0
+          });
+        }
+        const p = playerMap.get(pId);
+        p.kills += (stat.kills || 0);
+        p.deaths += (stat.deaths || 0);
+        p.assists += (stat.assists || 0);
+        p.damage += (stat.damage || 0);
+        p.healing += (stat.healing || 0);
+        p.mitigation += (stat.mitigation || 0);
+      });
+
+      const allPlayers = Array.from(playerMap.values()).map(p => {
+        p.kd = p.deaths > 0 ? (p.kills / p.deaths).toFixed(2) : p.kills.toFixed(2);
+        p.kdValue = parseFloat(p.kd); // For numeric comparison
+        return p;
+      });
+
+      // Calculate match maximums for highlighting
+      let maxKd = 0, maxDamage = 0, maxHealing = 0, maxMitigation = 0;
+      allPlayers.forEach(p => {
+        if (p.kdValue > maxKd) maxKd = p.kdValue;
+        if (p.damage > maxDamage) maxDamage = p.damage;
+        if (p.healing > maxHealing) maxHealing = p.healing;
+        if (p.mitigation > maxMitigation) maxMitigation = p.mitigation;
+      });
+
+      const roleOrder = { 'tank': 1, 'damage': 2, 'support': 3 };
+      
+      const team1Players = allPlayers.filter(p => p.teamId === team1Id).sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+      const team2Players = allPlayers.filter(p => p.teamId === team2Id).sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+      return { 
+        team1: team1Players, 
+        team2: team2Players,
+        maxStats: {
+          kd: maxKd,
+          damage: maxDamage,
+          healing: maxHealing,
+          mitigation: maxMitigation
+        }
+      };
+    });
+
+    const currentStatsRows = computed(() => {
+      if (!selectedMatch.value || !matchDetails.value || !matchDetails.value.playerStats || activeTab.value === 'overall') {
         return [];
       }
 
@@ -596,6 +700,7 @@ export default {
     });
 
     return {
+      overallStats,
       displayedMatches,
       showAllMatches,
       hasMoreMatches,
@@ -1204,6 +1309,38 @@ export default {
   align-items: center;
 }
 
+.overall-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 24px 0;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  color: #303133;
+}
+
+.summary-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Inter', 'Oxanium', sans-serif;
+}
+
+.summary-title .el-icon {
+  color: #409EFF;
+  font-size: 18px;
+}
+
+.summary-meta {
+  font-size: 13px;
+  color: #909399;
+  font-weight: 500;
+}
+
 .banner-overlay {
   position: absolute;
   inset: 0;
@@ -1289,6 +1426,85 @@ export default {
 .modal-stats-area {
   padding: 16px 24px 20px;
   background: #f8f9fa;
+}
+
+.overall-stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.overall-team-section {
+  background: #ffffff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.overall-team-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 900;
+  padding: 12px 20px;
+  background: #f4f5f7;
+  border-bottom: 2px solid #e4e7ed;
+  font-family: 'Inter', 'Oxanium', sans-serif;
+  color: #111;
+  letter-spacing: -0.5px;
+}
+
+.overall-team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
+}
+
+.overall-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.overall-table-header {
+  display: flex;
+  padding: 8px 16px;
+  background: #fcfcfd;
+  font-size: 12px;
+  font-weight: 600;
+  color: #909399;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.overall-table-row {
+  display: flex;
+  padding: 10px 16px;
+  align-items: center;
+  font-size: 13px;
+  border-bottom: 1px solid #f0f2f5;
+  transition: background-color 0.2s;
+}
+
+.overall-table-row:last-child {
+  border-bottom: none;
+}
+
+.overall-table-row:hover {
+  background-color: #f5f7fa;
+}
+
+.col-role { width: 40px; display: flex; justify-content: center; flex-shrink: 0; }
+.col-name { flex: 1; font-weight: 700; font-family: 'Inter', 'Oxanium', sans-serif; text-transform: uppercase; color: #111; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-kda { width: 90px; text-align: center; font-weight: 600; color: #606266; font-family: 'Inter', 'Oxanium', sans-serif; flex-shrink: 0; }
+.col-kd { width: 50px; text-align: center; font-weight: 700; font-family: 'Inter', 'Oxanium', sans-serif; flex-shrink: 0; }
+.highlight-kd { color: #409EFF; }
+.col-dmg, .col-heal, .col-mit { width: 70px; text-align: right; font-weight: 600; font-family: 'Inter', 'Oxanium', sans-serif; color: #303133; flex-shrink: 0; }
+
+.match-best {
+  color: #20c997 !important;
+  font-weight: 800 !important;
 }
 
 .stats-grid {
@@ -1472,6 +1688,19 @@ export default {
     border-radius: 4px;
   }
   
+  .overall-summary-header {
+    margin: 8px 12px 0;
+    padding: 8px 12px;
+  }
+  
+  .summary-title {
+    font-size: 13px;
+  }
+  
+  .summary-meta {
+    font-size: 11px;
+  }
+  
   .banner-content {
     padding: 0 10px;
   }
@@ -1480,6 +1709,36 @@ export default {
     padding: 10px 12px;
   }
   
+  .overall-stats-container {
+    gap: 12px;
+  }
+  
+  .overall-team-header {
+    font-size: 15px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  
+  .overall-team-logo {
+    width: 20px;
+    height: 20px;
+  }
+
+  .overall-table-header {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+
+  .overall-table-row {
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .col-role { width: 28px; }
+  .col-kda { width: 65px; font-size: 10px; }
+  .col-kd { width: 35px; font-size: 10px; }
+  .col-dmg, .col-heal, .col-mit { width: 45px; font-size: 10px; }
+
   .stats-grid {
     gap: 8px;
   }
