@@ -3,7 +3,7 @@ import axios from 'axios';
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 60000, // 增加到 60 秒以支持耗时的同步和 AI 操作
   headers: {
     'Content-Type': 'application/json'
   }

@@ -128,50 +128,60 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
     const updatedMatches = [];
     const errors = [];
 
+    // --- 内存缓存优化：预先加载所有基础数据字典，避免在循环中执行大量 N+1 查询 ---
+    const [allSeasons, allTeams, allMaps, allPlayers] = await Promise.all([
+      Season.findAll(),
+      Team.findAll(),
+      Map.findAll(),
+      Player.findAll()
+    ]);
+
+    const getSeasonFromCache = (eventName) => {
+      if (!eventName) return null;
+      const name = String(eventName).toLowerCase();
+      return allSeasons.find(s => 
+        (s.externalEventName && s.externalEventName.toLowerCase() === name) || 
+        (s.name && s.name.toLowerCase() === name)
+      );
+    };
+
+    const getTeamFromCache = (teamName) => {
+      if (!teamName) return null;
+      const name = String(teamName).toLowerCase();
+      return allTeams.find(t => t.name && t.name.toLowerCase() === name);
+    };
+
+    const getMapFromCache = (mapName) => {
+      if (!mapName) return null;
+      const mapAliases = { '直布罗陀': '监测站：直布罗陀' };
+      const searchName = String(mapAliases[mapName] || mapName).toLowerCase();
+      return allMaps.find(m => m.name && m.name.toLowerCase() === searchName);
+    };
+
+    const getPlayerFromCache = (playerName) => {
+      if (!playerName) return null;
+      const name = String(playerName).toLowerCase();
+      return allPlayers.find(p => p.name && p.name.toLowerCase() === name);
+    };
+    // ----------------------------------------------------------------------
+
     for (const match of matchesData) {
       const t = await sequelize.transaction();
       try {
         let season = null;
         if (match.eventName) {
-          season = await Season.findOne({
-            where: sequelize.where(
-              sequelize.fn('LOWER', sequelize.col('externalEventName')),
-              match.eventName.toLowerCase()
-            ),
-            transaction: t
-          });
-          if (!season) {
-            season = await Season.findOne({
-              where: sequelize.where(
-                sequelize.fn('LOWER', sequelize.col('name')),
-                match.eventName.toLowerCase()
-              ),
-              transaction: t
-            });
-          }
+          season = getSeasonFromCache(match.eventName);
         }
         if (!season) {
           throw new Error(`未找到对应的赛季(eventName: ${match.eventName})`);
         }
 
-        const team1 = await Team.findOne({
-          where: sequelize.where(
-            sequelize.fn('LOWER', sequelize.col('name')),
-            match.teamA.name.toLowerCase()
-          ),
-          transaction: t
-        });
+        const team1 = getTeamFromCache(match.teamA.name);
         if (!team1) {
           throw new Error(`未找到对应的队伍: ${match.teamA.name}`);
         }
 
-        const team2 = await Team.findOne({
-          where: sequelize.where(
-            sequelize.fn('LOWER', sequelize.col('name')),
-            match.teamB.name.toLowerCase()
-          ),
-          transaction: t
-        });
+        const team2 = getTeamFromCache(match.teamB.name);
         if (!team2) {
           throw new Error(`未找到对应的队伍: ${match.teamB.name}`);
         }
@@ -228,18 +238,7 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
 
         if (match.rounds && match.rounds.length > 0) {
           for (const round of match.rounds) {
-            const mapAliases = {
-              '直布罗陀': '监测站：直布罗陀'
-            };
-            const searchMapName = mapAliases[round.mapName] || round.mapName;
-
-            const map = await Map.findOne({
-              where: sequelize.where(
-                sequelize.fn('LOWER', sequelize.col('name')),
-                searchMapName.toLowerCase()
-              ),
-              transaction: t
-            });
+            const map = getMapFromCache(round.mapName);
             if (!map) {
               throw new Error(`未找到对应的地图: ${round.mapName}`);
             }
@@ -275,20 +274,14 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
               }
             }
 
-            const buildPlayerStatsPayload = async (players, teamId) => {
+            const buildPlayerStatsPayload = (players, teamId) => {
               if (!Array.isArray(players) || players.length === 0) {
                 return [];
               }
 
               const payload = [];
               for (const p of players) {
-                const player = await Player.findOne({
-                  where: sequelize.where(
-                    sequelize.fn('LOWER', sequelize.col('name')),
-                    p.name.toLowerCase()
-                  ),
-                  transaction: t
-                });
+                const player = getPlayerFromCache(p.name);
                 if (!player) {
                   throw new Error(`未找到对应的选手: ${p.name}`);
                 }
@@ -310,20 +303,25 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
             };
 
             const playerStatsPayload = [
-              ...(await buildPlayerStatsPayload(round.playersA, team1.id)),
-              ...(await buildPlayerStatsPayload(round.playersB, team2.id))
+              ...buildPlayerStatsPayload(round.playersA, team1.id),
+              ...buildPlayerStatsPayload(round.playersB, team2.id)
             ];
 
-            const existingPlayerStatsCount = await PlayerStat.count({
-              where: { mapGameId: mapGame.id },
-              transaction: t
-            });
-
-            if (playerStatsPayload.length > 0 || existingPlayerStatsCount > 0) {
-              await PlayerStat.destroy({
+            let existingPlayerStatsCount = 0;
+            if (!mapGameCreated) {
+              existingPlayerStatsCount = await PlayerStat.count({
                 where: { mapGameId: mapGame.id },
                 transaction: t
               });
+            }
+
+            if (playerStatsPayload.length > 0 || existingPlayerStatsCount > 0) {
+              if (!mapGameCreated && existingPlayerStatsCount > 0) {
+                await PlayerStat.destroy({
+                  where: { mapGameId: mapGame.id },
+                  transaction: t
+                });
+              }
               if (playerStatsPayload.length > 0) {
                 await PlayerStat.bulkCreate(playerStatsPayload, { transaction: t });
               }
@@ -561,12 +559,34 @@ const MatchController = {
       if (!match) {
         return res.status(404).json({ error: 'Match not found' });
       }
-      // 删除关联的地图局
-      await MapGame.destroy({ where: { matchId: id } });
-      // 删除比赛
-      await match.destroy();
+      
+      // 获取所有关联的地图局ID
+      const mapGames = await MapGame.findAll({ where: { matchId: id } });
+      const mapGameIds = mapGames.map(mg => mg.id);
+      
+      // 在事务中级联删除
+      await sequelize.transaction(async (t) => {
+        if (mapGameIds.length > 0) {
+          // 1. 删除地图局下的选手统计数据
+          await PlayerStat.destroy({ 
+            where: { mapGameId: mapGameIds },
+            transaction: t
+          });
+          
+          // 2. 删除关联的地图局
+          await MapGame.destroy({ 
+            where: { matchId: id },
+            transaction: t
+          });
+        }
+        
+        // 3. 删除比赛
+        await match.destroy({ transaction: t });
+      });
+      
       res.status(200).json({ message: 'Match deleted successfully' });
     } catch (error) {
+      console.error('Delete match error:', error);
       res.status(500).json({ error: error.message });
     }
   },
