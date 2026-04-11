@@ -7,6 +7,7 @@ const Season = require('../models/Season');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
 const sequelize = require('../config/database');
+const SeasonStatController = require('./SeasonStatController');
 
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const EXTERNAL_MATCH_API_HEADERS = {
@@ -129,7 +130,7 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
     const errors = [];
 
     // --- 内存缓存优化：预先加载所有基础数据字典，避免在循环中执行大量 N+1 查询 ---
-    const [allSeasons, allTeams, allMaps, allPlayers] = await Promise.all([
+    let [allSeasons, allTeams, allMaps, allPlayers] = await Promise.all([
       Season.findAll(),
       Team.findAll(),
       Map.findAll(),
@@ -145,12 +146,6 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
       );
     };
 
-    const getTeamFromCache = (teamName) => {
-      if (!teamName) return null;
-      const name = String(teamName).toLowerCase();
-      return allTeams.find(t => t.name && t.name.toLowerCase() === name);
-    };
-
     const getMapFromCache = (mapName) => {
       if (!mapName) return null;
       const mapAliases = { '直布罗陀': '监测站：直布罗陀' };
@@ -164,6 +159,43 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
       return allPlayers.find(p => p.name && p.name.toLowerCase() === name);
     };
     // ----------------------------------------------------------------------
+
+    // --- 自动导入赛季数据：在同步比赛明细之前，先根据所有比赛提取队伍和选手，并计算赛季聚合统计数据 ---
+    const matchesBySeason = {};
+    for (const match of matchesData) {
+      if (match.eventName) {
+        const s = getSeasonFromCache(match.eventName);
+        if (s) {
+          if (!matchesBySeason[s.id]) matchesBySeason[s.id] = [];
+          matchesBySeason[s.id].push(match);
+        }
+      }
+    }
+
+    let seasonImportSummary = [];
+    for (const [seasonIdStr, sMatches] of Object.entries(matchesBySeason)) {
+      const sId = parseInt(seasonIdStr, 10);
+      const tSeason = await sequelize.transaction();
+      try {
+        const importResult = await SeasonStatController.autoImportFromAPI(sMatches, sId, tSeason);
+        await tSeason.commit();
+        seasonImportSummary.push(`赛季ID ${sId} 聚合统计：更新 ${importResult.insertedCount} 名选手，${importResult.teamScoreCount} 支战队比分，${importResult.mapPickCount} 张地图选取`);
+      } catch (err) {
+        await tSeason.rollback();
+        console.error(`Season Auto Import failed for seasonId ${sId}:`, err);
+        errors.push(`赛季数据预导入失败 (seasonId: ${sId}): ${err.message}`);
+      }
+    }
+
+    // 重新加载可能在上一阶段新创建的队伍和选手
+    allTeams = await Team.findAll();
+    allPlayers = await Player.findAll();
+
+    const getTeamFromCache = (teamName) => {
+      if (!teamName) return null;
+      const name = String(teamName).toLowerCase();
+      return allTeams.find(t => t.name && t.name.toLowerCase() === name);
+    };
 
     for (const match of matchesData) {
       const t = await sequelize.transaction();
@@ -281,7 +313,17 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
 
               const payload = [];
               for (const p of players) {
-                const player = getPlayerFromCache(p.name);
+                // Find player by name AND role
+                const nameLower = String(p.name).toLowerCase();
+                const pRole = p.role === 'T' ? 'tank' : p.role === 'D' ? 'damage' : p.role === 'S' ? 'support' : String(p.role).toLowerCase();
+                
+                // Match the specific role variant if available, otherwise fallback to the first one found
+                const matchingPlayers = allPlayers.filter(player => player.name && player.name.toLowerCase() === nameLower);
+                let player = matchingPlayers.find(player => player.role === pRole);
+                if (!player && matchingPlayers.length > 0) {
+                  player = matchingPlayers[0];
+                }
+
                 if (!player) {
                   throw new Error(`未找到对应的选手: ${p.name}`);
                 }
@@ -375,6 +417,7 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
       newPlayerStatsCount,
       updatedPlayerStatsCount,
       updatedMatches: updatedMatches.slice(0, 20),
+      seasonImportSummary,
       errors
     };
 

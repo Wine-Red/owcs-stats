@@ -1,6 +1,12 @@
 <template>
   <div class="dashboard-container">
-    <h2 class="page-title">系统仪表盘</h2>
+    <div class="header-container">
+      <h2 class="page-title">系统仪表盘</h2>
+      <el-button :loading="syncing" @click="handleSync" class="sync-btn" color="#141414">
+        <el-icon><Refresh /></el-icon>
+        从API手动同步
+      </el-button>
+    </div>
 
     <!-- 概览卡片 -->
     <div class="overview-cards">
@@ -154,16 +160,26 @@
 <script>
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
+import { ElMessage } from 'element-plus';
+import { Calendar, Collection, User, Timer, Refresh } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 
 export default {
   name: 'DashboardView',
+  components: {
+    Calendar,
+    Collection,
+    User,
+    Timer,
+    Refresh
+  },
   setup() {
     const store = useStore();
     const mapGamesCount = ref(0);
     const recentMatches = ref([]);
     const updatedMatches = ref([]);
     const latestSyncAt = ref('');
+    const syncing = ref(false);
     const displayedUpdatedMatches = computed(() => updatedMatches.value.slice(0, 7));
     
     const stats = computed(() => {
@@ -273,6 +289,46 @@ export default {
       }
     };
 
+    const handleSync = async () => {
+      try {
+        syncing.value = true;
+        const response = await apiService.syncExternalMatches();
+        const data = response.data || response;
+        const summaryText = [
+          `新增比赛: ${data.newMatchesCount || 0}`,
+          `更新比赛: ${data.updatedMatchesCount || 0}`,
+          `新增地图局: ${data.newMapGamesCount || 0}`,
+          `更新地图局: ${data.updatedMapGamesCount || 0}`,
+          `新增选手数据: ${data.newPlayerStatsCount || 0}`,
+          `更新选手数据: ${data.updatedPlayerStatsCount || 0}`
+        ].join('，');
+        
+        let extraText = '';
+        if (data.seasonImportSummary && data.seasonImportSummary.length > 0) {
+          extraText = ` [赛季聚合预导入: ` + data.seasonImportSummary.join('；') + `]`;
+        }
+
+        if (data.errors && data.errors.length > 0) {
+          ElMessage.warning(`同步结束。${summaryText}。但有 ${data.errors.length} 场失败（请看控制台日志）。${extraText}`);
+          console.warn('同步失败的比赛详情:', data.errors);
+        } else {
+          ElMessage.success(`同步完成！${summaryText}${extraText}`);
+        }
+        
+        // 重新加载数据
+        await Promise.all([
+          store.dispatch('loadBaseData'),
+          loadMapGamesCount(),
+          loadRecentMatches(),
+          loadLatestSyncSummary()
+        ]);
+      } catch (error) {
+        ElMessage.error('同步失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        syncing.value = false;
+      }
+    };
+
     onMounted(async () => {
       await store.dispatch('loadBaseData');
       await Promise.all([
@@ -294,10 +350,12 @@ export default {
       getTeamName,
       getMapName,
       getMatchMapsText,
-      getMatchReplayText
+      getMatchReplayText,
+      syncing,
+      handleSync
     };
   }
-};
+}
 </script>
 
 <style scoped>
@@ -307,13 +365,38 @@ export default {
   color: #e0e0e0;
 }
 
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
 .page-title {
   font-size: 24px;
   font-weight: 700;
-  margin-bottom: 30px;
+  margin: 0;
   color: #ffffff;
   font-family: 'Oxanium', sans-serif;
   letter-spacing: 1px;
+}
+
+.sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #141414 !important;
+  border-color: #2a2a2a !important;
+  color: #a3a3a3 !important;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+}
+
+.sync-btn:hover, .sync-btn:focus {
+  background-color: #2a2a2a !important;
+  border-color: #404040 !important;
+  color: #ffffff !important;
 }
 
 /* 概览卡片 (参考顶部统计区) */
@@ -750,8 +833,28 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
   .overview-cards {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .card {
+    padding: 16px 12px;
+  }
+
+  .card-title {
+    font-size: 11px;
+  }
+
+  .card-value {
+    font-size: 24px;
   }
 
   .charts-container {

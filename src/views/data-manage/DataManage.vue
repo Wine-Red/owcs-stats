@@ -1088,11 +1088,16 @@ export default {
           `更新选手数据: ${data.updatedPlayerStatsCount || 0}`
         ].join('，');
         
+        let extraText = '';
+        if (data.seasonImportSummary && data.seasonImportSummary.length > 0) {
+          extraText = ` [赛季聚合预导入: ` + data.seasonImportSummary.join('；') + `]`;
+        }
+
         if (data.errors && data.errors.length > 0) {
-          ElMessage.warning(`同步结束。${summaryText}。但有 ${data.errors.length} 场失败（请看控制台日志）。`);
+          ElMessage.warning(`同步结束。${summaryText}。但有 ${data.errors.length} 场失败（请看控制台日志）。${extraText}`);
           console.warn('同步失败的比赛详情:', data.errors);
         } else {
-          ElMessage.success(`同步完成！${summaryText}`);
+          ElMessage.success(`同步完成！${summaryText}${extraText}`);
         }
       } catch (error) {
         ElMessage.error('同步失败: ' + (error.response?.data?.error || error.message));

@@ -49,6 +49,8 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
     transaction: t
   });
 
+  const activeSeasonTeamPlayerIds = [];
+
   for (const row of dataList) {
     const { playerName, teamName, role } = row;
     
@@ -77,9 +79,21 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
         }, { transaction: t });
     }
 
-    // Find or Create Player
-    let player = await Player.findOne({ where: { name: playerName }, transaction: t });
+    // Find or Create Player (with Role match to allow same name but different role)
+    let player = null;
+    const existingPlayers = await Player.findAll({ where: { name: playerName }, transaction: t });
     
+    if (existingPlayers.length > 0) {
+      // Try to find exact role match first
+      player = existingPlayers.find(p => p.role === normalizedRole);
+      
+      // If no exact match but we have players, and the incoming role is invalid,
+      // fallback to the first existing player to avoid breaking things.
+      if (!player && !normalizedRole) {
+        player = existingPlayers[0];
+      }
+    }
+
     if (!player && !normalizedRole) {
         console.warn(`Skipping new player creation for ${playerName} due to invalid role: ${role}`);
         continue;
@@ -88,8 +102,13 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
     if (!player) {
       player = await Player.create({ name: playerName, teamId: team.id, role: normalizedRole }, { transaction: t });
     } else {
-        if (normalizedRole && player.role !== normalizedRole) {
-            await player.update({ role: normalizedRole }, { transaction: t });
+        const updateData = {};
+        // We only update teamId now, role is locked to the entity
+        if (player.teamId !== team.id) {
+            updateData.teamId = team.id;
+        }
+        if (Object.keys(updateData).length > 0) {
+            await player.update(updateData, { transaction: t });
         }
     }
 
@@ -99,11 +118,12 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
         transaction: t
     });
     if (!seasonTeamPlayer) {
-        await SeasonTeamPlayer.create({
+        seasonTeamPlayer = await SeasonTeamPlayer.create({
             seasonTeamId: seasonTeam.id,
             playerId: player.id
         }, { transaction: t });
     }
+    activeSeasonTeamPlayerIds.push(seasonTeamPlayer.id);
 
     // Create Stat
     await SeasonPlayerStat.create({
@@ -133,6 +153,41 @@ const saveSeasonStatsData = async (seasonId, dataList, t) => {
     insertedCount++;
   }
   
+  // 删除不再出现在当前赛季中的 SeasonTeamPlayer 关联
+  if (activeSeasonTeamPlayerIds.length > 0) {
+    // 找出所有属于当前赛季的 seasonTeamId
+    const seasonTeams = await SeasonTeam.findAll({
+      where: { seasonId },
+      attributes: ['id'],
+      transaction: t
+    });
+    const seasonTeamIds = seasonTeams.map(st => st.id);
+
+    if (seasonTeamIds.length > 0) {
+      await SeasonTeamPlayer.destroy({
+        where: {
+          seasonTeamId: { [Op.in]: seasonTeamIds },
+          id: { [Op.notIn]: activeSeasonTeamPlayerIds }
+        },
+        transaction: t
+      });
+    }
+  } else {
+    // 如果该赛季没有任何活跃选手，则清空该赛季所有的 SeasonTeamPlayer
+    const seasonTeams = await SeasonTeam.findAll({
+      where: { seasonId },
+      attributes: ['id'],
+      transaction: t
+    });
+    const seasonTeamIds = seasonTeams.map(st => st.id);
+    if (seasonTeamIds.length > 0) {
+      await SeasonTeamPlayer.destroy({
+        where: { seasonTeamId: { [Op.in]: seasonTeamIds } },
+        transaction: t
+      });
+    }
+  }
+
   return insertedCount;
 };
 
@@ -376,6 +431,126 @@ const cleanupSeasonTeams = async (seasonId, t) => {
     });
   }
 };
+
+const autoImportFromAPI = async (matchesData, seasonId, t) => {
+  const playerStatsMap = {};
+  const teamScoreMap = {};
+  const mapPickMap = {};
+
+  for (const match of matchesData) {
+    const teamA = match.teamA?.name;
+    const teamB = match.teamB?.name;
+    if (!teamA || !teamB) continue;
+
+    if (!teamScoreMap[teamA]) teamScoreMap[teamA] = { teamName: teamA, teamShortName: match.teamA?.short, matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
+    if (!teamScoreMap[teamB]) teamScoreMap[teamB] = { teamName: teamB, teamShortName: match.teamB?.short, matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
+
+    const scoreA = parseInt(match.scoreA) || 0;
+    const scoreB = parseInt(match.scoreB) || 0;
+    
+    if (scoreA > scoreB) {
+      teamScoreMap[teamA].matchWin += 1;
+      teamScoreMap[teamB].matchLoss += 1;
+    } else if (scoreB > scoreA) {
+      teamScoreMap[teamB].matchWin += 1;
+      teamScoreMap[teamA].matchLoss += 1;
+    }
+
+    teamScoreMap[teamA].mapWin += scoreA;
+    teamScoreMap[teamA].mapLoss += scoreB;
+    teamScoreMap[teamB].mapWin += scoreB;
+    teamScoreMap[teamB].mapLoss += scoreA;
+
+    for (const round of (match.rounds || [])) {
+      const mapName = round.mapName;
+      if (mapName) {
+        if (!mapPickMap[mapName]) mapPickMap[mapName] = { mapName, pickCount: 0 };
+        mapPickMap[mapName].pickCount += 1;
+      }
+
+      let durationMin = 0;
+      if (round.duration) {
+        const parts = round.duration.split(':');
+        if (parts.length === 2) {
+          durationMin = (parseInt(parts[0], 10) || 0) + (parseInt(parts[1], 10) || 0) / 60;
+        }
+      }
+
+      const processPlayer = (p, teamName) => {
+        if (!p.name) return;
+        const pName = p.name;
+        const pRole = p.role === 'T' ? 'Tank' : p.role === 'D' ? 'Damage' : p.role === 'S' ? 'Support' : p.role;
+        // Make the key unique per player + role combination
+        const playerKey = `${pName}_${pRole}`;
+        
+        if (!playerStatsMap[playerKey]) {
+          playerStatsMap[playerKey] = {
+            playerName: pName,
+            teamName: teamName,
+            role: pRole,
+            elims: 0, assists: 0, deaths: 0,
+            damage: 0, healing: 0, mitigation: 0,
+            gameTime: 0
+          };
+        }
+        const stat = playerStatsMap[playerKey];
+        stat.teamName = teamName; // Update to latest team
+        
+        const kadParts = (p.kad || '').split('/');
+        stat.elims += parseInt(kadParts[0], 10) || 0;
+        stat.assists += parseInt(kadParts[1], 10) || 0;
+        stat.deaths += parseInt(kadParts[2], 10) || 0;
+        
+        stat.damage += parseInt(p.damage, 10) || 0;
+        stat.healing += parseInt(p.healing, 10) || 0;
+        stat.mitigation += parseInt(p.blocked, 10) || 0;
+        stat.gameTime += durationMin;
+      };
+
+      (round.playersA || []).forEach(p => processPlayer(p, teamA));
+      (round.playersB || []).forEach(p => processPlayer(p, teamB));
+    }
+  }
+
+  Object.values(teamScoreMap).forEach(tStat => {
+    tStat.matchDiff = tStat.matchWin - tStat.matchLoss;
+    tStat.mapDiff = tStat.mapWin - tStat.mapLoss;
+  });
+
+  const dataList = Object.values(playerStatsMap).map(stat => {
+    const gt = stat.gameTime;
+    stat.kd = stat.deaths > 0 ? (stat.elims / stat.deaths) : stat.elims;
+    stat.kad = stat.deaths > 0 ? ((stat.elims + stat.assists) / stat.deaths) : (stat.elims + stat.assists);
+    
+    if (gt > 0) {
+      stat.elimsPerMin = stat.elims / gt;
+      stat.assistsPerMin = stat.assists / gt;
+      stat.deathsPerMin = stat.deaths / gt;
+      stat.damagePerMin = stat.damage / gt;
+      stat.healingPerMin = stat.healing / gt;
+      stat.mitigationPerMin = stat.mitigation / gt;
+    } else {
+      stat.elimsPerMin = 0;
+      stat.assistsPerMin = 0;
+      stat.deathsPerMin = 0;
+      stat.damagePerMin = 0;
+      stat.healingPerMin = 0;
+      stat.mitigationPerMin = 0;
+    }
+    return stat;
+  });
+
+  const teamScoreItems = Object.values(teamScoreMap);
+  const mapPickItems = Object.values(mapPickMap);
+
+  const insertedCount = await saveSeasonStatsData(seasonId, dataList, t);
+  const teamScoreCount = await saveSeasonTeamScoreStats(seasonId, teamScoreItems, t);
+  const mapPickResult = await saveSeasonMapPickStats(seasonId, mapPickItems, t);
+  await cleanupSeasonTeams(seasonId, t);
+
+  return { insertedCount, teamScoreCount, mapPickCount: mapPickResult.insertedCount };
+};
+
 const SeasonStatController = {
   // AI Preview
   previewAIStats: async (req, res) => {
@@ -874,7 +1049,9 @@ const SeasonStatController = {
       console.error('获取赛季地图选取统计失败:', error);
       res.status(500).json({ error: '获取数据失败' });
     }
-  }
+  },
+
+  autoImportFromAPI
 };
 
 module.exports = SeasonStatController;

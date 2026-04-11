@@ -1,12 +1,24 @@
 <template>
   <div class="app-layout">
+    <!-- 移动端顶部导航 -->
+    <div class="mobile-top-header" v-if="showSidebar">
+      <el-icon class="menu-toggle-btn" @click="mobileSidebarOpen = true"><Menu /></el-icon>
+      <span class="mobile-header-title">OWCS Stats 数据中心</span>
+    </div>
+
+    <!-- 侧边导航栏遮罩 -->
+    <div class="sidebar-overlay" v-if="showSidebar && mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
+
     <!-- 侧边导航栏 -->
-    <aside class="app-sidebar" v-if="showSidebar">
+    <aside class="app-sidebar" :class="{ 'mobile-open': mobileSidebarOpen }" v-if="showSidebar">
       <div class="sidebar-logo">
         <div class="logo-text">
           <h1 class="logo-title">OWCS Stats</h1>
           <span class="logo-subtitle">数据中心</span>
         </div>
+      </div>
+      <div class="sidebar-sync-time">
+        最后同步：{{ latestSyncTime }}
       </div>
       
       <nav class="sidebar-nav">
@@ -31,7 +43,7 @@
     </aside>
 
     <!-- 主内容区与页脚 -->
-    <div :class="['app-content-wrapper', { 'full-width': !showSidebar }]">
+    <div :class="['app-content-wrapper', { 'full-width': !showSidebar, 'has-mobile-header': showSidebar }]">
       <main class="app-main">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -51,6 +63,8 @@
         </div>
         <div class="footer-row footer-copyright">
           <span class="trademark">© 2026 OWCS Stats</span>
+          <span class="divider" style="margin: 0 8px;">|</span>
+          <span class="sync-time">最后同步时间：{{ latestSyncTime }}</span>
         </div>
       </footer>
     </div>
@@ -58,13 +72,24 @@
 </template>
 
 <script>
-import { computed, watch, onMounted } from 'vue';
+import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
+import apiService from '@/services/api';
+import { Menu } from '@element-plus/icons-vue';
 
 export default {
   name: 'App',
+  components: {
+    Menu
+  },
   setup() {
     const route = useRoute();
+    const mobileSidebarOpen = ref(false);
+
+    watch(() => route.path, () => {
+      mobileSidebarOpen.value = false;
+    });
+
     const sidebarGroups = [
       {
         title: '总览中心',
@@ -127,13 +152,42 @@ export default {
       }
     };
 
+    const latestSyncTime = ref('获取中...');
+    let syncTimer = null;
+
+    const fetchLatestSyncTime = async () => {
+      try {
+        const result = await apiService.getConfig('latest_match_sync_updates');
+        if (result && result.lastSyncAt) {
+          const date = new Date(result.lastSyncAt);
+          latestSyncTime.value = date.toLocaleString('zh-CN', { hour12: false });
+        } else {
+          latestSyncTime.value = '暂无记录';
+        }
+      } catch (error) {
+        latestSyncTime.value = '获取失败';
+      }
+    };
+
     watch(showSidebar, updateTheme);
-    onMounted(updateTheme);
+    onMounted(() => {
+      updateTheme();
+      fetchLatestSyncTime();
+      syncTimer = setInterval(fetchLatestSyncTime, 60000); // 1分钟刷新一次
+    });
+
+    onUnmounted(() => {
+      if (syncTimer) {
+        clearInterval(syncTimer);
+      }
+    });
 
     return {
       showSidebar,
       showFooter,
-      sidebarGroups
+      sidebarGroups,
+      latestSyncTime,
+      mobileSidebarOpen
     };
   }
 }
@@ -145,6 +199,10 @@ export default {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
 }
 
 body {
@@ -177,11 +235,10 @@ body {
 }
 
 .sidebar-logo {
-  padding: 24px 20px;
+  padding: 24px 20px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .logo-text {
@@ -209,6 +266,14 @@ body {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+}
+
+.sidebar-sync-time {
+  padding: 8px 20px;
+  font-size: 11px;
+  color: #6c6c6c;
+  background-color: #0f0f0f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .nav-group {
@@ -385,8 +450,77 @@ html.dark .divider {
   opacity: 0;
 }
 
+.mobile-top-header {
+  display: none;
+}
+.sidebar-overlay {
+  display: none;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: -240px;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+
+  .app-sidebar.mobile-open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .mobile-top-header {
+    display: flex;
+    align-items: center;
+    background-color: #141414;
+    color: #ffffff;
+    height: 50px;
+    padding: 0 16px;
+    position: relative;
+    z-index: 900;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  .menu-toggle-btn {
+    font-size: 24px;
+    cursor: pointer;
+    margin-right: 16px;
+  }
+
+  .mobile-header-title {
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Oxanium', sans-serif;
+  }
+
+  .app-content-wrapper {
+    height: auto;
+    min-height: 0;
+  }
+
+  .app-content-wrapper.has-mobile-header {
+    padding-top: 0;
+  }
+
   .app-header {
     padding: 0 20px;
   }
@@ -396,12 +530,12 @@ html.dark .divider {
   }
 
   .nav-item {
-    font-size: 12px;
-    padding: 6px 10px;
+    font-size: 14px;
+    padding: 10px 20px;
   }
 
   .app-main {
-    padding: 20px;
+    padding: 16px;
   }
   
   /* 在移动端也要去除 Visualize 页面的 padding */
