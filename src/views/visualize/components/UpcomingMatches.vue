@@ -215,17 +215,19 @@ export default {
         const localTeam1 = getTeamByApiName(apiName1);
         const localTeam2 = getTeamByApiName(apiName2);
 
+        const tbdLogoUrl = 'https://owmini.xyz/images/tbd.png';
+
         parsedMatches.push({
           tournamentName,
           timestamp,
           link: 'https://liquipedia.net' + (tournamentEl.getAttribute('href') || ''),
           team1: {
             name: localTeam1 ? localTeam1.name : apiName1,
-            logo: localTeam1 ? localTeam1.logo : null
+            logo: localTeam1 ? localTeam1.logo : (apiName1 === 'TBD' ? tbdLogoUrl : null)
           },
           team2: {
             name: localTeam2 ? localTeam2.name : apiName2,
-            logo: localTeam2 ? localTeam2.logo : null
+            logo: localTeam2 ? localTeam2.logo : (apiName2 === 'TBD' ? tbdLogoUrl : null)
           }
         });
       });
@@ -488,5 +490,51 @@ export default {
 @keyframes spinner-rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@media (min-width: 768px) {
+  .upcoming-matches-wrapper {
+    margin-bottom: 24px;
+  }
+
+  .upcoming-header {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .upcoming-list {
+    gap: 12px;
+  }
+
+  .upcoming-card {
+    width: 180px;
+    padding: 10px 12px;
+    border-color: rgba(0, 0, 0, 0.06);
+  }
+  
+  .upcoming-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .team-logo-container {
+    width: 18px;
+    height: 18px;
+  }
+
+  .team-name {
+    font-size: 12px;
+  }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .vs-text {
+    font-size: 10px;
+    padding: 0 6px;
+  }
 }
 </style>
