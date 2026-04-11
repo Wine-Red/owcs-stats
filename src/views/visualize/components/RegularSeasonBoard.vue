@@ -144,7 +144,7 @@ export default {
     const segmentSelectKey = computed(() => segments.value.map(s => s.key).join('|'));
 
     const applyStageOverrides = (rows) => {
-      const key = selectedSegmentKey.value;
+      const key = displaySegmentKey.value;
       const override = props.stageOverrides && typeof props.stageOverrides === 'object' ? props.stageOverrides[key] : null;
       if (!override) return rows;
 
@@ -171,7 +171,7 @@ export default {
     const standings = computed(() => {
       if (!props.seasonId) return [];
 
-      const scoreStatsSource = selectedSegmentKey.value === 'cumulative'
+      const scoreStatsSource = displaySegmentKey.value === 'cumulative'
         ? (Array.isArray(props.scoreStats) ? props.scoreStats : [])
         : (Array.isArray(activeScoreStats.value) ? activeScoreStats.value : []);
 
@@ -213,7 +213,7 @@ export default {
         return applyStageOverrides(standingsArray);
       }
 
-      if (selectedSegmentKey.value !== 'cumulative') {
+      if (displaySegmentKey.value !== 'cumulative') {
         return [];
       }
 
@@ -298,20 +298,23 @@ export default {
       }
     };
 
-    const refreshScoreStatsForSelection = async () => {
-      const seg = segments.value.find(s => s.key === selectedSegmentKey.value);
-      if (!seg) {
-        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
-        return;
+    const displaySegmentKey = ref('cumulative');
+
+    const refreshScoreStatsForSelection = async (targetKey) => {
+      const seg = segments.value.find(s => s.key === targetKey);
+      if (!seg || seg.key === 'cumulative') {
+        return Array.isArray(props.scoreStats) ? props.scoreStats : [];
       }
+      
+      const params = {};
+      if (seg.fromSnapshotId) params.fromSnapshotId = seg.fromSnapshotId;
+      if (seg.toSnapshotId) params.toSnapshotId = seg.toSnapshotId;
+      
       try {
-        const params = {};
-        if (seg.fromSnapshotId) params.fromSnapshotId = seg.fromSnapshotId;
-        if (seg.toSnapshotId) params.toSnapshotId = seg.toSnapshotId;
         const res = await apiService.getSeasonTeamScoreStats(props.seasonId, params);
-        activeScoreStats.value = Array.isArray(res) ? res : res?.data || [];
+        return Array.isArray(res) ? res : res?.data || [];
       } catch (e) {
-        activeScoreStats.value = [];
+        return [];
       }
     };
 
@@ -324,32 +327,53 @@ export default {
 
     const selectSegment = async (key) => {
       if (key === selectedSegmentKey.value) return;
-      selectedSegmentKey.value = key;
-      await refreshScoreStatsForSelection();
+      const targetKey = key;
+      selectedSegmentKey.value = targetKey;
+      
+      const newData = await refreshScoreStatsForSelection(targetKey);
+      
+      // Only update if we are still on the same tab we requested
+      if (selectedSegmentKey.value === targetKey) {
+        activeScoreStats.value = newData;
+        displaySegmentKey.value = targetKey;
+      }
     };
 
-    watch(() => props.seasonId, async () => {
-      activeScoreStats.value = [];
-      selectedSegmentKey.value = 'cumulative';
-      await loadSnapshots();
-      const segs = segments.value;
-      if (segs.length === 0) {
+    watch(() => props.seasonId, async (newVal, oldVal) => {
+      if (newVal !== oldVal) {
+        // Only clear when changing seasons completely
+        activeScoreStats.value = [];
         selectedSegmentKey.value = 'cumulative';
-        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
-        return;
+        displaySegmentKey.value = 'cumulative';
+        
+        await loadSnapshots();
+        const segs = segments.value;
+        if (segs.length === 0) {
+          selectedSegmentKey.value = 'cumulative';
+          displaySegmentKey.value = 'cumulative';
+          activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+          return;
+        }
+        const defaultKey = pickDefaultSegmentKey();
+        selectedSegmentKey.value = defaultKey;
+        
+        const newData = await refreshScoreStatsForSelection(defaultKey);
+        
+        if (selectedSegmentKey.value === defaultKey) {
+          activeScoreStats.value = newData;
+          displaySegmentKey.value = defaultKey;
+        }
       }
-      selectedSegmentKey.value = pickDefaultSegmentKey();
-      await refreshScoreStatsForSelection();
     }, { immediate: true });
 
     watch(() => props.scoreStats, () => {
-      if (selectedSegmentKey.value === 'cumulative') {
+      if (displaySegmentKey.value === 'cumulative') {
         activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
       }
     }, { deep: true });
 
     onMounted(() => {
-      if (selectedSegmentKey.value === 'cumulative') {
+      if (displaySegmentKey.value === 'cumulative') {
         activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
       }
     });

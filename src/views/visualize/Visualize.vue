@@ -62,6 +62,11 @@
             :dateRange="seasonVisualConfig.dateRange"
           />
 
+          <!-- 即将到来的比赛 -->
+          <UpcomingMatches 
+            :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName" 
+          />
+
           <!-- 标签页导航 -->
           <div class="vis-tabs-container">
             <div class="vis-tabs" role="tablist">
@@ -150,6 +155,7 @@ import TournamentBanner from './components/TournamentBanner.vue';
 import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
 import MapPool from './components/MapPool.vue';
 import RecentMatches from './components/RecentMatches.vue';
+import UpcomingMatches from './components/UpcomingMatches.vue';
 
 import apiService from '@/services/api';
 
@@ -163,7 +169,8 @@ export default {
     TournamentBanner,
     RegularSeasonBoard,
     MapPool,
-    RecentMatches
+    RecentMatches,
+    UpcomingMatches
   },
   setup() {
     const store = useStore();
@@ -240,7 +247,8 @@ export default {
       },
       standings: {
         template: 'wl_maps'
-      }
+      },
+      liquipediaTournamentName: ''
     });
 
     const normalizeStringArray = (arr) => {
@@ -265,14 +273,16 @@ export default {
             template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
             stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {},
             currentStageLabel: String(config?.standings?.currentStageLabel || '当前阶段')
-          }
+          },
+          liquipediaTournamentName: config?.liquipediaTournamentName || ''
         };
       } catch (error) {
         seasonVisualConfig.value = {
           tags: [],
           dateRange: '',
           mapPool: { mapIds: [] },
-          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段' }
+          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段' },
+          liquipediaTournamentName: ''
         };
       }
     };

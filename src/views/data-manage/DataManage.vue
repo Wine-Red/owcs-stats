@@ -67,6 +67,9 @@
           <el-form-item label="比赛日期">
             <el-input v-model="seasonVisualForm.dateRange" placeholder="如：2026.03.05 - 2026.04.12" style="width: 100%" />
           </el-form-item>
+          <el-form-item label="Liquipedia赛事名称" title="用于关联 Upcoming 比赛">
+            <el-input v-model="seasonVisualForm.liquipediaTournamentName" placeholder="如：OWCS Korea (用于精确匹配Liquipedia Upcoming API)" style="width: 100%" />
+          </el-form-item>
           <el-form-item label="地图池">
             <el-select v-model="seasonVisualForm.mapIds" multiple filterable style="width: 100%" placeholder="选择该赛季地图池">
               <el-option
@@ -1209,6 +1212,7 @@ export default {
       seasonId: '',
       tags: [],
       dateRange: '',
+      liquipediaTournamentName: '',
       mapIds: [],
       standingsTemplate: 'wl_maps',
       currentStageLabel: '当前阶段',
@@ -1340,6 +1344,7 @@ export default {
         const config = await apiService.getConfig(buildSeasonVisualKey(id));
         const tags = normalizeStringArray(config?.tags);
         const dateRange = config?.dateRange || '';
+        const liquipediaTournamentName = config?.liquipediaTournamentName || '';
         const mapIds = normalizeIdArray(config?.mapPool?.mapIds);
         const standingsTemplate = config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
         const stageOverrides = (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object')
@@ -1349,6 +1354,7 @@ export default {
 
         seasonVisualForm.value.tags = tags;
         seasonVisualForm.value.dateRange = dateRange;
+        seasonVisualForm.value.liquipediaTournamentName = liquipediaTournamentName;
         seasonVisualForm.value.mapIds = mapIds;
         seasonVisualForm.value.standingsTemplate = standingsTemplate;
         seasonVisualForm.value.currentStageLabel = currentStageLabel;
@@ -1358,6 +1364,7 @@ export default {
       } catch (error) {
         seasonVisualForm.value.tags = [];
         seasonVisualForm.value.dateRange = '';
+        seasonVisualForm.value.liquipediaTournamentName = '';
         seasonVisualForm.value.mapIds = [];
         seasonVisualForm.value.standingsTemplate = 'wl_maps';
         seasonVisualForm.value.currentStageLabel = '当前阶段';
@@ -1373,6 +1380,7 @@ export default {
         const value = {
           tags: normalizeStringArray(seasonVisualForm.value.tags),
           dateRange: seasonVisualForm.value.dateRange,
+          liquipediaTournamentName: seasonVisualForm.value.liquipediaTournamentName,
           mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) },
           standings: {
             template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps',
