@@ -7,6 +7,39 @@
       <el-card class="data-card">
         <template #header>
           <div class="card-header">
+            <span>数据同步与别名映射配置</span>
+            <el-button type="primary" @click="saveTeamNameMapping">保存配置</el-button>
+          </div>
+        </template>
+        <el-form label-position="top">
+          <el-form-item label="队伍名称映射 (用于同步外部API数据时将外部名称映射为标准名称)">
+            <el-table :data="teamNameMappingList" style="width: 100%" border size="small">
+              <el-table-column label="外部数据源队伍名称 (如 DF)">
+                <template #default="scope">
+                  <el-input v-model="scope.row.from" placeholder="外部名称" />
+                </template>
+              </el-table-column>
+              <el-table-column label="系统标准队伍名称 (如 DAL)">
+                <template #default="scope">
+                  <el-input v-model="scope.row.to" placeholder="标准名称" />
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100" align="center">
+                <template #default="scope">
+                  <el-button type="danger" :icon="Delete" circle @click="removeTeamNameMapping(scope.$index)" />
+                </template>
+              </el-table-column>
+            </el-table>
+            <div style="margin-top: 10px;">
+              <el-button type="primary" plain :icon="Plus" @click="addTeamNameMapping">添加映射规则</el-button>
+            </div>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <el-card class="data-card" style="margin-top: 20px;">
+        <template #header>
+          <div class="card-header">
             <span>图表显示配置</span>
             <el-button type="primary" @click="saveChartConfig">保存配置</el-button>
           </div>
@@ -1019,7 +1052,7 @@ export default {
       'players': '选手管理',
       'season-teams': '赛季-队伍关联',
       'season-team-players': '赛季-队伍-选手关联',
-      'charts': '图表管理',
+      'charts': '全局设置',
       'matches': '比赛管理'
     };
 
@@ -1063,6 +1096,7 @@ export default {
         loadSeasonTeamsForPlayers();
       } else if (activeTab.value === 'charts') {
         loadChartConfig();
+        loadTeamNameMapping();
       } else if (activeTab.value === 'season-visualize') {
         if (seasonVisualForm.value.seasonId) {
           loadSeasonVisualConfig(seasonVisualForm.value.seasonId);
@@ -1405,6 +1439,59 @@ export default {
       }
     };
     
+    // ==========================================
+    // 队伍名称映射配置逻辑
+    // ==========================================
+    const teamNameMappingList = ref([]);
+    
+    const loadTeamNameMapping = async () => {
+      try {
+        const config = await apiService.getConfig('team_name_mapping');
+        if (config && typeof config === 'object') {
+          // 将 {"DF": "DAL", "EXN": "EA"} 转换为 [{from: 'DF', to: 'DAL'}, ...]
+          teamNameMappingList.value = Object.entries(config).map(([from, to]) => ({ from, to }));
+        } else {
+          teamNameMappingList.value = [];
+        }
+      } catch (error) {
+        console.error('加载队伍名称映射失败:', error);
+        teamNameMappingList.value = [];
+      }
+    };
+
+    const saveTeamNameMapping = async () => {
+      try {
+        // 过滤空值并转换为对象 {"DF": "DAL"}
+        const mappingObject = {};
+        teamNameMappingList.value.forEach(item => {
+          const from = item.from?.trim();
+          const to = item.to?.trim();
+          if (from && to) {
+            mappingObject[from] = to;
+          }
+        });
+        
+        await apiService.updateConfig({
+          key: 'team_name_mapping',
+          value: mappingObject,
+          description: '队伍名称映射表，用于外部数据同步'
+        });
+        ElMessage.success('队伍名称映射配置已保存');
+        await loadTeamNameMapping(); // 重新加载整理后的数据
+      } catch (error) {
+        console.error('保存队伍名称映射配置失败:', error);
+        ElMessage.error('保存配置失败');
+      }
+    };
+
+    const addTeamNameMapping = () => {
+      teamNameMappingList.value.push({ from: '', to: '' });
+    };
+
+    const removeTeamNameMapping = (index) => {
+      teamNameMappingList.value.splice(index, 1);
+    };
+
     // 比赛列表数据
     const matches = ref([]);
     const loading = ref(false);
@@ -2614,6 +2701,13 @@ export default {
       handleOrderedTeamIdsChange,
       moveOrderedTeam,
       removeOrderedTeam,
+
+      teamNameMappingList,
+      loadTeamNameMapping,
+      saveTeamNameMapping,
+      addTeamNameMapping,
+      removeTeamNameMapping,
+
       isMobile,
       actionColWidth,
       deleteActionColWidth,

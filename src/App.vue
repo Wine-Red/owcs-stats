@@ -125,7 +125,7 @@ export default {
       {
         title: '系统配置',
         items: [
-          { to: '/data-manage/charts', label: '图表管理' }
+          { to: '/data-manage/charts', label: '全局设置' }
         ]
       }
     ];

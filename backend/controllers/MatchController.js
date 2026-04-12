@@ -122,6 +122,23 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
     const matchesData = Array.isArray(matchesDataRaw) ? matchesDataRaw : [];
     let newMatchesCount = 0;
     let updatedMatchesCount = 0;
+
+    // --- 加载并应用队伍名称映射 ---
+    const mappingConfig = await Config.findByPk('team_name_mapping');
+    const teamNameMapping = mappingConfig && mappingConfig.value ? mappingConfig.value : {};
+    
+    if (Object.keys(teamNameMapping).length > 0) {
+      for (const match of matchesData) {
+        if (match.teamA && match.teamA.name && teamNameMapping[match.teamA.name]) {
+          match.teamA.name = teamNameMapping[match.teamA.name];
+        }
+        if (match.teamB && match.teamB.name && teamNameMapping[match.teamB.name]) {
+          match.teamB.name = teamNameMapping[match.teamB.name];
+        }
+      }
+    }
+    // ------------------------------------------------
+
     let newMapGamesCount = 0;
     let updatedMapGamesCount = 0;
     let newPlayerStatsCount = 0;
@@ -177,7 +194,7 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
       const sId = parseInt(seasonIdStr, 10);
       const tSeason = await sequelize.transaction();
       try {
-        const importResult = await SeasonStatController.autoImportFromAPI(sMatches, sId, tSeason);
+        const importResult = await SeasonStatController.autoImportFromAPI(sMatches, sId, tSeason, teamNameMapping);
         await tSeason.commit();
         seasonImportSummary.push(`赛季ID ${sId} 聚合统计：更新 ${importResult.insertedCount} 名选手，${importResult.teamScoreCount} 支战队比分，${importResult.mapPickCount} 张地图选取`);
       } catch (err) {

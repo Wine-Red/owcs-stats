@@ -432,14 +432,18 @@ const cleanupSeasonTeams = async (seasonId, t) => {
   }
 };
 
-const autoImportFromAPI = async (matchesData, seasonId, t) => {
+const autoImportFromAPI = async (matchesData, seasonId, t, teamNameMapping = {}) => {
   const playerStatsMap = {};
   const teamScoreMap = {};
   const mapPickMap = {};
 
   for (const match of matchesData) {
-    const teamA = match.teamA?.name;
-    const teamB = match.teamB?.name;
+    let teamA = match.teamA?.name;
+    let teamB = match.teamB?.name;
+    
+    if (teamA && teamNameMapping[teamA]) teamA = teamNameMapping[teamA];
+    if (teamB && teamNameMapping[teamB]) teamB = teamNameMapping[teamB];
+
     if (!teamA || !teamB) continue;
 
     if (!teamScoreMap[teamA]) teamScoreMap[teamA] = { teamName: teamA, teamShortName: match.teamA?.short, matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
