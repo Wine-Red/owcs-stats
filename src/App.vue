@@ -203,6 +203,7 @@ export default {
 
 html, body {
   overflow-x: hidden;
+  touch-action: manipulation; /* 禁用双指缩放，仅允许滚动和点击 */
 }
 
 body {
@@ -424,17 +425,32 @@ html.dark .divider {
 
 @media (max-width: 768px) {
   .app-footer {
-    padding: 20px 16px;
-    gap: 12px;
+    padding: 24px 16px 32px;
+    gap: 8px;
+    background: linear-gradient(180deg, #f5f7fa 0%, #ebeef5 100%);
+    border-top: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  html.dark .app-footer {
+    background: linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+    border-top: 1px solid rgba(255,255,255,0.05);
   }
   
   .footer-row {
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     text-align: center;
+    font-size: 12px;
+  }
+
+  .footer-source {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
   }
   
-  .footer-disclaimer .divider {
+  .footer-disclaimer .divider,
+  .footer-copyright .divider {
     display: none;
   }
 }
