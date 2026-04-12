@@ -117,12 +117,23 @@ export default {
     const getTeamByApiName = (apiName) => {
       if (!apiName || apiName === 'TBD') return null;
       const nameLower = apiName.toLowerCase();
-      return store.state.teams.find(t => 
+      // Precise matching first
+      let matchedTeam = store.state.teams.find(t => 
         t.name.toLowerCase() === nameLower || 
-        (t.abbreviation && t.abbreviation.toLowerCase() === nameLower) ||
-        nameLower.includes(t.name.toLowerCase()) || 
-        t.name.toLowerCase().includes(nameLower)
+        (t.abbreviation && t.abbreviation.toLowerCase() === nameLower)
       );
+      
+      // If no exact match, try a more cautious partial match
+      if (!matchedTeam) {
+        // e.g. DAL should NOT match AL, but Team Falcons could match Falcons
+        // We only match if the lengths are reasonably close or if words match
+        matchedTeam = store.state.teams.find(t => {
+          const tNameLower = t.name.toLowerCase();
+          return tNameLower.includes(nameLower) && nameLower.length > 3 || 
+                 nameLower.includes(tNameLower) && tNameLower.length > 3;
+        });
+      }
+      return matchedTeam;
     };
 
     const fetchLiquipediaMatches = async () => {
