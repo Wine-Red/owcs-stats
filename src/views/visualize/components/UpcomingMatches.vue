@@ -62,10 +62,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { Calendar, ArrowUp } from '@element-plus/icons-vue';
+import apiService from '@/services/api';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
-const CACHE_EXPIRY = 60 * 1000; // 1 minute (to ensure we don't spam action=parse, which has a 30s/req limit)
-const LIQUIPEDIA_API_URL = 'https://liquipedia.net/overwatch/api.php?action=parse&format=json&contentmodel=wikitext&prop=text&text=%7B%7B%23invoke%3AMatchTicker%2FCustom%7CnewMainPage%7Ctype%3Dupcoming%7Climit%3D50%7D%7D&origin=*';
+const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
 
 // 声明一个模块级别的 Promise，用于防止多个组件实例或并发请求导致重复调用 API
 let fetchPromise = null;
@@ -169,18 +169,12 @@ export default {
         }
 
         // 创建新的请求并保存到 fetchPromise
-        fetchPromise = fetch(LIQUIPEDIA_API_URL, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'OWCSStats/1.0 (https://github.com/your-username/owcs-stats; your-email@example.com)',
-            'Accept-Encoding': 'gzip, deflate, br'
-          }
-        }).then(res => res.json());
+        fetchPromise = apiService.getUpcomingMatches();
 
-        const data = await fetchPromise;
+        const responseData = await fetchPromise;
         
-        if (data && data.parse && data.parse.text) {
-          const htmlStr = data.parse.text['*'];
+        if (responseData && responseData.data) {
+          const htmlStr = responseData.data;
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({
             timestamp: Date.now(),
             data: htmlStr

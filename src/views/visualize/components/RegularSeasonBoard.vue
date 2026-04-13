@@ -15,8 +15,9 @@
         </div>
       </div>
     </div>
-    <div class="standings-table-container">
+    <div class="standings-table-container" v-loading="isInitializing">
       <el-table
+        v-if="!isInitializing"
         :data="standings"
         style="width: 100%"
         class="standings-table"
@@ -107,6 +108,7 @@ export default {
     const snapshots = ref([]);
     const selectedSegmentKey = ref('cumulative');
     const activeScoreStats = ref([]);
+    const isInitializing = ref(true);
 
     const normalizedTemplate = computed(() => {
       return props.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
@@ -144,6 +146,9 @@ export default {
     const segmentSelectKey = computed(() => segments.value.map(s => s.key).join('|'));
 
     const applyStageOverrides = (rows) => {
+      // Return early if rows is empty or not an array to avoid flashing empty state
+      if (!Array.isArray(rows) || rows.length === 0) return rows;
+
       const key = displaySegmentKey.value;
       const override = props.stageOverrides && typeof props.stageOverrides === 'object' ? props.stageOverrides[key] : null;
       if (!override) return rows;
@@ -341,28 +346,34 @@ export default {
 
     watch(() => props.seasonId, async (newVal, oldVal) => {
       if (newVal !== oldVal) {
-        // Only clear when changing seasons completely
-        activeScoreStats.value = [];
-        selectedSegmentKey.value = 'cumulative';
+        isInitializing.value = true;
+        // Optimistically set cumulative as default before fetching snapshots
+        // This avoids the initial flicker where it renders without overrides
         displaySegmentKey.value = 'cumulative';
+        selectedSegmentKey.value = 'cumulative';
+        activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
         
         await loadSnapshots();
         const segs = segments.value;
         if (segs.length === 0) {
-          selectedSegmentKey.value = 'cumulative';
-          displaySegmentKey.value = 'cumulative';
-          activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
+          isInitializing.value = false;
           return;
         }
-        const defaultKey = pickDefaultSegmentKey();
-        selectedSegmentKey.value = defaultKey;
         
+        const defaultKey = pickDefaultSegmentKey();
+        if (defaultKey === 'cumulative') {
+           isInitializing.value = false;
+           return; // Already initialized correctly above
+        }
+        
+        selectedSegmentKey.value = defaultKey;
         const newData = await refreshScoreStatsForSelection(defaultKey);
         
         if (selectedSegmentKey.value === defaultKey) {
           activeScoreStats.value = newData;
           displaySegmentKey.value = defaultKey;
         }
+        isInitializing.value = false;
       }
     }, { immediate: true });
 
@@ -399,7 +410,8 @@ export default {
       segments,
       segmentSelectKey,
       selectedSegmentKey,
-      selectSegment
+      selectSegment,
+      isInitializing
     };
   }
 };

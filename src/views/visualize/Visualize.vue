@@ -64,6 +64,7 @@
 
           <!-- 即将到来的比赛 -->
           <UpcomingMatches 
+            v-if="currentSeasonStatus !== 'completed'"
             :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName" 
           />
 
@@ -299,6 +300,11 @@ export default {
     
     const seasons = computed(() => store.state.seasons);
 
+    const currentSeasonStatus = computed(() => {
+      const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
+      return selectedSeason ? selectedSeason.status : 'in_progress';
+    });
+
     const groupedSeasons = computed(() => {
       const groups = {};
       const ungrouped = [];
@@ -430,6 +436,7 @@ export default {
       seasonVisualConfig,
       seasons,
       groupedSeasons,
+      currentSeasonStatus,
       activeStage,
       handleDropdownVisible,
       handleSeasonChange,

@@ -71,6 +71,7 @@ const apiService = {
   deleteHero: (id) => api.delete(`/heroes/${id}`),
 
   // 比赛相关
+  getUpcomingMatches: () => api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),
   getMatchById: (id) => api.get(`/matches/${id}`),
   createMatch: (data) => api.post('/matches', data),

@@ -450,6 +450,72 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
 };
 
 const MatchController = {
+  // 缓存 Liquipedia Upcoming 赛事的内存变量
+  _liquipediaCache: {
+    data: null,
+    timestamp: 0,
+    isFetching: false
+  },
+
+  // 从 Liquipedia 获取 upcoming 赛事 (带服务器级缓存)
+  getUpcomingMatches: async (req, res) => {
+    try {
+      const now = Date.now();
+      const CACHE_TTL = 5 * 60 * 1000; // 服务器缓存 5 分钟
+
+      // 如果缓存有效，直接返回缓存数据
+      if (MatchController._liquipediaCache.data && (now - MatchController._liquipediaCache.timestamp < CACHE_TTL)) {
+        return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true });
+      }
+
+      // 如果当前正在抓取，稍微等一下，避免并发击穿（简易锁）
+      if (MatchController._liquipediaCache.isFetching) {
+        // 等待最多 3 秒看有没有缓存产生
+        for (let i = 0; i < 30; i++) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          if (!MatchController._liquipediaCache.isFetching && MatchController._liquipediaCache.data) {
+            return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true });
+          }
+        }
+      }
+
+      MatchController._liquipediaCache.isFetching = true;
+
+      const LIQUIPEDIA_API_URL = 'https://liquipedia.net/overwatch/api.php?action=parse&format=json&contentmodel=wikitext&prop=text&text=%7B%7B%23invoke%3AMatchTicker%2FCustom%7CnewMainPage%7Ctype%3Dupcoming%7Climit%3D100%7D%7D&origin=*';
+      
+      const response = await fetch(LIQUIPEDIA_API_URL, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
+          'Accept-Encoding': 'gzip, deflate, br'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Liquipedia API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data && data.parse && data.parse.text) {
+        const htmlStr = data.parse.text['*'];
+        MatchController._liquipediaCache.data = htmlStr;
+        MatchController._liquipediaCache.timestamp = now;
+      }
+
+      MatchController._liquipediaCache.isFetching = false;
+      res.status(200).json({ data: MatchController._liquipediaCache.data, cached: false });
+    } catch (error) {
+      MatchController._liquipediaCache.isFetching = false;
+      console.error('Failed to fetch upcoming matches from Liquipedia:', error);
+      // 如果报错但有旧缓存，返回旧缓存
+      if (MatchController._liquipediaCache.data) {
+        return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true, error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  },
+
   // 获取所有比赛
   getAll: async (req, res) => {
     try {
