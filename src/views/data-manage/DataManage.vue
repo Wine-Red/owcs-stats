@@ -122,6 +122,9 @@
           <el-form-item label="当前阶段名称">
             <el-input v-model="seasonVisualForm.currentStageLabel" placeholder="例如：季后赛" style="max-width: 240px" />
           </el-form-item>
+          <el-form-item label="世界赛晋级名额" title="积分榜前 N 名将显示晋级标识">
+            <el-input-number v-model="seasonVisualForm.qualificationCount" :min="0" :max="20" placeholder="如：2" style="max-width: 240px" />
+          </el-form-item>
 
           <el-divider content-position="left">阶段积分榜覆盖</el-divider>
 
@@ -1390,6 +1393,7 @@ export default {
           ? config.standings.stageOverrides
           : {};
         const currentStageLabel = String(config?.standings?.currentStageLabel || '当前阶段');
+        const qualificationCount = Number(config?.standings?.qualificationCount) || 0;
 
         seasonVisualForm.value.tags = tags;
         seasonVisualForm.value.dateRange = dateRange;
@@ -1397,6 +1401,7 @@ export default {
         seasonVisualForm.value.mapIds = mapIds;
         seasonVisualForm.value.standingsTemplate = standingsTemplate;
         seasonVisualForm.value.currentStageLabel = currentStageLabel;
+        seasonVisualForm.value.qualificationCount = qualificationCount;
         seasonVisualForm.value.stageOverrides = stageOverrides;
         await loadStageSnapshots(id);
         await loadSeasonTeamsForVisualConfig(id);
@@ -1407,6 +1412,7 @@ export default {
         seasonVisualForm.value.mapIds = [];
         seasonVisualForm.value.standingsTemplate = 'wl_maps';
         seasonVisualForm.value.currentStageLabel = '当前阶段';
+        seasonVisualForm.value.qualificationCount = 0;
         seasonVisualForm.value.stageOverrides = {};
         await loadStageSnapshots(id);
         await loadSeasonTeamsForVisualConfig(id);
@@ -1424,6 +1430,7 @@ export default {
           standings: {
             template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps',
             currentStageLabel: String(seasonVisualForm.value.currentStageLabel || '当前阶段'),
+            qualificationCount: Number(seasonVisualForm.value.qualificationCount) || 0,
             stageOverrides: (seasonVisualForm.value.stageOverrides && typeof seasonVisualForm.value.stageOverrides === 'object') ? seasonVisualForm.value.stageOverrides : {}
           }
         };

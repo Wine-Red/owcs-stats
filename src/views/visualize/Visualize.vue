@@ -109,7 +109,16 @@
               <template v-if="currentTab === 'overview'">
                 <div class="vis-grid overview-section">
                   <div class="vis-col span-12">
-                    <RegularSeasonBoard :seasonId="filterForm.seasonId" :matches="seasonMatches" :mapGames="seasonMapGames" :template="seasonVisualConfig.standings.template" :score-stats="seasonTeamScoreStats" :stage-overrides="seasonVisualConfig.standings.stageOverrides" :current-stage-label="seasonVisualConfig.standings.currentStageLabel" />
+                    <RegularSeasonBoard 
+                      :seasonId="filterForm.seasonId" 
+                      :matches="seasonMatches" 
+                      :mapGames="seasonMapGames" 
+                      :template="seasonVisualConfig.standings.template" 
+                      :score-stats="seasonTeamScoreStats" 
+                      :stage-overrides="seasonVisualConfig.standings.stageOverrides" 
+                      :current-stage-label="seasonVisualConfig.standings.currentStageLabel"
+                      :qualification-count="seasonVisualConfig.standings.qualificationCount"
+                    />
                   </div>
                 </div>
 
@@ -247,7 +256,8 @@ export default {
         mapIds: []
       },
       standings: {
-        template: 'wl_maps'
+        template: 'wl_maps',
+        qualificationCount: 0
       },
       liquipediaTournamentName: ''
     });
@@ -272,6 +282,7 @@ export default {
           mapPool: { mapIds: normalizeIdArray(config?.mapPool?.mapIds) },
           standings: {
             template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
+            qualificationCount: Number(config?.standings?.qualificationCount) || 0,
             stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {},
             currentStageLabel: String(config?.standings?.currentStageLabel || '当前阶段')
           },
@@ -282,7 +293,7 @@ export default {
           tags: [],
           dateRange: '',
           mapPool: { mapIds: [] },
-          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段' },
+          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段', qualificationCount: 0 },
           liquipediaTournamentName: ''
         };
       }

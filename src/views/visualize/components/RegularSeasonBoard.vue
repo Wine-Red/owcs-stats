@@ -25,36 +25,39 @@
         :header-cell-style="{ background: '#f8f9fa', color: '#495057', fontWeight: '700', borderBottom: '2px solid #dee2e6' }"
         :cell-style="{ borderBottom: '1px solid #edf2f7' }"
       >
-        <el-table-column label="#" width="50" align="center">
+        <el-table-column label="#" width="40" align="center">
           <template #default="scope">
-            <span class="rank-number">{{ scope.$index + 1 }}</span>
+            <div class="rank-cell">
+              <span class="rank-number" :class="{ 'rank-qualified': isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount }">{{ scope.$index + 1 }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="队伍" min-width="100">
+        <el-table-column label="队伍" min-width="110">
           <template #default="scope">
             <div class="team-cell">
               <img v-if="scope.row.team.logo" :src="scope.row.team.logo" class="team-logo" />
               <div v-else class="team-logo-placeholder">{{ scope.row.team.name.charAt(0) }}</div>
               <span class="team-name">{{ scope.row.team.name }}</span>
+              <span v-if="isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount" class="qualification-badge">WORLDS</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column v-if="currentTemplate === 'wl_maps'" label="W-L" width="65" align="center">
+        <el-table-column v-if="currentTemplate === 'wl_maps'" label="W-L" width="55" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.matchesWon }}-{{ scope.row.matchesLost }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="currentTemplate === 'points_3_0'" label="PTS" width="55" align="center">
+        <el-table-column v-if="currentTemplate === 'points_3_0'" label="PTS" width="50" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.points }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="Maps" width="65" align="center">
+        <el-table-column label="Maps" width="55" align="center">
           <template #default="scope">
             <span class="font-mono">{{ scope.row.mapsWon }}-{{ scope.row.mapsLost }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="+/-" width="55" align="center">
+        <el-table-column label="+/-" width="45" align="center">
           <template #default="scope">
             <span class="font-mono map-diff" :class="getDiffClass(scope.row.mapDiff)">
               {{ scope.row.mapDiff > 0 ? '+' : '' }}{{ scope.row.mapDiff }}
@@ -101,6 +104,10 @@ export default {
     currentStageLabel: {
       type: String,
       default: '当前阶段'
+    },
+    qualificationCount: {
+      type: Number,
+      default: 0
     }
   },
   setup(props) {
@@ -389,6 +396,10 @@ export default {
       }
     });
 
+    const isCurrentStage = computed(() => {
+      return displaySegmentKey.value === 'cumulative' || displaySegmentKey.value.endsWith('->current');
+    });
+
     const getDiffClass = (diff) => {
       if (diff > 0) return 'text-success';
       if (diff < 0) return 'text-danger';
@@ -396,10 +407,14 @@ export default {
     };
 
     const tableRowClassName = ({ rowIndex }) => {
-      if (rowIndex < 3) {
-        return 'top-rank-row';
+      let classes = [];
+      if (isCurrentStage.value && props.qualificationCount > 0 && rowIndex < props.qualificationCount) {
+        classes.push('qualified-row');
+        if (rowIndex === props.qualificationCount - 1) {
+          classes.push('qualified-last-row');
+        }
       }
-      return '';
+      return classes.join(' ');
     };
 
     return {
@@ -411,7 +426,8 @@ export default {
       segmentSelectKey,
       selectedSegmentKey,
       selectSegment,
-      isInitializing
+      isInitializing,
+      isCurrentStage
     };
   }
 };
@@ -419,7 +435,7 @@ export default {
 
 <style scoped>
 .regular-season-container {
-  margin-bottom: 0;
+  margin-bottom: 12px;
 }
 
 .section-header {
@@ -427,7 +443,7 @@ export default {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .section-title {
@@ -489,13 +505,15 @@ export default {
 .team-cell {
   display: flex;
   align-items: center;
-  gap: 8px; /* 减小间距 */
+  gap: 6px; /* 减小间距 */
+  width: 100%;
 }
 
 .team-logo {
   width: 24px; /* 减小 logo 尺寸 */
   height: 24px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .team-logo-placeholder {
@@ -509,13 +527,15 @@ export default {
   font-size: 12px;
   font-weight: bold;
   color: #666;
+  flex-shrink: 0;
 }
 
 .team-name {
   font-weight: 600;
   color: #333;
-  font-size: 14px; /* 减小字体大小 */
+  font-size: 13px;
   white-space: nowrap;
+  flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -550,8 +570,79 @@ export default {
   color: #666;
 }
 
-:deep(.top-rank-row) {
-  background-color: rgba(255, 158, 15, 0.03);
+.rank-qualified {
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(135deg, #facc15 0%, #ff8a00 100%);
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+  font-size: 1.1em;
+}
+
+:deep(.el-table__row.qualified-row > td.el-table__cell) {
+  background-color: rgba(250, 204, 21, 0.06) !important;
+}
+
+:deep(.el-table--enable-row-hover .el-table__body tr.qualified-row:hover > td.el-table__cell) {
+  background-color: rgba(250, 204, 21, 0.1) !important;
+}
+
+:deep(.el-table__row.qualified-row > td:first-child) {
+  position: relative;
+}
+
+:deep(.el-table__row.qualified-row > td:first-child::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgba(250, 204, 21, 0.8);
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+
+:deep(.el-table__row.qualified-row > td:last-child) {
+  position: relative;
+}
+
+:deep(.el-table__row.qualified-row > td:last-child::after) {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 80px;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+:deep(.el-table__row.qualified-last-row > td.el-table__cell) {
+  border-bottom: 2px dashed rgba(250, 204, 21, 0.4) !important;
+}
+
+.qualification-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #c98e00;
+  background: linear-gradient(135deg, rgba(254, 240, 138, 0.5) 0%, rgba(253, 224, 71, 0.4) 100%);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.rank-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 :deep(.el-table th.el-table__cell) {
@@ -567,7 +658,7 @@ export default {
 
 @media (max-width: 768px) {
   .section-title {
-    margin: 0 0 10px 0;
+    margin: 0 0 6px 0;
   }
   :deep(.el-table .cell) {
     padding: 0 4px;
