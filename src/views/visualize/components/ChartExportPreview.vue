@@ -57,6 +57,12 @@ export default {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   border: 1px solid #eee;
+  background-color: #fff;
+  background-image: 
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee),
+    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
 }
 .export-tip {
   margin-top: 16px;
