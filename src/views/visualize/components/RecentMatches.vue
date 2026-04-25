@@ -175,7 +175,7 @@
                     <div class="overall-table-header">
                       <div class="col-role"></div>
                       <div class="col-name">选手</div>
-                      <div class="col-kda">K / D / A</div>
+                      <div class="col-kda">K / A / D</div>
                       <div class="col-kd">K/D</div>
                       <div class="col-dmg">伤害</div>
                       <div class="col-heal">治疗</div>
@@ -184,7 +184,7 @@
                     <div class="overall-table-row" v-for="player in teamPlayers" :key="player.playerId">
                       <div class="col-role"><img :src="getRoleIconUrl(player.role)" class="role-icon" alt="" /></div>
                       <div class="col-name" :class="player.role">{{ player.name }}</div>
-                      <div class="col-kda">{{ player.kills }} / {{ player.deaths }} / {{ player.assists }}</div>
+                      <div class="col-kda">{{ player.kills }} / {{ player.assists }} / {{ player.deaths }}</div>
                       <div class="col-kd" :class="{ 'highlight-kd': true, 'match-best': player.kdValue > 0 && player.kdValue === overallStats.maxStats.kd }">{{ player.kd }}</div>
                       <div class="col-dmg" :class="{ 'match-best': player.damage > 0 && player.damage === overallStats.maxStats.damage }">{{ formatNumber(player.damage) }}</div>
                       <div class="col-heal" :class="{ 'match-best': player.healing > 0 && player.healing === overallStats.maxStats.healing }">{{ formatNumber(player.healing) }}</div>
@@ -209,7 +209,7 @@
                           <img :src="getRoleIconUrl(row.team1.role)" class="role-icon" alt="" />
                           <span class="player-name" :class="row.team1.role">{{ row.team1.name }}</span>
                         </div>
-                        <span class="player-kda">{{ row.team1.kills }}/{{ row.team1.deaths }}/{{ row.team1.assists }}</span>
+                        <span class="player-kda">{{ row.team1.kills }}/{{ row.team1.assists }}/{{ row.team1.deaths }}</span>
                       </div>
                       <div class="player-stats">
                         <div class="stat-row">
@@ -246,7 +246,7 @@
                           <img :src="getRoleIconUrl(row.team2.role)" class="role-icon" alt="" />
                           <span class="player-name" :class="row.team2.role">{{ row.team2.name }}</span>
                         </div>
-                        <span class="player-kda">{{ row.team2.kills }}/{{ row.team2.deaths }}/{{ row.team2.assists }}</span>
+                        <span class="player-kda">{{ row.team2.kills }}/{{ row.team2.assists }}/{{ row.team2.deaths }}</span>
                       </div>
                       <div class="player-stats">
                         <div class="stat-row">
