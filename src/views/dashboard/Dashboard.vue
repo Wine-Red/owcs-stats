@@ -142,6 +142,17 @@
           <div class="art-arrow"><el-icon><ArrowRight /></el-icon></div>
         </div>
 
+        <div class="art-card" @click="$router.push('/analytics')">
+          <div class="art-content">
+            <div class="art-icon"><el-icon><DataLine /></el-icon></div>
+            <div class="art-text">
+              <h4 class="art-title">访问统计</h4>
+              <p class="art-desc">查看全站的访问量、用户留存、核心操作转化及前端性能数据。</p>
+            </div>
+          </div>
+          <div class="art-arrow"><el-icon><ArrowRight /></el-icon></div>
+        </div>
+
         <div class="art-card" @click="$router.push('/data-manage/matches')">
           <div class="art-content">
             <div class="art-icon"><el-icon><Management /></el-icon></div>
@@ -161,7 +172,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { ElMessage } from 'element-plus';
-import { Calendar, Collection, User, Timer, Refresh } from '@element-plus/icons-vue';
+import { Calendar, Collection, User, Timer, Refresh, ArrowRight, View, Management, DataLine } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 
 export default {
@@ -171,7 +182,11 @@ export default {
     Collection,
     User,
     Timer,
-    Refresh
+    Refresh,
+    ArrowRight,
+    View,
+    Management,
+    DataLine
   },
   setup() {
     const store = useStore();

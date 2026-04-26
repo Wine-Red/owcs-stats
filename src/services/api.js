@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { trackError } from '@/utils/analytics';
 
 // 创建axios实例
 const api = axios.create({
@@ -27,6 +28,11 @@ api.interceptors.response.use(
   },
   error => {
     console.error('API Error:', error);
+    if (error.config && error.config.url) {
+      trackError(`API: ${error.config.url}`, error);
+    } else {
+      trackError('API: Unknown', error);
+    }
     return Promise.reject(error);
   }
 );

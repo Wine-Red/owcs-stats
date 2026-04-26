@@ -95,7 +95,8 @@ export default {
         title: '总览中心',
         items: [
           { to: '/dashboard', label: '全局总控' },
-          { to: '/visualize', label: '数据可视化' }
+          { to: '/visualize', label: '数据可视化' },
+          { to: '/analytics', label: '访问统计' }
         ]
       },
       {

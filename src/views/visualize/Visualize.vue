@@ -153,8 +153,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, defineAsyncComponent, nextTick } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import { trackEvent, trackPerformance } from '@/utils/analytics';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
@@ -186,6 +187,10 @@ export default {
     const store = useStore();
     
     const currentTab = ref('overview');
+
+    watch(currentTab, (newTab) => {
+      trackEvent('switch_tab', { tab: newTab });
+    });
 
     const filterForm = ref({
       seasonId: '',
@@ -374,6 +379,10 @@ export default {
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
       isPageLoading.value = true;
+      const startTime = performance.now();
+      
+      trackEvent('change_season', { seasonId: filterForm.value.seasonId, stage: activeStage.value });
+
       try {
         await Promise.all([
           loadSeasonData(filterForm.value.seasonId),
@@ -384,11 +393,14 @@ export default {
       } finally {
         await nextTick();
         isPageLoading.value = false;
+        const duration = performance.now() - startTime;
+        trackPerformance('season_data_load_duration', duration);
       }
     };
     
     onMounted(async () => {
       isPageLoading.value = true;
+      const startTime = performance.now();
       // 等待 Vue DOM 更新
       await nextTick();
 
@@ -431,9 +443,13 @@ export default {
         } finally {
           await nextTick();
           isPageLoading.value = false;
+          const duration = performance.now() - startTime;
+          trackPerformance('initial_page_load_duration', duration);
         }
       } else {
         isPageLoading.value = false;
+        const duration = performance.now() - startTime;
+        trackPerformance('initial_page_load_duration', duration);
       }
     });
     

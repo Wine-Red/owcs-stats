@@ -21,6 +21,11 @@ const routes = [
     name: 'Visualize',
     component: () => import('../views/visualize/Visualize.vue')
   },
+  {
+    path: '/analytics',
+    name: 'Analytics',
+    component: () => import('../views/analytics/Analytics.vue')
+  },
   { 
     path: '', 
     redirect: '/visualize' },

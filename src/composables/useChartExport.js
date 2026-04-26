@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import * as echarts from 'echarts';
+import { trackEvent } from '@/utils/analytics';
 
 function drawVerticalArtisticTitle(ctx, title, rightAreaX, rightAreaY) {
     let mainText = title;
@@ -681,6 +682,8 @@ export function useChartExport() {
 
   const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false) => {
     try {
+      trackEvent('export_image', { type: 'chart', title: chartTitle || 'Untitled', transparent: isTransparent });
+      
       if (!chartInstance) {
         console.warn('Chart instance not found');
         return;
@@ -697,6 +700,8 @@ export function useChartExport() {
 
   const handleExportTable = async (tableTitle, columns, data, seasonName = '') => {
     try {
+      trackEvent('export_image', { type: 'table', title: tableTitle || 'Untitled' });
+      
       if (!data || data.length === 0) {
         console.warn('No table data to export');
         return;
