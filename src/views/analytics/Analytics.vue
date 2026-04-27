@@ -1,12 +1,5 @@
 <template>
   <div class="analytics-container">
-    <div class="header">
-      <h2>访问统计</h2>
-      <el-button type="primary" size="small" @click="openExternal">
-        在 Umami 中打开 <el-icon class="el-icon--right"><Link /></el-icon>
-      </el-button>
-    </div>
-    
     <div v-if="processedShareUrl" class="iframe-wrapper">
       <iframe 
         :src="processedShareUrl" 
@@ -34,7 +27,6 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { Link } from '@element-plus/icons-vue';
 
 const shareUrl = ref(import.meta.env.VITE_UMAMI_SHARE_URL || '');
 
@@ -49,45 +41,21 @@ const processedShareUrl = computed(() => {
     return shareUrl.value; // 如果不是合法的 URL（可能只是占位符），原样返回
   }
 });
-
-const openExternal = () => {
-  if (shareUrl.value) {
-    window.open(shareUrl.value, '_blank');
-  } else {
-    window.open('https://cloud.umami.is/', '_blank');
-  }
-};
 </script>
 
 <style scoped>
 .analytics-container {
-  height: calc(100vh - 80px);
+  flex: 1; /* Fill the whole right side in flex container */
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 0;
   box-sizing: border-box;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.header h2 {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  font-size: 20px;
 }
 
 .iframe-wrapper {
   flex: 1;
-  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--el-border-color-darker);
   background-color: var(--el-bg-color);
-  box-shadow: var(--el-box-shadow-light);
 }
 
 .empty-state {
@@ -96,8 +64,6 @@ const openExternal = () => {
   align-items: center;
   justify-content: center;
   background-color: var(--el-bg-color-overlay);
-  border-radius: 8px;
-  border: 1px dashed var(--el-border-color-darker);
 }
 
 .help-text {

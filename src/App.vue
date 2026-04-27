@@ -44,7 +44,7 @@
 
     <!-- 主内容区与页脚 -->
     <div :class="['app-content-wrapper', { 'full-width': !showSidebar, 'has-mobile-header': showSidebar }]">
-      <main class="app-main">
+      <main :class="['app-main', { 'no-padding-main': isAnalyticsRoute }]">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -135,6 +135,10 @@ export default {
       return route.path === '/visualize' || route.path.startsWith('/visualize/');
     });
 
+    const isAnalyticsRoute = computed(() => {
+      return route.path === '/analytics';
+    });
+
     // 控制侧边导航栏的显示
     // 在 /visualize 及其子路由下完全不渲染侧边栏
     const showSidebar = computed(() => {
@@ -188,7 +192,8 @@ export default {
       showFooter,
       sidebarGroups,
       latestSyncTime,
-      mobileSidebarOpen
+      mobileSidebarOpen,
+      isAnalyticsRoute
     };
   }
 }
@@ -360,6 +365,14 @@ html.dark body {
 .app-content-wrapper.full-width .app-main {
   padding: 0;
   max-width: 100%;
+}
+
+/* 需要全宽无边距的常规页面（如 Analytics） */
+.app-main.no-padding-main {
+  padding: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 页脚 */
