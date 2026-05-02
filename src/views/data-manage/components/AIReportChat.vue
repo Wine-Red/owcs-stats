@@ -102,7 +102,8 @@ import apiService from '@/services/api';
 
 const route = useRoute();
 const baseUrl = import.meta.env.BASE_URL;
-const isStandalone = computed(() => route.path === '/ai-guest');
+// 修正为根据路由 Name 匹配，防止 Nginx 的 base URL 和斜杠导致字符串匹配失败
+const isStandalone = computed(() => route.name === 'AIGuest');
 const inviteCode = ref(localStorage.getItem('ai_invite_code') || '');
 
 onMounted(() => {
@@ -278,7 +279,7 @@ const exportToExcel = (data, index) => {
 }
 
 .standalone-mode .chat-card {
-  height: 100vh;
+  height: 100dvh; /* 使用 dvh 替代 vh 解决移动端浏览器地址栏问题 */
   border: none;
   border-radius: 0;
 }
