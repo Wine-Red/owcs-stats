@@ -147,7 +147,10 @@ const apiService = {
   // Config (New)
   getAllConfigs: () => api.get('/config'),
   getConfig: (key) => api.get(`/config/${key}`),
-  updateConfig: (data) => api.post('/config', data)
+  updateConfig: (data) => api.post('/config', data),
+
+  // AI Report (LangChain Agent)
+  chatWithAI: (messages, config = {}) => api.post('/ai-reports/chat', { messages }, { timeout: 120000, ...config })
 };
 
 export default apiService;

@@ -26,6 +26,15 @@ const routes = [
     name: 'Analytics',
     component: () => import('../views/analytics/Analytics.vue')
   },
+  {
+    path: '/ai-guest',
+    name: 'AIGuest',
+    component: () => import('@/views/data-manage/components/AIReportChat.vue'),
+    meta: { 
+      title: '赛事数据助手',
+      layout: 'blank' 
+    }
+  },
   { 
     path: '', 
     redirect: '/visualize' },

@@ -73,6 +73,11 @@
       </el-card>
     </div>
 
+    <!-- AI 报表查询 -->
+    <div v-show="activeTab === 'ai-reports'">
+      <AIReportChat />
+    </div>
+
     <div v-show="activeTab === 'season-visualize'">
       <el-card class="data-card">
         <template #header>
@@ -1031,6 +1036,7 @@ import {
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
 import SeasonStatsUpload from './components/SeasonStatsUpload.vue';
+import AIReportChat from './components/AIReportChat.vue';
 
 export default {
   name: 'DataManage',
@@ -1043,11 +1049,13 @@ export default {
     Upload,
     Download,
     MapDataImport,
-    SeasonStatsUpload
+    SeasonStatsUpload,
+    AIReportChat
   },
   setup() {
     // 页面标题映射
     const pageTitleMap = {
+      'ai-reports': '赛事数据助手',
       'season-stats-upload': '赛季数据导入',
       'seasons': '赛季管理',
       'season-visualize': '赛季可视化配置',

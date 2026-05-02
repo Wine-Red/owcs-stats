@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-visualize': isVisualizeRoute }">
     <!-- 移动端顶部导航 -->
     <div class="mobile-top-header" v-if="showSidebar">
       <el-icon class="menu-toggle-btn" @click="mobileSidebarOpen = true"><Menu /></el-icon>
@@ -96,7 +96,8 @@ export default {
         items: [
           { to: '/dashboard', label: '全局总控' },
           { to: '/visualize', label: '数据可视化' },
-          { to: '/analytics', label: '访问统计' }
+          { to: '/analytics', label: '访问统计' },
+          { to: '/data-manage/ai-reports', label: '赛事数据助手' }
         ]
       },
       {
@@ -139,14 +140,18 @@ export default {
       return route.path === '/analytics';
     });
 
+    const isBlankLayout = computed(() => {
+      return route.meta.layout === 'blank';
+    });
+
     // 控制侧边导航栏的显示
     // 在 /visualize 及其子路由下完全不渲染侧边栏
     const showSidebar = computed(() => {
-      return !isVisualizeRoute.value;
+      return !isVisualizeRoute.value && !isBlankLayout.value;
     });
 
     const showFooter = computed(() => {
-      return isVisualizeRoute.value;
+      return isVisualizeRoute.value && !isBlankLayout.value;
     });
 
     const updateTheme = () => {
@@ -579,5 +584,10 @@ html.dark .divider {
   padding: 0;
   max-width: 100%;
   margin: 0;
+}
+
+.app-layout.no-sidebar .main-container {
+  margin-left: 0 !important;
+  width: 100% !important;
 }
 </style>
