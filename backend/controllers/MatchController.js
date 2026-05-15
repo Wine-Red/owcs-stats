@@ -8,6 +8,9 @@ const Map = require('../models/Map');
 const Player = require('../models/Player');
 const sequelize = require('../config/database');
 const SeasonStatController = require('./SeasonStatController');
+const https = require('https');
+const zlib = require('zlib');
+const { URL } = require('url');
 
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const EXTERNAL_MATCH_API_HEADERS = {
@@ -481,21 +484,43 @@ const MatchController = {
 
       MatchController._liquipediaCache.isFetching = true;
 
-      const LIQUIPEDIA_API_URL = 'https://liquipedia.net/overwatch/api.php?action=parse&format=json&contentmodel=wikitext&prop=text&text=%7B%7B%23invoke%3AMatchTicker%2FCustom%7CnewMainPage%7Ctype%3Dupcoming%7Climit%3D100%7D%7D&origin=*';
-      
-      const response = await fetch(LIQUIPEDIA_API_URL, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
-          'Accept-Encoding': 'gzip, deflate, br'
-        }
+      const LIQUIPEDIA_API_URL = 'https://liquipedia.net/overwatch/api.php?action=parse&format=json&contentmodel=wikitext&prop=text&text=%7B%7B%23invoke%3AMatchTicker%2FCustom%7CnewMainPage%7Ctype%3Dupcoming%7Climit%3D500%7D%7D&origin=*';
+
+      const data = await new Promise((resolve, reject) => {
+        const urlObj = new URL(LIQUIPEDIA_API_URL);
+        const req = https.get({
+          hostname: urlObj.hostname,
+          path: urlObj.pathname + urlObj.search,
+          family: 4,
+          timeout: 30000,
+          headers: {
+            'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
+            'Accept-Encoding': 'gzip'
+          }
+        }, (res) => {
+          const chunks = [];
+          const encoding = res.headers['content-encoding'];
+          let stream = res;
+          if (encoding === 'gzip') {
+            stream = res.pipe(zlib.createGunzip());
+          }
+          stream.on('data', chunk => chunks.push(chunk));
+          stream.on('end', () => {
+            const body = Buffer.concat(chunks).toString('utf8');
+            if (res.statusCode < 200 || res.statusCode >= 300) {
+              return reject(new Error('Liquipedia API returned status ' + res.statusCode));
+            }
+            try {
+              resolve(JSON.parse(body));
+            } catch (e) {
+              reject(new Error('Failed to parse Liquipedia API response'));
+            }
+          });
+          stream.on('error', reject);
+        });
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
       });
-
-      if (!response.ok) {
-        throw new Error(`Liquipedia API request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
 
       if (data && data.parse && data.parse.text) {
         const htmlStr = data.parse.text['*'];

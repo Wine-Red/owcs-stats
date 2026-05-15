@@ -19,6 +19,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "https-proxy-agent": "^9.0.0",
     "jsonwebtoken": "^9.0.3",
     "langchain": "^0.3.37",
     "lodash": "^4.17.23",
