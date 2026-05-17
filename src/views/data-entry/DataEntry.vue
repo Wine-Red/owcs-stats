@@ -733,15 +733,19 @@ export default {
 </script>
 
 <style scoped>
+/* 全局页面样式 */
 .data-entry-container {
   padding: 20px 0;
+  color: #e0e0e0;
 }
 
 .page-title {
   font-size: 24px;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 30px;
-  color: #303133;
+  color: #ffffff;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
 }
 
 .steps-container {
@@ -752,18 +756,25 @@ export default {
   margin-bottom: 30px;
 }
 
+/* 卡片样式 */
 .form-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  background-color: #141414;
+  border: 1px solid #2a2a2a;
+  box-shadow: none;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: bold;
+  font-weight: 600;
+  color: #ffffff;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
 }
 
+/* 阵容区域 */
 .lineup-section {
   padding: 10px 0;
 }
@@ -771,15 +782,29 @@ export default {
 .role-section {
   margin-bottom: 30px;
   padding: 15px;
-  background-color: #f5f7fa;
-  border-radius: 6px;
+  background-color: #1a1a1a;
+  border-radius: 2px;
+  border: 1px solid #333;
 }
 
 .role-section h4 {
   margin: 0 0 15px 0;
   font-size: 16px;
-  font-weight: bold;
-  color: #409eff;
+  font-weight: 600;
+  color: #facc15;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.role-section h4::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 14px;
+  background-color: #facc15;
 }
 
 .player-slots {
@@ -792,9 +817,9 @@ export default {
   flex: 0 0 auto;
   width: 100%;
   padding: 15px;
-  background-color: #fff;
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
+  background-color: #222;
+  border-radius: 2px;
+  border: 1px solid #444;
   box-sizing: border-box;
 }
 
@@ -810,7 +835,7 @@ export default {
 .player-stats-form {
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid #444;
 }
 
 .stats-grid {
@@ -836,60 +861,61 @@ export default {
 .stat-label {
   display: block;
   font-size: 12px;
-  color: #909399;
+  color: #888;
   text-align: center;
   margin-top: 2px;
 }
 
 .step-actions {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   
-  /* 响应式设计 */
-  @media (max-width: 768px) {
-    .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .role-section[data-role="tank"] .player-slot .stats-grid,
-    .role-section[data-role="damage"] .player-slot .stats-grid,
-    .role-section[data-role="support"] .player-slot .stats-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .card-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
-    
-    .step-actions {
-      flex-direction: column;
-      padding: 0 20px;
-    }
-    
-    .step-actions .el-button {
-      width: 100%;
-      margin-left: 0;
-      margin-bottom: 10px;
-    }
-
-    /* 强制在移动端将选手卡片内的表单标签显示在上方 */
-    .player-slot .el-form-item {
-      flex-direction: column;
-    }
-    
-    .player-slot .el-form-item__label {
-      width: auto !important;
-      text-align: left;
-      margin-bottom: 5px;
-    }
-    
-    .player-slot .el-form-item__content {
-      margin-left: 0 !important;
-    }
+  .role-section[data-role="tank"] .player-slot .stats-grid,
+  .role-section[data-role="damage"] .player-slot .stats-grid,
+  .role-section[data-role="support"] .player-slot .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .step-actions {
+    flex-direction: column;
+    padding: 0 20px;
+  }
+  
+  .step-actions .el-button {
+    width: 100%;
+    margin-left: 0;
+    margin-bottom: 10px;
+  }
+
+  /* 强制在移动端将选手卡片内的表单标签显示在上方 */
+  .player-slot .el-form-item {
+    flex-direction: column;
+  }
+  
+  .player-slot .el-form-item__label {
+    width: auto !important;
+    text-align: left;
+    margin-bottom: 5px;
+    color: #e0e0e0;
+  }
+  
+  .player-slot .el-form-item__content {
+    margin-left: 0 !important;
+  }
+}
 </style>

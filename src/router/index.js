@@ -12,7 +12,7 @@ const routes = [
     component: () => import('../views/data-entry/DataEntry.vue')
   },
   {
-    path: '/data-manage',
+    path: '/data-manage/:tab?',
     name: 'DataManage',
     component: () => import('../views/data-manage/DataManage.vue')
   },
@@ -20,6 +20,20 @@ const routes = [
     path: '/visualize',
     name: 'Visualize',
     component: () => import('../views/visualize/Visualize.vue')
+  },
+  {
+    path: '/analytics',
+    name: 'Analytics',
+    component: () => import('../views/analytics/Analytics.vue')
+  },
+  {
+    path: '/ai-guest',
+    name: 'AIGuest',
+    component: () => import('@/views/data-manage/components/AIReportChat.vue'),
+    meta: { 
+      title: '赛事数据助手',
+      layout: 'blank' 
+    }
   },
   { 
     path: '', 

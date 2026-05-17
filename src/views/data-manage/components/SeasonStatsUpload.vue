@@ -37,6 +37,38 @@
       </el-form>
     </el-card>
 
+    <el-card class="upload-card">
+      <template #header>
+        <div class="card-header">
+          <span>阶段快照（仅积分榜）</span>
+        </div>
+      </template>
+
+      <el-form label-width="120px">
+        <el-form-item label="快照名称">
+          <el-input v-model="currentStageLabel" style="max-width: 240px" disabled />
+          <div class="file-tip" style="margin-left: 10px; margin-top: 0;">来自“赛季可视化配置”的当前阶段名称</div>
+          <el-button type="primary" style="margin-left: 10px" @click="createSnapshot" :loading="snapshotBusy" :disabled="!form.seasonId">保存快照</el-button>
+        </el-form-item>
+
+        <el-form-item label="已有快照">
+          <el-table :data="snapshots" style="width: 100%" size="small" border>
+            <el-table-column prop="name" label="名称" min-width="180" />
+            <el-table-column label="创建时间" width="200">
+              <template #default="scope">
+                {{ formatDateTime(scope.row.createdAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" align="center">
+              <template #default="scope">
+                <el-button type="danger" size="small" @click="deleteSnapshot(scope.row.id)" :loading="snapshotBusy">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <el-card v-if="previewMode && previewData.length > 0" class="preview-card">
       <template #header>
         <div class="card-header">
@@ -48,6 +80,25 @@
         </div>
       </template>
       
+      <div class="extra-summaries">
+        <div class="summary-row">
+          <span class="summary-label">战队比分统计</span>
+          <template v-if="teamScorePreviewSummary && teamScorePreviewSummary.found">
+            <el-tag type="success">有效: {{ teamScorePreviewSummary.validCount }}</el-tag>
+            <el-tag v-if="teamScorePreviewSummary.warningCount" type="warning">警告: {{ teamScorePreviewSummary.warningCount }}</el-tag>
+          </template>
+          <el-tag v-else type="warning">未找到/无法识别</el-tag>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">地图选取次数</span>
+          <template v-if="mapPickPreviewSummary && mapPickPreviewSummary.found">
+            <el-tag type="success">有效: {{ mapPickPreviewSummary.validCount }}</el-tag>
+            <el-tag v-if="mapPickPreviewSummary.warningCount" type="warning">警告: {{ mapPickPreviewSummary.warningCount }}</el-tag>
+          </template>
+          <el-tag v-else type="warning">未找到/无法识别</el-tag>
+        </div>
+      </div>
+
       <el-table :data="previewData" style="width: 100%" height="500" stripe border>
         <el-table-column prop="status" label="状态" width="100" fixed>
           <template #default="scope">
@@ -91,7 +142,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import apiService from '@/services/api';
 import { ElMessage } from 'element-plus';
@@ -111,6 +162,11 @@ export default {
     const aiMode = ref(false);
     const mapping = ref(null);
     const previewData = ref([]);
+    const teamScorePreviewSummary = ref(null);
+    const mapPickPreviewSummary = ref(null);
+    const snapshots = ref([]);
+    const currentStageLabel = ref('当前阶段');
+    const snapshotBusy = ref(false);
 
     onMounted(async () => {
         if (seasons.value.length === 0) {
@@ -121,7 +177,83 @@ export default {
         if (activeSeason) {
             form.value.seasonId = activeSeason.id;
         }
+        await loadCurrentStageLabel();
+        await loadSnapshots();
     });
+
+    const loadSnapshots = async () => {
+      if (!form.value.seasonId) {
+        snapshots.value = [];
+        return;
+      }
+      try {
+        snapshotBusy.value = true;
+        const res = await apiService.getSeasonStageSnapshots(form.value.seasonId);
+        snapshots.value = Array.isArray(res) ? res : res?.data || [];
+      } catch (error) {
+        snapshots.value = [];
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    watch(() => form.value.seasonId, () => {
+      loadSnapshots();
+      loadCurrentStageLabel();
+    });
+
+    const loadCurrentStageLabel = async () => {
+      if (!form.value.seasonId) {
+        currentStageLabel.value = '当前阶段';
+        return;
+      }
+      try {
+        const config = await apiService.getConfig(`visualize_season_${form.value.seasonId}`);
+        const label = String(config?.standings?.currentStageLabel || '当前阶段').trim();
+        currentStageLabel.value = label || '当前阶段';
+      } catch (e) {
+        currentStageLabel.value = '当前阶段';
+      }
+    };
+
+    const createSnapshot = async () => {
+      if (!form.value.seasonId) return;
+      const name = String(currentStageLabel.value || '').trim();
+      if (!name) {
+        ElMessage.warning('请输入快照名称');
+        return;
+      }
+      snapshotBusy.value = true;
+      try {
+        await apiService.createSeasonStageSnapshot(form.value.seasonId, { name });
+        ElMessage.success('快照已保存');
+        await loadSnapshots();
+      } catch (error) {
+        ElMessage.error('保存失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    const deleteSnapshot = async (snapshotId) => {
+      snapshotBusy.value = true;
+      try {
+        await apiService.deleteSeasonStageSnapshot(snapshotId);
+        ElMessage.success('快照已删除');
+        await loadSnapshots();
+      } catch (error) {
+        ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        snapshotBusy.value = false;
+      }
+    };
+
+    const formatDateTime = (value) => {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString();
+    };
 
     const handleFileChange = (e) => {
       form.value.file = e.target.files[0];
@@ -129,6 +261,8 @@ export default {
       aiMode.value = false;
       mapping.value = null;
       previewData.value = [];
+      teamScorePreviewSummary.value = null;
+      mapPickPreviewSummary.value = null;
     };
 
     const validCount = computed(() => previewData.value.filter(item => item.status === 'valid').length);
@@ -156,6 +290,8 @@ export default {
         const response = await apiService.uploadSeasonStats(formData);
         if (response && response.preview) {
             previewData.value = response.preview;
+            teamScorePreviewSummary.value = response.teamScorePreviewSummary || null;
+            mapPickPreviewSummary.value = response.mapPickPreviewSummary || null;
             previewMode.value = true;
             ElMessage.success('普通解析成功，请确认数据');
         }
@@ -188,6 +324,8 @@ export default {
         if (response && response.preview) {
             previewData.value = response.preview;
             mapping.value = response.mapping;
+            teamScorePreviewSummary.value = response.teamScorePreviewSummary || null;
+            mapPickPreviewSummary.value = response.mapPickPreviewSummary || null;
             previewMode.value = true;
             ElMessage.success('AI 智能解析成功，请确认数据');
         }
@@ -235,6 +373,8 @@ export default {
         aiMode.value = false;
         mapping.value = null;
         previewData.value = [];
+        teamScorePreviewSummary.value = null;
+        mapPickPreviewSummary.value = null;
     };
     
     const getRoleText = (role) => {
@@ -260,7 +400,15 @@ export default {
       previewData,
       validCount,
       warningCount,
-      getRoleText
+      teamScorePreviewSummary,
+      mapPickPreviewSummary,
+      getRoleText,
+      snapshots,
+      currentStageLabel,
+      snapshotBusy,
+      createSnapshot,
+      deleteSnapshot,
+      formatDateTime
     };
   }
 };
@@ -270,33 +418,59 @@ export default {
 .upload-card {
   max-width: 800px;
   margin: 20px 0;
+  border-radius: 2px;
+  background-color: #141414;
+  border: 1px solid #2a2a2a;
 }
 .preview-card {
-    margin-top: 20px;
+  margin-top: 20px;
+  border-radius: 2px;
+  background-color: #141414;
+  border: 1px solid #2a2a2a;
 }
 .file-tip {
   font-size: 12px;
-  color: #999;
+  color: #888;
   margin-top: 5px;
 }
 .action-buttons {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ffffff;
+  font-family: 'Oxanium', sans-serif;
+  letter-spacing: 1px;
 }
 .preview-stats {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
+}
+.extra-summaries {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.summary-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
 }
 .error-text {
-    color: #F56C6C;
+  color: #f56c6c;
 }
 .detail-text {
-    color: #909399;
-    font-size: 12px;
+  color: #888;
+  font-size: 12px;
 }
 </style>

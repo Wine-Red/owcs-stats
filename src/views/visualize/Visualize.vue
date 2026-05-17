@@ -4,7 +4,7 @@
     <header class="vis-header">
       <div class="header-left">
         <div class="logo-placeholder">
-          <img :src="logoUrl" alt="OWCS Logo" class="header-logo" />
+          <img :src="logoUrl" alt="OWCS Logo" class="header-logo" width="40" height="40" />
         </div>
         <h1 class="vis-title"><span class="title-main">Overwatch</span> <span class="subtitle">电竞数据</span></h1>
       </div>
@@ -12,75 +12,161 @@
         <el-select 
           v-model="filterForm.seasonId" 
           placeholder="选择赛季" 
+          aria-label="选择赛季"
           @change="handleSeasonChange" 
           class="vis-season-select" 
+          popper-class="vis-dropdown-tabs"
           size="large"
+          @visible-change="handleDropdownVisible"
         >
-          <el-option
-            v-for="season in seasons"
-            :key="season.id"
-            :label="season.name"
-            :value="season.id"
-          />
+          <div class="stage-tabs-header">
+            <button 
+              v-for="group in groupedSeasons" 
+              :key="'tab-' + group.label"
+              class="stage-tab"
+              :class="{ active: activeStage === group.label }"
+              :aria-label="`切换到${group.label}赛段`"
+              @click.stop="activeStage = group.label"
+            >
+              {{ group.label }}
+            </button>
+          </div>
+          <template v-for="group in groupedSeasons" :key="'opt-' + group.label">
+            <el-option
+              v-for="season in group.options"
+              :key="season.id"
+              :label="season.name"
+              :value="season.id"
+              :style="{ display: activeStage === group.label ? '' : 'none' }"
+            />
+          </template>
         </el-select>
       </div>
     </header>
 
     <!-- 主内容网格 (Main Grid) -->
     <main class="vis-content">
-      <div class="vis-grid">
-        <!-- 第一行: 英雄禁用 & 地图选取 -->
-        <div class="vis-col span-6" v-if="chartConfig.heroBan">
-          <HeroBanChart :seasonId="filterForm.seasonId" />
-        </div>
-        <div class="vis-col span-6" v-if="chartConfig.mapPick">
-          <MapPickChart :seasonId="filterForm.seasonId" />
-        </div>
-
-        <!-- 第二行: 队伍数据 & 选手数据 -->
-        <!-- 
-          User requested: 
-          - TeamStatsChart (Scatter plot)
-          - PlayerStatsChart (List)
-          Let's put them full width if they need space, or side-by-side.
-          Scatter plots usually need width. Player lists need height.
-          Let's try putting TeamStats full width (span-12) and PlayerStats full width (span-12) 
-          OR split them. The previous layout had them stacked. 
-          If I split them span-6, the scatter plot might be small.
-          However, on 1920px span-6 is ~900px, which is plenty.
-          Let's try span-12 for TeamStats (Scatter) to show detail, 
-          and span-12 for PlayerStats (List).
-          Wait, the user wanted "optimize information density".
-          Maybe span-6 is better. Let's start with span-12 for better readability as per "original design" requests usually implying keeping data visible.
-          Actually, let's do span-12 for TeamStats and span-12 for PlayerStats to be safe, 
-          or span-6 if I want to be aggressive with density.
-          Let's stick to span-12 for now as they are complex charts.
-        -->
-        <div class="vis-col span-12" v-if="chartConfig.teamStats">
-          <TeamStatsChart :seasonId="filterForm.seasonId" />
-        </div>
-        <div class="vis-col span-12" v-if="chartConfig.playerStats">
-          <PlayerStatsChart :seasonId="filterForm.seasonId" />
-        </div>
-        <div class="vis-col span-6" v-if="chartConfig.playerRadar">
-          <PlayerRadarChart :seasonId="filterForm.seasonId" />
+      <div v-if="isPageLoading" class="page-loading">
+        <div class="loading-panel">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">加载中...</div>
         </div>
       </div>
+
+      <Transition name="page-fade" mode="out-in">
+        <div v-if="!isPageLoading" class="vis-body">
+          <!-- 赛事概览横幅 -->
+          <TournamentBanner 
+            :seasonId="filterForm.seasonId" 
+            :tags="seasonVisualConfig.tags" 
+            :dateRange="seasonVisualConfig.dateRange"
+          />
+
+          <!-- 即将到来的比赛 -->
+          <UpcomingMatches 
+            v-if="currentSeasonStatus !== 'completed'"
+            :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName" 
+          />
+
+          <!-- 标签页导航 -->
+          <div class="vis-tabs-container">
+            <div class="vis-tabs" role="tablist">
+              <button 
+                v-if="chartConfig.overviewTab"
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'overview' }"
+                @click="currentTab = 'overview'"
+                role="tab"
+                :aria-selected="currentTab === 'overview'"
+              >
+                赛事概览
+              </button>
+              <button 
+                v-if="chartConfig.recentTab"
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'recent' }"
+                @click="currentTab = 'recent'"
+                role="tab"
+                :aria-selected="currentTab === 'recent'"
+              >
+                比赛列表
+              </button>
+              <button 
+                v-if="chartConfig.statsTab"
+                class="vis-tab-item" 
+                :class="{ active: currentTab === 'stats' }"
+                @click="currentTab = 'stats'"
+                role="tab"
+                :aria-selected="currentTab === 'stats'"
+              >
+                赛事数据
+              </button>
+            </div>
+          </div>
+
+          <Transition name="tab-fade" mode="out-in" @after-enter="handleTabAfterEnter">
+            <div :key="currentTab" class="tab-content" style="width: 100%;">
+              <template v-if="currentTab === 'overview'">
+                <div class="vis-grid overview-section">
+                  <div class="vis-col span-12">
+                    <RegularSeasonBoard 
+                      :seasonId="filterForm.seasonId" 
+                      :matches="seasonMatches" 
+                      :mapGames="seasonMapGames" 
+                      :template="seasonVisualConfig.standings.template" 
+                      :score-stats="seasonTeamScoreStats" 
+                      :stage-overrides="seasonVisualConfig.standings.stageOverrides" 
+                      :current-stage-label="seasonVisualConfig.standings.currentStageLabel"
+                      :qualification-count="seasonVisualConfig.standings.qualificationCount"
+                    />
+                  </div>
+                </div>
+
+                <MapPool :seasonId="filterForm.seasonId" :map-ids="seasonVisualConfig.mapPool.mapIds" :map-pick-stats="seasonMapPickStats" :map-games="seasonMapGames" />
+              </template>
+              <template v-else-if="currentTab === 'recent'">
+                <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
+              </template>
+              <template v-else>
+                <div class="vis-grid">
+                  <div class="vis-col span-6" v-if="chartConfig.heroBan">
+                    <HeroBanChart :seasonId="filterForm.seasonId" />
+                  </div>
+
+                  <div class="vis-col span-12" v-if="chartConfig.teamStats">
+                    <TeamStatsChart :seasonId="filterForm.seasonId" />
+                  </div>
+                  <div class="vis-col span-12" v-if="chartConfig.playerStats">
+                    <PlayerStatsChart :seasonId="filterForm.seasonId" />
+                  </div>
+                  <div class="vis-col span-6" v-if="chartConfig.playerRadar">
+                    <PlayerRadarChart :seasonId="filterForm.seasonId" />
+                  </div>
+                </div>
+              </template>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
     </main>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, defineAsyncComponent, nextTick } from 'vue';
+import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
-import { DataAnalysis, Moon } from '@element-plus/icons-vue';
-import ScrollReveal from 'scrollreveal';
+import { trackEvent, trackPerformance } from '@/utils/analytics';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
-const MapPickChart = defineAsyncComponent(() => import('./components/MapPickChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
 const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerRadarChart.vue'));
+
+import TournamentBanner from './components/TournamentBanner.vue';
+import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
+import MapPool from './components/MapPool.vue';
+import RecentMatches from './components/RecentMatches.vue';
+import UpcomingMatches from './components/UpcomingMatches.vue';
 
 import apiService from '@/services/api';
 
@@ -88,16 +174,24 @@ export default {
   name: 'VisualizeView',
   components: {
     HeroBanChart,
-    MapPickChart,
     TeamStatsChart,
     PlayerStatsChart,
     PlayerRadarChart,
-    DataAnalysis,
-    Moon
+    TournamentBanner,
+    RegularSeasonBoard,
+    MapPool,
+    RecentMatches,
+    UpcomingMatches
   },
   setup() {
     const store = useStore();
     
+    const currentTab = ref('overview');
+
+    watch(currentTab, (newTab) => {
+      trackEvent('switch_tab', { tab: newTab });
+    });
+
     const filterForm = ref({
       seasonId: '',
       teamIds: [],
@@ -105,15 +199,159 @@ export default {
       heroIds: []
     });
 
+    const seasonMatches = ref([]);
+    const seasonMapGames = ref([]);
+    const seasonTeamScoreStats = ref([]);
+    const seasonMapPickStats = ref([]);
+    const isPageLoading = ref(true);
+
+    const handleTabAfterEnter = async () => {
+      if (currentTab.value === 'stats') {
+        await nextTick();
+        window.dispatchEvent(new Event('resize'));
+      }
+    };
+
+    const loadSeasonData = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const matchesRes = await apiService.getMatches({ seasonId, pageSize: 1000 });
+        seasonMatches.value = Array.isArray(matchesRes) ? matchesRes : matchesRes.data || matchesRes.list || [];
+        
+        const mapGamesRes = await apiService.getMapGames({ seasonId, pageSize: 1000 });
+        seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || mapGamesRes.list || [];
+      } catch (error) {
+        console.error('Failed to load season data', error);
+      }
+    };
+
+    const loadSeasonTeamsMapping = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const allSeasonTeams = await apiService.getAllSeasonTeams();
+        const seasonIdNum = Number(seasonId);
+        const filteredSeasonTeams = (allSeasonTeams || []).filter(st => Number(st.seasonId) === seasonIdNum);
+        store.commit('setSeasonTeams', filteredSeasonTeams);
+      } catch (error) {
+        console.error('Failed to load season teams mapping', error);
+        store.commit('setSeasonTeams', []);
+      }
+    };
+
+    const loadSeasonOverviewStats = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const [teamScoreRes, mapPickRes] = await Promise.all([
+          apiService.getSeasonTeamScoreStats(seasonId),
+          apiService.getSeasonMapPickStats(seasonId)
+        ]);
+        seasonTeamScoreStats.value = Array.isArray(teamScoreRes) ? teamScoreRes : teamScoreRes?.data || [];
+        seasonMapPickStats.value = Array.isArray(mapPickRes) ? mapPickRes : mapPickRes?.data || [];
+      } catch (error) {
+        console.error('Failed to load season overview stats', error);
+        seasonTeamScoreStats.value = [];
+        seasonMapPickStats.value = [];
+      }
+    };
+
+    const seasonVisualConfig = ref({
+      tags: [],
+      dateRange: '',
+      mapPool: {
+        mapIds: []
+      },
+      standings: {
+        template: 'wl_maps',
+        qualificationCount: 0
+      },
+      liquipediaTournamentName: ''
+    });
+
+    const normalizeStringArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => String(v).trim()).filter(Boolean);
+    };
+
+    const normalizeIdArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(v => Number(v)).filter(v => Number.isFinite(v));
+    };
+
+    const loadSeasonVisualConfig = async (seasonId) => {
+      if (!seasonId) return;
+      try {
+        const config = await apiService.getConfig(`visualize_season_${seasonId}`);
+        seasonVisualConfig.value = {
+          tags: normalizeStringArray(config?.tags),
+          dateRange: config?.dateRange || '',
+          mapPool: { mapIds: normalizeIdArray(config?.mapPool?.mapIds) },
+          standings: {
+            template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
+            qualificationCount: Number(config?.standings?.qualificationCount) || 0,
+            stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {},
+            currentStageLabel: String(config?.standings?.currentStageLabel || '当前阶段')
+          },
+          liquipediaTournamentName: config?.liquipediaTournamentName || ''
+        };
+      } catch (error) {
+        seasonVisualConfig.value = {
+          tags: [],
+          dateRange: '',
+          mapPool: { mapIds: [] },
+          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段', qualificationCount: 0 },
+          liquipediaTournamentName: ''
+        };
+      }
+    };
+
     const chartConfig = ref({
+      overviewTab: true,
+      recentTab: true,
+      statsTab: true,
       heroBan: true,
-      mapPick: true,
       teamStats: true,
       playerStats: true,
       playerRadar: true
     });
     
     const seasons = computed(() => store.state.seasons);
+
+    const currentSeasonStatus = computed(() => {
+      const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
+      return selectedSeason ? selectedSeason.status : 'in_progress';
+    });
+
+    const groupedSeasons = computed(() => {
+      const groups = {};
+      const ungrouped = [];
+      
+      seasons.value.forEach(season => {
+        if (season.stage) {
+          if (!groups[season.stage]) {
+            groups[season.stage] = [];
+          }
+          groups[season.stage].push(season);
+        } else {
+          ungrouped.push(season);
+        }
+      });
+      
+      const result = [];
+      
+      for (const [stage, options] of Object.entries(groups)) {
+        result.push({ label: stage, options });
+      }
+      
+      if (ungrouped.length > 0) {
+        if (result.length > 0) {
+          result.push({ label: '其他赛季', options: ungrouped });
+        } else {
+          result.push({ label: '', options: ungrouped });
+        }
+      }
+      
+      return result;
+    });
     
     // 动态计算 logo URL，确保在非根路径部署时也能正确加载
     const logoUrl = computed(() => {
@@ -123,55 +361,48 @@ export default {
       return `${baseUrl}icons/OWCS.png`;
     });
     
+    const activeStage = ref('');
+
+    const handleDropdownVisible = (visible) => {
+      if (visible) {
+        const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
+        if (selectedSeason) {
+          activeStage.value = selectedSeason.stage || '其他';
+        } else if (groupedSeasons.value.length > 0) {
+          activeStage.value = groupedSeasons.value[0].label;
+        }
+      }
+    };
+
     const handleSeasonChange = async () => {
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
+      isPageLoading.value = true;
+      const startTime = performance.now();
+      
+      trackEvent('change_season', { seasonId: filterForm.value.seasonId, stage: activeStage.value });
+
+      try {
+        await Promise.all([
+          loadSeasonData(filterForm.value.seasonId),
+          loadSeasonTeamsMapping(filterForm.value.seasonId),
+          loadSeasonVisualConfig(filterForm.value.seasonId),
+          loadSeasonOverviewStats(filterForm.value.seasonId)
+        ]);
+      } finally {
+        await nextTick();
+        isPageLoading.value = false;
+        const duration = performance.now() - startTime;
+        trackPerformance('season_data_load_duration', duration);
+      }
     };
     
     onMounted(async () => {
+      isPageLoading.value = true;
+      const startTime = performance.now();
       // 等待 Vue DOM 更新
       await nextTick();
-      
-      // 强制清理可能存在的旧实例状态，防止刷新时的状态残留
-      ScrollReveal().clean('.vis-col');
-
-      const initReveal = () => {
-        ScrollReveal().reveal('.vis-col', {
-          distance: '50px',
-          origin: 'bottom',
-          opacity: 0,
-          scale: 0.95, // 添加轻微缩放效果
-          duration: 600, // 稍微放慢动画速度
-          delay: 150, 
-          easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
-          interval: 200,
-          viewFactor: 0.1, // 降低视口触发阈值，确保在视口边缘也能触发
-          mobile: true,
-          reset: false, // 动画只播放一次
-          useDelay: 'always' // 强制每次都应用延迟，即使是刷新页面
-        });
-      };
-
-      // 确保字体加载完成后再初始化，或者最长等待 500ms
-      // 这能解决因字体加载导致的布局偏移（Layout Shift）使 ScrollReveal 计算不准的问题
-      if (document.fonts && document.fonts.ready) {
-        Promise.race([
-          document.fonts.ready,
-          new Promise(resolve => setTimeout(resolve, 500))
-        ]).then(() => {
-          setTimeout(initReveal, 200);
-        });
-      } else {
-        setTimeout(initReveal, 300);
-      }
-
-      // 兜底策略：1秒后手动触发一次滚动事件，强制 ScrollReveal 重新计算
-      // 解决移动端部分浏览器因地址栏变化或图片懒加载导致的视口判断失效
-      setTimeout(() => {
-        window.dispatchEvent(new Event('scroll'));
-        window.dispatchEvent(new Event('resize'));
-      }, 1000);
 
       // 优先从后端加载配置
       try {
@@ -195,17 +426,51 @@ export default {
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       if (inProgressSeason) {
         filterForm.value.seasonId = inProgressSeason.id;
+        activeStage.value = inProgressSeason.stage || '其他';
       } else if (seasons.value.length > 0) {
          filterForm.value.seasonId = seasons.value[0].id;
+         activeStage.value = seasons.value[0].stage || '其他';
+      }
+
+      if (filterForm.value.seasonId) {
+        try {
+          await Promise.all([
+            loadSeasonData(filterForm.value.seasonId),
+            loadSeasonTeamsMapping(filterForm.value.seasonId),
+            loadSeasonVisualConfig(filterForm.value.seasonId),
+            loadSeasonOverviewStats(filterForm.value.seasonId)
+          ]);
+        } finally {
+          await nextTick();
+          isPageLoading.value = false;
+          const duration = performance.now() - startTime;
+          trackPerformance('initial_page_load_duration', duration);
+        }
+      } else {
+        isPageLoading.value = false;
+        const duration = performance.now() - startTime;
+        trackPerformance('initial_page_load_duration', duration);
       }
     });
     
     return {
+      currentTab,
       filterForm,
+      seasonMatches,
+      seasonMapGames,
+      seasonTeamScoreStats,
+      seasonMapPickStats,
+      seasonVisualConfig,
       seasons,
+      groupedSeasons,
+      currentSeasonStatus,
+      activeStage,
+      handleDropdownVisible,
       handleSeasonChange,
       chartConfig,
-      logoUrl
+      logoUrl,
+      isPageLoading,
+      handleTabAfterEnter
     };
   }
 };
@@ -216,32 +481,82 @@ export default {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Oxanium', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   
-  /* 科技感背景设计 */
-  background-color: #f5f7fa;
-  background-image: 
-    radial-gradient(circle at 90% 10%, rgba(255, 158, 15, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 10% 90%, rgba(64, 158, 255, 0.08) 0%, transparent 60%),
-    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
-  background-attachment: fixed;
+  background-color: #fafafa;
+}
+
+/* 标签页导航样式 */
+.vis-tabs-container {
+  display: flex;
+  margin-top: 0;
+  margin-bottom: 32px;
+  width: 100%;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.vis-tabs {
+  display: flex;
+  width: 100%;
+}
+
+.vis-tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+  margin-bottom: -1px;
+  outline: none;
+}
+
+.vis-tab-item:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.4);
+}
+
+.vis-tab-item:hover {
+  color: #111;
+}
+
+.vis-tab-item.active {
+  color: #111;
+  font-weight: 600;
+  border-bottom: 2px solid #111;
+}
+
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 .vis-header {
-  background: #FFFFFF;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   height: 64px;
   padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
-  box-sizing: border-box; /* 确保 padding 包含在宽度内 */
+  box-sizing: border-box;
 }
 
 .header-left {
@@ -288,9 +603,56 @@ export default {
 }
 
 .vis-content {
-  padding: 32px;
+  padding: 48px 32px 32px;
   width: 100%;
   flex: 1;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.page-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  z-index: 10;
+}
+
+.loading-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 0, 0, 0.05);
+  border-top-color: #111;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #111;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .vis-grid {
@@ -299,9 +661,8 @@ export default {
   gap: 24px;
 }
 
-.vis-col {
-  min-height: 300px; /* 增加最小高度，防止组件未加载时高度塌缩导致 ScrollReveal 误判所有元素都在视口内 */
-  visibility: hidden; /* 初始隐藏，防止闪烁，ScrollReveal 初始化后会自动接管并显示 */
+.overview-section {
+  margin-bottom: 16px;
 }
 
 .span-6 {
@@ -320,6 +681,19 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .vis-content {
+    padding: 16px 8px;
+  }
+
+  .vis-tabs-container {
+    margin-top: -14px;
+    margin-bottom: 14px;
+  }
+
+  .overview-section {
+    margin-bottom: 10px;
+  }
+  
   .vis-header {
     padding: 0 8px; /* 减小内边距 */
     flex-direction: row;
@@ -378,4 +752,127 @@ export default {
   text-overflow: ellipsis;
 }
 
+</style>
+
+<style>
+/* 赛段切换标签下拉框样式 */
+.vis-dropdown-tabs .el-select-dropdown__list {
+  padding: 0 !important;
+  display: block !important;
+}
+
+.stage-tabs-header {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  border-bottom: 1px solid #ebeef5;
+  padding: 8px 12px 0;
+  background: #fafafa;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: 8px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.stage-tabs-header::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+.stage-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  transition: color 0.3s, border-color 0.3s;
+  white-space: nowrap;
+  margin-bottom: -1px;
+  outline: none;
+}
+
+.stage-tab:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.4);
+}
+
+.stage-tab:hover {
+  color: #000;
+}
+
+.stage-tab.active {
+  color: #000;
+  border-bottom-color: #333;
+}
+
+.vis-dropdown-tabs .el-select-dropdown__item {
+  margin: 4px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  height: 36px;
+  line-height: 36px;
+}
+
+/* 统一的可视化页面下拉菜单基础样式 */
+.vis-dropdown .el-select-dropdown__list {
+  display: grid !important;
+  grid-template-columns: 1fr; /* 默认一栏，适合赛季等短列表 */
+  gap: 4px;
+  padding: 8px !important;
+}
+
+.vis-dropdown .el-select-dropdown__item {
+  border-radius: 4px;
+  margin: 0;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  padding: 0 16px;
+  height: 36px;
+  line-height: 36px;
+}
+
+/* 针对长列表（队伍、选手）在桌面端的网格布局 */
+@media (min-width: 769px) {
+  .vis-dropdown-tabs {
+    min-width: 320px !important;
+  }
+  .vis-dropdown {
+    min-width: max-content !important;
+  }
+  .vis-dropdown-long {
+    min-width: 480px !important; /* 加宽下拉框以适应多列 */
+  }
+  .vis-dropdown-long .el-select-dropdown__list {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important; /* 桌面端三栏 */
+    gap: 8px;
+  }
+}
+
+/* 移动端行为：长列表分两栏，下拉框占满屏幕宽度 */
+@media (max-width: 768px) {
+  .vis-dropdown-tabs, .vis-dropdown, .vis-dropdown-long {
+    width: 90vw !important;
+    min-width: unset !important;
+    max-width: 90vw !important;
+    left: 5vw !important;
+    margin: 0 !important;
+  }
+  
+  .vis-dropdown .el-select-dropdown__list {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+  .vis-dropdown-long .el-select-dropdown__list {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+  }
+  
+  .vis-dropdown .el-scrollbar {
+    padding-right: 0 !important;
+  }
+}
 </style>

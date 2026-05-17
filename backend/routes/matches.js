@@ -2,8 +2,17 @@ const express = require('express');
 const router = express.Router();
 const MatchController = require('../controllers/MatchController');
 
+// 获取即将到来的比赛 (Proxy to Liquipedia)
+router.get('/upcoming', MatchController.getUpcomingMatches);
+
 // 获取所有比赛
 router.get('/', MatchController.getAll);
+
+// 从外部API同步比赛数据
+router.post('/sync-external', MatchController.syncExternalMatches);
+
+// 导出比赛数据
+router.post('/export', MatchController.exportMatches);
 
 // 获取单个比赛
 router.get('/:id', MatchController.getById);

@@ -5,14 +5,18 @@
         <el-tooltip content="展示选手五维能力图（默认显示该职责平均水平，可对比两名选手）" placement="top">
           <el-icon class="info-icon"><InfoFilled /></el-icon>
         </el-tooltip>
-        <el-button 
-          link 
-          class="export-btn" 
-          @click="handleExport"
-        >
-          <el-icon><Download /></el-icon>
-          <span class="export-text">导出</span>
-        </el-button>
+        <el-dropdown trigger="click" @command="handleExportCommand">
+          <el-button link class="export-btn">
+            <el-icon><Download /></el-icon>
+            <span class="export-text">导出</span>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="poster">导出海报</el-dropdown-item>
+              <el-dropdown-item command="transparent">导出透明图表</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </template>
       <template #extra>
         <div class="header-controls">
@@ -40,6 +44,7 @@
               placeholder="" 
               clearable
               class="player-select"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>
@@ -50,7 +55,12 @@
                 :key="player.id"
                 :label="player.name"
                 :value="player.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                  <span>{{ player.name }}</span>
+                </div>
+              </el-option>
             </el-select>
             
             <el-select 
@@ -58,6 +68,7 @@
               placeholder="" 
               clearable
               class="player-select"
+              popper-class="vis-dropdown vis-dropdown-long"
               size="small"
             >
               <template #prefix>
@@ -68,7 +79,12 @@
                 :key="player.id"
                 :label="player.name"
                 :value="player.id"
-              />
+              >
+                <div class="option-with-logo">
+                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                  <span>{{ player.name }}</span>
+                </div>
+              </el-option>
             </el-select>
           </div>
         </div>
@@ -116,10 +132,11 @@ export default {
     let myChart = null;
 
     const { showPreview, previewImage, handleExportChart } = useChartExport();
-    const handleExport = () => {
+    const handleExportCommand = (command) => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
-        handleExportChart(myChart, seasonName);
+        const isTransparent = command === 'transparent';
+        handleExportChart(myChart, seasonName, '', isTransparent);
     };
 
     // 获取当前职责的所有选手
@@ -130,7 +147,8 @@ export default {
         if (s.playerId && !uniquePlayers.has(s.playerId)) {
           uniquePlayers.set(s.playerId, {
             id: s.playerId,
-            name: s.playerName || s.player?.name || '未知选手'
+            name: s.playerName || s.player?.name || '未知选手',
+            teamLogo: s.team ? s.team.logo : null
           });
         }
       });
@@ -288,8 +306,10 @@ export default {
         // 选手1 (红)
         const p1 = getPlayerStats(player1Id.value);
         if (p1) {
+            const originalValues = dataIndex.map(key => p1[key] || 0);
             seriesData.push({
                 value: formatRadarData(p1, p1.playerName),
+                originalValues: originalValues,
                 name: p1.playerName || p1.player?.name,
                 itemStyle: { color: '#F56C6C' },
                 areaStyle: { color: 'rgba(245, 108, 108, 0.2)' }
@@ -299,13 +319,22 @@ export default {
         // 选手2 (蓝)
         const p2 = getPlayerStats(player2Id.value);
         if (p2) {
+            const originalValues = dataIndex.map(key => p2[key] || 0);
             seriesData.push({
                 value: formatRadarData(p2, p2.playerName),
+                originalValues: originalValues,
                 name: p2.playerName || p2.player?.name,
                 itemStyle: { color: '#409EFF' },
                 areaStyle: { color: 'rgba(64, 158, 255, 0.2)' }
             });
         }
+
+        // 将选手实际数值注入到 indicators 中，供 axisName formatter 使用
+        indicators.forEach((ind, index) => {
+            const key = dataIndex[index];
+            if (p1) ind.p1Val = p1[key] !== undefined ? p1[key] : 0;
+            if (p2) ind.p2Val = p2[key] !== undefined ? p2[key] : 0;
+        });
 
         const option = {
             tooltip: {
@@ -321,8 +350,27 @@ export default {
                 shape: 'polygon',
                 splitNumber: 5,
                 axisName: {
-                    color: '#606266',
-                    fontSize: 12
+                    formatter: function (value, indicator) {
+                        const p1Val = indicator.p1Val !== undefined ? indicator.p1Val : '';
+                        const p2Val = indicator.p2Val !== undefined ? indicator.p2Val : '';
+                        
+                        let text = '';
+                        if (p1Val !== '' && p2Val !== '') {
+                            text = `{p1|${p1Val}}  {p2|${p2Val}}\n{name|${value}}`;
+                        } else if (p1Val !== '') {
+                            text = `{p1|${p1Val}}\n{name|${value}}`;
+                        } else if (p2Val !== '') {
+                            text = `{p2|${p2Val}}\n{name|${value}}`;
+                        } else {
+                            text = `{name|${value}}`;
+                        }
+                        return text;
+                    },
+                    rich: {
+                        p1: { color: '#F56C6C', fontSize: 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        p2: { color: '#409EFF', fontSize: 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        name: { color: '#606266', fontSize: 12, align: 'center', padding: [2, 0, 0, 0] }
+                    }
                 },
                 splitLine: {
                     lineStyle: {
@@ -412,7 +460,7 @@ export default {
         handleRoleChange,
         showPreview,
         previewImage,
-        handleExport
+        handleExportCommand
     };
   }
 };
@@ -587,5 +635,17 @@ export default {
 /* 当单选按钮被选中时，转换为主题橙色 */
 :deep(.el-radio-button.is-active .role-icon) {
   filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+.option-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 </style>

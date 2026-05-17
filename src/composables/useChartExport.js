@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import * as echarts from 'echarts';
+import { trackEvent } from '@/utils/analytics';
 
 function drawVerticalArtisticTitle(ctx, title, rightAreaX, rightAreaY) {
     let mainText = title;
@@ -202,7 +203,7 @@ export function useChartExport() {
   const showPreview = ref(false);
   const previewImage = ref('');
 
-    const generateChartImage = async (chartInstance, seasonName = '', chartTitle = '') => {
+    const generateChartImage = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false) => {
     if (!chartInstance) return null;
 
     // 设定目标输出尺寸 1600x1200 (4:3)
@@ -245,13 +246,35 @@ export function useChartExport() {
         const radarOps = Array.isArray(options.radar) ? options.radar[0] : options.radar;
         if (radarOps) {
           radarOps.splitArea = { show: false };
-          radarOps.axisName = {
-            color: '#303133',
-            fontSize: 20,
-            fontWeight: 'bold',
-            fontFamily: '"Microsoft YaHei", sans-serif'
-          };
+          if (!radarOps.axisName) radarOps.axisName = {};
+          
+          radarOps.axisName.color = '#303133'; // 统一使用深色文字，不因为透明背景改白
+          radarOps.axisName.fontSize = 20;
+          radarOps.axisName.fontWeight = 'bold';
+          radarOps.axisName.fontFamily = '"Microsoft YaHei", sans-serif';
+
+          // 如果使用了富文本（用于显示雷达外侧数值），同时放大富文本的字体
+          if (radarOps.axisName.rich) {
+             if (radarOps.axisName.rich.p1) radarOps.axisName.rich.p1.fontSize = 18;
+             if (radarOps.axisName.rich.p2) radarOps.axisName.rich.p2.fontSize = 18;
+             if (radarOps.axisName.rich.name) {
+                 radarOps.axisName.rich.name.fontSize = 20;
+                 radarOps.axisName.rich.name.color = '#303133'; // 同样固定为深色
+             }
+          }
         }
+      }
+
+      if (options.series && options.series.length > 0) {
+        options.series.forEach(s => {
+          if (s.type === 'radar' && s.data) {
+            s.data.forEach(d => {
+              if (d.label) {
+                d.label.fontSize = 18;
+              }
+            });
+          }
+        });
       }
 
       const updateAxisStyle = (axis) => {
@@ -338,6 +361,10 @@ export function useChartExport() {
       }
     } finally {
       document.body.removeChild(offscreenDiv);
+    }
+
+    if (isTransparent) {
+      return chartDataUrl;
     }
 
     // 2. 加载资源 (Logo)
@@ -653,13 +680,15 @@ export function useChartExport() {
     return canvas.toDataURL('image/png');
   };
 
-  const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '') => {
+  const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false) => {
     try {
+      trackEvent('export_image', { type: 'chart', title: chartTitle || 'Untitled', transparent: isTransparent });
+      
       if (!chartInstance) {
         console.warn('Chart instance not found');
         return;
       }
-      const url = await generateChartImage(chartInstance, seasonName, chartTitle);
+      const url = await generateChartImage(chartInstance, seasonName, chartTitle, isTransparent);
       if (url) {
         previewImage.value = url;
         showPreview.value = true;
@@ -671,6 +700,8 @@ export function useChartExport() {
 
   const handleExportTable = async (tableTitle, columns, data, seasonName = '') => {
     try {
+      trackEvent('export_image', { type: 'table', title: tableTitle || 'Untitled' });
+      
       if (!data || data.length === 0) {
         console.warn('No table data to export');
         return;

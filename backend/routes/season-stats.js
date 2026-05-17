@@ -24,6 +24,11 @@ const upload = multer({ storage: storage });
 
 router.post('/upload', upload.single('file'), SeasonStatController.uploadSeasonStats);
 router.post('/ai-preview', upload.single('file'), SeasonStatController.previewAIStats);
+router.get('/:seasonId/stage-snapshots', SeasonStatController.listStageSnapshots);
+router.post('/:seasonId/stage-snapshots', express.json(), SeasonStatController.createStageSnapshot);
+router.delete('/stage-snapshots/:snapshotId', SeasonStatController.deleteStageSnapshot);
+router.get('/:seasonId/team-score', SeasonStatController.getSeasonTeamScoreStats);
+router.get('/:seasonId/map-picks', SeasonStatController.getSeasonMapPickStats);
 router.get('/:seasonId', SeasonStatController.getSeasonStats);
 
 module.exports = router;

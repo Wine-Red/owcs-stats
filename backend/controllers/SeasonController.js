@@ -5,6 +5,8 @@ const PlayerStat = require('../models/PlayerStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const SeasonPlayerStat = require('../models/SeasonPlayerStat');
+const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
+const SeasonMapPickStat = require('../models/SeasonMapPickStat');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -194,7 +196,17 @@ const SeasonController = {
         transaction
       });
 
-      // 2.7 删除 Season
+      // 2.7 删除赛季比分与地图选取统计（新表，依赖 Season）
+      await SeasonTeamScoreStat.destroy({
+        where: { seasonId: id },
+        transaction
+      });
+      await SeasonMapPickStat.destroy({
+        where: { seasonId: id },
+        transaction
+      });
+
+      // 2.8 删除 Season
       await season.destroy({ transaction });
 
       await transaction.commit();

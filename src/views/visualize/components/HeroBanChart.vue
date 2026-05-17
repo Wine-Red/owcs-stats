@@ -19,6 +19,7 @@ import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
+import { escapeHtml } from '@/utils/security';
 
 export default {
   name: 'HeroBanChart',
@@ -79,7 +80,7 @@ export default {
               const idx = params[0].dataIndex;
               const d = heroDataSorted[idx];
               return `
-                <div style="font-weight: 800; margin-bottom: 8px; color: #1A1A1A; font-size: 14px;">${d.heroName}</div>
+                <div style="font-weight: 800; margin-bottom: 8px; color: #1A1A1A; font-size: 14px;">${escapeHtml(d.heroName)}</div>
                 <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 4px;">
                   <span style="color: #606266;">禁用次数:</span>
                   <span style="font-weight: bold; color: #FF9E0F;">${d.banCount}</span>
@@ -236,7 +237,7 @@ export default {
     };
 
     // 监听 seasonId 变化
-    watch(() => props.seasonId, (newVal) => {
+    watch(() => props.seasonId, () => {
       // 只有在组件已挂载且图表初始化后才更新
       updateHeroBanChart();
     });

@@ -1,9 +1,10 @@
 import axios from 'axios';
+import { trackError } from '@/utils/analytics';
 
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 60000, // 增加到 60 秒以支持耗时的同步和 AI 操作
   headers: {
     'Content-Type': 'application/json'
   }
@@ -27,6 +28,11 @@ api.interceptors.response.use(
   },
   error => {
     console.error('API Error:', error);
+    if (error.config && error.config.url) {
+      trackError(`API: ${error.config.url}`, error);
+    } else {
+      trackError('API: Unknown', error);
+    }
     return Promise.reject(error);
   }
 );
@@ -71,12 +77,15 @@ const apiService = {
   deleteHero: (id) => api.delete(`/heroes/${id}`),
 
   // 比赛相关
+  getUpcomingMatches: () => api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),
   getMatchById: (id) => api.get(`/matches/${id}`),
   createMatch: (data) => api.post('/matches', data),
   updateMatch: (id, data) => api.put(`/matches/${id}`, data),
   deleteMatch: (id) => api.delete(`/matches/${id}`),
   getMatchMapGames: (matchId) => api.get(`/matches/${matchId}/map-games`),
+  syncExternalMatches: () => api.post('/matches/sync-external'),
+  exportMatches: (matchIds) => api.post('/matches/export', { matchIds }, { responseType: 'blob' }),
 
   // 地图局相关
   getMapGames: (filters) => api.get('/map-games', { params: filters }),
@@ -129,11 +138,19 @@ const apiService = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
+  getSeasonTeamScoreStats: (seasonId, params) => api.get(`/season-stats/${seasonId}/team-score`, params ? { params } : undefined),
+  getSeasonMapPickStats: (seasonId) => api.get(`/season-stats/${seasonId}/map-picks`),
+  getSeasonStageSnapshots: (seasonId) => api.get(`/season-stats/${seasonId}/stage-snapshots`),
+  createSeasonStageSnapshot: (seasonId, data) => api.post(`/season-stats/${seasonId}/stage-snapshots`, data),
+  deleteSeasonStageSnapshot: (snapshotId) => api.delete(`/season-stats/stage-snapshots/${snapshotId}`),
 
   // Config (New)
   getAllConfigs: () => api.get('/config'),
   getConfig: (key) => api.get(`/config/${key}`),
-  updateConfig: (data) => api.post('/config', data)
+  updateConfig: (data) => api.post('/config', data),
+
+  // AI Report (LangChain Agent)
+  chatWithAI: (messages, config = {}) => api.post('/ai-reports/chat', { messages }, { timeout: 120000, ...config })
 };
 
 export default apiService;

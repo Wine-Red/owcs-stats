@@ -128,10 +128,6 @@ export default {
     const validCount = computed(() => parsedDataList.value.filter(item => !item.error).length);
     const hasErrors = computed(() => parsedDataList.value.some(item => item.error));
 
-    const handleFileChange = async (file, fileList) => {
-      // We handle fileList manually
-    };
-
     // Override the default upload handler to process files one by one or in parallel
     // Element Plus upload component triggers onChange for each file
     // To handle batch selection, we can just process the current file
@@ -219,7 +215,7 @@ export default {
         });
     };
 
-    const handleFileChangeWrapper = async (uploadFile, uploadFiles) => {
+    const handleFileChangeWrapper = async (uploadFile) => {
          if (!seasonId.value) {
             ElMessage.warning('请先选择赛季');
             // Remove the file from the list to avoid confusion? 
@@ -302,22 +298,26 @@ export default {
 .upload-form {
   margin-bottom: 20px;
   padding: 20px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
+  background-color: #1a1a1a;
+  border-radius: 2px;
+  border: 1px solid #333;
 }
 
 .preview-section {
-  border: 1px solid #ebeef5;
+  border: 1px solid #333;
   padding: 20px;
-  border-radius: 4px;
+  border-radius: 2px;
+  background-color: #141414;
 }
 
 .section-title {
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
   margin: 20px 0 15px;
   padding-left: 10px;
-  border-left: 4px solid #409eff;
+  border-left: 4px solid #facc15;
+  color: #e0e0e0;
+  font-family: 'Oxanium', sans-serif;
 }
 
 .warning-alert {
@@ -341,6 +341,7 @@ export default {
 .collapse-title {
   display: flex;
   align-items: center;
+  color: #e0e0e0;
 }
 
 .error-msg {
