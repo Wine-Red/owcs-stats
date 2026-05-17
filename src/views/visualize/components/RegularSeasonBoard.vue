@@ -46,6 +46,7 @@
               <img v-if="scope.row.team.logo" :src="scope.row.team.logo" class="team-logo" />
               <div v-else class="team-logo-placeholder">{{ scope.row.team.name.charAt(0) }}</div>
               <span class="team-name">{{ scope.row.team.name }}</span>
+              <span class="team-roster-cue" aria-hidden="true">›</span>
               <span v-if="isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount" class="qualification-badge">WORLDS</span>
             </div>
           </template>
@@ -740,12 +741,25 @@ export default {
 .team-cell-clickable:hover,
 .team-cell-clickable:focus-visible {
   background: rgba(255, 158, 15, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 158, 15, 0.18);
   outline: none;
 }
 
 .team-cell-clickable:active {
   transform: translateY(1px);
+}
+
+.team-cell-clickable .team-name {
+  color: #111;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 158, 15, 0.42);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.team-cell-clickable:hover .team-name,
+.team-cell-clickable:focus-visible .team-name {
+  color: #ff6a00;
+  text-decoration-color: #ff6a00;
 }
 
 .team-logo {
@@ -777,6 +791,16 @@ export default {
   flex-shrink: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.team-roster-cue {
+  flex: 0 0 auto;
+  color: #ff8a00;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.72;
+  transform: translateY(-1px);
 }
 
 .font-mono {
@@ -1151,6 +1175,13 @@ export default {
   }
   .team-cell {
     gap: 4px;
+  }
+  .team-cell-clickable {
+    min-height: 32px;
+    padding: 4px 5px;
+  }
+  .team-roster-cue {
+    font-size: 14px;
   }
   .roster-modal-overlay {
     padding: 8px;
