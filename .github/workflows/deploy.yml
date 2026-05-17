@@ -68,4 +68,4 @@ jobs:
           script: |
             cd /www/wwwroot/owcs-stats-backend
             npm ci --omit=dev
-            /www/server/panel/pyenv/bin/supervisorctl restart owcs-stats-backend_00
+            /www/server/panel/pyenv/bin/supervisorctl restart owcs-stats-backend:owcs-stats-backend_00
