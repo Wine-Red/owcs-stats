@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install Frontend Dependencies
@@ -24,6 +24,17 @@ jobs:
 
       - name: Build Frontend
         run: npm run build
+
+      - name: Clean Frontend Dist
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            mkdir -p /www/wwwroot/owcs-stats
+            rm -rf /www/wwwroot/owcs-stats/*
 
       - name: Upload Frontend Dist
         uses: appleboy/scp-action@v0.1.7
@@ -35,7 +46,6 @@ jobs:
           source: "dist/*"
           target: "/www/wwwroot/owcs-stats"
           strip_components: 1
-          rm: true
 
       - name: Upload Backend Code
         uses: appleboy/scp-action@v0.1.7
