@@ -315,6 +315,58 @@ export default {
     });
     
     const seasons = computed(() => store.state.seasons);
+    const OTHER_STAGE_LABEL = '其他赛季';
+    const VISUALIZE_STAGE_ORDER_KEY = 'visualize_stage_season_order';
+    const visualizeSeasonOrderConfig = ref({});
+
+    const normalizeStageLabel = (stage) => {
+      const value = String(stage || '').trim();
+      return value || OTHER_STAGE_LABEL;
+    };
+
+    const normalizeSeasonOrderConfig = (rawConfig = {}, seasonList = seasons.value) => {
+      const stageToIds = new Map();
+      seasonList.forEach(season => {
+        const stage = normalizeStageLabel(season.stage);
+        if (!stageToIds.has(stage)) {
+          stageToIds.set(stage, []);
+        }
+        stageToIds.get(stage).push(Number(season.id));
+      });
+
+      const normalized = {};
+      stageToIds.forEach((ids, stage) => {
+        const allowSet = new Set(ids);
+        const configured = Array.isArray(rawConfig?.[stage])
+          ? rawConfig[stage].map(v => Number(v)).filter(id => Number.isFinite(id) && allowSet.has(id))
+          : [];
+        const configuredSet = new Set(configured);
+        const remaining = ids.filter(id => !configuredSet.has(id));
+        normalized[stage] = configured.concat(remaining);
+      });
+
+      return normalized;
+    };
+
+    const sortSeasonsByConfiguredOrder = (stage, seasonList) => {
+      const orderedIds = normalizeSeasonOrderConfig(visualizeSeasonOrderConfig.value, seasons.value)[stage] || [];
+      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+      return [...seasonList].sort((a, b) => {
+        const leftIndex = orderMap.has(Number(a.id)) ? orderMap.get(Number(a.id)) : Number.MAX_SAFE_INTEGER;
+        const rightIndex = orderMap.has(Number(b.id)) ? orderMap.get(Number(b.id)) : Number.MAX_SAFE_INTEGER;
+        if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN', { sensitivity: 'base' });
+      });
+    };
+
+    const loadVisualizeSeasonOrderConfig = async () => {
+      try {
+        const config = await apiService.getConfig(VISUALIZE_STAGE_ORDER_KEY);
+        visualizeSeasonOrderConfig.value = normalizeSeasonOrderConfig(config, seasons.value);
+      } catch (error) {
+        visualizeSeasonOrderConfig.value = normalizeSeasonOrderConfig({}, seasons.value);
+      }
+    };
 
     const currentSeasonStatus = computed(() => {
       const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
@@ -322,35 +374,20 @@ export default {
     });
 
     const groupedSeasons = computed(() => {
-      const groups = {};
-      const ungrouped = [];
-      
+      const groups = new Map();
+
       seasons.value.forEach(season => {
-        if (season.stage) {
-          if (!groups[season.stage]) {
-            groups[season.stage] = [];
-          }
-          groups[season.stage].push(season);
-        } else {
-          ungrouped.push(season);
+        const stage = normalizeStageLabel(season.stage);
+        if (!groups.has(stage)) {
+          groups.set(stage, []);
         }
+        groups.get(stage).push(season);
       });
-      
-      const result = [];
-      
-      for (const [stage, options] of Object.entries(groups)) {
-        result.push({ label: stage, options });
-      }
-      
-      if (ungrouped.length > 0) {
-        if (result.length > 0) {
-          result.push({ label: '其他赛季', options: ungrouped });
-        } else {
-          result.push({ label: '', options: ungrouped });
-        }
-      }
-      
-      return result;
+
+      return Array.from(groups.entries()).map(([stage, options]) => ({
+        label: stage,
+        options: sortSeasonsByConfiguredOrder(stage, options)
+      }));
     });
     
     // 动态计算 logo URL，确保在非根路径部署时也能正确加载
@@ -367,7 +404,7 @@ export default {
       if (visible) {
         const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
         if (selectedSeason) {
-          activeStage.value = selectedSeason.stage || '其他';
+          activeStage.value = normalizeStageLabel(selectedSeason.stage);
         } else if (groupedSeasons.value.length > 0) {
           activeStage.value = groupedSeasons.value[0].label;
         }
@@ -422,14 +459,15 @@ export default {
       }
 
       await store.dispatch('loadBaseData');
+      await loadVisualizeSeasonOrderConfig();
       
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       if (inProgressSeason) {
         filterForm.value.seasonId = inProgressSeason.id;
-        activeStage.value = inProgressSeason.stage || '其他';
+        activeStage.value = normalizeStageLabel(inProgressSeason.stage);
       } else if (seasons.value.length > 0) {
          filterForm.value.seasonId = seasons.value[0].id;
-         activeStage.value = seasons.value[0].stage || '其他';
+         activeStage.value = normalizeStageLabel(seasons.value[0].stage);
       }
 
       if (filterForm.value.seasonId) {

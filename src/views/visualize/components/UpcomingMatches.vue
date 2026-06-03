@@ -33,8 +33,7 @@
                 <!-- 队伍1 -->
                 <div class="team-side left-side">
                   <div class="team-logo-container">
-                    <img v-if="match.team1.logo" :src="match.team1.logo" class="team-logo" alt="" />
-                    <div v-else class="team-logo-placeholder">{{ match.team1.name.charAt(0) }}</div>
+                    <img :src="match.team1.logo" class="team-logo" alt="" />
                   </div>
                   <span class="team-name" :title="match.team1.name">{{ match.team1.name }}</span>
                 </div>
@@ -44,8 +43,7 @@
                 <!-- 队伍2 -->
                 <div class="team-side right-side">
                   <div class="team-logo-container">
-                    <img v-if="match.team2.logo" :src="match.team2.logo" class="team-logo" alt="" />
-                    <div v-else class="team-logo-placeholder">{{ match.team2.name.charAt(0) }}</div>
+                    <img :src="match.team2.logo" class="team-logo" alt="" />
                   </div>
                   <span class="team-name" :title="match.team2.name">{{ match.team2.name }}</span>
                 </div>
@@ -66,6 +64,7 @@ import apiService from '@/services/api';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
+const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
 // 声明一个模块级别的 Promise，用于防止多个组件实例或并发请求导致重复调用 API
 let fetchPromise = null;
@@ -96,7 +95,21 @@ export default {
       if (!props.liquipediaTournamentName) return [];
       
       const targetName = props.liquipediaTournamentName.toLowerCase();
-      return allMatches.value.filter(m => m.tournamentName.toLowerCase().includes(targetName));
+      const filtered = allMatches.value
+        .filter(m => m.tournamentName.toLowerCase().includes(targetName))
+        .slice()
+        .sort((a, b) => {
+          const left = Number.isFinite(a.timestamp) ? a.timestamp : Number.MAX_SAFE_INTEGER;
+          const right = Number.isFinite(b.timestamp) ? b.timestamp : Number.MAX_SAFE_INTEGER;
+          return left - right;
+        });
+
+      const firstTimedMatch = filtered.find(match => Number.isFinite(match.timestamp));
+      if (!firstTimedMatch) return filtered;
+
+      const windowStart = firstTimedMatch.timestamp;
+      const windowEnd = windowStart + (3 * 24 * 60 * 60 * 1000);
+      return filtered.filter(match => !Number.isFinite(match.timestamp) || (match.timestamp >= windowStart && match.timestamp <= windowEnd));
     });
 
     const isOngoing = (timestamp) => {
@@ -134,6 +147,11 @@ export default {
         });
       }
       return matchedTeam;
+    };
+
+    const normalizeTeamLogo = (logo) => {
+      const value = String(logo || '').trim();
+      return value || TBD_LOGO_URL;
     };
 
     const fetchLiquipediaMatches = async () => {
@@ -220,19 +238,17 @@ export default {
         const localTeam1 = getTeamByApiName(apiName1);
         const localTeam2 = getTeamByApiName(apiName2);
 
-        const tbdLogoUrl = 'https://owmini.xyz/images/tbd.png';
-
         parsedMatches.push({
           tournamentName,
           timestamp,
           link: 'https://liquipedia.net' + (tournamentEl.getAttribute('href') || ''),
           team1: {
             name: localTeam1 ? localTeam1.name : apiName1,
-            logo: localTeam1 ? localTeam1.logo : (apiName1 === 'TBD' ? tbdLogoUrl : null)
+            logo: normalizeTeamLogo(localTeam1?.logo)
           },
           team2: {
             name: localTeam2 ? localTeam2.name : apiName2,
-            logo: localTeam2 ? localTeam2.logo : (apiName2 === 'TBD' ? tbdLogoUrl : null)
+            logo: normalizeTeamLogo(localTeam2?.logo)
           }
         });
       });
@@ -424,19 +440,6 @@ export default {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-}
-
-.team-logo-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f0f0;
-  color: #999;
-  font-weight: bold;
-  font-size: 10px;
-  border-radius: 2px;
 }
 
 .team-name {
