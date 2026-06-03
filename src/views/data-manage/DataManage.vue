@@ -98,9 +98,44 @@
             </el-select>
           </el-form-item>
           <el-form-item label="标签">
-            <el-select v-model="seasonVisualForm.tags" multiple filterable allow-create default-first-option style="width: 100%" placeholder="输入后回车新增标签">
+            <el-select
+              v-model="seasonVisualForm.tags"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              :reserve-keyword="false"
+              style="width: 100%"
+              placeholder="输入后回车新增标签"
+            >
               <el-option v-for="tag in seasonVisualForm.tags" :key="tag" :label="tag" :value="tag" />
             </el-select>
+          </el-form-item>
+          <el-form-item label="复用其他赛季">
+            <div class="visual-copy-row">
+              <el-select
+                v-model="seasonVisualCopySourceId"
+                placeholder="选择要复用的源赛季"
+                style="width: 280px"
+                :disabled="!seasonVisualForm.seasonId"
+              >
+                <el-option
+                  v-for="season in availableVisualCopySeasons"
+                  :key="'copy-' + season.id"
+                  :label="season.name"
+                  :value="season.id"
+                />
+              </el-select>
+              <el-button
+                type="primary"
+                plain
+                :disabled="!seasonVisualForm.seasonId || !seasonVisualCopySourceId"
+                @click="copySeasonVisualBaseConfig"
+              >
+                复制标签和地图池
+              </el-button>
+            </div>
+            <div class="form-hint">只复制标签和地图池，不覆盖日期、Liquipedia 名称或积分榜配置</div>
           </el-form-item>
           <el-form-item label="比赛日期">
             <el-input v-model="seasonVisualForm.dateRange" placeholder="如：2026.03.05 - 2026.04.12" style="width: 100%" />
@@ -109,13 +144,38 @@
             <el-input v-model="seasonVisualForm.liquipediaTournamentName" placeholder="如：OWCS Korea (用于精确匹配Liquipedia Upcoming API)" style="width: 100%" />
           </el-form-item>
           <el-form-item label="地图池">
-            <el-select v-model="seasonVisualForm.mapIds" multiple filterable style="width: 100%" placeholder="选择该赛季地图池">
-              <el-option
-                v-for="map in maps"
-                :key="map.id"
-                :label="map.name"
-                :value="map.id"
-              />
+            <el-select
+              v-model="seasonVisualForm.mapIds"
+              multiple
+              filterable
+              style="width: 100%"
+              placeholder="选择该赛季地图池"
+              popper-class="map-type-dropdown"
+              @visible-change="handleMapPoolDropdownVisible"
+            >
+              <div v-if="groupedMapsForSelect.length > 0" class="map-type-tabs-header">
+                <button
+                  v-for="group in groupedMapsForSelect"
+                  :key="'map-tab-' + group.type"
+                  class="map-type-tab"
+                  :class="{ active: activeMapType === group.type }"
+                  @click.stop="activeMapType = group.type"
+                >
+                  {{ group.label }}
+                </button>
+              </div>
+              <template
+                v-for="group in groupedMapsForSelect"
+                :key="'map-group-' + group.type"
+              >
+                <el-option
+                  v-for="map in group.maps"
+                  :key="map.id"
+                  :label="map.name"
+                  :value="map.id"
+                  :style="{ display: activeMapType === group.type ? '' : 'none' }"
+                />
+              </template>
             </el-select>
           </el-form-item>
           <el-form-item label="积分榜模板">
@@ -354,44 +414,73 @@
       <el-card class="data-card list-card">
         <template #header>
           <div class="card-header">
-            <span>赛季列表</span>
-            <el-button type="primary" @click="addSeason">
-              <el-icon><Plus /></el-icon>
-              添加赛季
-            </el-button>
+            <div class="header-title-with-tabs">
+              <span>赛季列表</span>
+              <div v-if="groupedSeasonList.length > 0" class="management-tabs-header management-tabs-inline">
+                <button
+                  v-for="group in groupedSeasonList"
+                  :key="'season-tab-' + group.stage"
+                  class="management-tab"
+                  :class="{ active: activeSeasonStage === group.stage }"
+                  @click="activeSeasonStage = group.stage"
+                >
+                  {{ group.stage }}
+                  <span class="management-tab-count">{{ group.seasons.length }}</span>
+                </button>
+              </div>
+            </div>
+            <div class="header-actions">
+              <el-button type="primary" plain :loading="seasonOrderSaving" @click="saveVisualizeSeasonOrderConfig">
+                保存可视化顺序
+              </el-button>
+              <el-button type="primary" @click="addSeason">
+                <el-icon><Plus /></el-icon>
+                添加赛季
+              </el-button>
+            </div>
           </div>
         </template>
-        <el-table
-          v-loading="loading"
-          :data="seasons"
-          style="width: 100%"
-          border
-        >
-          <el-table-column prop="name" label="赛季名称" width="200" />
-          <el-table-column prop="externalEventName" label="外部事件关联名" width="200" />
-          <el-table-column prop="stage" label="所属赛段" width="150" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="scope">
-              <el-tag :type="scope.row.status === 'in_progress' ? 'success' : 'info'">
-                {{ scope.row.status === 'in_progress' ? '进行中' : '已完成' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="primary" size="small" @click="editSeason(scope.row)">
-                  <el-icon><Edit /></el-icon>
-                  <span v-if="!isMobile">编辑</span>
-                </el-button>
-                <el-button type="danger" size="small" @click="deleteSeason(scope.row.id)">
-                  <el-icon><Delete /></el-icon>
-                  <span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="grouped-section-list" v-loading="loading">
+          <el-table
+            v-if="currentSeasonGroup"
+            :data="currentSeasonGroup.seasons"
+            style="width: 100%"
+            border
+          >
+            <el-table-column prop="name" label="赛季名称" min-width="220" />
+            <el-table-column prop="externalEventName" label="外部事件关联名" min-width="220" />
+            <el-table-column prop="stage" label="所属赛段" width="150" />
+            <el-table-column label="可视化顺序" width="180" align="center">
+              <template #default="scope">
+                <div class="inline-order-actions">
+                  <el-button size="small" @click="moveSeasonOrder(currentSeasonGroup.stage, scope.$index, -1)" :disabled="scope.$index === 0">上移</el-button>
+                  <el-button size="small" @click="moveSeasonOrder(currentSeasonGroup.stage, scope.$index, 1)" :disabled="scope.$index === currentSeasonGroup.seasons.length - 1">下移</el-button>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="scope">
+                <el-tag :type="scope.row.status === 'in_progress' ? 'success' : 'info'">
+                  {{ scope.row.status === 'in_progress' ? '进行中' : '已完成' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
+              <template #default="scope">
+                <div class="action-buttons">
+                  <el-button type="primary" size="small" @click="editSeason(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                    <span v-if="!isMobile">编辑</span>
+                  </el-button>
+                  <el-button type="danger" size="small" @click="deleteSeason(scope.row.id)">
+                    <el-icon><Delete /></el-icon>
+                    <span v-if="!isMobile">删除</span>
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-card>
     </div>
 
@@ -400,35 +489,52 @@
       <el-card class="data-card list-card">
         <template #header>
           <div class="card-header">
-            <span>队伍列表</span>
+            <div class="header-title-with-tabs">
+              <span>队伍列表</span>
+              <div v-if="groupedTeamsByRegion.length > 0" class="management-tabs-header management-tabs-inline">
+                <button
+                  v-for="group in groupedTeamsByRegion"
+                  :key="'team-tab-' + group.key"
+                  class="management-tab"
+                  :class="{ active: activeTeamRegion === group.key }"
+                  @click="activeTeamRegion = group.key"
+                >
+                  {{ group.label }}
+                  <span class="management-tab-count">{{ group.teams.length }}</span>
+                </button>
+              </div>
+            </div>
             <el-button type="primary" @click="addTeam">
               <el-icon><Plus /></el-icon>
               添加队伍
             </el-button>
           </div>
         </template>
-        <el-table
-          v-loading="loading"
-          :data="teams"
-          style="width: 100%"
-          border
-        >
-          <el-table-column prop="name" label="队伍名称" min-width="200" />
-          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="primary" size="small" @click="editTeam(scope.row)">
-                  <el-icon><Edit /></el-icon>
-                  <span v-if="!isMobile">编辑</span>
-                </el-button>
-                <el-button type="danger" size="small" @click="deleteTeam(scope.row.id)">
-                  <el-icon><Delete /></el-icon>
-                  <span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="grouped-section-list" v-loading="loading">
+          <el-table
+            v-if="currentTeamRegionGroup"
+            :data="currentTeamRegionGroup.teams"
+            style="width: 100%"
+            border
+          >
+            <el-table-column prop="name" label="队伍名称" min-width="220" />
+            <el-table-column prop="region" label="地区" width="160" />
+            <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
+              <template #default="scope">
+                <div class="action-buttons">
+                  <el-button type="primary" size="small" @click="editTeam(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                    <span v-if="!isMobile">编辑</span>
+                  </el-button>
+                  <el-button type="danger" size="small" @click="deleteTeam(scope.row.id)">
+                    <el-icon><Delete /></el-icon>
+                    <span v-if="!isMobile">删除</span>
+                  </el-button>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-card>
     </div>
 
@@ -1269,6 +1375,11 @@ export default {
       stageOverrides: {}
     });
 
+    const OTHER_STAGE_LABEL = '其他赛季';
+    const UNGROUPED_REGION_LABEL = '未分区';
+    const VISUALIZE_STAGE_ORDER_KEY = 'visualize_stage_season_order';
+    const MAP_TYPE_ORDER = ['占领要点', '运载目标', '攻击/护送', '机动推进', '闪点作战'];
+
     const buildSeasonVisualKey = (seasonId) => `visualize_season_${seasonId}`;
 
     const normalizeStringArray = (arr) => {
@@ -1279,6 +1390,16 @@ export default {
     const normalizeIdArray = (arr) => {
       if (!Array.isArray(arr)) return [];
       return arr.map(v => Number(v)).filter(v => Number.isFinite(v));
+    };
+
+    const normalizeStageLabel = (stage) => {
+      const value = String(stage || '').trim();
+      return value || OTHER_STAGE_LABEL;
+    };
+
+    const normalizeRegionLabel = (region) => {
+      const value = String(region || '').trim();
+      return value || UNGROUPED_REGION_LABEL;
     };
 
     const stageSnapshots = ref([]);
@@ -1453,6 +1574,32 @@ export default {
         ElMessage.error('保存配置失败');
       }
     };
+
+    const seasonVisualCopySourceId = ref('');
+    const activeMapType = ref('');
+    const activeSeasonStage = ref('');
+    const activeTeamRegion = ref('');
+
+    const availableVisualCopySeasons = computed(() => {
+      const currentSeasonId = Number(seasonVisualForm.value.seasonId);
+      return seasons.value.filter(season => Number(season.id) !== currentSeasonId);
+    });
+
+    const copySeasonVisualBaseConfig = async () => {
+      if (!seasonVisualForm.value.seasonId || !seasonVisualCopySourceId.value) {
+        ElMessage.warning('请先选择当前赛季和源赛季');
+        return;
+      }
+      try {
+        const config = await apiService.getConfig(buildSeasonVisualKey(seasonVisualCopySourceId.value));
+        seasonVisualForm.value.tags = normalizeStringArray(config?.tags);
+        seasonVisualForm.value.mapIds = normalizeIdArray(config?.mapPool?.mapIds);
+        ElMessage.success('已复制标签和地图池，请点击保存配置完成落库');
+      } catch (error) {
+        console.error('复制赛季可视化配置失败:', error);
+        ElMessage.error('复制失败');
+      }
+    };
     
     // ==========================================
     // 队伍名称映射配置逻辑
@@ -1563,6 +1710,160 @@ export default {
     const players = computed(() => store.state.players);
     const seasonTeams = computed(() => store.state.seasonTeams);
     const seasonTeamPlayers = computed(() => store.state.seasonTeamPlayers);
+    const visualizeSeasonOrderConfig = ref({});
+    const seasonOrderSaving = ref(false);
+
+    const sortText = (left, right) => String(left || '').localeCompare(String(right || ''), 'zh-CN', { sensitivity: 'base' });
+
+    const sanitizeSeasonOrderConfig = (rawConfig = {}, seasonList = seasons.value) => {
+      const stageToIds = new Map();
+      seasonList.forEach(season => {
+        const stage = normalizeStageLabel(season.stage);
+        if (!stageToIds.has(stage)) {
+          stageToIds.set(stage, []);
+        }
+        stageToIds.get(stage).push(Number(season.id));
+      });
+
+      const sanitized = {};
+      stageToIds.forEach((ids, stage) => {
+        const allowSet = new Set(ids);
+        const configured = normalizeIdArray(rawConfig?.[stage]).filter(id => allowSet.has(id));
+        const configuredSet = new Set(configured);
+        const remaining = ids.filter(id => !configuredSet.has(id));
+        sanitized[stage] = configured.concat(remaining);
+      });
+
+      return sanitized;
+    };
+
+    const getOrderedSeasonsForStage = (stage, seasonList) => {
+      const orderIds = sanitizeSeasonOrderConfig(visualizeSeasonOrderConfig.value, seasons.value)[stage] || [];
+      const orderMap = new Map(orderIds.map((id, index) => [id, index]));
+      return [...seasonList].sort((a, b) => {
+        const leftIndex = orderMap.has(Number(a.id)) ? orderMap.get(Number(a.id)) : Number.MAX_SAFE_INTEGER;
+        const rightIndex = orderMap.has(Number(b.id)) ? orderMap.get(Number(b.id)) : Number.MAX_SAFE_INTEGER;
+        if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+        return sortText(a.name, b.name);
+      });
+    };
+
+    const groupedSeasonList = computed(() => {
+      const groups = new Map();
+      seasons.value.forEach(season => {
+        const stage = normalizeStageLabel(season.stage);
+        if (!groups.has(stage)) {
+          groups.set(stage, []);
+        }
+        groups.get(stage).push(season);
+      });
+
+      return Array.from(groups.entries()).map(([stage, seasonList]) => ({
+        stage,
+        seasons: getOrderedSeasonsForStage(stage, seasonList)
+      }));
+    });
+
+    const currentSeasonGroup = computed(() => {
+      return groupedSeasonList.value.find(group => group.stage === activeSeasonStage.value) || groupedSeasonList.value[0] || null;
+    });
+
+    const loadVisualizeSeasonOrderConfig = async () => {
+      try {
+        const config = await apiService.getConfig(VISUALIZE_STAGE_ORDER_KEY);
+        visualizeSeasonOrderConfig.value = sanitizeSeasonOrderConfig(config, seasons.value);
+      } catch (error) {
+        visualizeSeasonOrderConfig.value = sanitizeSeasonOrderConfig({}, seasons.value);
+      }
+    };
+
+    const moveSeasonOrder = (stage, index, delta) => {
+      const group = groupedSeasonList.value.find(item => item.stage === stage);
+      if (!group) return;
+      const ids = group.seasons.map(season => Number(season.id));
+      const nextIndex = index + delta;
+      if (nextIndex < 0 || nextIndex >= ids.length) return;
+      const swapped = ids.slice();
+      const temp = swapped[index];
+      swapped[index] = swapped[nextIndex];
+      swapped[nextIndex] = temp;
+      visualizeSeasonOrderConfig.value = {
+        ...visualizeSeasonOrderConfig.value,
+        [stage]: swapped
+      };
+    };
+
+    const saveVisualizeSeasonOrderConfig = async () => {
+      seasonOrderSaving.value = true;
+      try {
+        const value = sanitizeSeasonOrderConfig(visualizeSeasonOrderConfig.value, seasons.value);
+        await apiService.updateConfig({
+          key: VISUALIZE_STAGE_ORDER_KEY,
+          value,
+          description: '可视化页赛段内赛季显示顺序'
+        });
+        visualizeSeasonOrderConfig.value = value;
+        ElMessage.success('可视化赛季顺序已保存');
+      } catch (error) {
+        console.error('保存赛季顺序配置失败:', error);
+        ElMessage.error('保存顺序失败');
+      } finally {
+        seasonOrderSaving.value = false;
+      }
+    };
+
+    const groupedTeamsByRegion = computed(() => {
+      const groups = new Map();
+      teams.value.forEach(team => {
+        const label = normalizeRegionLabel(team.region);
+        const key = label === UNGROUPED_REGION_LABEL ? '__ungrouped__' : label.toLowerCase();
+        if (!groups.has(key)) {
+          groups.set(key, {
+            key,
+            label,
+            teams: []
+          });
+        }
+        groups.get(key).teams.push(team);
+      });
+
+      return Array.from(groups.values())
+        .map(group => ({
+          ...group,
+          teams: [...group.teams].sort((a, b) => sortText(a.name, b.name))
+        }))
+        .sort((a, b) => {
+          if (a.label === UNGROUPED_REGION_LABEL) return 1;
+          if (b.label === UNGROUPED_REGION_LABEL) return -1;
+          return sortText(a.label, b.label);
+        });
+    });
+
+    const currentTeamRegionGroup = computed(() => {
+      return groupedTeamsByRegion.value.find(group => group.key === activeTeamRegion.value) || groupedTeamsByRegion.value[0] || null;
+    });
+
+    watch(groupedSeasonList, (groups) => {
+      if (!groups.length) {
+        activeSeasonStage.value = '';
+        return;
+      }
+      const exists = groups.some(group => group.stage === activeSeasonStage.value);
+      if (!exists) {
+        activeSeasonStage.value = groups[0].stage;
+      }
+    }, { immediate: true });
+
+    watch(groupedTeamsByRegion, (groups) => {
+      if (!groups.length) {
+        activeTeamRegion.value = '';
+        return;
+      }
+      const exists = groups.some(group => group.key === activeTeamRegion.value);
+      if (!exists) {
+        activeTeamRegion.value = groups[0].key;
+      }
+    }, { immediate: true });
 
     const availableTeams = computed(() => {
       if (!editForm.value.seasonId) return teams.value;
@@ -1628,6 +1929,36 @@ export default {
 
     const maps = computed(() => store.state.maps);
     const heroes = computed(() => store.state.heroes);
+    const groupedMapsForSelect = computed(() => {
+      const grouped = new Map(MAP_TYPE_ORDER.map(type => [type, []]));
+      maps.value.forEach(map => {
+        const type = String(map.type || '').trim();
+        if (!grouped.has(type)) {
+          grouped.set(type, []);
+        }
+        grouped.get(type).push(map);
+      });
+
+      return Array.from(grouped.entries())
+        .map(([type, list]) => ({
+          type,
+          label: type,
+          maps: [...list].sort((a, b) => sortText(a.name, b.name))
+        }))
+        .filter(group => group.maps.length > 0);
+    });
+
+    const handleMapPoolDropdownVisible = (visible) => {
+      if (!visible) return;
+      if (!groupedMapsForSelect.value.length) {
+        activeMapType.value = '';
+        return;
+      }
+      const currentTypeExists = groupedMapsForSelect.value.some(group => group.type === activeMapType.value);
+      if (!currentTypeExists) {
+        activeMapType.value = groupedMapsForSelect.value[0].type;
+      }
+    };
 
     const mapGameEditDialogVisible = ref(false);
     const mapGameEditTab = ref('0');
@@ -2612,6 +2943,7 @@ export default {
     onMounted(async () => {
       await store.dispatch('loadBaseData');
       matchFilterTeams.value = teams.value;
+      await loadVisualizeSeasonOrderConfig();
       loadMatches();
       loadChartConfig();
       
@@ -2708,14 +3040,29 @@ export default {
       chartConfig,
       saveChartConfig,
       seasonVisualForm,
+      seasonVisualCopySourceId,
+      activeMapType,
+      availableVisualCopySeasons,
       loadSeasonVisualConfig,
       saveSeasonVisualConfig,
+      copySeasonVisualBaseConfig,
       stageSegments,
       seasonVisualTeams,
       getStageOverride,
       handleOrderedTeamIdsChange,
       moveOrderedTeam,
       removeOrderedTeam,
+      groupedMapsForSelect,
+      handleMapPoolDropdownVisible,
+      groupedSeasonList,
+      currentSeasonGroup,
+      activeSeasonStage,
+      groupedTeamsByRegion,
+      currentTeamRegionGroup,
+      activeTeamRegion,
+      moveSeasonOrder,
+      saveVisualizeSeasonOrderConfig,
+      seasonOrderSaving,
 
       teamNameMappingList,
       loadTeamNameMapping,
@@ -2756,6 +3103,57 @@ export default {
   font-size: 13px;
   color: #67c23a;
   font-weight: bold;
+}
+
+.visual-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.form-hint {
+  margin-top: 8px;
+  color: #888;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.map-type-tabs-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid #2a2a2a;
+  margin-bottom: 4px;
+  background: #181818;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.map-type-tab {
+  border: 1px solid #3a3a3a;
+  background: #111;
+  color: #cfcfcf;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.map-type-tab:hover {
+  border-color: #facc15;
+  color: #fff;
+}
+
+.map-type-tab.active {
+  background: #facc15;
+  border-color: #facc15;
+  color: #111;
+  font-weight: 600;
 }
 
 .chart-config-form {
@@ -2858,6 +3256,86 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.grouped-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0;
+}
+
+.management-tabs-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 20px 24px 12px;
+}
+
+.header-title-with-tabs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1;
+}
+
+.management-tabs-inline {
+  padding: 0;
+  flex: 1;
+}
+
+.management-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #3a3a3a;
+  background: #111;
+  color: #d4d4d4;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.management-tab:hover {
+  border-color: #facc15;
+  color: #fff;
+}
+
+.management-tab.active {
+  background: #facc15;
+  border-color: #facc15;
+  color: #111;
+  font-weight: 600;
+}
+
+.management-tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.management-tab.active .management-tab-count {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.inline-order-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.grouped-section-list :deep(.el-table) {
+  margin-top: 0;
 }
 
 /* 新的选手数据表格样式 */

@@ -12,8 +12,7 @@
                 <div class="team-side left-side">
                   <span class="team-name" :class="{'winner-name': match.winnerId === match.team1Id}">{{ getTeamName(match.team1Id) }}</span>
                   <div class="team-logo-container">
-                    <img v-if="getTeamLogo(match.team1Id)" :src="getTeamLogo(match.team1Id)" class="team-logo" alt="" />
-                    <div v-else class="team-logo-placeholder">{{ getTeamName(match.team1Id)?.charAt(0) || 'T' }}</div>
+                    <img :src="getTeamLogo(match.team1Id)" class="team-logo" alt="" />
                   </div>
                 </div>
                 
@@ -32,8 +31,7 @@
                 <!-- 右侧队伍 -->
                 <div class="team-side right-side">
                   <div class="team-logo-container">
-                    <img v-if="getTeamLogo(match.team2Id)" :src="getTeamLogo(match.team2Id)" class="team-logo" alt="" />
-                    <div v-else class="team-logo-placeholder">{{ getTeamName(match.team2Id)?.charAt(0) || 'T' }}</div>
+                    <img :src="getTeamLogo(match.team2Id)" class="team-logo" alt="" />
                   </div>
                   <span class="team-name" :class="{'winner-name': match.winnerId === match.team2Id}">{{ getTeamName(match.team2Id) }}</span>
                 </div>
@@ -96,7 +94,7 @@
           <!-- Team 1 -->
           <div class="modal-team left">
             <span class="modal-team-name">{{ getTeamName(selectedMatch.team1Id) }}</span>
-            <img v-if="getTeamLogo(selectedMatch.team1Id)" :src="getTeamLogo(selectedMatch.team1Id)" class="modal-team-logo" alt="" />
+            <img :src="getTeamLogo(selectedMatch.team1Id)" class="modal-team-logo" alt="" />
           </div>
           <!-- Score -->
           <div class="modal-score">
@@ -106,7 +104,7 @@
           </div>
           <!-- Team 2 -->
           <div class="modal-team right">
-            <img v-if="getTeamLogo(selectedMatch.team2Id)" :src="getTeamLogo(selectedMatch.team2Id)" class="modal-team-logo" alt="" />
+            <img :src="getTeamLogo(selectedMatch.team2Id)" class="modal-team-logo" alt="" />
             <span class="modal-team-name">{{ getTeamName(selectedMatch.team2Id) }}</span>
           </div>
         </div>
@@ -166,8 +164,7 @@
               <div v-if="activeTab === 'overall'" class="overall-stats-container">
                 <div class="overall-team-section" v-for="(teamPlayers, index) in [overallStats.team1, overallStats.team2]" :key="index">
                   <div class="overall-team-header" :class="index === 0 ? 'team1-header' : 'team2-header'">
-                    <img v-if="getTeamLogo(index === 0 ? selectedMatch.team1Id : selectedMatch.team2Id)" 
-                         :src="getTeamLogo(index === 0 ? selectedMatch.team1Id : selectedMatch.team2Id)" 
+                    <img :src="getTeamLogo(index === 0 ? selectedMatch.team1Id : selectedMatch.team2Id)" 
                          class="overall-team-logo" alt="" />
                     <span>{{ index === 0 ? getTeamName(selectedMatch.team1Id) : getTeamName(selectedMatch.team2Id) }}</span>
                   </div>
@@ -296,6 +293,8 @@ import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
 
+const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+
 export default {
   name: 'RecentMatches',
   components: {
@@ -409,7 +408,8 @@ export default {
 
     const getTeamLogo = (teamId) => {
       const team = store.state.teams.find(t => t.id === teamId);
-      return team ? team.logo : null;
+      const logo = String(team?.logo || '').trim();
+      return logo || TBD_LOGO_URL;
     };
 
     const getMapName = (mapId) => {

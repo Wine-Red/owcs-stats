@@ -43,8 +43,7 @@
               @keydown.enter.prevent="openTeamRoster(scope.row)"
               @keydown.space.prevent="openTeamRoster(scope.row)"
             >
-              <img v-if="scope.row.team.logo" :src="scope.row.team.logo" class="team-logo" />
-              <div v-else class="team-logo-placeholder">{{ scope.row.team.name.charAt(0) }}</div>
+              <img :src="getTeamLogo(scope.row.team)" class="team-logo" />
               <span class="team-name">{{ scope.row.team.name }}</span>
               <span class="team-roster-cue" aria-hidden="true">›</span>
               <span v-if="isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount" class="qualification-badge">WORLDS</span>
@@ -83,8 +82,7 @@
 
           <div class="roster-dialog-header">
             <div class="roster-team-identity">
-              <img v-if="selectedTeam?.logo" :src="selectedTeam.logo" class="roster-team-logo" />
-              <div v-else class="roster-team-logo roster-team-logo-placeholder">{{ selectedTeamInitial }}</div>
+              <img :src="getTeamLogo(selectedTeam)" class="roster-team-logo" />
               <div class="roster-title-block">
                 <div class="roster-eyebrow">当前赛季阵容</div>
                 <div class="roster-team-name">{{ selectedTeam?.name || '队伍阵容' }}</div>
@@ -130,6 +128,8 @@
 import { computed, ref, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import apiService from '@/services/api';
+
+const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
 export default {
   name: 'RegularSeasonBoard',
@@ -482,9 +482,10 @@ export default {
       return 'text-neutral';
     };
 
-    const selectedTeamInitial = computed(() => {
-      return selectedTeam.value?.name ? selectedTeam.value.name.charAt(0) : '';
-    });
+    const getTeamLogo = (team) => {
+      const logo = String(team?.logo || '').trim();
+      return logo || TBD_LOGO_URL;
+    };
 
     const normalizeApiList = (res) => {
       return Array.isArray(res) ? res : res?.data || res?.list || [];
@@ -639,11 +640,11 @@ export default {
       isCurrentStage,
       rosterDialogVisible,
       selectedTeam,
-      selectedTeamInitial,
       rosterPlayers,
       rosterLoading,
       rosterError,
       rosterGroups,
+      getTeamLogo,
       openTeamRoster,
       closeTeamRoster,
       formatGameTime,
