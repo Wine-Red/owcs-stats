@@ -634,7 +634,7 @@ export default {
 }
 
 .vis-title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Oxanium', sans-serif;
   font-size: 28px;
   font-weight: 800;
   color: #1A1A1A;
