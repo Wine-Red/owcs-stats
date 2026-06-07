@@ -193,7 +193,7 @@
           
           <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
         </el-table>
-        
+
         <div class="leaderboard-footer" v-if="playerLeaderboardData.length > 3">
           <el-button link type="primary" @click="isExpanded = !isExpanded">
             {{ isExpanded ? '收起全部' : '查看全部' }}
@@ -718,14 +718,14 @@ export default {
               query: { maxWidth: 768 },
               option: {
                 grid: {
-                   top: '15%',
-                   left: '8%',
-                   right: '8%',
+                   top: '14%',
+                   left: '9%',
+                   right: '6%',
                    bottom: '10%',
                    containLabel: true
                 },
                 xAxis: {
-                   nameGap: 25,
+                   nameGap: 18,
                    splitNumber: 3,
                    axisLabel: {
                       rotate: 0,
@@ -931,6 +931,20 @@ export default {
 </script>
 
 <style scoped>
+.vis-card {
+  height: auto;
+  display: block;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.vis-card:hover {
+  box-shadow: none;
+}
+
 /* 确保固定列有不透明背景 */
 :deep(.el-table .el-table__cell.is-fixed),
 :deep(.el-table .el-table__fixed-right-patch),
@@ -1242,5 +1256,254 @@ export default {
   width: 20px;
   height: 20px;
   object-fit: contain;
+}
+
+.leaderboard-section {
+  min-width: 0;
+  margin-top: 0;
+  padding: 4px 0 0 28px;
+  background: transparent;
+  border-top: 0;
+  border-left: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: none;
+}
+
+.leaderboard-header {
+  margin-bottom: 12px;
+  padding-left: 0;
+}
+
+.leaderboard-header::before {
+  display: none;
+}
+
+.leaderboard-title {
+  color: #111;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.export-btn-small,
+.export-btn {
+  color: #68707d;
+  font-size: 13px;
+}
+
+.export-btn-small:hover,
+.export-btn:hover,
+.info-icon:hover {
+  color: #ff8a00;
+}
+
+.info-icon {
+  color: #8a8f98;
+  font-size: 17px;
+}
+
+.card-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.86fr);
+  gap: 32px;
+  align-items: start;
+  padding: 0;
+}
+
+.chart-container {
+  position: relative;
+  height: 420px;
+  min-height: 360px;
+}
+
+.custom-select-label {
+  color: #69707d;
+  font-weight: 600;
+}
+
+.header-controls :deep(.el-radio-group) {
+  padding: 2px !important;
+  background: #f1f2f4 !important;
+  border: 1px solid rgba(17, 17, 17, 0.08) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.header-controls :deep(.el-radio-button__inner) {
+  color: #69707d !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.header-controls :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  color: #111 !important;
+  background: #fff !important;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.header-controls :deep(.el-select .el-input__wrapper) {
+  padding: 2px 10px !important;
+  background: #fff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.08) inset !important;
+}
+
+.header-controls :deep(.el-select .el-input__wrapper:hover),
+.header-controls :deep(.el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px rgba(255, 138, 0, 0.55) inset !important;
+}
+
+.header-controls :deep(.el-input__inner),
+.header-controls :deep(.el-input__suffix .el-icon) {
+  color: #303133 !important;
+  text-shadow: none;
+}
+
+.role-icon {
+  opacity: 0.82;
+  filter: grayscale(1) contrast(0.35);
+}
+
+:deep(.el-radio-button.is-active .role-icon) {
+  opacity: 1;
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+.leaderboard-section :deep(.el-table) {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: rgba(17, 17, 17, 0.035);
+  background: transparent;
+  border-top: 1px solid rgba(17, 17, 17, 0.06);
+}
+
+.leaderboard-section :deep(.el-table::before) {
+  background-color: rgba(17, 17, 17, 0.06);
+}
+
+.leaderboard-section :deep(.el-table th.el-table__cell) {
+  color: #7a7f89;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fafafa !important;
+}
+
+.leaderboard-section :deep(.el-table__header-wrapper),
+.leaderboard-section :deep(.el-table__fixed-header-wrapper),
+.leaderboard-section :deep(.el-table__header),
+.leaderboard-section :deep(.el-table__header tr),
+.leaderboard-section :deep(.el-table__header th.el-table__cell),
+.leaderboard-section :deep(.el-table__header th.el-table__cell.is-fixed),
+.leaderboard-section :deep(.el-table__fixed-right-patch),
+.leaderboard-section :deep(.el-table__cell.gutter) {
+  background-color: #fafafa !important;
+  background-image: none !important;
+}
+
+.leaderboard-section :deep(.el-table__header th.el-table-fixed-column--left.is-last-column::before),
+.leaderboard-section :deep(.el-table__header th.el-table-fixed-column--right.is-first-column::before) {
+  background: transparent !important;
+}
+
+.leaderboard-section :deep(.el-table td.el-table__cell) {
+  background: transparent;
+}
+
+:deep(.el-table .el-table__cell.is-fixed),
+:deep(.el-table .el-table__fixed-right-patch),
+:deep(.el-table__body tr > td:first-child),
+:deep(.el-table__body tr > td:nth-child(2)) {
+  background-color: #fafafa !important;
+}
+
+:deep(.el-table__body tr.top-rank-row > td.el-table__cell),
+:deep(.el-table__body tr.top-rank-row.hover-row > td.el-table__cell),
+:deep(.el-table__body tr.top-rank-row:hover > td.el-table__cell) {
+  background-color: #fff2df !important;
+  background-image: none !important;
+}
+
+:deep(.el-table__body tr.top-rank-row > td.el-table__cell .cell) {
+  background-color: transparent !important;
+}
+
+:deep(.el-table__body tr.top-rank-row > td.el-table-fixed-column--left.is-last-column::before),
+:deep(.el-table__body tr.top-rank-row > td.el-table-fixed-column--right.is-first-column::before) {
+  background: transparent !important;
+}
+
+@media (max-width: 1200px) {
+  .card-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .leaderboard-section {
+    padding: 22px 0 0;
+    border-top: 1px solid rgba(17, 17, 17, 0.08);
+    border-left: 0;
+  }
+
+}
+
+@media (max-width: 768px) {
+  .card-content {
+    padding: 0;
+  }
+
+  .chart-container {
+    height: 270px;
+    min-height: 250px;
+  }
+
+  .header-controls {
+    width: 100%;
+    margin-top: 0;
+    gap: 8px;
+  }
+
+  .role-radio-group,
+  .select-wrapper,
+  .player-select-input {
+    width: 100%;
+  }
+
+  .header-controls :deep(.el-select .el-input__wrapper) {
+    min-height: 36px !important;
+    border-radius: 8px !important;
+  }
+
+  .card-content {
+    gap: 16px;
+  }
+
+  .leaderboard-section {
+    padding-top: 16px;
+  }
+
+  .leaderboard-header {
+    min-height: 32px;
+    margin-bottom: 8px;
+  }
+
+  .leaderboard-title {
+    font-size: 18px;
+  }
+
+  .leaderboard-footer {
+    margin-top: 8px;
+  }
+
+  .player-cell {
+    gap: 6px;
+  }
+
+  .team-logo-small {
+    width: 18px;
+    height: 18px;
+  }
+
 }
 </style>

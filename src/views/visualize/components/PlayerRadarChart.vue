@@ -336,6 +336,8 @@ export default {
             if (p2) ind.p2Val = p2[key] !== undefined ? p2[key] : 0;
         });
 
+        const isMobile = window.innerWidth <= 768;
+
         const option = {
             tooltip: {
                 trigger: 'item',
@@ -343,12 +345,19 @@ export default {
             },
             legend: {
                 bottom: 0,
+                itemWidth: isMobile ? 12 : 16,
+                itemHeight: isMobile ? 8 : 10,
+                textStyle: {
+                    fontSize: isMobile ? 11 : 12
+                },
                 data: seriesData.map(s => s.name)
             },
             radar: {
                 indicator: indicators,
                 shape: 'polygon',
                 splitNumber: 5,
+                center: ['50%', isMobile ? '47%' : '50%'],
+                radius: isMobile ? '52%' : '60%',
                 axisName: {
                     formatter: function (value, indicator) {
                         const p1Val = indicator.p1Val !== undefined ? indicator.p1Val : '';
@@ -367,9 +376,9 @@ export default {
                         return text;
                     },
                     rich: {
-                        p1: { color: '#F56C6C', fontSize: 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
-                        p2: { color: '#409EFF', fontSize: 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
-                        name: { color: '#606266', fontSize: 12, align: 'center', padding: [2, 0, 0, 0] }
+                        p1: { color: '#F56C6C', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        p2: { color: '#409EFF', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        name: { color: '#606266', fontSize: isMobile ? 10 : 12, align: 'center', padding: [2, 0, 0, 0] }
                     }
                 },
                 splitLine: {
@@ -647,5 +656,127 @@ export default {
   width: 20px;
   height: 20px;
   object-fit: contain;
+}
+
+.vis-card {
+  height: auto;
+  display: block;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.vis-card:hover {
+  box-shadow: none;
+}
+
+.card-content {
+  min-height: 360px;
+  padding: 0;
+  display: block;
+}
+
+.chart-container {
+  width: 100%;
+  height: 360px;
+}
+
+.info-icon {
+  color: #8a8f98;
+  font-size: 17px;
+}
+
+.info-icon:hover,
+.export-btn:hover {
+  color: #ff8a00;
+}
+
+.export-btn {
+  color: #68707d;
+  font-size: 13px;
+}
+
+.custom-select-label {
+  color: #69707d;
+  font-weight: 600;
+}
+
+.header-controls :deep(.el-radio-group) {
+  padding: 2px !important;
+  background: #f1f2f4 !important;
+  border: 1px solid rgba(17, 17, 17, 0.08) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+.header-controls :deep(.el-radio-button__inner) {
+  color: #69707d !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.header-controls :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
+  color: #111 !important;
+  background: #fff !important;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08) !important;
+}
+
+.header-controls :deep(.el-select .el-input__wrapper) {
+  padding: 2px 10px !important;
+  background: #fff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.08) inset !important;
+}
+
+.header-controls :deep(.el-select .el-input__wrapper:hover),
+.header-controls :deep(.el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px rgba(255, 138, 0, 0.55) inset !important;
+}
+
+.header-controls :deep(.el-input__inner),
+.header-controls :deep(.el-input__suffix .el-icon) {
+  color: #303133 !important;
+  text-shadow: none;
+}
+
+.role-icon {
+  opacity: 0.82;
+  filter: grayscale(1) contrast(0.35);
+}
+
+:deep(.el-radio-button.is-active .role-icon) {
+  opacity: 1;
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+@media (max-width: 768px) {
+  .card-content {
+    min-height: 300px;
+  }
+
+  .chart-container {
+    height: 330px;
+  }
+
+  .header-controls {
+    width: 100%;
+    margin-top: 0;
+    gap: 8px;
+  }
+
+  .role-radio-group,
+  .player-selectors,
+  .player-select {
+    width: 100%;
+  }
+
+  .header-controls :deep(.el-select .el-input__wrapper) {
+    min-height: 36px !important;
+    border-radius: 8px !important;
+  }
 }
 </style>
