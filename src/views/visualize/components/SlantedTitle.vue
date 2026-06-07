@@ -72,6 +72,7 @@ export default {
   line-height: 1.2;
   letter-spacing: 0;
   white-space: normal;
+  font-family: 'Oxanium', sans-serif;
 }
 
 .text {
