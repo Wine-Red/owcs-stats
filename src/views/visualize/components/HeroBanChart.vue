@@ -262,32 +262,62 @@ export default {
 </script>
 
 <style scoped>
+.vis-card {
+  height: auto;
+  display: block;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.vis-card:hover {
+  box-shadow: none;
+}
+
 .card-content {
   padding: 24px;
 }
 
 .info-icon {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 17px;
+  color: #8a8f98;
   cursor: pointer;
   transition: color 0.3s;
 }
 
 .info-icon:hover {
-  color: #FFFFFF;
+  color: #ff8a00;
 }
 
 .chart-container {
+  position: relative;
   width: 100%;
-  height: 400px;
+  height: 360px;
 }
 
 @media (max-width: 768px) {
   .chart-container {
-    height: 350px;
+    height: 280px;
   }
+
   .card-content {
-    padding: 16px;
+    padding: 0;
+  }
+}
+
+.card-content {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+@media (max-width: 768px) {
+  .card-content {
+    min-height: 280px;
   }
 }
 </style>

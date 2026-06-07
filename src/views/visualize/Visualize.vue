@@ -128,19 +128,22 @@
                 <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
               </template>
               <template v-else>
-                <div class="vis-grid">
-                  <div class="vis-col span-6" v-if="chartConfig.heroBan">
-                    <HeroBanChart :seasonId="filterForm.seasonId" />
-                  </div>
-
-                  <div class="vis-col span-12" v-if="chartConfig.teamStats">
+                <div class="stats-flow">
+                  <section class="stats-data-section" v-if="chartConfig.teamStats">
                     <TeamStatsChart :seasonId="filterForm.seasonId" />
-                  </div>
-                  <div class="vis-col span-12" v-if="chartConfig.playerStats">
+                  </section>
+
+                  <section class="stats-data-section" v-if="chartConfig.playerStats">
                     <PlayerStatsChart :seasonId="filterForm.seasonId" />
-                  </div>
-                  <div class="vis-col span-6" v-if="chartConfig.playerRadar">
-                    <PlayerRadarChart :seasonId="filterForm.seasonId" />
+                  </section>
+
+                  <div class="stats-compact-grid" v-if="chartConfig.heroBan || chartConfig.playerRadar">
+                    <section class="stats-compact-section" v-if="chartConfig.heroBan">
+                      <HeroBanChart :seasonId="filterForm.seasonId" />
+                    </section>
+                    <section class="stats-compact-section" v-if="chartConfig.playerRadar">
+                      <PlayerRadarChart :seasonId="filterForm.seasonId" />
+                    </section>
                   </div>
                 </div>
               </template>
@@ -520,8 +523,9 @@ export default {
   display: flex;
   flex-direction: column;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  
   background-color: #fafafa;
+  position: relative;
+  overflow-x: hidden;
 }
 
 /* 标签页导航样式 */
@@ -560,14 +564,26 @@ export default {
   box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.4);
 }
 
-.vis-tab-item:hover {
-  color: #111;
-}
-
 .vis-tab-item.active {
   color: #111;
   font-weight: 600;
   border-bottom: 2px solid #111;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vis-tab-item:hover {
+    color: #111;
+  }
+}
+
+@media (hover: none) {
+  .vis-tab-item:hover {
+    color: #666;
+  }
+
+  .vis-tab-item.active:hover {
+    color: #111;
+  }
 }
 
 .tab-fade-enter-active,
@@ -646,6 +662,7 @@ export default {
   flex: 1;
   box-sizing: border-box;
   position: relative;
+  z-index: 1;
 }
 
 .page-loading {
@@ -703,6 +720,33 @@ export default {
   margin-bottom: 16px;
 }
 
+.stats-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.stats-data-section {
+  position: relative;
+  padding-bottom: 48px;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.stats-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px;
+  align-items: stretch;
+  padding-bottom: 8px;
+}
+
+.stats-compact-section {
+  min-width: 0;
+  padding-top: 4px;
+}
+
 .span-6 {
   grid-column: span 6;
 }
@@ -716,11 +760,15 @@ export default {
   .span-6 {
     grid-column: span 12;
   }
+
+  .stats-compact-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
   .vis-content {
-    padding: 16px 8px;
+    padding: 12px 8px 20px;
   }
 
   .vis-tabs-container {
@@ -730,6 +778,14 @@ export default {
 
   .overview-section {
     margin-bottom: 10px;
+  }
+
+  .stats-flow {
+    gap: 34px;
+  }
+
+  .stats-data-section {
+    padding-bottom: 34px;
   }
   
   .vis-header {

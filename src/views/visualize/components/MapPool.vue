@@ -265,6 +265,19 @@ export default {
   color: #1a1a1a;
   margin: 0 0 12px 0;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.2;
+}
+
+.section-title::before {
+  content: '';
+  width: 6px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff6a00 0%, #ffb11a 100%);
 }
 
 .map-groups {
