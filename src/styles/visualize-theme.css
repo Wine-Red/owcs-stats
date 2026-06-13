@@ -18,12 +18,19 @@
   --vis-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   --vis-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
   --vis-transition: box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+
+  /* Typography */
+  --vis-font-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', SimHei, sans-serif;
+  --vis-font-body: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', SimHei, sans-serif;
+  --vis-font-display: 'Oxanium', 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', SimHei, sans-serif;
+  --vis-font-heading: 'Orbitron', 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', SimHei, sans-serif;
+  --vis-font-numeric: 'Oxanium', 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', SimHei, sans-serif;
 }
 
 .vis-container {
   background-color: var(--vis-bg-color);
   min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--vis-font-body);
   color: var(--vis-text-primary);
   -webkit-font-smoothing: antialiased;
 }

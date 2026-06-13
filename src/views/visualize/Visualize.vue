@@ -522,7 +522,7 @@ export default {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--vis-font-body);
   background-color: #fafafa;
   position: relative;
   overflow-x: hidden;
@@ -634,7 +634,7 @@ export default {
 }
 
 .vis-title {
-  font-family: 'Oxanium', sans-serif;
+  font-family: var(--vis-font-display);
   font-size: 28px;
   font-weight: 800;
   color: #1A1A1A;

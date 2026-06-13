@@ -668,7 +668,7 @@ export default {
 }
 
 .section-title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--vis-font-heading);
   font-size: 20px;
   color: #1a1a1a;
   margin: 0;
@@ -798,6 +798,7 @@ export default {
 }
 
 .team-name {
+  font-family: var(--vis-font-body);
   font-weight: 600;
   color: #333;
   font-size: 13px;
@@ -818,7 +819,7 @@ export default {
 }
 
 .font-mono {
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-weight: 600;
   font-size: 14px; /* 减小字体大小 */
 }
@@ -842,7 +843,7 @@ export default {
 }
 
 .rank-number {
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-weight: 700;
   color: #666;
 }
@@ -946,7 +947,7 @@ export default {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--vis-font-body);
 }
 
 .modal-fade-enter-active,
@@ -1092,7 +1093,7 @@ export default {
 .roster-role-count {
   margin-left: auto;
   color: #909399;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-size: 12px;
   font-weight: 800;
 }
@@ -1126,7 +1127,7 @@ export default {
 
 .roster-player-time {
   color: #606266;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;

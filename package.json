@@ -10,6 +10,9 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/orbitron": "^5.2.8",
+    "@fontsource/oxanium": "^5.2.8",
     "axios": "^1.13.4",
     "core-js": "^3.8.3",
     "dompurify": "^3.4.2",

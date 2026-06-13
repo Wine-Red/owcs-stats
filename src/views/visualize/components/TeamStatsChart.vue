@@ -434,10 +434,10 @@ export default {
             nameTextStyle: {
               color: '#606266',
               fontWeight: 'bold',
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif',
               hideOverlap: true
             }
           },
@@ -461,10 +461,10 @@ export default {
             nameTextStyle: {
               color: '#606266',
               fontWeight: 'bold',
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             }
           },
           series: [
@@ -481,7 +481,7 @@ export default {
                   fontSize: 12,
                   textBorderColor: '#fff',
                   textBorderWidth: 2,
-                  fontFamily: 'Inter, sans-serif'
+                  fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
               },
               itemStyle: {
                 color: function(params) {
@@ -739,7 +739,7 @@ export default {
   font-size: 16px; /* 稍微加大字号 */
   font-weight: 700;
   color: #1a1a1a; /* 更深的颜色，增加对比 */
-  font-family: 'Inter', sans-serif;
+  font-family: var(--vis-font-body);
   letter-spacing: 0.5px;
 }
 
@@ -771,6 +771,7 @@ export default {
 }
 
 .team-name {
+  font-family: var(--vis-font-body);
   font-weight: 500;
   color: #303133;
   overflow: hidden;
