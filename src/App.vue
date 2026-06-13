@@ -198,7 +198,8 @@ export default {
       sidebarGroups,
       latestSyncTime,
       mobileSidebarOpen,
-      isAnalyticsRoute
+      isAnalyticsRoute,
+      isVisualizeRoute
     };
   }
 }

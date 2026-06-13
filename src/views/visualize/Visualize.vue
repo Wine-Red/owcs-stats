@@ -65,6 +65,7 @@
           <!-- 即将到来的比赛 -->
           <UpcomingMatches 
             v-if="currentSeasonStatus !== 'completed'"
+            :seasonId="filterForm.seasonId"
             :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName" 
           />
 
@@ -158,6 +159,7 @@
 <script>
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRoute } from 'vue-router';
 import { trackEvent, trackPerformance } from '@/utils/analytics';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
@@ -188,6 +190,7 @@ export default {
   },
   setup() {
     const store = useStore();
+    const route = useRoute();
     
     const currentTab = ref('overview');
 
@@ -465,7 +468,17 @@ export default {
       await loadVisualizeSeasonOrderConfig();
       
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
-      if (inProgressSeason) {
+      
+      // 1. 如果 URL 中带有指定的 seasonId，优先使用它（这允许从详情页无缝返回到对应赛季）
+      if (route.query.seasonId) {
+        const targetSeason = seasons.value.find(s => String(s.id) === String(route.query.seasonId));
+        if (targetSeason) {
+          filterForm.value.seasonId = targetSeason.id;
+          activeStage.value = normalizeStageLabel(targetSeason.stage);
+        }
+      } 
+      // 2. 如果没有指定 seasonId，则回退到默认逻辑（找 in_progress 或者第一个）
+      else if (inProgressSeason) {
         filterForm.value.seasonId = inProgressSeason.id;
         activeStage.value = normalizeStageLabel(inProgressSeason.stage);
       } else if (seasons.value.length > 0) {
