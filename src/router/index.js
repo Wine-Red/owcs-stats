@@ -22,6 +22,11 @@ const routes = [
     component: () => import('../views/visualize/Visualize.vue')
   },
   {
+    path: '/visualize/upcoming-match',
+    name: 'UpcomingMatchDetail',
+    component: () => import('../views/visualize/UpcomingMatchDetail.vue')
+  },
+  {
     path: '/analytics',
     name: 'Analytics',
     component: () => import('../views/analytics/Analytics.vue')

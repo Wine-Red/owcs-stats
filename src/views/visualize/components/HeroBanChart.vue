@@ -114,7 +114,7 @@ export default {
             axisLabel: {
               color: '#909399',
               formatter: v => Math.floor(v),
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             splitLine: {
               lineStyle: {
@@ -136,7 +136,7 @@ export default {
               fontWeight: 600,
               color: '#303133',
               margin: 12,
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             axisTick: { show: false },
             axisLine: { show: false },
@@ -174,7 +174,7 @@ export default {
                 fontWeight: 'bold',
                 color: '#606266',
                 offset: [8, 0],
-                fontFamily: 'Inter, sans-serif'
+                fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
               },
               animationDelay: function(idx) {
                 return idx * 50;

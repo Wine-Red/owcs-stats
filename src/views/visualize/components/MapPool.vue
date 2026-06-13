@@ -260,7 +260,7 @@ export default {
 }
 
 .section-title {
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--vis-font-heading);
   font-size: 20px;
   color: #1a1a1a;
   margin: 0 0 12px 0;
@@ -297,7 +297,7 @@ export default {
 }
 
 .group-header {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: var(--vis-font-body);
   font-weight: 800;
   font-size: 15px;
   padding: 8px 12px;
@@ -372,7 +372,7 @@ export default {
   transform: translateY(-50%);
   z-index: 2;
   color: #fff;
-  font-family: 'Oxanium', sans-serif;
+  font-family: var(--vis-font-numeric);
   font-size: 20px;
   font-weight: 900;
   font-style: italic;
@@ -422,7 +422,7 @@ export default {
 }
 
 .map-popover-content {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: var(--vis-font-body);
 }
 
 .popover-title {
@@ -470,7 +470,7 @@ export default {
 
 .stat-winrate {
   font-weight: 700;
-  font-family: 'Mono', sans-serif;
+  font-family: var(--vis-font-numeric);
   display: flex;
   align-items: center;
   gap: 6px;

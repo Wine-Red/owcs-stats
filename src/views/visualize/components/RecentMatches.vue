@@ -756,7 +756,7 @@ export default {
 }
 
 .match-date-header {
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-size: 14px;
   font-weight: 600;
   color: #495057;
@@ -879,7 +879,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   font-weight: 500;
   color: #444;
   letter-spacing: 0.5px;
@@ -939,7 +939,7 @@ export default {
 
 .replay-tag.disabled .replay-code.empty-code {
   color: #c0c0c0;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--vis-font-body);
   font-size: 14px;
   font-weight: 700;
   padding: 4px 12px;
@@ -995,7 +995,7 @@ export default {
   font-weight: 700;
   font-size: 28px;
   color: #606266;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-display);
 }
 
 .winner-name {
@@ -1019,7 +1019,7 @@ export default {
   font-size: 22px;
   font-weight: 700;
   color: #303133;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
 }
 
 .score-number {
@@ -1048,7 +1048,7 @@ export default {
   font-size: 12px;
   color: #909399;
   margin-top: 6px;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   background: #f4f4f5;
   padding: 2px 8px;
   border-radius: 12px;
@@ -1111,7 +1111,7 @@ export default {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--vis-font-body);
 }
 
 /* Modal Transition Animations */
@@ -1186,7 +1186,7 @@ export default {
 .modal-team-name {
   font-size: 20px;
   font-weight: 800;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-display);
   color: #111;
   letter-spacing: -0.5px;
 }
@@ -1204,7 +1204,7 @@ export default {
   gap: 12px;
   font-size: 28px;
   font-weight: 900;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-display);
   padding: 0 24px;
   letter-spacing: -1px;
 }
@@ -1327,7 +1327,7 @@ export default {
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
 }
 
 .summary-title .el-icon {
@@ -1369,7 +1369,7 @@ export default {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-display);
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
   letter-spacing: 0.5px;
 }
@@ -1379,7 +1379,7 @@ export default {
   gap: 12px;
   font-size: 11px;
   color: #e4e7ed;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
 }
 
 .meta-item {
@@ -1399,7 +1399,7 @@ export default {
   gap: 8px;
   font-size: 20px;
   font-weight: 800;
-  font-family: 'Oxanium', monospace;
+  font-family: var(--vis-font-numeric);
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
   background: rgba(0,0,0,0.4);
   padding: 2px 10px;
@@ -1451,7 +1451,7 @@ export default {
   padding: 12px 20px;
   background: #f4f5f7;
   border-bottom: 2px solid #e4e7ed;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
   color: #111;
   letter-spacing: -0.5px;
 }
@@ -1496,11 +1496,11 @@ export default {
 }
 
 .col-role { width: 40px; display: flex; justify-content: center; flex-shrink: 0; }
-.col-name { flex: 1; font-weight: 700; font-family: 'Inter', 'Oxanium', sans-serif; text-transform: uppercase; color: #111; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-kda { width: 90px; text-align: center; font-weight: 600; color: #606266; font-family: 'Inter', 'Oxanium', sans-serif; flex-shrink: 0; }
-.col-kd { width: 50px; text-align: center; font-weight: 700; font-family: 'Inter', 'Oxanium', sans-serif; flex-shrink: 0; }
+.col-name { flex: 1; font-weight: 700; font-family: var(--vis-font-body); text-transform: uppercase; color: #111; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-kda { width: 90px; text-align: center; font-weight: 600; color: #606266; font-family: var(--vis-font-body); flex-shrink: 0; }
+.col-kd { width: 50px; text-align: center; font-weight: 700; font-family: var(--vis-font-body); flex-shrink: 0; }
 .highlight-kd { color: #409EFF; }
-.col-dmg, .col-heal, .col-mit { width: 70px; text-align: right; font-weight: 600; font-family: 'Inter', 'Oxanium', sans-serif; color: #303133; flex-shrink: 0; }
+.col-dmg, .col-heal, .col-mit { width: 70px; text-align: right; font-weight: 600; font-family: var(--vis-font-body); color: #303133; flex-shrink: 0; }
 
 .match-best {
   color: #20c997 !important;
@@ -1520,7 +1520,7 @@ export default {
   padding-bottom: 8px;
   border-bottom: 2px solid #e4e7ed;
   color: #111;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
   letter-spacing: -0.5px;
 }
 
@@ -1572,7 +1572,7 @@ export default {
   font-size: 14px;
   color: #111;
   text-transform: uppercase;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
   letter-spacing: -0.5px;
   white-space: nowrap;
   display: inline-block;
@@ -1586,7 +1586,7 @@ export default {
   font-size: 12px;
   font-weight: 700;
   color: #444;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
   flex-shrink: 0;
 }
 
@@ -1632,7 +1632,7 @@ export default {
 .stat-value {
   width: 40px;
   text-align: right;
-  font-family: 'Inter', 'Oxanium', sans-serif;
+  font-family: var(--vis-font-body);
   font-weight: 700;
   color: #111;
 }

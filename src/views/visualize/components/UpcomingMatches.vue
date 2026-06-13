@@ -21,7 +21,7 @@
         <!-- 真实数据 -->
         <div class="upcoming-list-container" v-else>
           <div class="upcoming-list">
-            <div v-for="(match, index) in displayMatches" :key="index" class="upcoming-card">
+            <div v-for="(match, index) in displayMatches" :key="index" class="upcoming-card" @click="goToDetail(match)">
               <!-- 状态与时间 -->
               <div class="match-status">
                 <span v-if="isOngoing(match.timestamp)" class="status-badge ongoing">LIVE</span>
@@ -48,6 +48,11 @@
                   <span class="team-name" :title="match.team2.name">{{ match.team2.name }}</span>
                 </div>
               </div>
+              
+              <!-- 底部可点击提示 -->
+              <div class="match-action-hint">
+                赛事前瞻
+              </div>
             </div>
           </div>
         </div>
@@ -59,6 +64,7 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import { Calendar, ArrowUp } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 
@@ -79,10 +85,15 @@ export default {
     liquipediaTournamentName: {
       type: String,
       default: ''
+    },
+    seasonId: {
+      type: [String, Number],
+      default: ''
     }
   },
   setup(props) {
     const store = useStore();
+    const router = useRouter();
     const allMatches = ref([]);
     const isLoading = ref(true);
     const isCollapsed = ref(false);
@@ -96,7 +107,19 @@ export default {
       
       const targetName = props.liquipediaTournamentName.toLowerCase();
       const filtered = allMatches.value
-        .filter(m => m.tournamentName.toLowerCase().includes(targetName))
+        .filter(m => {
+          if (!m.tournamentName.toLowerCase().includes(targetName)) return false;
+          
+          // Filter out matches where BOTH teams are TBD
+          const t1Name = String(m.teamA?.name || m.team1?.name || m.team1 || '').toLowerCase();
+          const t2Name = String(m.teamB?.name || m.team2?.name || m.team2 || '').toLowerCase();
+          
+          const isT1Tbd = t1Name === 'tbd' || t1Name === '' || t1Name === 'to be determined' || t1Name.includes('tbd');
+          const isT2Tbd = t2Name === 'tbd' || t2Name === '' || t2Name === 'to be determined' || t2Name.includes('tbd');
+          
+          // Filter out if either team is TBD
+          return !(isT1Tbd || isT2Tbd);
+        })
         .slice()
         .sort((a, b) => {
           const left = Number.isFinite(a.timestamp) ? a.timestamp : Number.MAX_SAFE_INTEGER;
@@ -279,13 +302,38 @@ export default {
       }
     });
 
+    const goToDetail = (match) => {
+      if (!props.seasonId) return;
+      
+      const matchData = {
+        seasonId: props.seasonId,
+        team1: match.team1.name,
+        team2: match.team2.name,
+        team1Logo: match.team1.logo,
+        team2Logo: match.team2.logo,
+        time: match.timestamp,
+        tournament: match.tournamentName
+      };
+      sessionStorage.setItem('current_upcoming_match', JSON.stringify(matchData));
+
+      router.push({
+        path: '/visualize/upcoming-match',
+        query: {
+          seasonId: props.seasonId,
+          t1: match.team1.name,
+          t2: match.team2.name
+        }
+      });
+    };
+
     return {
       displayMatches,
       isLoading,
       isCollapsed,
       toggleCollapse,
       isOngoing,
-      formatTime
+      formatTime,
+      goToDetail
     };
   }
 };
@@ -361,17 +409,36 @@ export default {
 .upcoming-card {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 6px 8px;
   width: 140px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
 .upcoming-card:hover {
-  background: #fafafa;
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.upcoming-card:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* 移除那个怪异的箭头 */
+.match-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 4px;
 }
 
 .match-status {
@@ -403,13 +470,23 @@ export default {
   100% { opacity: 1; }
 }
 
-.match-teams {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 4px;
+.match-action-hint {
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: #909399;
+  background: transparent;
+  padding: 0;
+  margin-top: 0;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
 }
 
+.upcoming-card:hover .match-action-hint {
+  color: #111;
+  opacity: 1;
+}
 .team-side {
   display: flex;
   align-items: center;
@@ -500,6 +577,11 @@ export default {
   to { transform: rotate(360deg); }
 }
 
+@media (max-width: 767px) {
+  .upcoming-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  }
+}
 @media (min-width: 768px) {
   .upcoming-matches-wrapper {
     margin-bottom: 24px;
@@ -516,7 +598,7 @@ export default {
 
   .upcoming-card {
     width: 180px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     border-color: rgba(0, 0, 0, 0.06);
   }
   

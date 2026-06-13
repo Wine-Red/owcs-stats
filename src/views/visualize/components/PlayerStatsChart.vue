@@ -648,10 +648,10 @@ export default {
             nameTextStyle: {
               color: '#606266',
               fontWeight: 'bold',
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif',
               hideOverlap: true
             }
           },
@@ -676,10 +676,10 @@ export default {
             nameTextStyle: {
               color: '#606266',
               fontWeight: 'bold',
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             },
             axisLabel: {
-              fontFamily: 'Inter, sans-serif'
+              fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
             }
           },
           series: [
@@ -709,7 +709,7 @@ export default {
                   color: '#303133',
                   textBorderColor: '#fff',
                   textBorderWidth: 2,
-                  fontFamily: 'Inter, sans-serif'
+                  fontFamily: 'Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", SimHei, sans-serif'
               }
             }
           ],
@@ -1038,7 +1038,7 @@ export default {
   font-size: 16px; /* 稍微加大字号 */
   font-weight: 700;
   color: #1a1a1a; /* 更深的颜色，增加对比 */
-  font-family: 'Inter', sans-serif;
+  font-family: var(--vis-font-body);
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -1085,12 +1085,14 @@ export default {
 }
 
 .player-name {
+  font-family: var(--vis-font-body);
   font-weight: 600;
   color: #303133;
   font-size: 13px;
 }
 
 .team-name-sub {
+  font-family: var(--vis-font-body);
   font-size: 11px;
   color: #909399;
 }

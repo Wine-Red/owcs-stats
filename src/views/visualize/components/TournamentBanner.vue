@@ -144,7 +144,7 @@ export default {
 .season-name {
   margin: 0;
   font-size: 38px;
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: var(--vis-font-body);
   font-weight: 800;
   letter-spacing: -0.5px;
   color: #111;
