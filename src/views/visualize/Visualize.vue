@@ -466,6 +466,11 @@ export default {
 
       await store.dispatch('loadBaseData');
       await loadVisualizeSeasonOrderConfig();
+
+      const requestedTab = typeof route.query.tab === 'string' ? route.query.tab : '';
+      if (['overview', 'recent', 'stats'].includes(requestedTab)) {
+        currentTab.value = requestedTab;
+      }
       
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       

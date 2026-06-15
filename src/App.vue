@@ -144,6 +144,8 @@ export default {
       return route.meta.layout === 'blank';
     });
 
+    const hideFooterRouteNames = ['MatchDetail', 'TeamDetail', 'UpcomingMatchDetail'];
+
     // 控制侧边导航栏的显示
     // 在 /visualize 及其子路由下完全不渲染侧边栏
     const showSidebar = computed(() => {
@@ -151,7 +153,7 @@ export default {
     });
 
     const showFooter = computed(() => {
-      return isVisualizeRoute.value && !isBlankLayout.value;
+      return isVisualizeRoute.value && !isBlankLayout.value && !hideFooterRouteNames.includes(String(route.name || ''));
     });
 
     const updateTheme = () => {

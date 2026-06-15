@@ -38,7 +38,7 @@
               class="team-cell team-cell-clickable"
               role="button"
               tabindex="0"
-              :title="`查看 ${scope.row.team.name} 阵容`"
+              :title="`查看 ${scope.row.team.name} 详情`"
               @click="openTeamRoster(scope.row)"
               @keydown.enter.prevent="openTeamRoster(scope.row)"
               @keydown.space.prevent="openTeamRoster(scope.row)"
@@ -75,58 +75,13 @@
       </el-table>
     </div>
 
-    <Transition name="modal-fade">
-      <div v-if="rosterDialogVisible" class="roster-modal-overlay" @click.self="closeTeamRoster">
-        <div class="roster-modal-content">
-          <button class="roster-close-button" type="button" aria-label="关闭" @click="closeTeamRoster">×</button>
-
-          <div class="roster-dialog-header">
-            <div class="roster-team-identity">
-              <img :src="getTeamLogo(selectedTeam)" class="roster-team-logo" />
-              <div class="roster-title-block">
-                <div class="roster-eyebrow">当前赛季阵容</div>
-                <div class="roster-team-name">{{ selectedTeam?.name || '队伍阵容' }}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="roster-dialog-body" v-loading="rosterLoading">
-            <div v-if="rosterError" class="roster-empty-state">{{ rosterError }}</div>
-            <div v-else-if="!rosterLoading && rosterPlayers.length === 0" class="roster-empty-state">暂无人员配置</div>
-            <div v-else class="roster-list">
-              <section
-                v-for="group in rosterGroups"
-                :key="group.key"
-                class="roster-role-section"
-              >
-                <div class="roster-role-header">
-                  <img :src="getRoleIcon(group.key)" class="roster-role-icon" :alt="group.label" />
-                  <span>{{ group.label }}</span>
-                  <span class="roster-role-count">{{ group.players.length }}</span>
-                </div>
-                <div class="roster-player-list">
-                  <div
-                    v-for="player in group.players"
-                    :key="player.id"
-                    class="roster-player-row"
-                  >
-                    <span class="roster-player-name">{{ player.name }}</span>
-                    <span class="roster-player-time">{{ formatGameTime(player.gameTime) }}</span>
-                  </div>
-                  <div v-if="group.players.length === 0" class="roster-player-empty">未配置</div>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script>
 import { computed, ref, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import apiService from '@/services/api';
 
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
@@ -169,29 +124,11 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const router = useRouter();
     const snapshots = ref([]);
     const selectedSegmentKey = ref('cumulative');
     const activeScoreStats = ref([]);
     const isInitializing = ref(true);
-    const rosterDialogVisible = ref(false);
-    const selectedTeam = ref(null);
-    const rosterPlayers = ref([]);
-    const rosterLoading = ref(false);
-    const rosterError = ref('');
-    const rosterCache = ref(new Map());
-    const seasonPlayerStatsCache = ref(new Map());
-
-    const roleMeta = [
-      { key: 'tank', label: '重装' },
-      { key: 'damage', label: '输出' },
-      { key: 'support', label: '支援' }
-    ];
-
-    const roleOrder = {
-      tank: 1,
-      damage: 2,
-      support: 3
-    };
 
     const normalizedTemplate = computed(() => {
       return props.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
@@ -487,133 +424,14 @@ export default {
       return logo || TBD_LOGO_URL;
     };
 
-    const normalizeApiList = (res) => {
-      return Array.isArray(res) ? res : res?.data || res?.list || [];
-    };
-
-    const buildPlayerStatMap = (stats, teamId) => {
-      const teamIdNum = Number(teamId);
-      const map = new Map();
-      normalizeApiList(stats)
-        .filter(stat => Number(stat.teamId) === teamIdNum)
-        .forEach(stat => {
-          if (stat.playerId) map.set(Number(stat.playerId), stat);
-          if (stat.playerName) map.set(`name:${String(stat.playerName).trim().toLowerCase()}`, stat);
-        });
-      return map;
-    };
-
-    const normalizeRosterPlayers = (items, playerStatMap = new Map()) => {
-      return normalizeApiList(items)
-        .map(item => item.player || item.Player || store.getters.getPlayerById(item.playerId))
-        .filter(Boolean)
-        .map(player => {
-          const stat = playerStatMap.get(Number(player.id)) || playerStatMap.get(`name:${String(player.name || '').trim().toLowerCase()}`);
-          return {
-            id: player.id,
-            name: player.name || 'Unknown',
-            role: ['tank', 'damage', 'support'].includes(player.role) ? player.role : 'damage',
-            gameTime: Number(stat?.gameTime ?? 0) || 0
-          };
-        })
-        .sort((a, b) => {
-          const roleDiff = (roleOrder[a.role] || 99) - (roleOrder[b.role] || 99);
-          if (roleDiff !== 0) return roleDiff;
-          if (b.gameTime !== a.gameTime) return b.gameTime - a.gameTime;
-          return String(a.name).localeCompare(String(b.name));
-        });
-    };
-
-    const loadSeasonPlayerStats = async () => {
-      const seasonId = Number(props.seasonId);
-      if (!Number.isFinite(seasonId)) return [];
-      if (seasonPlayerStatsCache.value.has(seasonId)) {
-        return seasonPlayerStatsCache.value.get(seasonId);
-      }
-      const res = await apiService.getSeasonPlayerStats(seasonId);
-      const stats = normalizeApiList(res);
-      seasonPlayerStatsCache.value.set(seasonId, stats);
-      return stats;
-    };
-
-    const findSeasonTeam = async (teamId) => {
-      const seasonIdNum = Number(props.seasonId);
-      const teamIdNum = Number(teamId);
-      const localSeasonTeam = store.state.seasonTeams.find(st => (
-        Number(st.seasonId) === seasonIdNum && Number(st.teamId) === teamIdNum
-      ));
-      if (localSeasonTeam) return localSeasonTeam;
-
-      const allSeasonTeams = normalizeApiList(await apiService.getAllSeasonTeams());
-      const filteredSeasonTeams = allSeasonTeams.filter(st => Number(st.seasonId) === seasonIdNum);
-      store.commit('setSeasonTeams', filteredSeasonTeams);
-      return filteredSeasonTeams.find(st => Number(st.teamId) === teamIdNum) || null;
-    };
-
-    const openTeamRoster = async (row) => {
+    const openTeamRoster = (row) => {
       const team = row?.team;
       if (!team?.id || !props.seasonId) return;
 
-      selectedTeam.value = team;
-      rosterDialogVisible.value = true;
-      rosterError.value = '';
-
-      const cacheKey = `${props.seasonId}:${team.id}`;
-      if (rosterCache.value.has(cacheKey)) {
-        rosterPlayers.value = rosterCache.value.get(cacheKey);
-        return;
-      }
-
-      rosterLoading.value = true;
-      rosterPlayers.value = [];
-      try {
-        const seasonTeam = await findSeasonTeam(team.id);
-        if (!seasonTeam?.id) {
-          rosterError.value = '当前赛季未找到该队伍的人员配置';
-          return;
-        }
-
-        const [res, seasonStats] = await Promise.all([
-          apiService.getSeasonTeamPlayers(seasonTeam.id),
-          loadSeasonPlayerStats()
-        ]);
-        const players = normalizeRosterPlayers(res, buildPlayerStatMap(seasonStats, team.id));
-        rosterCache.value.set(cacheKey, players);
-        rosterPlayers.value = players;
-      } catch (error) {
-        console.error('Failed to load team roster', error);
-        rosterError.value = '人员配置加载失败';
-      } finally {
-        rosterLoading.value = false;
-      }
-    };
-
-    const closeTeamRoster = () => {
-      rosterDialogVisible.value = false;
-    };
-
-    const rosterGroups = computed(() => {
-      return roleMeta.map(role => ({
-        ...role,
-        players: rosterPlayers.value.filter(player => player.role === role.key)
-      }));
-    });
-
-    const formatGameTime = (minutesFloat) => {
-      const totalSeconds = Math.round((Number(minutesFloat) || 0) * 60);
-      if (totalSeconds <= 0) return '0:00';
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return `${minutes}:${String(seconds).padStart(2, '0')}`;
-    };
-
-    const getRoleIcon = (role) => {
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-        ? import.meta.env.BASE_URL
-        : `${import.meta.env.BASE_URL}/`;
-      if (role === 'tank') return `${baseUrl}icons/role/Tank.png`;
-      if (role === 'support') return `${baseUrl}icons/role/Support.png`;
-      return `${baseUrl}icons/role/DPS.png`;
+      router.push({
+        path: '/visualize/team-detail',
+        query: { seasonId: props.seasonId, teamId: team.id }
+      });
     };
 
     const tableRowClassName = ({ rowIndex }) => {
@@ -638,17 +456,8 @@ export default {
       selectSegment,
       isInitializing,
       isCurrentStage,
-      rosterDialogVisible,
-      selectedTeam,
-      rosterPlayers,
-      rosterLoading,
-      rosterError,
-      rosterGroups,
       getTeamLogo,
-      openTeamRoster,
-      closeTeamRoster,
-      formatGameTime,
-      getRoleIcon
+      openTeamRoster
     };
   }
 };
@@ -923,241 +732,6 @@ export default {
   justify-content: center;
 }
 
-.roster-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-}
-
-.roster-modal-content {
-  position: relative;
-  width: 100%;
-  max-width: 560px;
-  max-height: 96vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-  font-family: var(--vis-font-body);
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-fade-enter-active .roster-modal-content,
-.modal-fade-leave-active .roster-modal-content {
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-
-.modal-fade-enter-from .roster-modal-content,
-.modal-fade-leave-to .roster-modal-content {
-  transform: translateY(20px) scale(0.95);
-  opacity: 0;
-}
-
-.roster-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px 56px 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #f0f0f0;
-  color: #111111;
-}
-
-.roster-team-identity {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 12px;
-}
-
-.roster-team-logo {
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
-}
-
-.roster-team-logo-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #111111;
-  font-weight: 800;
-}
-
-.roster-title-block {
-  min-width: 0;
-}
-
-.roster-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  color: #909399;
-  letter-spacing: 0;
-  margin-bottom: 4px;
-}
-
-.roster-team-name {
-  font-size: 20px;
-  line-height: 1.15;
-  font-weight: 800;
-  color: #111111;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roster-close-button {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #666666;
-  font-size: 24px;
-  line-height: 30px;
-  cursor: pointer;
-  z-index: 2;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-
-.roster-close-button:hover,
-.roster-close-button:focus-visible {
-  background: rgba(0, 0, 0, 0.04);
-  color: #111111;
-  outline: none;
-}
-
-.roster-dialog-body {
-  min-height: 180px;
-  padding: 14px 24px 22px;
-  background: #ffffff;
-}
-
-.roster-list {
-  display: grid;
-  gap: 0;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #ffffff;
-}
-
-.roster-role-section + .roster-role-section {
-  border-top: 1px solid #f0f0f0;
-}
-
-.roster-role-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 9px 14px;
-  background: #f7f8fa;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-  font-weight: 800;
-  color: #111111;
-}
-
-.roster-role-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  filter: brightness(0);
-  flex: 0 0 auto;
-}
-
-.roster-role-count {
-  margin-left: auto;
-  color: #909399;
-  font-family: var(--vis-font-numeric);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.roster-player-list {
-  display: grid;
-  align-content: start;
-  padding: 0;
-}
-
-.roster-player-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  min-height: 40px;
-  padding: 9px 14px;
-  color: #111111;
-  font-size: 13px;
-  font-weight: 750;
-  line-height: 1.2;
-}
-
-.roster-player-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.roster-player-time {
-  color: #606266;
-  font-family: var(--vis-font-numeric);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.roster-player-row + .roster-player-row {
-  border-top: 1px solid #f5f5f5;
-}
-
-.roster-player-empty,
-.roster-empty-state {
-  color: #909399;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.roster-player-empty {
-  padding: 10px 14px;
-}
-
-.roster-empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 150px;
-  border-radius: 8px;
-  background: #f8f9fa;
-  border: 1px dashed #dcdfe6;
-}
-
 :deep(.el-table th.el-table__cell) {
   background-color: #f8f9fa;
   color: #495057;
@@ -1197,77 +771,6 @@ export default {
   }
   .team-roster-cue {
     font-size: 14px;
-  }
-  .roster-modal-overlay {
-    padding: 8px;
-    align-items: center;
-  }
-  .roster-modal-content {
-    max-width: none;
-    max-height: 98vh;
-    border-radius: 8px;
-  }
-  .roster-dialog-header {
-    justify-content: flex-start;
-    padding: 12px 44px 12px 12px;
-  }
-  .roster-team-logo {
-    width: 30px;
-    height: 30px;
-  }
-  .roster-team-identity {
-    gap: 8px;
-  }
-  .roster-eyebrow {
-    font-size: 10px;
-    margin-bottom: 2px;
-  }
-  .roster-team-name {
-    font-size: 16px;
-  }
-  .roster-dialog-body {
-    padding: 10px 12px 12px;
-  }
-  .roster-list {
-    border-radius: 6px;
-  }
-  .roster-role-header {
-    min-height: 34px;
-    gap: 6px;
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-  .roster-role-icon {
-    width: 15px;
-    height: 15px;
-  }
-  .roster-role-count {
-    font-size: 11px;
-  }
-  .roster-player-row {
-    min-height: 36px;
-    padding: 8px 10px;
-    font-size: 12px;
-    gap: 8px;
-  }
-  .roster-player-name {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-  }
-  .roster-player-time {
-    font-size: 11px;
-  }
-  .roster-player-empty {
-    padding: 8px 10px;
-    font-size: 11px;
-  }
-  .roster-close-button {
-    top: 10px;
-    right: 10px;
-    width: 28px;
-    height: 28px;
-    font-size: 22px;
   }
 }
 </style>
