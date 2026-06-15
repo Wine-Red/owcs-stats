@@ -48,7 +48,7 @@
               size="small"
             >
               <template #prefix>
-                <span class="custom-select-label">选手1 (红)</span>
+                <span class="custom-select-label">选手1</span>
               </template>
               <el-option
                 v-for="player in player1Options"
@@ -72,7 +72,7 @@
               size="small"
             >
               <template #prefix>
-                <span class="custom-select-label">选手2 (蓝)</span>
+                <span class="custom-select-label">选手2</span>
               </template>
               <el-option
                 v-for="player in player2Options"
@@ -239,31 +239,31 @@ export default {
 
         if (playerRole.value === 'tank') {
             indicators = [
+                { name: 'K/D', max: getMax('kd') },
                 { name: '消灭', max: getMax('elimsPer10') },
                 { name: '伤害', max: getMax('damagePer10') },
                 { name: '抵挡', max: getMax('mitigationPer10') },
-                { name: '生存', max: survivalMax },
-                { name: 'K/D', max: getMax('kd') }
+                { name: '生存', max: survivalMax }
             ];
-            dataIndex = ['elimsPer10', 'damagePer10', 'mitigationPer10', 'deathsPer10', 'kd'];
+            dataIndex = ['kd', 'elimsPer10', 'damagePer10', 'mitigationPer10', 'deathsPer10'];
         } else if (playerRole.value === 'damage') {
             indicators = [
+                { name: 'K/D', max: getMax('kd') },
                 { name: '消灭', max: getMax('elimsPer10') },
                 { name: '伤害', max: getMax('damagePer10') },
                 { name: '助攻', max: getMax('assistsPer10') },
-                { name: '生存', max: survivalMax },
-                { name: 'K/D', max: getMax('kd') }
+                { name: '生存', max: survivalMax }
             ];
-            dataIndex = ['elimsPer10', 'damagePer10', 'assistsPer10', 'deathsPer10', 'kd'];
+            dataIndex = ['kd', 'elimsPer10', 'damagePer10', 'assistsPer10', 'deathsPer10'];
         } else if (playerRole.value === 'support') {
             indicators = [
+                { name: 'KA/D', max: getMax('kad') },
                 { name: '消灭', max: getMax('elimsPer10') },
                 { name: '治疗', max: getMax('healingPer10') },
                 { name: '助攻', max: getMax('assistsPer10') },
-                { name: '生存', max: survivalMax },
-                { name: 'KA/D', max: getMax('kad') }
+                { name: '生存', max: survivalMax }
             ];
-            dataIndex = ['elimsPer10', 'healingPer10', 'assistsPer10', 'deathsPer10', 'kad'];
+            dataIndex = ['kad', 'elimsPer10', 'healingPer10', 'assistsPer10', 'deathsPer10'];
         }
 
         // 1. 计算平均值 (灰色)
@@ -303,7 +303,7 @@ export default {
             tooltip: { show: false } // 不显示 Tooltip
         });
 
-        // 选手1 (红)
+        // 选手1
         const p1 = getPlayerStats(player1Id.value);
         if (p1) {
             const originalValues = dataIndex.map(key => p1[key] || 0);
@@ -311,12 +311,12 @@ export default {
                 value: formatRadarData(p1, p1.playerName),
                 originalValues: originalValues,
                 name: p1.playerName || p1.player?.name,
-                itemStyle: { color: '#F56C6C' },
-                areaStyle: { color: 'rgba(245, 108, 108, 0.2)' }
+                itemStyle: { color: '#111' },
+                areaStyle: { color: 'rgba(17, 17, 17, 0.16)' }
             });
         }
 
-        // 选手2 (蓝)
+        // 选手2
         const p2 = getPlayerStats(player2Id.value);
         if (p2) {
             const originalValues = dataIndex.map(key => p2[key] || 0);
@@ -324,8 +324,8 @@ export default {
                 value: formatRadarData(p2, p2.playerName),
                 originalValues: originalValues,
                 name: p2.playerName || p2.player?.name,
-                itemStyle: { color: '#409EFF' },
-                areaStyle: { color: 'rgba(64, 158, 255, 0.2)' }
+                itemStyle: { color: '#ff6a00' },
+                areaStyle: { color: 'rgba(255, 106, 0, 0.18)' }
             });
         }
 
@@ -335,6 +335,14 @@ export default {
             if (p1) ind.p1Val = p1[key] !== undefined ? p1[key] : 0;
             if (p2) ind.p2Val = p2[key] !== undefined ? p2[key] : 0;
         });
+
+        const formatAxisValue = (val) => {
+            const num = Number(val);
+            if (!Number.isFinite(num)) return '';
+            if (Math.abs(num) >= 100) return String(Math.round(num));
+            if (Number.isInteger(num)) return String(num);
+            return String(Number(num.toFixed(2)));
+        };
 
         const isMobile = window.innerWidth <= 768;
 
@@ -360,24 +368,32 @@ export default {
                 radius: isMobile ? '52%' : '60%',
                 axisName: {
                     formatter: function (value, indicator) {
-                        const p1Val = indicator.p1Val !== undefined ? indicator.p1Val : '';
-                        const p2Val = indicator.p2Val !== undefined ? indicator.p2Val : '';
-                        
-                        let text = '';
+                        const p1Val = indicator.p1Val !== undefined ? formatAxisValue(indicator.p1Val) : '';
+                        const p2Val = indicator.p2Val !== undefined ? formatAxisValue(indicator.p2Val) : '';
+                        const isTopIndicator = indicators[0]?.name === value;
+
                         if (p1Val !== '' && p2Val !== '') {
-                            text = `{p1|${p1Val}}  {p2|${p2Val}}\n{name|${value}}`;
+                            if (isTopIndicator) {
+                                return `{name|${value}}\n{p1|${p1Val}} : {p2|${p2Val}}`;
+                            }
+                            return `{name|${value}}\n{p1|${p1Val}}\n{p2|${p2Val}}`;
                         } else if (p1Val !== '') {
-                            text = `{p1|${p1Val}}\n{name|${value}}`;
+                            if (isTopIndicator) {
+                                return `{name|${value}}\n{p1|${p1Val}}`;
+                            }
+                            return `{name|${value}}\n{p1|${p1Val}}`;
                         } else if (p2Val !== '') {
-                            text = `{p2|${p2Val}}\n{name|${value}}`;
+                            if (isTopIndicator) {
+                                return `{name|${value}}\n{p2|${p2Val}}`;
+                            }
+                            return `{name|${value}}\n{p2|${p2Val}}`;
                         } else {
-                            text = `{name|${value}}`;
+                            return `{name|${value}}`;
                         }
-                        return text;
                     },
                     rich: {
-                        p1: { color: '#F56C6C', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
-                        p2: { color: '#409EFF', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        p1: { color: '#111', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
+                        p2: { color: '#ff6a00', fontSize: isMobile ? 11 : 13, fontWeight: 'bold', align: 'center', padding: [0, 4] },
                         name: { color: '#606266', fontSize: isMobile ? 10 : 12, align: 'center', padding: [2, 0, 0, 0] }
                     }
                 },

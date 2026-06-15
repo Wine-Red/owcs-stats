@@ -27,6 +27,16 @@ const routes = [
     component: () => import('../views/visualize/UpcomingMatchDetail.vue')
   },
   {
+    path: '/visualize/team-detail',
+    name: 'TeamDetail',
+    component: () => import('../views/visualize/TeamDetail.vue')
+  },
+  {
+    path: '/visualize/match-detail',
+    name: 'MatchDetail',
+    component: () => import('../views/visualize/MatchDetail.vue')
+  },
+  {
     path: '/analytics',
     name: 'Analytics',
     component: () => import('../views/analytics/Analytics.vue')

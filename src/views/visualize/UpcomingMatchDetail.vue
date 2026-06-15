@@ -22,7 +22,7 @@
 
       <!-- 对阵横幅 -->
       <div class="match-banner">
-        <div class="team left-team">
+        <div class="team left-team team-link" @click="goToTeamDetail(team1ResolvedId)">
           <span class="team-name">{{ queryParams.team1 }}</span>
           <img :src="queryParams.team1Logo" class="team-logo" alt="" />
         </div>
@@ -32,7 +32,7 @@
           <div v-if="isOngoing" class="match-status-badge ongoing">LIVE</div>
           <div v-else class="match-status-badge">未开赛</div>
         </div>
-        <div class="team right-team">
+        <div class="team right-team team-link" @click="goToTeamDetail(team2ResolvedId)">
           <img :src="queryParams.team2Logo" class="team-logo" alt="" />
           <span class="team-name">{{ queryParams.team2 }}</span>
         </div>
@@ -129,7 +129,6 @@
                   </div>
                   <div class="header-line right-line"></div>
                 </div>
-
                 <div class="role-arena-body">
                   <!-- Selectors -->
                   <div class="player-selectors">
@@ -168,7 +167,7 @@
               暂无交手记录
             </div>
             <div v-else class="h2h-list">
-              <div v-for="match in h2hMatches" :key="match.id" class="h2h-match-row">
+              <div v-for="match in h2hMatches" :key="match.id" class="h2h-match-row" @click="goToMatchDetail(match)">
                 <div class="h2h-match-info">
                   <div class="h2h-date">{{ formatDateOnly(match.matchDate) }}</div>
                   <div class="h2h-tournament" :title="getSeasonName(match.seasonId) || match.tournamentName">
@@ -204,7 +203,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, nextTick, onUnmounted } from 'vue';
+import { ref, onMounted, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { ArrowLeft } from '@element-plus/icons-vue';
@@ -215,6 +214,7 @@ export default {
   name: 'UpcomingMatchDetail',
   components: { ArrowLeft },
   setup() {
+    const comparisonRoles = ['tank', 'damage', 'support'];
     const route = useRoute();
     const router = useRouter();
     const store = useStore();
@@ -280,6 +280,28 @@ export default {
       }
       return name;
     });
+
+    const team1ResolvedId = computed(() => {
+      const target = String(queryParams.value.team1 || '').toLowerCase();
+      if (!target) return '';
+      const found = store.state.teams.find(t => {
+        const name = String(t.name || '').toLowerCase();
+        const abbr = String(t.abbreviation || '').toLowerCase();
+        return name === target || abbr === target || name.includes(target) || target.includes(name);
+      });
+      return found?.id ? String(found.id) : '';
+    });
+
+    const team2ResolvedId = computed(() => {
+      const target = String(queryParams.value.team2 || '').toLowerCase();
+      if (!target) return '';
+      const found = store.state.teams.find(t => {
+        const name = String(t.name || '').toLowerCase();
+        const abbr = String(t.abbreviation || '').toLowerCase();
+        return name === target || abbr === target || name.includes(target) || target.includes(name);
+      });
+      return found?.id ? String(found.id) : '';
+    });
     
     const activeTab = ref('team');
     const teamRadarRef = ref(null);
@@ -291,17 +313,116 @@ export default {
     const setPlayerRadarRef = (el, role) => {
       if (el) {
         playerRadarRefs.value[role] = el;
+      } else {
+        delete playerRadarRefs.value[role];
       }
+    };
+
+    const getPreferredSelectedPlayer = (players) => {
+      if (!players.length) return null;
+      return players.find(player => player.hasStats) || players[0];
+    };
+
+    const formatRadarAxisValue = (value) => {
+      const numeric = Number(value || 0);
+      if (!Number.isFinite(numeric)) return '0';
+      if (numeric >= 100) return String(Math.round(numeric));
+      if (Number.isInteger(numeric)) return String(numeric);
+      if (numeric >= 10) return numeric.toFixed(1).replace(/\.0$/, '');
+      return numeric.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+    };
+
+    const getRadarLayout = (container) => {
+      const width = container?.clientWidth || 0;
+      if (width && width <= 420) {
+        return {
+          radius: '54%',
+          center: ['50%', '56%']
+        };
+      }
+
+      return {
+        radius: '60%',
+        center: ['50%', '50%']
+      };
+    };
+
+    const buildRoleRadarDefinitions = (role, players, options = {}) => {
+      const usePer10 = options.usePer10 !== false;
+      const metricLabel = (base) => (usePer10 ? `${base}/10m` : base);
+      const deathKey = usePer10 ? 'deathsPer10' : 'deaths';
+
+      const baseDefinitions = {
+        tank: [
+          { name: 'K/D', key: 'kd' },
+          { name: metricLabel('消灭'), key: usePer10 ? 'elimsPer10' : 'kills' },
+          { name: metricLabel('伤害'), key: usePer10 ? 'damagePer10' : 'damage' },
+          { name: metricLabel('抵挡'), key: usePer10 ? 'mitigationPer10' : 'mitigation' },
+          { name: '生存', type: 'survival', deathKey }
+        ],
+        damage: [
+          { name: 'K/D', key: 'kd' },
+          { name: metricLabel('消灭'), key: usePer10 ? 'elimsPer10' : 'kills' },
+          { name: metricLabel('伤害'), key: usePer10 ? 'damagePer10' : 'damage' },
+          { name: metricLabel('助攻'), key: usePer10 ? 'assistsPer10' : 'assists' },
+          { name: '生存', type: 'survival', deathKey }
+        ],
+        support: [
+          { name: 'KA/D', key: 'kad' },
+          { name: metricLabel('消灭'), key: usePer10 ? 'elimsPer10' : 'kills' },
+          { name: metricLabel('治疗'), key: usePer10 ? 'healingPer10' : 'healing' },
+          { name: metricLabel('助攻'), key: usePer10 ? 'assistsPer10' : 'assists' },
+          { name: '生存', type: 'survival', deathKey }
+        ]
+      };
+
+      const rolePlayers = players.filter(Boolean);
+      const maxDeaths = Math.max(0, ...rolePlayers.map(player => Number(player?.[deathKey]) || 0));
+      const survivalMax = maxDeaths === 0 ? 10 : Math.ceil(maxDeaths * 1.1);
+
+      return (baseDefinitions[role] || baseDefinitions.damage).map((definition) => {
+        if (definition.type === 'survival') {
+          return {
+            ...definition,
+            max: survivalMax
+          };
+        }
+
+        const maxValue = Math.max(0, ...rolePlayers.map(player => Number(player?.[definition.key]) || 0));
+        return {
+          ...definition,
+          max: maxValue === 0 ? 10 : Math.ceil(maxValue * 1.1)
+        };
+      });
+    };
+
+    const getRadarMetricValue = (player, definition) => {
+      if (!player) return 0;
+      if (definition.type === 'survival') {
+        const deathValue = Number(player?.[definition.deathKey]) || 0;
+        return Math.max(0, definition.max - deathValue);
+      }
+      return Number(player?.[definition.key]) || 0;
     };
 
     const switchTab = async (tab) => {
       activeTab.value = tab;
       await nextTick();
-      
-      // Delay resize to allow DOM to render fully
-      setTimeout(() => {
+
+      requestAnimationFrame(() => {
+        if (tab === 'team') {
+          renderTeamRadar();
+          handleResize();
+          return;
+        }
+
+        if (tab === 'players') {
+          renderVisiblePlayerRadars();
+          return;
+        }
+
         handleResize();
-      }, 50);
+      });
     };
 
     const selectPlayer = (role, teamKey, playerObj) => {
@@ -316,6 +437,57 @@ export default {
       router.push({
         path: '/visualize',
         query: { seasonId: queryParams.value.seasonId }
+      });
+    };
+
+    const goToTeamDetail = (teamId) => {
+      if (!teamId) return;
+      router.push({
+        path: '/visualize/team-detail',
+        query: {
+          seasonId: queryParams.value.seasonId,
+          teamId: String(teamId),
+          from: 'upcoming-match-detail'
+        }
+      });
+    };
+
+    const goToMatchDetail = (match) => {
+      if (!match?.id) return;
+
+      const matchData = {
+        id: match.id,
+        seasonId: match.seasonId,
+        tournamentName: match.tournamentName || '',
+        matchDate: match.matchDate || '',
+        boFormat: match.boFormat || '',
+        team1Id: match.team1Id,
+        team2Id: match.team2Id,
+        team1Name: getTeamName(match.team1Id),
+        team2Name: getTeamName(match.team2Id),
+        team1Logo: getTeamLogo(match.team1Id),
+        team2Logo: getTeamLogo(match.team2Id),
+        team1Score: match.team1Score,
+        team2Score: match.team2Score,
+        winnerId: match.winnerId
+      };
+
+      sessionStorage.setItem('current_match_detail', JSON.stringify(matchData));
+
+      router.push({
+        path: '/visualize/match-detail',
+        query: {
+          matchId: String(match.id),
+          seasonId: String(match.seasonId || queryParams.value.seasonId || ''),
+          from: 'upcoming-match-detail',
+          team1Id: String(match.team1Id || ''),
+          team2Id: String(match.team2Id || ''),
+          team1: matchData.team1Name,
+          team2: matchData.team2Name,
+          team1Logo: matchData.team1Logo,
+          team2Logo: matchData.team2Logo,
+          tournament: match.tournamentName || ''
+        }
       });
     };
 
@@ -468,7 +640,7 @@ export default {
 
     const processPlayerMatchups = (allStats, team1Name, team2Name) => {
       // Clear old data
-      ['tank', 'damage', 'support'].forEach(r => {
+      comparisonRoles.forEach(r => {
         rolePlayers.value[r] = { t1: [], t2: [] };
         roleMaxStats.value[r] = { damage: 100, healing: 100, mitigation: 100 };
       });
@@ -488,41 +660,130 @@ export default {
          return tNameLower === t2Lower || tAbbrLower === t2Lower || tNameLower.includes(t2Lower) || t2Lower.includes(tNameLower);
       });
 
+      const team1Roster = [];
+      const team2Roster = [];
+      const seasonId = queryParams.value.seasonId;
+      const team1Id = team1ResolvedId.value ? Number(team1ResolvedId.value) : null;
+      const team2Id = team2ResolvedId.value ? Number(team2ResolvedId.value) : null;
+      const playerStatMap = new Map();
+
+      const buildPlayerObj = (source = {}, fallback = {}) => {
+        const duration = Number(source.gameTime || source.totalDuration || fallback.gameTime || 0);
+        const damage = Number(source.damage || source.totalDamage || 0);
+        const healing = Number(source.healing || source.totalHealing || 0);
+        const mitigation = Number(source.mitigation || source.totalMitigation || 0);
+        const elims = Number(source.elims || source.totalKills || 0);
+        const assists = Number(source.assists || source.totalAssists || 0);
+        const deaths = Number(source.deaths || source.totalDeaths || 0);
+        const playerId = source.playerId || source.player?.id || fallback.playerId || fallback.id || null;
+        const role = source.role || source.player?.role || fallback.role || 'damage';
+        const name = source.playerName || source.player?.name || fallback.name || '未知';
+        const p10 = (val) => (duration > 0 ? parseFloat(((Number(val || 0) / duration) * 10).toFixed(2)) : 0);
+        const kd = deaths > 0 ? parseFloat((elims / deaths).toFixed(2)) : elims;
+        const kad = deaths > 0 ? parseFloat(((elims + assists) / deaths).toFixed(2)) : elims + assists;
+
+        return {
+          id: playerId,
+          name,
+          role,
+          gameTime: duration,
+          kills: elims,
+          assists,
+          deaths,
+          damage,
+          healing,
+          mitigation,
+          damagePer10: p10(damage),
+          healingPer10: p10(healing),
+          mitigationPer10: p10(mitigation),
+          elimsPer10: p10(elims),
+          assistsPer10: p10(assists),
+          deathsPer10: p10(deaths),
+          kd,
+          kad,
+          hasStats: duration > 0
+        };
+      };
+
+      const appendUniquePlayer = (list, playerObj) => {
+        if (!playerObj?.name) return;
+        const existingIndex = list.findIndex(item =>
+          (playerObj.id && item.id && String(item.id) === String(playerObj.id)) ||
+          item.name === playerObj.name
+        );
+
+        if (existingIndex === -1) {
+          list.push(playerObj);
+          return;
+        }
+
+        if ((playerObj.hasStats ? 1 : 0) > (list[existingIndex].hasStats ? 1 : 0) ||
+            Number(playerObj.gameTime || 0) > Number(list[existingIndex].gameTime || 0)) {
+          list.splice(existingIndex, 1, playerObj);
+        }
+      };
+
+      if (seasonId && (team1Id || team2Id)) {
+        const seasonNumericId = Number(seasonId);
+        const seasonTeam1 = team1Id ? store.getters.getSeasonTeamBySeasonAndTeam(seasonNumericId, team1Id) : null;
+        const seasonTeam2 = team2Id ? store.getters.getSeasonTeamBySeasonAndTeam(seasonNumericId, team2Id) : null;
+
+        if (seasonTeam1?.id) {
+          store.getters.getPlayersBySeasonTeamId(seasonTeam1.id).forEach(player => {
+            team1Roster.push({
+              id: player.id,
+              name: player.name,
+              role: player.role || 'damage'
+            });
+          });
+        }
+
+        if (seasonTeam2?.id) {
+          store.getters.getPlayersBySeasonTeamId(seasonTeam2.id).forEach(player => {
+            team2Roster.push({
+              id: player.id,
+              name: player.name,
+              role: player.role || 'damage'
+            });
+          });
+        }
+      }
+
       allStats.forEach(p => {
         const pTeamName = (p.teamName || p.team?.name || '').toLowerCase();
-        const duration = p.gameTime || 0;
-        if (duration === 0) return;
-
-        const p10 = (val) => parseFloat(((val || 0) / duration * 10).toFixed(2));
-        let kd = p.elims || 0;
-        if (p.deaths > 0) kd = parseFloat(((p.elims || 0) / p.deaths).toFixed(2));
-
-        const playerObj = {
-          name: p.playerName || p.player?.name || '未知',
-          role: p.role || 'damage',
-          gameTime: duration,
-          damagePer10: p10(p.damage),
-          healingPer10: p10(p.healing),
-          mitigationPer10: p10(p.mitigation),
-          elimsPer10: p10(p.elims),
-          kd: kd
-        };
-
+        const playerObj = buildPlayerObj(p);
         const role = ['tank', 'damage', 'support'].includes(playerObj.role) ? playerObj.role : 'damage';
+        const playerMapKey = playerObj.id ? String(playerObj.id) : `${role}:${playerObj.name}`;
 
         if ((actualTeam1 && p.teamId === actualTeam1.id) || pTeamName.includes(t1Lower) || (actualTeam1 && pTeamName.includes(actualTeam1.name.toLowerCase()))) {
-          rolePlayers.value[role].t1.push(playerObj);
+          playerStatMap.set(`t1:${playerMapKey}`, playerObj);
+          appendUniquePlayer(rolePlayers.value[role].t1, playerObj);
         } else if ((actualTeam2 && p.teamId === actualTeam2.id) || pTeamName.includes(t2Lower) || (actualTeam2 && pTeamName.includes(actualTeam2.name.toLowerCase()))) {
-          rolePlayers.value[role].t2.push(playerObj);
+          playerStatMap.set(`t2:${playerMapKey}`, playerObj);
+          appendUniquePlayer(rolePlayers.value[role].t2, playerObj);
         }
       });
 
-      ['tank', 'damage', 'support'].forEach(r => {
+      team1Roster.forEach(player => {
+        const role = ['tank', 'damage', 'support'].includes(player.role) ? player.role : 'damage';
+        const playerMapKey = player.id ? String(player.id) : `${role}:${player.name}`;
+        const mergedPlayer = playerStatMap.get(`t1:${playerMapKey}`) || buildPlayerObj({}, player);
+        appendUniquePlayer(rolePlayers.value[role].t1, mergedPlayer);
+      });
+
+      team2Roster.forEach(player => {
+        const role = ['tank', 'damage', 'support'].includes(player.role) ? player.role : 'damage';
+        const playerMapKey = player.id ? String(player.id) : `${role}:${player.name}`;
+        const mergedPlayer = playerStatMap.get(`t2:${playerMapKey}`) || buildPlayerObj({}, player);
+        appendUniquePlayer(rolePlayers.value[role].t2, mergedPlayer);
+      });
+
+      comparisonRoles.forEach(r => {
          rolePlayers.value[r].t1.sort((a,b) => b.gameTime - a.gameTime);
          rolePlayers.value[r].t2.sort((a,b) => b.gameTime - a.gameTime);
 
-         selectedPlayers.value[r].t1 = rolePlayers.value[r].t1[0] || null;
-         selectedPlayers.value[r].t2 = rolePlayers.value[r].t2[0] || null;
+         selectedPlayers.value[r].t1 = getPreferredSelectedPlayer(rolePlayers.value[r].t1);
+         selectedPlayers.value[r].t2 = getPreferredSelectedPlayer(rolePlayers.value[r].t2);
 
          const allInRole = [...rolePlayers.value[r].t1, ...rolePlayers.value[r].t2];
          if (allInRole.length > 0) {
@@ -530,6 +791,17 @@ export default {
             roleMaxStats.value[r].healing = Math.max(...allInRole.map(p => p.healingPer10), 100);
             roleMaxStats.value[r].mitigation = Math.max(...allInRole.map(p => p.mitigationPer10), 100);
          }
+      });
+    };
+
+    const renderVisiblePlayerRadars = () => {
+      if (activeTab.value !== 'players') return;
+
+      nextTick(() => {
+        requestAnimationFrame(() => {
+          comparisonRoles.forEach(role => renderPlayerRadar(role));
+          handleResize();
+        });
       });
     };
 
@@ -547,40 +819,29 @@ export default {
         return;
       }
 
-      const getMax = (key) => {
-        const v1 = p1 ? Number(p1[key]) || 0 : 0;
-        const v2 = p2 ? Number(p2[key]) || 0 : 0;
-        const max = Math.max(v1, v2);
-        if (key === 'kd' || key === 'elimsPer10') {
-           return max === 0 ? 5 : max * 1.2;
-        }
-        return max === 0 ? 10 : Math.ceil(max * 1.2);
-      };
-
-      const dataKeys = ['kd', 'damagePer10', 'healingPer10', 'mitigationPer10', 'elimsPer10'];
-      const indicators = [
-        { name: 'K/D', max: getMax('kd') },
-        { name: '伤害/10m', max: getMax('damagePer10') },
-        { name: '治疗/10m', max: getMax('healingPer10') },
-        { name: '抵挡/10m', max: getMax('mitigationPer10') },
-        { name: '消灭/10m', max: getMax('elimsPer10') }
-      ];
+      const rolePool = [...rolePlayers.value[role].t1, ...rolePlayers.value[role].t2];
+      const radarDefinitions = buildRoleRadarDefinitions(role, rolePool, { usePer10: true });
+      const indicators = radarDefinitions.map(definition => ({
+        name: definition.name,
+        max: definition.max
+      }));
+      const radarLayout = getRadarLayout(playerRadarRefs.value[role]);
 
       const seriesData = [];
       if (p1) {
         seriesData.push({
-          value: [p1.kd, p1.damagePer10, p1.healingPer10, p1.mitigationPer10, p1.elimsPer10],
+          value: radarDefinitions.map(definition => getRadarMetricValue(p1, definition)),
           name: p1.name,
-          itemStyle: { color: '#409EFF' },
-          areaStyle: { color: 'rgba(64, 158, 255, 0.4)' }
+          itemStyle: { color: '#111' },
+          areaStyle: { color: 'rgba(17, 17, 17, 0.16)' }
         });
       }
       if (p2) {
         seriesData.push({
-          value: [p2.kd, p2.damagePer10, p2.healingPer10, p2.mitigationPer10, p2.elimsPer10],
+          value: radarDefinitions.map(definition => getRadarMetricValue(p2, definition)),
           name: p2.name,
-          itemStyle: { color: '#F56C6C' },
-          areaStyle: { color: 'rgba(245, 108, 108, 0.4)' }
+          itemStyle: { color: '#ff6a00' },
+          areaStyle: { color: 'rgba(255, 106, 0, 0.18)' }
         });
       }
 
@@ -596,26 +857,23 @@ export default {
           indicator: indicators,
           shape: 'polygon',
           splitNumber: 4,
-          radius: '60%',
-          center: ['50%', '50%'],
+          radius: radarLayout.radius,
+          center: radarLayout.center,
           axisName: {
             color: '#606266',
             fontSize: 11,
             fontWeight: 'bold',
             formatter: function (value) {
-               const keyMap = { 'K/D': 'kd', '伤害/10m': 'damagePer10', '治疗/10m': 'healingPer10', '抵挡/10m': 'mitigationPer10', '消灭/10m': 'elimsPer10' };
-               const k = keyMap[value];
-               let v1 = p1 ? p1[k] || 0 : 0;
-               let v2 = p2 ? p2[k] || 0 : 0;
-               if (v1 > 100) v1 = Math.round(v1);
-               if (v2 > 100) v2 = Math.round(v2);
-               if (value === 'K/D') return `{name|${value}}\n{t1|${v1}} : {t2|${v2}}`;
+               const definition = radarDefinitions.find(item => item.name === value);
+               const v1 = formatRadarAxisValue(getRadarMetricValue(p1, definition));
+               const v2 = formatRadarAxisValue(getRadarMetricValue(p2, definition));
+               if (value === 'K/D' || value === 'KA/D') return `{name|${value}}\n{t1|${v1}} : {t2|${v2}}`;
                return `{name|${value}}\n{t1|${v1}}\n{t2|${v2}}`;
             },
             rich: {
               name: { color: '#909399', fontSize: 10, align: 'center', padding: [0,0,4,0] },
-              t1: { color: '#409EFF', fontSize: 11, fontWeight: 'bold', align: 'center', lineHeight: 14 },
-              t2: { color: '#F56C6C', fontSize: 11, fontWeight: 'bold', align: 'center', lineHeight: 14 }
+              t1: { color: '#111', fontSize: 11, fontWeight: 'bold', align: 'center', lineHeight: 14 },
+              t2: { color: '#ff6a00', fontSize: 11, fontWeight: 'bold', align: 'center', lineHeight: 14 }
             }
           },
           splitLine: { lineStyle: { color: ['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.2)'] } },
@@ -671,16 +929,16 @@ export default {
         seriesData.push({
           value: [t1.kd, t1.avgDamage, t1.avgHealing, t1.avgMitigation, t1.avgElims],
           name: queryParams.value.team1,
-          itemStyle: { color: '#409EFF' },
-          areaStyle: { color: 'rgba(64, 158, 255, 0.4)' }
+          itemStyle: { color: '#111' },
+          areaStyle: { color: 'rgba(17, 17, 17, 0.16)' }
         });
       }
       if (t2) {
         seriesData.push({
           value: [t2.kd, t2.avgDamage, t2.avgHealing, t2.avgMitigation, t2.avgElims],
           name: queryParams.value.team2,
-          itemStyle: { color: '#F56C6C' },
-          areaStyle: { color: 'rgba(245, 108, 108, 0.4)' }
+          itemStyle: { color: '#ff6a00' },
+          areaStyle: { color: 'rgba(255, 106, 0, 0.18)' }
         });
       }
 
@@ -695,8 +953,8 @@ export default {
           indicator: indicators,
           shape: 'polygon',
           splitNumber: 4,
-          radius: '60%',
-          center: ['50%', '50%'],
+          radius: getRadarLayout(teamRadarRef.value).radius,
+          center: getRadarLayout(teamRadarRef.value).center,
           axisName: {
             color: '#606266',
             fontSize: 12,
@@ -716,8 +974,8 @@ export default {
             },
             rich: {
               name: { color: '#909399', fontSize: 11, align: 'center', padding: [0,0,4,0] },
-              t1: { color: '#409EFF', fontSize: 12, fontWeight: 'bold', align: 'center', lineHeight: 16 },
-              t2: { color: '#F56C6C', fontSize: 12, fontWeight: 'bold', align: 'center', lineHeight: 16 }
+              t1: { color: '#111', fontSize: 12, fontWeight: 'bold', align: 'center', lineHeight: 16 },
+              t2: { color: '#ff6a00', fontSize: 12, fontWeight: 'bold', align: 'center', lineHeight: 16 }
             }
           },
           splitLine: {
@@ -742,11 +1000,14 @@ export default {
     const loadData = async () => {
       isLoading.value = true;
       try {
-        if (!store.state.teams.length) {
+        if (!store.state.teams.length || !store.state.players.length) {
           await store.dispatch('loadBaseData');
         }
 
         const seasonId = queryParams.value.seasonId;
+        if (seasonId) {
+          await store.dispatch('getSeasonTeams', Number(seasonId));
+        }
         const [allGlobalMatchesRes, seasonMatchesRes, statsRes, scoreStatsRes] = await Promise.all([
           apiService.getMatches({ pageSize: 2000 }), // 获取尽可能多的全局比赛
           apiService.getMatches({ seasonId, pageSize: 2000 }),
@@ -835,8 +1096,14 @@ export default {
       } finally {
         isLoading.value = false;
         nextTick(() => {
-          if (activeTab.value === 'team') renderTeamRadar();
-          ['tank', 'damage', 'support'].forEach(r => renderPlayerRadar(r));
+          if (activeTab.value === 'team') {
+            requestAnimationFrame(() => {
+              renderTeamRadar();
+              handleResize();
+            });
+          } else if (activeTab.value === 'players') {
+            renderVisiblePlayerRadars();
+          }
         });
       }
     };
@@ -866,10 +1133,26 @@ export default {
         return queryParams.value.time < Date.now();
       });
 
+    watch(activeTab, (tab) => {
+      if (tab === 'players') {
+        renderVisiblePlayerRadars();
+      }
+      if (tab === 'team') {
+        nextTick(() => {
+          requestAnimationFrame(() => {
+            renderTeamRadar();
+            handleResize();
+          });
+        });
+      }
+    });
+
     return {
       isLoading,
       queryParams,
       formattedTournament,
+      team1ResolvedId,
+      team2ResolvedId,
       h2hMatches,
       teamStats,
       rolePlayers,
@@ -881,7 +1164,9 @@ export default {
       setPlayerRadarRef,
       switchTab,
       selectPlayer,
+      goToTeamDetail,
       goBack,
+      goToMatchDetail,
       formatTime,
       formatDateOnly,
       formatTournamentName,
@@ -992,6 +1277,20 @@ export default {
   align-items: center;
   gap: 16px;
   flex: 1;
+}
+
+.team-link {
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.team-link:hover .team-name,
+.team-link:hover .team-logo {
+  opacity: 0.8;
+}
+
+.team-link:active {
+  transform: scale(0.98);
 }
 
 .left-team {
@@ -1230,11 +1529,16 @@ export default {
   position: relative;
   overflow: hidden;
   gap: 10px;
+  cursor: pointer;
 }
 
 .h2h-match-row:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.h2h-match-row:active {
+  transform: scale(0.98);
 }
 
 .h2h-match-row::before {
@@ -1431,26 +1735,38 @@ export default {
   background: #f4f4f5;
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(17, 17, 17, 0.06);
   font-size: 12px;
   user-select: none;
 }
 
 .player-chip:hover {
-  background: #ecf5ff;
+  transform: translateY(-1px);
+}
+
+.t1-selector .player-chip:hover {
+  background: rgba(17, 17, 17, 0.06);
+  border-color: rgba(17, 17, 17, 0.12);
+}
+
+.t2-selector .player-chip:hover {
+  background: rgba(255, 106, 0, 0.08);
+  border-color: rgba(255, 106, 0, 0.18);
 }
 
 .t1-selector .player-chip.active {
-  background: #ecf5ff;
-  border-color: #b3d8ff;
-  color: #409eff;
+  background: rgba(17, 17, 17, 0.08);
+  border-color: rgba(17, 17, 17, 0.18);
+  color: #111;
+  box-shadow: 0 6px 14px rgba(17, 17, 17, 0.08);
 }
 
 .t2-selector .player-chip.active {
-  background: #fef0f0;
-  border-color: #fbc4c4;
-  color: #f56c6c;
+  background: rgba(255, 106, 0, 0.12);
+  border-color: rgba(255, 106, 0, 0.24);
+  color: #ff6a00;
+  box-shadow: 0 6px 14px rgba(255, 106, 0, 0.12);
 }
 
 .chip-name {
@@ -1514,12 +1830,12 @@ export default {
 }
 
 .t1-val {
-  color: #409EFF;
+  color: #111;
   text-align: left;
 }
 
 .t2-val {
-  color: #F56C6C;
+  color: #ff6a00;
   text-align: right;
 }
 
@@ -1554,8 +1870,8 @@ export default {
   transition: width 0.4s ease;
 }
 
-.t1-bg { background: #409EFF; }
-.t2-bg { background: #F56C6C; }
+.t1-bg { background: #111; }
+.t2-bg { background: #ff6a00; }
 
 .arena-bars {
   padding: 8px 20px 20px;

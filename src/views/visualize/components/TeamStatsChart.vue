@@ -73,9 +73,10 @@
           </el-table-column>
           <el-table-column prop="teamName" label="队伍" min-width="120" fixed>
             <template #default="scope">
-              <div class="team-cell">
+              <div class="team-cell team-cell-clickable" @click="goToTeamDetail(scope.row)" role="button" tabindex="0">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
                 <span class="team-name" :title="scope.row.teamName">{{ scope.row.teamName }}</span>
+                <span class="team-roster-cue" aria-hidden="true">›</span>
               </div>
             </template>
           </el-table-column>
@@ -114,6 +115,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
@@ -146,6 +148,16 @@ export default {
     const teamLogoSizes = ref(new Map());
     const isExpanded = ref(false);
     let teamChart = null;
+
+    const router = useRouter();
+
+    const goToTeamDetail = (row) => {
+      if (!row || !row.teamId || !props.seasonId) return;
+      router.push({
+        path: '/visualize/team-detail',
+        query: { seasonId: props.seasonId, teamId: row.teamId }
+      });
+    };
 
     const { showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
     const handleExport = () => {
@@ -192,6 +204,7 @@ export default {
             }
 
             return {
+                teamId: item.teamId,
                 teamName: item.teamName,
                 kd,
                 damagePer10,
@@ -683,6 +696,7 @@ export default {
       previewImage,
       handleExport,
       handleExportLeaderboard,
+      goToTeamDetail,
       sortState
     };
   }
@@ -761,6 +775,45 @@ export default {
   align-items: center;
   gap: 8px;
   width: 100%;
+}
+
+.team-cell-clickable {
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.team-cell-clickable:hover {
+  background: rgba(255, 158, 15, 0.08);
+}
+
+.team-cell-clickable:active {
+  transform: translateY(1px);
+}
+
+.team-cell-clickable .team-name {
+  color: #111;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 158, 15, 0.42);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.team-cell-clickable:hover .team-name {
+  color: #ff6a00;
+  text-decoration-color: #ff6a00;
+}
+
+.team-roster-cue {
+  flex: 0 0 auto;
+  color: #ff8a00;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.72;
+  transform: translateY(-1px);
 }
 
 .team-logo-small {
