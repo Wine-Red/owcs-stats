@@ -29,9 +29,9 @@ api.interceptors.response.use(
   error => {
     console.error('API Error:', error);
     if (error.config && error.config.url) {
-      trackError(`API: ${error.config.url}`, error);
+      trackError('API 请求', error);
     } else {
-      trackError('API: Unknown', error);
+      trackError('API 请求', error);
     }
     return Promise.reject(error);
   }

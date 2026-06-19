@@ -64,9 +64,10 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { Calendar, ArrowUp } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
+import { trackPublicEvent } from '@/utils/analytics';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
@@ -93,6 +94,7 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const route = useRoute();
     const router = useRouter();
     const allMatches = ref([]);
     const isLoading = ref(true);
@@ -304,6 +306,13 @@ export default {
 
     const goToDetail = (match) => {
       if (!props.seasonId) return;
+
+      trackPublicEvent('首页-打开未开赛详情', {
+        source: 'upcoming_matches',
+        seasonId: props.seasonId,
+        team1Name: match?.team1?.name,
+        team2Name: match?.team2?.name
+      }, route);
       
       const matchData = {
         seasonId: props.seasonId,

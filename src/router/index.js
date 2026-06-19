@@ -19,22 +19,34 @@ const routes = [
   {
     path: '/visualize',
     name: 'Visualize',
-    component: () => import('../views/visualize/Visualize.vue')
+    component: () => import('../views/visualize/Visualize.vue'),
+    meta: {
+      analyticsPage: 'visualize_home'
+    }
   },
   {
     path: '/visualize/upcoming-match',
     name: 'UpcomingMatchDetail',
-    component: () => import('../views/visualize/UpcomingMatchDetail.vue')
+    component: () => import('../views/visualize/UpcomingMatchDetail.vue'),
+    meta: {
+      analyticsPage: 'visualize_upcoming_match_detail'
+    }
   },
   {
     path: '/visualize/team-detail',
     name: 'TeamDetail',
-    component: () => import('../views/visualize/TeamDetail.vue')
+    component: () => import('../views/visualize/TeamDetail.vue'),
+    meta: {
+      analyticsPage: 'visualize_team_detail'
+    }
   },
   {
     path: '/visualize/match-detail',
     name: 'MatchDetail',
-    component: () => import('../views/visualize/MatchDetail.vue')
+    component: () => import('../views/visualize/MatchDetail.vue'),
+    meta: {
+      analyticsPage: 'visualize_match_detail'
+    }
   },
   {
     path: '/analytics',

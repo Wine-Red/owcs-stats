@@ -81,8 +81,9 @@
 <script>
 import { computed, ref, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import apiService from '@/services/api';
+import { trackPublicEvent } from '@/utils/analytics';
 
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
@@ -124,6 +125,7 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const route = useRoute();
     const router = useRouter();
     const snapshots = ref([]);
     const selectedSegmentKey = ref('cumulative');
@@ -427,6 +429,12 @@ export default {
     const openTeamRoster = (row) => {
       const team = row?.team;
       if (!team?.id || !props.seasonId) return;
+
+      trackPublicEvent('首页-打开战队详情', {
+        source: 'regular_season_board',
+        seasonId: props.seasonId,
+        teamId: team.id
+      }, route);
 
       router.push({
         path: '/visualize/team-detail',

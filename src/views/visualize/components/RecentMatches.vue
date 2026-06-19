@@ -87,10 +87,11 @@
 
 <script>
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { ArrowUp, ArrowDown, VideoCamera, DocumentCopy } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
+import { trackPublicEvent } from '@/utils/analytics';
 
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
@@ -114,6 +115,7 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const route = useRoute();
     const router = useRouter();
     const showAllMatches = ref(false);
     const expandedReplays = ref(new Set());
@@ -218,6 +220,12 @@ export default {
     };
 
     const goToMatchDetail = (match) => {
+      trackPublicEvent('首页-打开比赛详情', {
+        source: 'recent_matches',
+        seasonId: match?.seasonId,
+        matchId: match?.id
+      }, route);
+
       const matchData = {
         id: match.id,
         seasonId: match.seasonId,

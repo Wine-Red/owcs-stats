@@ -149,6 +149,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
+import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
 export default {
   name: 'TeamDetail',
@@ -202,11 +203,24 @@ export default {
     });
 
     const switchTab = async (tab) => {
+      if (activeTab.value !== tab) {
+        trackPublicEvent('战队详情-切换标签', {
+          seasonId: currentSeasonId.value || queryParams.value.seasonId,
+          teamId: queryParams.value.teamId,
+          tab
+        }, route);
+      }
       activeTab.value = tab;
       await nextTick();
     };
 
     const goBack = () => {
+      trackPublicEvent('战队详情-返回上一页', {
+        seasonId: currentSeasonId.value || queryParams.value.seasonId,
+        teamId: queryParams.value.teamId,
+        source: queryParams.value.from || 'visualize'
+      }, route);
+
       if (queryParams.value.from === 'match-detail' || queryParams.value.from === 'upcoming-match-detail') {
         router.back();
         return;
@@ -220,6 +234,13 @@ export default {
 
     const goToMatchDetail = (match) => {
       if (!match?.id) return;
+
+      trackPublicEvent('战队详情-打开比赛', {
+        seasonId: String(match.seasonId || currentSeasonId.value || queryParams.value.seasonId || ''),
+        teamId: queryParams.value.teamId,
+        matchId: match.id,
+        source: 'team_recent_matches'
+      }, route);
 
       const matchData = {
         id: match.id,
@@ -305,6 +326,7 @@ export default {
     };
 
     const loadData = async () => {
+      const startTime = performance.now();
       isLoading.value = true;
       try {
         if (!store.state.teams.length || !store.state.seasons.length) {
@@ -343,6 +365,11 @@ export default {
         console.error('Failed to load team base data:', err);
       } finally {
         isLoading.value = false;
+        trackPerformance('战队详情加载', performance.now() - startTime, {
+          seasonId: currentSeasonId.value || queryParams.value.seasonId,
+          teamId: queryParams.value.teamId,
+          tab: activeTab.value
+        }, route);
       }
     };
 

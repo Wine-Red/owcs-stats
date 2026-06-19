@@ -1,6 +1,7 @@
 import { ref } from 'vue';
+import { useRoute } from 'vue-router';
 import * as echarts from 'echarts';
-import { trackEvent } from '@/utils/analytics';
+import { trackPublicEvent } from '@/utils/analytics';
 
 function drawVerticalArtisticTitle(ctx, title, rightAreaX, rightAreaY) {
     let mainText = title;
@@ -202,6 +203,7 @@ function drawExportBackground(ctx, EXPORT_WIDTH, EXPORT_HEIGHT, padding, logoImg
 export function useChartExport() {
   const showPreview = ref(false);
   const previewImage = ref('');
+  const route = useRoute();
 
     const generateChartImage = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false) => {
     if (!chartInstance) return null;
@@ -680,9 +682,14 @@ export function useChartExport() {
     return canvas.toDataURL('image/png');
   };
 
-  const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false) => {
+  const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false, eventData = {}) => {
     try {
-      trackEvent('export_image', { type: 'chart', title: chartTitle || 'Untitled', transparent: isTransparent });
+      trackPublicEvent('公共页-导出图片', {
+        ...eventData,
+        type: 'chart',
+        title: chartTitle || 'Untitled',
+        transparent: isTransparent
+      }, route);
       
       if (!chartInstance) {
         console.warn('Chart instance not found');
@@ -698,9 +705,13 @@ export function useChartExport() {
     }
   };
 
-  const handleExportTable = async (tableTitle, columns, data, seasonName = '') => {
+  const handleExportTable = async (tableTitle, columns, data, seasonName = '', eventData = {}) => {
     try {
-      trackEvent('export_image', { type: 'table', title: tableTitle || 'Untitled' });
+      trackPublicEvent('公共页-导出图片', {
+        ...eventData,
+        type: 'table',
+        title: tableTitle || 'Untitled'
+      }, route);
       
       if (!data || data.length === 0) {
         console.warn('No table data to export');

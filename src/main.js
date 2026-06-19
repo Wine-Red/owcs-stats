@@ -25,6 +25,7 @@ import '@fontsource/oxanium/latin-600.css'
 import '@fontsource/oxanium/latin-700.css'
 import '@fontsource/oxanium/latin-800.css'
 import '@/styles/visualize-theme.css'
+import { initAnalytics } from '@/utils/analytics'
 
 // 禁用双指缩放和 Ctrl+滚轮缩放
 document.addEventListener('gesturestart', function (e) {
@@ -44,6 +45,7 @@ document.addEventListener('wheel', function (e) {
 
 // 创建Vue应用
 const app = createApp(App)
+initAnalytics()
 
 // 使用插件
 app.use(router)
