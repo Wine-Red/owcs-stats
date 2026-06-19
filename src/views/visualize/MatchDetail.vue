@@ -482,6 +482,7 @@ import { ArrowLeft } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
+import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
@@ -1185,6 +1186,15 @@ export default {
     };
 
     const switchTab = (tab) => {
+      if (activeTab.value !== tab) {
+        trackPublicEvent('比赛详情-切换标签', {
+          seasonId: queryParams.value.seasonId,
+          matchId: queryParams.value.matchId,
+          team1Id: queryParams.value.team1Id,
+          team2Id: queryParams.value.team2Id,
+          tab: String(tab)
+        }, route);
+      }
       activeTab.value = tab;
       contentMode.value = 'analysis';
       nextTick(() => {
@@ -1195,6 +1205,16 @@ export default {
     };
 
     const switchContentMode = (mode) => {
+      if (contentMode.value !== mode) {
+        trackPublicEvent('比赛详情-切换模式', {
+          seasonId: queryParams.value.seasonId,
+          matchId: queryParams.value.matchId,
+          team1Id: queryParams.value.team1Id,
+          team2Id: queryParams.value.team2Id,
+          tab: String(activeTab.value),
+          mode
+        }, route);
+      }
       contentMode.value = mode;
     };
 
@@ -1204,6 +1224,13 @@ export default {
 
     const goToTeamDetail = (teamId) => {
       if (!teamId) return;
+      trackPublicEvent('比赛详情-打开战队', {
+        seasonId: queryParams.value.seasonId,
+        matchId: queryParams.value.matchId,
+        teamId: String(teamId),
+        source: String(activeTab.value)
+      }, route);
+
       router.push({
         path: '/visualize/team-detail',
         query: {
@@ -1215,6 +1242,12 @@ export default {
     };
 
     const goBack = () => {
+      trackPublicEvent('比赛详情-返回上一页', {
+        seasonId: queryParams.value.seasonId,
+        matchId: queryParams.value.matchId,
+        source: queryParams.value.from || 'visualize'
+      }, route);
+
       if (queryParams.value.from === 'visualize') {
         router.push({
           path: '/visualize',
@@ -1446,8 +1479,8 @@ export default {
     };
 
     const loadData = async () => {
+      const startTime = performance.now();
       isLoading.value = true;
-
       try {
         if (!store.state.teams.length || !store.state.maps.length || !store.state.seasons.length) {
           await store.dispatch('loadBaseData');
@@ -1496,6 +1529,14 @@ export default {
         console.error('Failed to load match detail data:', error);
       } finally {
         isLoading.value = false;
+        trackPerformance('比赛详情加载', performance.now() - startTime, {
+          seasonId: queryParams.value.seasonId,
+          matchId: queryParams.value.matchId,
+          team1Id: queryParams.value.team1Id,
+          team2Id: queryParams.value.team2Id,
+          tab: String(activeTab.value),
+          mode: contentMode.value
+        }, route);
         ensureCurrentMapSelections();
         renderVisibleCharts();
       }

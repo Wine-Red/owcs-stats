@@ -160,7 +160,7 @@
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
-import { trackEvent, trackPerformance } from '@/utils/analytics';
+import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
 const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
@@ -195,7 +195,11 @@ export default {
     const currentTab = ref('overview');
 
     watch(currentTab, (newTab) => {
-      trackEvent('switch_tab', { tab: newTab });
+      trackPublicEvent('首页-切换标签', {
+        tab: newTab,
+        seasonId: filterForm.value.seasonId,
+        stage: activeStage.value
+      }, route);
     });
 
     const filterForm = ref({
@@ -424,7 +428,11 @@ export default {
       isPageLoading.value = true;
       const startTime = performance.now();
       
-      trackEvent('change_season', { seasonId: filterForm.value.seasonId, stage: activeStage.value });
+      trackPublicEvent('首页-切换赛季', {
+        seasonId: filterForm.value.seasonId,
+        stage: activeStage.value,
+        tab: currentTab.value
+      }, route);
 
       try {
         await Promise.all([
@@ -437,7 +445,11 @@ export default {
         await nextTick();
         isPageLoading.value = false;
         const duration = performance.now() - startTime;
-        trackPerformance('season_data_load_duration', duration);
+        trackPerformance('首页切换赛季加载', duration, {
+          seasonId: filterForm.value.seasonId,
+          stage: activeStage.value,
+          tab: currentTab.value
+        }, route);
       }
     };
     
@@ -503,12 +515,20 @@ export default {
           await nextTick();
           isPageLoading.value = false;
           const duration = performance.now() - startTime;
-          trackPerformance('initial_page_load_duration', duration);
+          trackPerformance('首页首次加载', duration, {
+            seasonId: filterForm.value.seasonId,
+            stage: activeStage.value,
+            tab: currentTab.value
+          }, route);
         }
       } else {
         isPageLoading.value = false;
         const duration = performance.now() - startTime;
-        trackPerformance('initial_page_load_duration', duration);
+        trackPerformance('首页首次加载', duration, {
+          seasonId: filterForm.value.seasonId,
+          stage: activeStage.value,
+          tab: currentTab.value
+        }, route);
       }
     });
     

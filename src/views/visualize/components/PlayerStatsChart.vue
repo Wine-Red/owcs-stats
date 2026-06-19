@@ -256,7 +256,7 @@ export default {
         else if (playerRole.value === 'damage') roleName = '输出选手';
         else if (playerRole.value === 'support') roleName = '支援选手';
         
-        handleExportChart(playerChart, seasonName, `${roleName}表现分布`);
+        handleExportChart(playerChart, seasonName, `${roleName}表现分布`, false, { seasonId: props.seasonId });
     };
 
     const handleExportLeaderboard = () => {
@@ -302,7 +302,7 @@ export default {
 
         // Export all players instead of top 15
         const exportData = playerLeaderboardData.value;
-        handleExportTable(title, columns, exportData, seasonName);
+        handleExportTable(title, columns, exportData, seasonName, { seasonId: props.seasonId });
     };
     
     // 初始化默认排序

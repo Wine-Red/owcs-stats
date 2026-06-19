@@ -136,7 +136,7 @@ export default {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
         const isTransparent = command === 'transparent';
-        handleExportChart(myChart, seasonName, '', isTransparent);
+        handleExportChart(myChart, seasonName, '', isTransparent, { seasonId: props.seasonId });
     };
 
     // 获取当前职责的所有选手

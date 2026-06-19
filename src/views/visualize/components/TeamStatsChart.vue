@@ -115,13 +115,14 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import SlantedTitle from './SlantedTitle.vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { trackPublicEvent } from '@/utils/analytics';
 import { escapeHtml } from '@/utils/security';
 
 export default {
@@ -142,6 +143,7 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const route = useRoute();
     const teamComparisonChart = ref(null);
     const teamFilter = ref([]);
     const allTeamStats = ref([]);
@@ -153,6 +155,12 @@ export default {
 
     const goToTeamDetail = (row) => {
       if (!row || !row.teamId || !props.seasonId) return;
+      trackPublicEvent('首页-打开战队详情', {
+        source: 'team_stats_chart',
+        seasonId: props.seasonId,
+        teamId: row.teamId
+      }, route);
+
       router.push({
         path: '/visualize/team-detail',
         query: { seasonId: props.seasonId, teamId: row.teamId }
@@ -163,7 +171,7 @@ export default {
     const handleExport = () => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
-        handleExportChart(teamChart, seasonName, '参赛队伍表现分布');
+        handleExportChart(teamChart, seasonName, '参赛队伍表现分布', false, { seasonId: props.seasonId });
     };
 
     const handleExportLeaderboard = () => {
@@ -179,7 +187,7 @@ export default {
         ];
         // Export all teams depending on requirement.
         const exportData = teamLeaderboardData.value;
-        handleExportTable('参赛队伍排行榜', columns, exportData, seasonName);
+        handleExportTable('参赛队伍排行榜', columns, exportData, seasonName, { seasonId: props.seasonId });
     };
 
     const sortState = ref({ prop: 'kd', order: 'descending' });

@@ -209,6 +209,7 @@ import { useStore } from 'vuex';
 import { ArrowLeft } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
+import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
 export default {
   name: 'UpcomingMatchDetail',
@@ -406,6 +407,15 @@ export default {
     };
 
     const switchTab = async (tab) => {
+      if (activeTab.value !== tab) {
+        trackPublicEvent('未开赛详情-切换标签', {
+          seasonId: queryParams.value.seasonId,
+          team1Id: team1ResolvedId.value,
+          team2Id: team2ResolvedId.value,
+          tab
+        }, route);
+      }
+
       activeTab.value = tab;
       await nextTick();
 
@@ -433,6 +443,12 @@ export default {
     };
 
     const goBack = () => {
+      trackPublicEvent('未开赛详情-返回上一页', {
+        seasonId: queryParams.value.seasonId,
+        team1Id: team1ResolvedId.value,
+        team2Id: team2ResolvedId.value
+      }, route);
+
       // Pass the seasonId back to the visualizer view via query parameter
       router.push({
         path: '/visualize',
@@ -442,6 +458,13 @@ export default {
 
     const goToTeamDetail = (teamId) => {
       if (!teamId) return;
+      trackPublicEvent('未开赛详情-打开战队', {
+        seasonId: queryParams.value.seasonId,
+        team1Id: team1ResolvedId.value,
+        team2Id: team2ResolvedId.value,
+        teamId: String(teamId)
+      }, route);
+
       router.push({
         path: '/visualize/team-detail',
         query: {
@@ -454,6 +477,13 @@ export default {
 
     const goToMatchDetail = (match) => {
       if (!match?.id) return;
+
+      trackPublicEvent('未开赛详情-打开历史比赛', {
+        seasonId: String(match.seasonId || queryParams.value.seasonId || ''),
+        team1Id: team1ResolvedId.value,
+        team2Id: team2ResolvedId.value,
+        matchId: match.id
+      }, route);
 
       const matchData = {
         id: match.id,
@@ -998,6 +1028,7 @@ export default {
     };
 
     const loadData = async () => {
+      const startTime = performance.now();
       isLoading.value = true;
       try {
         if (!store.state.teams.length || !store.state.players.length) {
@@ -1095,6 +1126,12 @@ export default {
         console.error('Failed to load detail data:', err);
       } finally {
         isLoading.value = false;
+        trackPerformance('未开赛详情加载', performance.now() - startTime, {
+          seasonId: queryParams.value.seasonId,
+          team1Id: team1ResolvedId.value,
+          team2Id: team2ResolvedId.value,
+          tab: activeTab.value
+        }, route);
         nextTick(() => {
           if (activeTab.value === 'team') {
             requestAnimationFrame(() => {
