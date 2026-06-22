@@ -72,8 +72,8 @@ export const fileMap = {
 
 export const getMapImageUrl = (map) => {
   if (!map) return '';
-  const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
-    ? import.meta.env.BASE_URL 
+  const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
     : `${import.meta.env.BASE_URL}/`;
   
   const folder = typeFolderMap[map.type] || 'hybrid';
@@ -83,4 +83,25 @@ export const getMapImageUrl = (map) => {
   }
   
   return `${baseUrl}maps/${folder}/${filename}`;
+};
+
+export const getMapModeKey = (mapType) => {
+  const type = String(mapType || '').trim();
+  return typeFolderMap[type] || '';
+};
+
+export const getMapModeLabel = (mapType) => {
+  return String(mapType || '').trim() || '未知模式';
+};
+
+export const getMapModeIconUrl = (mapOrType) => {
+  const type = typeof mapOrType === 'string' ? mapOrType : mapOrType?.type;
+  const key = getMapModeKey(type);
+  if (!key) return '';
+
+  const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`;
+
+  return `${baseUrl}maps/logo/${key}.png`;
 };
