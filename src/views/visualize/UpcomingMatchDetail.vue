@@ -111,6 +111,19 @@
               </div>
            </div>
         </div>
+
+            <div class="team-analysis-block">
+              <MapWinRateAnalysis
+                :map-games="seasonMapGames"
+                :primary-team-id="team1ResolvedId"
+                :primary-team-name="queryParams.team1"
+                :secondary-team-id="team2ResolvedId"
+                :secondary-team-name="queryParams.team2"
+                :cover-map-cards="false"
+                :show-map-sample="false"
+                :show-map-insight="false"
+              />
+            </div>
           </div>
 
           <!-- 选手对位 Tab -->
@@ -210,10 +223,11 @@ import { ArrowLeft } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 
 export default {
   name: 'UpcomingMatchDetail',
-  components: { ArrowLeft },
+  components: { ArrowLeft, MapWinRateAnalysis },
   setup() {
     const comparisonRoles = ['tank', 'damage', 'support'];
     const route = useRoute();
@@ -248,6 +262,7 @@ export default {
     }
 
     const h2hMatches = ref([]);
+    const seasonMapGames = ref([]);
     const teamStats = ref({ team1: null, team2: null });
     
     const rolePlayers = ref({
@@ -345,6 +360,21 @@ export default {
       return {
         radius: '60%',
         center: ['50%', '50%']
+      };
+    };
+
+    const getTeamRadarLayout = (container) => {
+      const width = container?.clientWidth || 0;
+      if (width && width <= 420) {
+        return {
+          radius: '52%',
+          center: ['50%', '49%']
+        };
+      }
+
+      return {
+        radius: '58%',
+        center: ['50%', '47%']
       };
     };
 
@@ -983,8 +1013,8 @@ export default {
           indicator: indicators,
           shape: 'polygon',
           splitNumber: 4,
-          radius: getRadarLayout(teamRadarRef.value).radius,
-          center: getRadarLayout(teamRadarRef.value).center,
+          radius: getTeamRadarLayout(teamRadarRef.value).radius,
+          center: getTeamRadarLayout(teamRadarRef.value).center,
           axisName: {
             color: '#606266',
             fontSize: 12,
@@ -1031,7 +1061,7 @@ export default {
       const startTime = performance.now();
       isLoading.value = true;
       try {
-        if (!store.state.teams.length || !store.state.players.length) {
+        if (!store.state.teams.length || !store.state.players.length || !store.state.maps.length) {
           await store.dispatch('loadBaseData');
         }
 
@@ -1039,16 +1069,18 @@ export default {
         if (seasonId) {
           await store.dispatch('getSeasonTeams', Number(seasonId));
         }
-        const [allGlobalMatchesRes, seasonMatchesRes, statsRes, scoreStatsRes] = await Promise.all([
+        const [allGlobalMatchesRes, seasonMatchesRes, statsRes, scoreStatsRes, seasonMapGamesRes] = await Promise.all([
           apiService.getMatches({ pageSize: 2000 }), // 获取尽可能多的全局比赛
           apiService.getMatches({ seasonId, pageSize: 2000 }),
           apiService.getSeasonPlayerStats(seasonId),
-          apiService.getSeasonTeamScoreStats(seasonId)
+          apiService.getSeasonTeamScoreStats(seasonId),
+          apiService.getMapGames({ seasonId, pageSize: 2000 })
         ]);
 
         const allMatches = Array.isArray(allGlobalMatchesRes) ? allGlobalMatchesRes : allGlobalMatchesRes.data || allGlobalMatchesRes.list || [];
         const seasonMatches = Array.isArray(seasonMatchesRes) ? seasonMatchesRes : seasonMatchesRes.data || seasonMatchesRes.list || [];
         const scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
+        seasonMapGames.value = Array.isArray(seasonMapGamesRes) ? seasonMapGamesRes : seasonMapGamesRes.data || seasonMapGamesRes.list || [];
         const t1Name = queryParams.value.team1;
         const t2Name = queryParams.value.team2;
 
@@ -1191,6 +1223,7 @@ export default {
       team1ResolvedId,
       team2ResolvedId,
       h2hMatches,
+      seasonMapGames,
       teamStats,
       rolePlayers,
       selectedPlayers,
@@ -1478,8 +1511,8 @@ export default {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 320px;
-  height: 320px;
+  width: 300px;
+  height: 300px;
   background: radial-gradient(circle, #f0f2f5 0%, rgba(240,242,245,0) 70%);
   border-radius: 50%;
   z-index: 0;
@@ -1487,7 +1520,7 @@ export default {
 }
 
 .team-radar-container {
-  height: 340px;
+  height: 316px;
   width: 100%;
   position: relative;
   z-index: 1;
@@ -1840,6 +1873,12 @@ export default {
   gap: 20px;
 }
 
+.team-analysis-block {
+  padding: 8px 40px 24px;
+  border-top: 1px solid #f4f4f5;
+  margin-top: 6px;
+}
+
 .stat-item {
   display: flex;
   flex-direction: column;
@@ -2067,12 +2106,16 @@ export default {
   }
 
   .team-radar-container {
-    height: 300px;
+    height: 270px;
   }
 
   .team-extra-stats {
     padding: 0 20px 20px;
     gap: 16px;
+  }
+
+  .team-analysis-block {
+    padding: 8px 20px 20px;
   }
 
   .player-selectors {

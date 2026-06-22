@@ -64,6 +64,9 @@
           <div class="tab-nav-item" :class="{ active: activeTab === 'matches' }" @click="switchTab('matches')">
             历史比赛
           </div>
+          <div class="tab-nav-item" :class="{ active: activeTab === 'analysis' }" @click="switchTab('analysis')">
+            数据分析
+          </div>
         </div>
 
         <div class="tab-content-area">
@@ -137,6 +140,18 @@
             </div>
           </div>
 
+          <div v-show="activeTab === 'analysis'" class="seamless-content">
+            <MapWinRateAnalysis
+              :map-games="seasonMapGames"
+              :primary-team-id="queryParams.teamId"
+              :primary-team-name="team?.name || ''"
+              :show-map-sample="false"
+              :show-map-insight="false"
+              :show-single-mode-hint="false"
+              :show-single-opponents="true"
+            />
+          </div>
+
         </div>
       </div>
     </div>
@@ -150,10 +165,11 @@ import { useStore } from 'vuex';
 import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 
 export default {
   name: 'TeamDetail',
-  components: { ArrowLeft, ArrowDown },
+  components: { ArrowLeft, ArrowDown, MapWinRateAnalysis },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -170,6 +186,7 @@ export default {
     const scoreStat = ref(null);
     const recentMatches = ref([]);
     const allMatches = ref([]);
+    const seasonMapGames = ref([]);
     const availableSeasons = ref([]);
     const currentSeasonId = ref(null);
     const seasonLoading = ref(false);
@@ -329,7 +346,7 @@ export default {
       const startTime = performance.now();
       isLoading.value = true;
       try {
-        if (!store.state.teams.length || !store.state.seasons.length) {
+        if (!store.state.teams.length || !store.state.seasons.length || !store.state.maps.length) {
           await store.dispatch('loadBaseData');
         }
 
@@ -383,12 +400,14 @@ export default {
         let allPlayerStats = [];
         let scoreStats = [];
 
-        const [statsRes, scoreStatsRes] = await Promise.all([
+        const [statsRes, scoreStatsRes, mapGamesRes] = await Promise.all([
           apiService.getSeasonPlayerStats(seasonId),
-          apiService.getSeasonTeamScoreStats(seasonId)
+          apiService.getSeasonTeamScoreStats(seasonId),
+          apiService.getMapGames({ seasonId, teamId, pageSize: 2000 })
         ]);
         allPlayerStats = Array.isArray(statsRes) ? statsRes : statsRes.data || statsRes.list || [];
         scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
+        seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || mapGamesRes.list || [];
 
         recentMatches.value = allMatches.value
           .filter(m => String(m.seasonId) === String(seasonId))
@@ -487,6 +506,7 @@ export default {
       team,
       scoreStat,
       recentMatches,
+      seasonMapGames,
       availableSeasons,
       currentSeasonId,
       selectSeason,
