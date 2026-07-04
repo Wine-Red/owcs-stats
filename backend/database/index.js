@@ -24,8 +24,8 @@ const initDatabase = async () => {
     // 设置模型关联关系
     setupAssociations();
 
-    // 自动同步模型到数据库
-    await sequelize.sync({ alter: true });
+    // 避免 MySQL 在长期运行中反复 alter 表结构，导致索引数量失控
+    await sequelize.sync();
     console.log('数据库模型同步成功');
 
     // 初始化基础数据
@@ -97,6 +97,7 @@ const initBasicData = async () => {
     { name: '努巴尼', type: '攻击/护送' },
     { name: '帕拉伊苏', type: '攻击/护送' },
     { name: '中城', type: '攻击/护送' },
+    { name: '霓虹枢纽', type: '攻击/护送' },
     // 运载目标地图
     { name: '监测站：直布罗陀', type: '运载目标' },
     { name: '多拉多', type: '运载目标' },

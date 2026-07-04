@@ -11,6 +11,7 @@ const SeasonStatController = require('./SeasonStatController');
 const https = require('https');
 const zlib = require('zlib');
 const { URL } = require('url');
+const cheerio = require('cheerio');
 
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const EXTERNAL_MATCH_API_HEADERS = {
@@ -30,6 +31,17 @@ const EXTERNAL_MATCH_API_HEADERS = {
 };
 
 let syncInProgress = false;
+const LIQUIPEDIA_API_BASE = 'https://liquipedia.net/overwatch/api.php';
+const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
+const LIQUIPEDIA_UPCOMING_PAGE = 'Liquipedia:Matches';
+const LIQUIPEDIA_ALLOWED_TIER_PAGES = ['S-Tier_Tournaments', 'A-Tier_Tournaments'];
+const LIQUIPEDIA_CACHE_TTL = 5 * 60 * 1000;
+
+const liquipediaUpcomingCache = {
+  data: null,
+  timestamp: 0,
+  isFetching: false
+};
 
 const parseDuration = (durationValue) => {
   if (!durationValue || typeof durationValue !== 'string') {
@@ -61,6 +73,135 @@ const parseKad = (kadValue) => {
   }
 
   return { kills, assists, deaths };
+};
+
+const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const normalizeLiquipediaHref = (href) => {
+  const raw = String(href || '').trim();
+  if (!raw) return '';
+
+  const stripped = raw
+    .replace(/^https?:\/\/(?:www\.)?liquipedia\.net/i, '')
+    .replace(/^\/overwatch/i, '')
+    .split('#')[0]
+    .split('?')[0]
+    .trim();
+
+  return stripped.replace(/^\/+/, '');
+};
+
+const parseLiquipediaResponse = async (apiUrl) => {
+  return await new Promise((resolve, reject) => {
+    const urlObj = new URL(apiUrl);
+    const request = https.get({
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      family: 4,
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
+        'Accept-Encoding': 'gzip'
+      }
+    }, (response) => {
+      const chunks = [];
+      const encoding = response.headers['content-encoding'];
+      let stream = response;
+
+      if (encoding === 'gzip') {
+        stream = response.pipe(zlib.createGunzip());
+      }
+
+      stream.on('data', chunk => chunks.push(chunk));
+      stream.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf8');
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return reject(new Error('Liquipedia API returned status ' + response.statusCode));
+        }
+
+        try {
+          resolve(JSON.parse(body));
+        } catch (error) {
+          reject(new Error('Failed to parse Liquipedia API response'));
+        }
+      });
+      stream.on('error', reject);
+    });
+
+    request.on('error', reject);
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error('Request timeout'));
+    });
+  });
+};
+
+const fetchLiquipediaPageHtml = async (pageName) => {
+  const apiUrl = `${LIQUIPEDIA_API_BASE}?action=parse&format=json&prop=text&page=${encodeURIComponent(pageName)}&origin=*`;
+  const data = await parseLiquipediaResponse(apiUrl);
+  return data?.parse?.text?.['*'] || '';
+};
+
+const getLiquipediaAllowedTournamentRoots = async () => {
+  const tierPagesHtml = await Promise.all(LIQUIPEDIA_ALLOWED_TIER_PAGES.map(page => fetchLiquipediaPageHtml(page)));
+  const roots = new Set();
+
+  tierPagesHtml.forEach((html) => {
+    const $ = cheerio.load(html);
+    $('a[href]').each((_, element) => {
+      const href = $(element).attr('href');
+      const normalized = normalizeLiquipediaHref(href);
+      if (!normalized) return;
+      if (/^(Category:|File:|Template:|Special:|Help:|Portal:)/i.test(normalized)) return;
+      roots.add(normalized);
+    });
+  });
+
+  return Array.from(roots).sort((a, b) => b.length - a.length);
+};
+
+const isAllowedTournamentHref = (href, allowedRoots) => {
+  const normalizedHref = normalizeLiquipediaHref(href);
+  if (!normalizedHref) return false;
+  return allowedRoots.some(root => normalizedHref === root || normalizedHref.startsWith(`${root}/`));
+};
+
+const extractUpcomingMatchesFromMatchesPage = (pageHtml, allowedRoots) => {
+  const $ = cheerio.load(pageHtml);
+  const upcomingMatches = [];
+  const matchElements = $('[data-toggle-area-content="1"] .match-info');
+
+  matchElements.each((_, element) => {
+    const matchNode = $(element);
+    const tournamentLinkEl = matchNode.find('.match-info-tournament-name a').first();
+    const tournamentHref = tournamentLinkEl.attr('href') || '';
+
+    if (!isAllowedTournamentHref(tournamentHref, allowedRoots)) {
+      return;
+    }
+
+    const timestampAttr = matchNode.find('.timer-object').first().attr('data-timestamp');
+    const timestampRaw = Number(timestampAttr);
+    const timestamp = Number.isFinite(timestampRaw) ? timestampRaw * 1000 : null;
+
+    const leftName = normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD';
+    const rightName = normalizeWhitespace(matchNode.find('.match-info-header-opponent').last().find('.name').first().text()) || 'TBD';
+    const tournamentName = normalizeWhitespace(tournamentLinkEl.text());
+
+    upcomingMatches.push({
+      tournamentName,
+      timestamp,
+      link: tournamentHref ? `${LIQUIPEDIA_SITE_BASE}${tournamentHref}` : '',
+      team1: { name: leftName },
+      team2: { name: rightName }
+    });
+  });
+
+  return upcomingMatches.sort((a, b) => {
+    const left = Number.isFinite(a.timestamp) ? a.timestamp : Number.MAX_SAFE_INTEGER;
+    const right = Number.isFinite(b.timestamp) ? b.timestamp : Number.MAX_SAFE_INTEGER;
+    return left - right;
+  });
 };
 
 const persistSyncSummary = async (summary) => {
@@ -453,89 +594,39 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
 };
 
 const MatchController = {
-  // 缓存 Liquipedia Upcoming 赛事的内存变量
-  _liquipediaCache: {
-    data: null,
-    timestamp: 0,
-    isFetching: false
-  },
-
-  // 从 Liquipedia 获取 upcoming 赛事 (带服务器级缓存)
+  // 从 Liquipedia:Matches 获取 Upcoming 的 S/A 级赛事 (带服务器级缓存)
   getUpcomingMatches: async (req, res) => {
     try {
       const now = Date.now();
-      const CACHE_TTL = 5 * 60 * 1000; // 服务器缓存 5 分钟
 
-      // 如果缓存有效，直接返回缓存数据
-      if (MatchController._liquipediaCache.data && (now - MatchController._liquipediaCache.timestamp < CACHE_TTL)) {
-        return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true });
+      if (liquipediaUpcomingCache.data && (now - liquipediaUpcomingCache.timestamp < LIQUIPEDIA_CACHE_TTL)) {
+        return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true });
       }
 
-      // 如果当前正在抓取，稍微等一下，避免并发击穿（简易锁）
-      if (MatchController._liquipediaCache.isFetching) {
-        // 等待最多 3 秒看有没有缓存产生
+      if (liquipediaUpcomingCache.isFetching) {
         for (let i = 0; i < 30; i++) {
           await new Promise(resolve => setTimeout(resolve, 100));
-          if (!MatchController._liquipediaCache.isFetching && MatchController._liquipediaCache.data) {
-            return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true });
+          if (!liquipediaUpcomingCache.isFetching && liquipediaUpcomingCache.data) {
+            return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true });
           }
         }
       }
 
-      MatchController._liquipediaCache.isFetching = true;
+      liquipediaUpcomingCache.isFetching = true;
+      const [pageHtml, allowedRoots] = await Promise.all([
+        fetchLiquipediaPageHtml(LIQUIPEDIA_UPCOMING_PAGE),
+        getLiquipediaAllowedTournamentRoots()
+      ]);
 
-      const LIQUIPEDIA_API_URL = 'https://liquipedia.net/overwatch/api.php?action=parse&format=json&contentmodel=wikitext&prop=text&text=%7B%7B%23invoke%3AMatchTicker%2FCustom%7CnewMainPage%7Ctype%3Dupcoming%7Climit%3D500%7D%7D&origin=*';
-
-      const data = await new Promise((resolve, reject) => {
-        const urlObj = new URL(LIQUIPEDIA_API_URL);
-        const req = https.get({
-          hostname: urlObj.hostname,
-          path: urlObj.pathname + urlObj.search,
-          family: 4,
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
-            'Accept-Encoding': 'gzip'
-          }
-        }, (res) => {
-          const chunks = [];
-          const encoding = res.headers['content-encoding'];
-          let stream = res;
-          if (encoding === 'gzip') {
-            stream = res.pipe(zlib.createGunzip());
-          }
-          stream.on('data', chunk => chunks.push(chunk));
-          stream.on('end', () => {
-            const body = Buffer.concat(chunks).toString('utf8');
-            if (res.statusCode < 200 || res.statusCode >= 300) {
-              return reject(new Error('Liquipedia API returned status ' + res.statusCode));
-            }
-            try {
-              resolve(JSON.parse(body));
-            } catch (e) {
-              reject(new Error('Failed to parse Liquipedia API response'));
-            }
-          });
-          stream.on('error', reject);
-        });
-        req.on('error', reject);
-        req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
-      });
-
-      if (data && data.parse && data.parse.text) {
-        const htmlStr = data.parse.text['*'];
-        MatchController._liquipediaCache.data = htmlStr;
-        MatchController._liquipediaCache.timestamp = now;
-      }
-
-      MatchController._liquipediaCache.isFetching = false;
-      res.status(200).json({ data: MatchController._liquipediaCache.data, cached: false });
+      liquipediaUpcomingCache.data = extractUpcomingMatchesFromMatchesPage(pageHtml, allowedRoots);
+      liquipediaUpcomingCache.timestamp = now;
+      liquipediaUpcomingCache.isFetching = false;
+      res.status(200).json({ data: liquipediaUpcomingCache.data, cached: false });
     } catch (error) {
-      MatchController._liquipediaCache.isFetching = false;
-      console.error('Failed to fetch upcoming matches from Liquipedia:', error);
-      // 如果报错但有旧缓存，返回旧缓存
-      if (MatchController._liquipediaCache.data) {
-        return res.status(200).json({ data: MatchController._liquipediaCache.data, cached: true, error: error.message });
+      liquipediaUpcomingCache.isFetching = false;
+      console.error('Failed to fetch upcoming matches from Liquipedia:Matches:', error);
+      if (liquipediaUpcomingCache.data) {
+        return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true, error: error.message });
       }
       res.status(500).json({ error: error.message });
     }
