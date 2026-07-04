@@ -24,8 +24,8 @@ const initDatabase = async () => {
     // 设置模型关联关系
     setupAssociations();
 
-    // 自动同步模型到数据库
-    await sequelize.sync({ alter: true });
+    // 避免 MySQL 在长期运行中反复 alter 表结构，导致索引数量失控
+    await sequelize.sync();
     console.log('数据库模型同步成功');
 
     // 初始化基础数据

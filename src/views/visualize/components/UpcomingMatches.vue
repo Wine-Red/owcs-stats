@@ -179,6 +179,31 @@ export default {
       return value || TBD_LOGO_URL;
     };
 
+    const remapMatches = (matches) => {
+      const parsedMatches = Array.isArray(matches) ? matches : [];
+
+      allMatches.value = parsedMatches.map((match) => {
+        const apiName1 = String(match?.team1?.name || match?.teamA?.name || match?.team1 || 'TBD').trim() || 'TBD';
+        const apiName2 = String(match?.team2?.name || match?.teamB?.name || match?.team2 || 'TBD').trim() || 'TBD';
+        const localTeam1 = getTeamByApiName(apiName1);
+        const localTeam2 = getTeamByApiName(apiName2);
+
+        return {
+          tournamentName: String(match?.tournamentName || '').trim(),
+          timestamp: Number.isFinite(match?.timestamp) ? match.timestamp : null,
+          link: String(match?.link || '').trim(),
+          team1: {
+            name: localTeam1 ? localTeam1.name : apiName1,
+            logo: normalizeTeamLogo(localTeam1?.logo)
+          },
+          team2: {
+            name: localTeam2 ? localTeam2.name : apiName2,
+            logo: normalizeTeamLogo(localTeam2?.logo)
+          }
+        };
+      });
+    };
+
     const fetchLiquipediaMatches = async () => {
       // 只有在没有配置时才会快速跳过，配置存在则正常展示 loading
       if (!props.liquipediaTournamentName) {
@@ -191,115 +216,61 @@ export default {
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           const { timestamp, data } = JSON.parse(cached);
-          // 检查缓存是否有效
-          if (Date.now() - timestamp < CACHE_EXPIRY) {
-            parseAndSetMatches(data);
+          if (Date.now() - timestamp < CACHE_EXPIRY && Array.isArray(data)) {
+            remapMatches(data);
             return;
           }
+          sessionStorage.removeItem(CACHE_KEY);
         }
 
         // 如果已经有正在进行的请求，直接等待该请求完成
         if (fetchPromise) {
           await fetchPromise;
-          
-          // 请求完成后，直接从缓存读取最新的数据
           const newCached = sessionStorage.getItem(CACHE_KEY);
           if (newCached) {
             const { data } = JSON.parse(newCached);
-            parseAndSetMatches(data);
+            if (Array.isArray(data)) {
+              remapMatches(data);
+            }
           }
           return;
         }
 
-        // 创建新的请求并保存到 fetchPromise
         fetchPromise = apiService.getUpcomingMatches();
-
         const responseData = await fetchPromise;
-        
-        if (responseData && responseData.data) {
-          const htmlStr = responseData.data;
+
+        if (responseData && Array.isArray(responseData.data)) {
+          const matchList = responseData.data;
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({
             timestamp: Date.now(),
-            data: htmlStr
+            data: matchList
           }));
-          parseAndSetMatches(htmlStr);
+          remapMatches(matchList);
         }
       } catch (error) {
         console.error('Failed to fetch upcoming matches:', error);
       } finally {
         isLoading.value = false;
-        // 请求结束后，清空 promise，允许后续（缓存过期后）发起新请求
         fetchPromise = null;
       }
-    };
-
-    const parseAndSetMatches = (htmlString) => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlString, 'text/html');
-      const matchElements = doc.querySelectorAll('.match-info');
-      const parsedMatches = [];
-
-      matchElements.forEach(el => {
-        const tournamentEl = el.querySelector('.match-info-tournament-name a');
-        if (!tournamentEl) return;
-        const tournamentName = tournamentEl.textContent.trim();
-
-        const timeEl = el.querySelector('.timer-object');
-        const timestamp = timeEl ? parseInt(timeEl.getAttribute('data-timestamp')) * 1000 : null;
-
-        const teamLeftEl = el.querySelector('.match-info-header-opponent-left');
-        const opponents = el.querySelectorAll('.match-info-header-opponent');
-        const teamRightEl = opponents.length > 1 ? opponents[1] : null;
-
-        const extractTeamName = (teamEl) => {
-          if (!teamEl) return 'TBD';
-          const nameEl = teamEl.querySelector('.name a') || teamEl.querySelector('.name');
-          return nameEl ? nameEl.textContent.trim() : 'TBD';
-        };
-
-        const apiName1 = extractTeamName(teamLeftEl);
-        const apiName2 = extractTeamName(teamRightEl);
-
-        const localTeam1 = getTeamByApiName(apiName1);
-        const localTeam2 = getTeamByApiName(apiName2);
-
-        parsedMatches.push({
-          tournamentName,
-          timestamp,
-          link: 'https://liquipedia.net' + (tournamentEl.getAttribute('href') || ''),
-          team1: {
-            name: localTeam1 ? localTeam1.name : apiName1,
-            logo: normalizeTeamLogo(localTeam1?.logo)
-          },
-          team2: {
-            name: localTeam2 ? localTeam2.name : apiName2,
-            logo: normalizeTeamLogo(localTeam2?.logo)
-          }
-        });
-      });
-
-      allMatches.value = parsedMatches;
     };
 
     onMounted(() => {
       fetchLiquipediaMatches();
     });
 
-    // 监听赛季名称变化，如果名称变了也要重新处理一下显示逻辑
     watch(() => props.liquipediaTournamentName, () => {
       fetchLiquipediaMatches();
     });
 
-    // Optional: Re-map team logos if store.state.teams changes
     watch(() => store.state.teams, () => {
       if (allMatches.value.length > 0) {
-        // Just re-run parse if we stored the raw html, or simply rely on Vue reactivity
-        // Since we parsed them into the ref array, we might want to re-map.
-        // For simplicity, re-fetching from cache is fast.
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
           const { data } = JSON.parse(cached);
-          parseAndSetMatches(data);
+          if (Array.isArray(data)) {
+            remapMatches(data);
+          }
         }
       }
     });
