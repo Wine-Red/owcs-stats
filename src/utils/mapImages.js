@@ -38,6 +38,7 @@ export const fileMap = {
   '新渣客城': 'New_Junk_City.jpg',
   '苏拉瓦萨': 'Suravasa.jpg',
   '阿特利斯': 'Aatlis.jpg',
+  '霓虹枢纽': 'Neon_Junction.jpg',
   
   // English fallbacks just in case
   'Antarctic Peninsula': 'Antarctic_Peninsula.jpg',
@@ -67,7 +68,9 @@ export const fileMap = {
   'New Queen Street': 'NewQueenStreet.jpg',
   'Runasapi': 'Runasapi.jpg',
   'New Junk City': 'New_Junk_City.jpg',
-  'Suravasa': 'Suravasa.jpg'
+  'Suravasa': 'Suravasa.jpg',
+  'Aatlis': 'Aatlis.jpg',
+  'Neon Junction': 'Neon_Junction.jpg'
 };
 
 export const getMapImageUrl = (map) => {
