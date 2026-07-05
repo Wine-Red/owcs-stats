@@ -112,15 +112,14 @@ export default {
         .filter(m => {
           if (!m.tournamentName.toLowerCase().includes(targetName)) return false;
           
-          // Filter out matches where BOTH teams are TBD
+          // 只过滤双方都还是 TBD 的占位对局，单边 TBD 仍然展示
           const t1Name = String(m.teamA?.name || m.team1?.name || m.team1 || '').toLowerCase();
           const t2Name = String(m.teamB?.name || m.team2?.name || m.team2 || '').toLowerCase();
           
           const isT1Tbd = t1Name === 'tbd' || t1Name === '' || t1Name === 'to be determined' || t1Name.includes('tbd');
           const isT2Tbd = t2Name === 'tbd' || t2Name === '' || t2Name === 'to be determined' || t2Name.includes('tbd');
           
-          // Filter out if either team is TBD
-          return !(isT1Tbd || isT2Tbd);
+          return !(isT1Tbd && isT2Tbd);
         })
         .slice()
         .sort((a, b) => {
