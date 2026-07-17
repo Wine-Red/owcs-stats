@@ -21,11 +21,11 @@
         <!-- 真实数据 -->
         <div class="upcoming-list-container" v-else>
           <div class="upcoming-list">
-            <div v-for="(match, index) in displayMatches" :key="index" class="upcoming-card" @click="goToDetail(match)">
+            <div v-for="(match, index) in displayMatches" :key="index" class="upcoming-card vis-card-lift" @click="goToDetail(match)">
               <!-- 状态与时间 -->
               <div class="match-status">
-                <span v-if="isOngoing(match.timestamp)" class="status-badge ongoing">LIVE</span>
-                <span v-else class="status-badge upcoming">{{ formatTime(match.timestamp) }}</span>
+                <span v-if="isOngoing(match.timestamp)" class="status-badge ongoing"><span class="vis-live-dot" aria-hidden="true"></span>LIVE</span>
+                <span v-else class="status-badge upcoming"><span class="status-time">{{ formatTime(match.timestamp) }}</span></span>
               </div>
 
               <!-- 队伍对抗 -->
@@ -328,32 +328,38 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  min-height: 36px;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: var(--vis-text-primary);
   margin-bottom: 8px;
   cursor: pointer;
   user-select: none;
   padding: 4px 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
+  border-radius: 8px;
+  transition: background-color var(--vis-dur-fast) var(--vis-ease);
   width: max-content;
 }
 
 .upcoming-header:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: var(--vis-team-left-soft);
 }
 
 .header-title {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--vis-font-display);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--vis-text-strong);
 }
 
 .collapse-icon {
   font-size: 12px;
-  color: #999;
-  transition: transform 0.3s ease;
+  color: var(--vis-text-tertiary);
+  transition: transform var(--vis-dur) var(--vis-ease);
   margin-left: 8px;
 }
 
@@ -362,7 +368,7 @@ export default {
 }
 
 .upcoming-header .el-icon {
-  color: #FF9E0F;
+  color: var(--vis-accent);
   font-size: 14px;
 }
 
@@ -373,6 +379,8 @@ export default {
   /* 隐藏滚动条 */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* 移动端横向 scroll-snap */
+  scroll-snap-type: x proximity;
 }
 
 .upcoming-list-container::-webkit-scrollbar {
@@ -381,38 +389,32 @@ export default {
 
 .upcoming-list {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   min-width: max-content;
 }
 
+/* 比赛卡：白底轻边框 + 全局 .vis-card-lift hover（上浮 + 顶部渐变线） */
 .upcoming-card {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 6px;
-  padding: 6px 8px;
-  width: 140px;
+  scroll-snap-align: start;
+  background: var(--vis-bg-card);
+  border: 1px solid var(--vis-border);
+  border-radius: 12px;
+  box-shadow: var(--vis-shadow);
+  padding: 10px 10px 8px;
+  width: 148px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 6px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
 }
 
-.upcoming-card:hover {
-  background: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.08);
-}
-
 .upcoming-card:active {
   transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--vis-shadow);
 }
 
-/* 移除那个怪异的箭头 */
 .match-teams {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -425,47 +427,61 @@ export default {
   justify-content: center;
 }
 
+/* M4 · 斜切 chip：时间浅灰底 / LIVE 红色呼吸点 */
 .status-badge {
-  font-size: 9px;
-  font-weight: 600;
-  padding: 1px 4px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: 2px 7px;
+  border-radius: 3px;
+  transform: skewX(var(--vis-slant));
+  white-space: nowrap;
+}
+
+.status-time {
+  display: inline-block;
+  transform: skewX(calc(var(--vis-slant) * -1));
+  font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 .status-badge.ongoing {
-  background-color: #ffeaea;
-  color: #f56c6c;
-  animation: pulse 2s infinite;
+  background: rgba(245, 108, 108, 0.12);
+  color: var(--vis-live);
+}
+
+.status-badge.ongoing .vis-live-dot {
+  width: 5px;
+  height: 5px;
 }
 
 .status-badge.upcoming {
-  background-color: #f5f7fa;
-  color: #909399;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
+  background: var(--vis-bg-muted);
+  color: var(--vis-text-secondary);
 }
 
 .match-action-hint {
   text-align: center;
   font-size: 9px;
   font-weight: 600;
-  color: #909399;
+  color: var(--vis-text-tertiary);
   background: transparent;
   padding: 0;
   margin-top: 0;
-  transition: all 0.2s;
+  transition: color var(--vis-dur-fast) var(--vis-ease), opacity var(--vis-dur-fast) var(--vis-ease);
   letter-spacing: 0.5px;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 .upcoming-card:hover .match-action-hint {
-  color: #111;
+  color: var(--vis-accent);
   opacity: 1;
 }
+
 .team-side {
   display: flex;
   align-items: center;
@@ -484,8 +500,8 @@ export default {
 }
 
 .team-logo-container {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -498,29 +514,34 @@ export default {
   object-fit: contain;
 }
 
+/* 左队黑 / 右队橙 严格镜像，队名不换行 */
 .team-name {
   font-size: 11px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .team-side.left-side .team-name {
+  color: var(--vis-team-left);
   text-align: right;
 }
 
 .team-side.right-side .team-name {
+  color: var(--vis-team-right);
   text-align: left;
 }
 
 .vs-text {
-  font-size: 9px;
-  font-weight: bold;
-  color: #ccc;
+  font-family: var(--vis-font-numeric);
+  font-style: italic;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--vis-text-disabled);
   text-align: center;
   padding: 0 2px;
+  text-transform: uppercase;
 }
 
 /* 转圈加载动画 */
@@ -529,25 +550,25 @@ export default {
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 6px;
+  background: var(--vis-bg-card);
+  border: 1px solid var(--vis-border);
+  border-radius: 10px;
   width: max-content;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--vis-shadow);
 }
 
 .loading-spinner {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: #FF9E0F;
+  border-top-color: var(--vis-accent);
   border-radius: 50%;
   animation: spinner-rotate 0.8s linear infinite;
 }
 
 .loading-text {
   font-size: 12px;
-  color: #666;
+  color: var(--vis-text-secondary);
   font-weight: 500;
 }
 
@@ -558,9 +579,16 @@ export default {
 
 @media (max-width: 767px) {
   .upcoming-card {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    box-shadow: var(--vis-shadow);
   }
 }
+
+@media (max-width: 420px) {
+  .upcoming-card {
+    width: 140px;
+  }
+}
+
 @media (min-width: 768px) {
   .upcoming-matches-wrapper {
     margin-bottom: 24px;
@@ -577,14 +605,9 @@ export default {
 
   .upcoming-card {
     width: 180px;
-    padding: 8px 12px;
-    border-color: rgba(0, 0, 0, 0.06);
-  }
-  
-  .upcoming-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border-color: rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    border-radius: 14px;
+    gap: 8px;
   }
 
   .team-logo-container {
@@ -598,12 +621,16 @@ export default {
 
   .status-badge {
     font-size: 10px;
-    padding: 2px 6px;
+    padding: 2px 8px;
   }
 
   .vs-text {
     font-size: 10px;
     padding: 0 6px;
+  }
+
+  .match-action-hint {
+    font-size: 10px;
   }
 }
 </style>

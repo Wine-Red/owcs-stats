@@ -55,19 +55,19 @@
   gap: 12px;
 }
 
-/* Radio Group Styling - Glassmorphism */
+/* Radio Group Styling - 浅色 pill（轨道浅灰 / 激活白底橙字 + 轻阴影） */
 .header-controls .el-radio-group {
-  background-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: rgba(17, 17, 17, 0.05) !important;
   border-radius: 20px !important;
   padding: 3px !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(17, 17, 17, 0.06) !important;
+  box-shadow: inset 0 1px 2px rgba(17, 17, 17, 0.03);
 }
 
 .header-controls .el-radio-button__inner {
   background: transparent !important;
   border: none !important;
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: #606266 !important;
   border-radius: 16px !important;
   padding: 6px 16px !important;
   font-weight: 600 !important;
@@ -78,62 +78,61 @@
 .header-controls .el-radio-button__original-radio:checked + .el-radio-button__inner {
   background-color: #FFFFFF !important;
   color: #FF6A00 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.12) !important;
 }
 
 .header-controls .el-radio-button:hover:not(.is-active) .el-radio-button__inner {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Select Styling - Glassmorphism */
+/* Select Styling - 浅色 pill（白底细边，focus 橙色描边） */
 .header-controls .el-select {
   --el-select-input-focus-border-color: transparent !important;
   --el-select-border-color-hover: transparent !important;
 }
 
 .header-controls .el-select .el-input__wrapper {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important;
+  background-color: #FFFFFF !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.1) inset !important;
   border-radius: 18px !important;
   padding: 4px 12px !important;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease;
 }
 
 .header-controls .el-select .el-input__wrapper:hover {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+  background-color: #FFFFFF !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.18) inset !important;
 }
 
 .header-controls .el-select .el-input__wrapper.is-focus {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-  box-shadow: 0 0 0 1px #FFFFFF inset !important;
+  background-color: #FFFFFF !important;
+  box-shadow: 0 0 0 1px var(--vis-accent, #FF6A00) inset !important;
 }
 
 .header-controls .el-select .el-input__inner {
-  color: #FFFFFF !important;
+  color: #303133 !important;
   font-weight: 500;
 }
 
 .header-controls .el-select .el-input__inner::placeholder {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: #909399 !important;
 }
 
 .header-controls .el-select .el-input__suffix .el-icon {
-  color: rgba(255, 255, 255, 0.8) !important;
+  color: #909399 !important;
 }
 
 /* Custom Select Label Styling */
 .custom-select-label {
-  color: rgba(255, 255, 255, 0.95);
+  color: #606266;
   font-size: 12px;
   margin-right: 8px;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Tags in Multiple Select */
 .header-controls .el-select__tags .el-tag {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(255, 106, 0, 0.1) !important;
   color: #FF6A00 !important;
   border: none !important;
   border-radius: 4px !important;
@@ -158,5 +157,214 @@
     flex-direction: column;
     align-items: flex-end;
     margin-top: 8px;
+  }
+}
+
+/* ============================================================
+   OWCS Design Refresh (design/design-refresh.md)
+   以下为纯增量内容：新增 token 与全局工具类，
+   不改变上方既有变量与类的行为。
+   ============================================================ */
+:root {
+  /* 语义变量（DESIGN.md · CSS Variables） */
+  --vis-primary: #ff9e0f;
+  --vis-accent: #ff6a00;
+  --vis-primary-strong: #111111;
+
+  --vis-bg-page: #fafafa;
+  --vis-bg-subtle: #f8f9fa;
+  --vis-bg-muted: #f4f4f5;
+  --vis-bg-card: #ffffff;
+
+  --vis-text-strong: #111111;
+  --vis-text-tertiary: #909399;
+  --vis-text-disabled: #c0c4cc;
+
+  --vis-border: #ebeef5;
+  --vis-border-strong: #e4e7ed;
+
+  --vis-success: #28a745;
+  --vis-warning: #ff9e0f;
+  --vis-error: #dc3545;
+  --vis-live: #f56c6c;
+
+  --vis-team-left: #111111;
+  --vis-team-right: #ff6a00;
+  --vis-team-left-soft: rgba(17, 17, 17, 0.08);
+  --vis-team-right-soft: rgba(255, 106, 0, 0.12);
+
+  /* 深色赛事面 token（历史遗留，保留定义；M2 横幅已改浅色，不再消费） */
+  --vis-ink: #10151c;
+  --vis-ink-2: #1b2430;
+  --vis-ink-3: #26313f;
+  --vis-gold: #ffb84d;
+  --vis-on-ink: #f5f7fa;
+  --vis-on-ink-dim: rgba(245, 247, 250, 0.62);
+
+  /* 斜切几何（M1 / M4） */
+  --vis-slant: -8deg;
+  --vis-clip-notch: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+
+  /* 动效（0.2~0.3s cubic-bezier(.25,.8,.25,1)） */
+  --vis-ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+  --vis-dur-fast: 0.2s;
+  --vis-dur: 0.25s;
+}
+
+/* ---------- M1 · 斜切标题装饰条（渐变斜块） ---------- */
+.vis-slant-bar {
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
+}
+
+/* ---------- M2 · 浅色赛事横幅（极浅暖橙渐变 + 淡纹理 + 右下橙色微光） ---------- */
+.vis-arena-banner {
+  color: var(--vis-text-strong, #111111);
+  background-color: #fff4e6;
+  background-image:
+    radial-gradient(56% 130% at 88% 112%, rgba(255, 106, 0, 0.08), rgba(255, 106, 0, 0) 62%),
+    repeating-linear-gradient(115deg, rgba(17, 17, 17, 0.03) 0, rgba(17, 17, 17, 0.03) 1px, transparent 1px, transparent 13px),
+    linear-gradient(135deg, #ffffff 0%, #fffaf3 55%, #fff4e6 100%);
+}
+
+/* 对角切角（配合 --vis-clip-notch 使用） */
+.vis-clip-notch {
+  clip-path: var(--vis-clip-notch);
+}
+
+/* ---------- M3 · LIVE 呼吸点（2s 脉冲，仅透明度/缩放，无位移） ---------- */
+.vis-live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--vis-live);
+  animation: vis-live-pulse 2s var(--vis-ease) infinite;
+}
+
+@keyframes vis-live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 108, 108, 0.45);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.25);
+    box-shadow: 0 0 0 4px rgba(245, 108, 108, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vis-live-dot {
+    animation: none;
+  }
+}
+
+/* ---------- M4 · 斜体数据数字（比分 / 排名 / KPI） ---------- */
+.vis-score-num {
+  font-family: var(--vis-font-numeric);
+  font-style: italic;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- 紧凑胶囊 chip ---------- */
+.vis-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--vis-bg-muted);
+  color: var(--vis-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition: color var(--vis-dur-fast) var(--vis-ease), background-color var(--vis-dur-fast) var(--vis-ease);
+}
+
+.vis-chip--active,
+.vis-chip.is-active {
+  background: var(--vis-primary-strong);
+  color: #ffffff;
+}
+
+.vis-chip--accent {
+  background: var(--vis-team-right-soft);
+  color: var(--vis-accent);
+}
+
+/* ---------- M5 · 卡片 hover：上浮 + 顶部渐变线 ---------- */
+.vis-card-lift {
+  position: relative;
+  transition: transform var(--vis-dur) var(--vis-ease), box-shadow var(--vis-dur) var(--vis-ease);
+}
+
+.vis-card-lift::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--vis-primary-gradient);
+  opacity: 0;
+  transition: opacity var(--vis-dur) var(--vis-ease);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vis-card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .vis-card-lift:hover::before {
+    opacity: 1;
+  }
+}
+
+/* ---------- 移动端全局微调（<=768px / <=420px） ---------- */
+@media (max-width: 768px) {
+  :root {
+    --vis-border-radius: 12px;
+    --vis-card-padding: 16px;
+    --vis-gap: 16px;
+  }
+
+  .vis-card {
+    border-radius: 12px;
+  }
+
+  .vis-chip {
+    min-height: 26px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .vis-slant-bar {
+    height: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --vis-card-padding: 14px;
+    --vis-gap: 12px;
+  }
+
+  .vis-card {
+    border-radius: 10px;
   }
 }

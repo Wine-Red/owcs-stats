@@ -689,9 +689,10 @@ export default {
               data: seriesData,
               itemStyle: {
                   color: function(params) {
+                      // 黑橙双主轴 + 中性灰色板（替代旧版蓝/绿/红杂色）
                       const colors = [
-                        '#FF9E0F', '#FF6A00', '#F56C6C', '#E6A23C', 
-                        '#409EFF', '#67C23A', '#909399', '#303133'
+                        '#FF6A00', '#111111', '#FF9E0F', '#606266',
+                        '#FFB84D', '#303133', '#909399', '#C0C4CC'
                       ];
                       return colors[params.dataIndex % colors.length];
                   },
@@ -931,7 +932,9 @@ export default {
 </script>
 
 <style scoped>
+/* 去卡片化：无缝直排，标题+内容直接落在页面上（对齐积分榜风格） */
 .vis-card {
+  position: relative;
   height: auto;
   display: block;
   overflow: visible;
@@ -939,10 +942,13 @@ export default {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  padding: 0;
 }
 
+/* 抵消全局主题 .vis-card 的 hover 阴影/上浮，保持无缝 */
 .vis-card:hover {
   box-shadow: none;
+  transform: none;
 }
 
 /* 确保固定列有不透明背景 */
@@ -1066,6 +1072,23 @@ export default {
   text-align: center;
 }
 
+/* 清除 Element 默认蓝：展开/收起链接按钮 */
+.leaderboard-footer :deep(.el-button.is-link),
+.leaderboard-footer :deep(.el-button.is-link:hover),
+.leaderboard-footer :deep(.el-button.is-link:focus) {
+  color: #ff6a00;
+  font-weight: 600;
+}
+
+/* 清除 Element 默认蓝：表格排序箭头激活态 */
+.leaderboard-section :deep(.el-table .ascending .sort-caret.ascending) {
+  border-bottom-color: #ff6a00;
+}
+
+.leaderboard-section :deep(.el-table .descending .sort-caret.descending) {
+  border-top-color: #ff6a00;
+}
+
 .player-cell {
   display: flex;
   align-items: center;
@@ -1102,22 +1125,26 @@ export default {
   color: #FF9E0F;
 }
 
-.rank-1 {
-  color: #FFD700;
-  font-weight: 800;
-  font-size: 16px;
-}
-
-.rank-2 {
-  color: #C0C0C0;
-  font-weight: 800;
-  font-size: 16px;
-}
-
+/* M4 · 排名前三：渐变橙斜体数字 */
+/* 修复：渐变裁剪区域（background-clip:text 只覆盖 padding box）小于
+   斜体字形墨迹范围时，数字底部与右侧斜伸部分会被裁掉。
+   通过加大 line-height + 四周 padding 扩大绘制区域，保证完整显示。 */
+.rank-1,
+.rank-2,
 .rank-3 {
-  color: #CD7F32;
-  font-weight: 800;
+  display: inline-block;
+  font-family: var(--vis-font-display);
+  font-style: italic;
+  font-weight: 900;
   font-size: 16px;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: var(--vis-primary-gradient);
+  background-size: 100% 100%;
+  line-height: 1.4;
+  padding: 2px 3px 3px 1px;
+  overflow: visible;
 }
 
 .rank-normal {
@@ -1272,18 +1299,24 @@ export default {
 
 .leaderboard-header {
   margin-bottom: 12px;
-  padding-left: 0;
+  padding-left: 12px;
 }
 
+/* M1 · 斜切标题条：渐变斜块 */
 .leaderboard-header::before {
-  display: none;
+  display: block;
+  background: var(--vis-primary-gradient);
+  border-radius: 1px;
+  transform: translateY(-50%) skewX(var(--vis-slant));
 }
 
 .leaderboard-title {
   color: #111;
+  font-family: var(--vis-font-display);
   font-size: 15px;
+  font-style: italic;
   font-weight: 800;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
 .export-btn-small,
@@ -1339,9 +1372,9 @@ export default {
 }
 
 .header-controls :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  color: #111 !important;
-  background: #fff !important;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08) !important;
+  color: #fff !important;
+  background: #111 !important;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.24) !important;
 }
 
 .header-controls :deep(.el-select .el-input__wrapper) {
@@ -1451,6 +1484,10 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .vis-card {
+    padding: 0;
+  }
+
   .card-content {
     padding: 0;
   }
@@ -1507,5 +1544,13 @@ export default {
     height: 18px;
   }
 
+}
+</style>
+
+<style>
+/* el-select 的 popper 会 teleport 到 body，需非 scoped 覆写选中态（清除 Element 默认蓝） */
+.vis-dropdown .el-select-dropdown__item.is-selected {
+  color: #ff6a00;
+  font-weight: 700;
 }
 </style>

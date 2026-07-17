@@ -638,6 +638,7 @@ export default {
 }
 
 .mode-accordion-header {
+  position: relative;
   width: 100%;
   display: grid;
   align-items: center;
@@ -646,8 +647,41 @@ export default {
   border: 1px solid #ebeef5;
   border-radius: 14px;
   background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   cursor: pointer;
   text-align: left;
+  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease);
+}
+
+/* M5 · hover 顶部渐变线 */
+.mode-accordion-header::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--vis-primary-gradient);
+  opacity: 0;
+  transition: opacity 0.2s var(--vis-ease);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-accordion-header:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .mode-accordion-header:hover::before {
+    opacity: 1;
+  }
+}
+
+/* 展开态：克制的浅橙描边提示 */
+.mode-accordion-item.expanded .mode-accordion-header {
+  border-color: rgba(255, 106, 0, 0.36);
 }
 
 .mode-accordion-header.is-compare-header {
@@ -714,7 +748,7 @@ export default {
   font-size: 12px;
   color: #909399;
   line-height: 1;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s var(--vis-ease);
   justify-self: end;
 }
 
@@ -752,11 +786,28 @@ export default {
   justify-content: space-between;
 }
 
+/* M1 · 斜切标题条：渐变斜块 + Oxanium 斜体 */
 .heading-title {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--vis-font-display);
   font-size: 15px;
+  font-style: italic;
   font-weight: 900;
   color: #111;
+  letter-spacing: -0.01em;
+}
+
+.heading-title::before {
+  content: '';
+  width: 4px;
+  height: 15px;
+  flex: 0 0 auto;
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
 }
 
 .analysis-empty {
@@ -821,6 +872,8 @@ export default {
   line-height: 1;
   font-weight: 900;
   font-family: var(--vis-font-display);
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
 }
 
 .team-dark {
@@ -863,6 +916,7 @@ export default {
 }
 
 .single-map-card {
+  position: relative;
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
   gap: 0;
@@ -872,15 +926,44 @@ export default {
   border: 1px solid #ebeef5;
   background: #fff;
   overflow: hidden;
+  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
 }
 
+/* M5 · hover 顶部渐变线（仅白卡，背景图卡除外） */
+.single-map-card:not(.is-cover-card)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--vis-primary-gradient);
+  opacity: 0;
+  transition: opacity 0.2s var(--vis-ease);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .single-map-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .single-map-card:not(.is-cover-card):hover::before {
+    opacity: 1;
+  }
+}
+
+/* 背景图卡：深岩黑渐变遮罩保证文字可读 */
 .single-map-card.is-cover-card {
   grid-template-columns: 1fr;
   min-height: 136px;
   position: relative;
   border: none;
   background:
-    linear-gradient(180deg, rgba(17, 17, 17, 0.14) 0%, rgba(17, 17, 17, 0.72) 100%);
+    linear-gradient(180deg, rgba(16, 21, 28, 0.2) 0%, rgba(16, 21, 28, 0.78) 100%);
 }
 
 .map-thumb {
@@ -908,7 +991,7 @@ export default {
 
 .single-map-card.is-cover-card .map-thumb::after {
   background:
-    linear-gradient(180deg, rgba(17, 17, 17, 0.04) 0%, rgba(17, 17, 17, 0.42) 100%);
+    linear-gradient(180deg, rgba(16, 21, 28, 0.08) 0%, rgba(16, 21, 28, 0.52) 100%);
 }
 
 .map-mode-chip {
@@ -1021,6 +1104,8 @@ export default {
   font-size: 24px;
   color: #111;
   flex-shrink: 0;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
 }
 
 .single-map-record {
@@ -1068,18 +1153,18 @@ export default {
 }
 
 .opponent-chip.is-win {
-  background: rgba(103, 194, 58, 0.12);
-  color: #3f8f24;
+  background: rgba(40, 167, 69, 0.12);
+  color: #28a745;
 }
 
 .opponent-chip.is-loss {
-  background: rgba(245, 108, 108, 0.12);
-  color: #d94b4b;
+  background: rgba(220, 53, 69, 0.12);
+  color: #dc3545;
 }
 
 .opponent-chip.is-mixed {
   background: rgba(255, 106, 0, 0.12);
-  color: #d96a00;
+  color: #e05a00;
 }
 
 .opponent-name {
@@ -1137,11 +1222,15 @@ export default {
   line-height: 1;
   font-weight: 900;
   font-family: var(--vis-font-display);
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
 }
 
 .map-compare-divider {
   font-size: 10px;
   font-weight: 800;
+  font-family: var(--vis-font-display);
+  font-style: italic;
   color: #c0c4cc;
   justify-self: center;
   align-self: center;
