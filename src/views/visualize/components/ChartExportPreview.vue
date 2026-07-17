@@ -49,14 +49,14 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 14px;
 }
 .preview-image {
   max-width: 100%;
   max-height: 70vh;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  border: 1px solid #eee;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  border: 1px solid var(--vis-border, #ebeef5);
   background-color: #fff;
   background-image: 
     linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee),
@@ -66,9 +66,18 @@ export default {
 }
 .export-tip {
   margin-top: 16px;
-  color: #909399;
-  font-size: 14px;
+  color: var(--vis-text-tertiary, #909399);
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* 弹窗本体：白底 + 细边框 + 轻阴影（DESIGN.md 卡片规范） */
+:deep(.el-dialog) {
+  border-radius: 16px;
+  border: 1px solid var(--vis-border, #ebeef5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 /* 隐藏弹窗的 header 区域（如果不想要标题栏但想要右上角的关闭按钮，可以只隐藏标题文字） */
@@ -80,5 +89,23 @@ export default {
   top: 15px;
   right: 15px;
   z-index: 10;
+}
+
+/* 关闭按钮 hover 使用品牌橙，避免 Element Plus 默认蓝色 */
+:deep(.el-dialog__headerbtn:hover .el-dialog__close) {
+  color: var(--vis-accent, #ff6a00);
+}
+
+@media (max-width: 768px) {
+  .export-preview-container {
+    padding: 8px;
+  }
+  .preview-image {
+    max-height: 64vh;
+  }
+  .export-tip {
+    margin-top: 12px;
+    font-size: 11px;
+  }
 }
 </style>

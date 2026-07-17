@@ -255,29 +255,36 @@ export default {
 </script>
 
 <style scoped>
+/* 去卡片化：标题与内容直接落在页面上，不再使用白卡包裹 */
 .map-pool-container {
   margin-bottom: 16px;
 }
 
+/* M1 · 斜切标题条：渐变斜块 + Oxanium 斜体 + 1px 浅灰细分隔线 */
 .section-title {
-  font-family: var(--vis-font-heading);
+  font-family: var(--vis-font-display);
   font-size: 20px;
-  color: #1a1a1a;
-  margin: 0 0 12px 0;
-  font-weight: 700;
+  font-style: italic;
+  color: #111;
+  margin: 0 0 14px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--vis-border);
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .section-title::before {
   content: '';
-  width: 6px;
-  height: 22px;
+  width: 4px;
+  height: 18px;
   flex: 0 0 auto;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ff6a00 0%, #ffb11a 100%);
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
 }
 
 .map-groups {
@@ -285,6 +292,13 @@ export default {
   gap: 16px;
   overflow-x: auto;
   padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.map-groups::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .map-group {
@@ -294,6 +308,7 @@ export default {
   flex-direction: column;
   background: transparent;
   gap: 12px;
+  scroll-snap-align: start;
 }
 
 .group-header {
@@ -335,11 +350,12 @@ export default {
   mask-position: center;
 }
 
-.bg-control { background-color: rgba(0, 230, 230, 0.12); color: #008080; border-left: 3px solid #008080; }
-.bg-escort { background-color: rgba(255, 77, 77, 0.12); color: #cc0000; border-left: 3px solid #cc0000; }
-.bg-hybrid { background-color: rgba(153, 51, 255, 0.12); color: #6600cc; border-left: 3px solid #6600cc; }
-.bg-push { background-color: rgba(255, 26, 140, 0.12); color: #cc0066; border-left: 3px solid #cc0066; }
-.bg-flashpoint { background-color: rgba(230, 230, 0, 0.15); color: #999900; border-left: 3px solid #999900; }
+/* 模式组头：收敛为黑橙双主轴 + 中性灰（不再使用青/红/紫等杂色） */
+.bg-control { background-color: rgba(17, 17, 17, 0.06); color: #111111; border-left: 3px solid #111111; }
+.bg-escort { background-color: rgba(255, 106, 0, 0.10); color: #c24e00; border-left: 3px solid #ff6a00; }
+.bg-hybrid { background-color: rgba(17, 17, 17, 0.045); color: #303133; border-left: 3px solid #606266; }
+.bg-push { background-color: rgba(255, 158, 15, 0.12); color: #a66a00; border-left: 3px solid #ff9e0f; }
+.bg-flashpoint { background-color: rgba(17, 17, 17, 0.08); color: #111111; border-left: 3px solid #ffb84d; }
 
 .map-cards {
   display: flex;
@@ -349,7 +365,7 @@ export default {
 
 .map-card {
   height: 64px;
-  border-radius: 6px;
+  border-radius: 8px;
   background-size: cover;
   background-position: center;
   position: relative;
@@ -357,12 +373,13 @@ export default {
   display: flex;
   align-items: flex-end;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(16, 21, 28, 0.1);
+  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
 }
 
 .map-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 14px rgba(16, 21, 28, 0.18);
 }
 
 .map-pick-rate {
@@ -386,8 +403,8 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60%;
-  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+  height: 72%;
+  background: linear-gradient(to top, rgba(16, 21, 28, 0.88) 0%, rgba(16, 21, 28, 0.32) 55%, transparent 100%);
   z-index: 1;
 }
 
@@ -410,34 +427,35 @@ export default {
     margin-bottom: 12px;
   }
   .section-title {
+    font-size: 18px;
     margin: 0 0 10px 0;
+    padding-bottom: 8px;
+  }
+  .section-title::before {
+    height: 16px;
   }
 }
 
-/* Popover Styles */
-:deep(.map-stats-popover) {
-  padding: 12px !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
-}
-
+/* Popover 内容样式（popper  teleport 到 body，容器样式见下方非 scoped 块） */
 .map-popover-content {
   font-family: var(--vis-font-body);
 }
 
 .popover-title {
   font-size: 14px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 10px;
+  font-weight: 800;
+  font-family: var(--vis-font-display);
+  color: #111;
+  margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid #ebeef5;
 }
 
+/* 胜率行：紧凑 + 细线分隔 + 数值列固定宽 */
 .popover-stats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   max-height: 240px;
   overflow-y: auto;
   padding-right: 4px;
@@ -456,7 +474,14 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.stat-row:last-child {
+  border-bottom: 0;
 }
 
 .stat-team {
@@ -469,8 +494,13 @@ export default {
 }
 
 .stat-winrate {
+  flex: 0 0 auto;
+  min-width: 96px;
+  justify-content: flex-end;
+  text-align: right;
   font-weight: 700;
   font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -489,15 +519,27 @@ export default {
   padding: 12px 0;
 }
 
+/* 胜率高亮：橙（>=60）/ 红（<40）/ 中性灰，不用蓝 */
 .text-success {
-  color: #e6a23c; /* Match requested orange/yellow highlight style */
+  color: #ff6a00;
 }
 
 .text-danger {
-  color: #f56c6c;
+  color: #dc3545;
 }
 
 .text-neutral {
   color: #909399;
+}
+</style>
+
+<style>
+/* el-popover 的 popper  teleport 到 body，容器样式需全局非 scoped 覆写 */
+.map-stats-popover.el-popover.el-popper,
+.map-stats-popover {
+  padding: 12px !important;
+  border: 1px solid #ebeef5 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
 }
 </style>

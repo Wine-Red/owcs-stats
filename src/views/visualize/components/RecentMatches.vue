@@ -3,10 +3,10 @@
     <div v-for="group in displayedMatches" :key="group.date" class="vis-grid overview-section group-block">
       <div class="vis-col span-12">
         <div class="liquipedia-matches-container">
-          <div class="match-date-header">{{ group.formattedDate }}</div>
+          <div class="match-date-header"><span class="match-date-text">{{ group.formattedDate }}</span></div>
 
           <div class="matches-list">
-            <div v-for="match in group.matches" :key="match.id" class="match-row" @click="goToMatchDetail(match)">
+            <div v-for="match in group.matches" :key="match.id" class="match-row vis-card-lift" @click="goToMatchDetail(match)">
               <div class="match-content">
                 <div class="team-side left-side">
                   <span class="team-name" :class="{ 'winner-name': match.winnerId === match.team1Id }">
@@ -20,9 +20,9 @@
                 <div class="score-section">
                   <div class="score-row">
                     <span class="winner-arrow left-arrow" :class="{ visible: match.winnerId === match.team1Id }">◀</span>
-                    <span class="score-number">{{ match.team1Score !== null ? match.team1Score : '-' }}</span>
+                    <span class="score-number vis-score-num">{{ match.team1Score !== null ? match.team1Score : '-' }}</span>
                     <span class="score-colon">:</span>
-                    <span class="score-number">{{ match.team2Score !== null ? match.team2Score : '-' }}</span>
+                    <span class="score-number vis-score-num">{{ match.team2Score !== null ? match.team2Score : '-' }}</span>
                     <span class="winner-arrow right-arrow" :class="{ visible: match.winnerId === match.team2Id }">▶</span>
                   </div>
                   <div class="bo-format" v-if="match.boFormat">({{ match.boFormat }})</div>
@@ -288,6 +288,7 @@ export default {
 
 .group-block {
   margin-bottom: 24px;
+  scroll-snap-align: start;
 }
 
 .show-more-container {
@@ -300,59 +301,67 @@ export default {
 .show-more-btn {
   width: 100%;
   max-width: 600px;
+  min-height: 40px;
   font-weight: 600;
+}
+
+.show-more-btn:hover,
+.show-more-btn:focus {
+  color: var(--vis-accent);
+  border-color: var(--vis-accent);
+  background: var(--vis-team-right-soft);
 }
 
 .liquipedia-matches-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
 }
 
+/* M4 · 斜切日期 chip（浅灰底 + 斜体数字字） */
 .match-date-header {
   display: inline-block;
-  margin-bottom: 8px;
   padding: 4px 12px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-  text-align: center;
-  color: #495057;
+  background: var(--vis-bg-muted);
+  border-radius: 3px;
+  transform: skewX(var(--vis-slant));
+}
+
+.match-date-text {
+  display: inline-block;
+  transform: skewX(calc(var(--vis-slant) * -1));
+  color: var(--vis-text-secondary);
   font-family: var(--vis-font-numeric);
-  font-size: 14px;
-  font-weight: 600;
+  font-style: italic;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .matches-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
-  max-width: 600px;
+  max-width: 620px;
 }
 
+/* 比赛卡：白底轻边框 + 全局 .vis-card-lift hover（上浮 + 顶部渐变线） */
 .match-row {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f8f9fa;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--vis-bg-card);
+  border: 1px solid var(--vis-border);
+  border-radius: 12px;
+  box-shadow: var(--vis-shadow);
   cursor: pointer;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-}
-
-.match-row:hover {
-  background: #f0f2f5;
-  border-color: #dcdfe6;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
 }
 
 .match-row:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .match-content {
@@ -365,8 +374,9 @@ export default {
 .team-side {
   display: flex;
   align-items: center;
-  gap: 24px;
-  flex: 1;
+  gap: 10px;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .left-side {
@@ -394,16 +404,31 @@ export default {
   object-fit: contain;
 }
 
+/* 左队黑 / 右队橙 严格镜像；胜方加重，负方降透明度 */
 .team-name {
-  color: #606266;
   font-family: var(--vis-font-display);
-  font-size: 28px;
+  font-size: 17px;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  opacity: 0.55;
 }
 
-.winner-name {
-  color: #303133;
-  font-weight: 800;
+.left-side .team-name {
+  color: var(--vis-team-left);
+  text-align: right;
+}
+
+.right-side .team-name {
+  color: var(--vis-team-right);
+  text-align: left;
+}
+
+.team-name.winner-name {
+  font-weight: 900;
+  opacity: 1;
 }
 
 .score-section {
@@ -411,36 +436,58 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 100px;
-  padding: 0 16px;
+  flex: 0 0 auto;
+  min-width: 108px;
+  padding: 0 12px;
 }
 
 .score-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #303133;
-  font-family: var(--vis-font-numeric);
-  font-size: 22px;
-  font-weight: 700;
+  gap: 6px;
+  color: var(--vis-text-primary);
 }
 
+/* M4 · 斜体比分数字（.vis-score-num），左黑右橙固定宽度居中 */
 .score-number {
-  min-width: 20px;
+  min-width: 24px;
   text-align: center;
+  font-size: 24px;
+  color: var(--vis-text-tertiary);
+}
+
+.left-arrow + .score-number {
+  color: var(--vis-team-left);
+}
+
+.score-colon + .score-number {
+  color: var(--vis-team-right);
 }
 
 .score-colon {
   position: relative;
   top: -2px;
-  color: #909399;
+  color: var(--vis-text-tertiary);
+  font-family: var(--vis-font-numeric);
   font-size: 18px;
 }
 
+/* 胜方箭头：左黑右橙镜像（原 #409eff 蓝色已清除） */
 .winner-arrow {
-  color: #409eff;
-  font-size: 12px;
+  width: 12px;
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 11px;
   opacity: 0;
+  transition: opacity var(--vis-dur-fast) var(--vis-ease);
+}
+
+.left-arrow {
+  color: var(--vis-team-left);
+}
+
+.right-arrow {
+  color: var(--vis-team-right);
 }
 
 .winner-arrow.visible {
@@ -450,18 +497,20 @@ export default {
 .bo-format {
   margin-top: 6px;
   padding: 2px 8px;
-  background: #f4f4f5;
-  border-radius: 12px;
-  color: #909399;
+  background: var(--vis-bg-muted);
+  border-radius: 3px;
+  color: var(--vis-text-tertiary);
   font-family: var(--vis-font-numeric);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 .match-replays {
   display: flex;
   flex-direction: column;
-  background: #fafafa;
-  border-top: 1px solid #f0f0f0;
+  background: var(--vis-bg-subtle);
+  border-top: 1px solid var(--vis-border);
 }
 
 .replay-label {
@@ -469,23 +518,28 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 0;
-  color: #888;
-  font-size: 13px;
-  font-weight: 500;
+  min-height: 36px;
+  padding: 6px 0;
+  color: var(--vis-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   user-select: none;
-  transition: all 0.2s ease;
+  transition: color var(--vis-dur-fast) var(--vis-ease), background-color var(--vis-dur-fast) var(--vis-ease);
+}
+
+.replay-label .el-icon {
+  color: var(--vis-accent);
 }
 
 .replay-label:hover {
-  background: #f0f0f0;
-  color: #111;
+  background: var(--vis-team-right-soft);
+  color: var(--vis-text-strong);
 }
 
 .expand-icon {
   font-size: 12px;
-  transition: transform 0.3s ease;
+  transition: transform var(--vis-dur) var(--vis-ease);
 }
 
 .expand-icon.is-expanded {
@@ -497,7 +551,7 @@ export default {
   flex-wrap: wrap;
   gap: 8px;
   width: 100%;
-  padding: 8px 20px;
+  padding: 10px 16px 12px;
 }
 
 .replay-tag {
@@ -505,18 +559,18 @@ export default {
   align-items: stretch;
   overflow: hidden;
   background: #fff;
-  border: 1px solid #e8e8e8;
+  border: 1px solid var(--vis-border);
   border-radius: 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  color: #333;
+  color: var(--vis-text-primary);
   cursor: pointer;
   font-size: 12px;
   line-height: 1;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color var(--vis-dur-fast) var(--vis-ease), box-shadow var(--vis-dur-fast) var(--vis-ease), transform var(--vis-dur-fast) var(--vis-ease);
 }
 
 .replay-tag:hover {
-  border-color: #d9d9d9;
+  border-color: var(--vis-border-strong);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transform: translateY(-1px);
 }
@@ -525,18 +579,19 @@ export default {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  background: #f5f5f5;
-  border-right: 1px solid #e8e8e8;
-  color: #555;
+  background: var(--vis-bg-muted);
+  border-right: 1px solid var(--vis-border);
+  color: var(--vis-text-secondary);
   font-weight: 600;
   white-space: nowrap;
+  transition: background-color var(--vis-dur-fast) var(--vis-ease), color var(--vis-dur-fast) var(--vis-ease);
 }
 
 .replay-code {
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  color: #444;
+  color: var(--vis-text-primary);
   font-family: var(--vis-font-numeric);
   font-weight: 500;
   letter-spacing: 0.5px;
@@ -546,15 +601,15 @@ export default {
   align-self: center;
   padding-right: 8px;
   padding-left: 2px;
-  color: #111;
+  color: var(--vis-text-strong);
   font-size: 20px;
   opacity: 0.4;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--vis-dur-fast) var(--vis-ease);
 }
 
 .replay-tag:hover .replay-map-name {
-  background: #111;
-  border-right-color: #111;
+  background: var(--vis-primary-strong);
+  border-right-color: var(--vis-primary-strong);
   color: #fff;
 }
 
@@ -564,44 +619,94 @@ export default {
 }
 
 .replay-tag.disabled {
-  background: #f9f9f9;
-  border-color: #f0f0f0;
+  background: var(--vis-bg-subtle);
+  border-color: var(--vis-border);
   box-shadow: none;
   cursor: default;
 }
 
 .replay-tag.disabled:hover {
   transform: none;
-  border-color: #f0f0f0;
+  border-color: var(--vis-border);
   box-shadow: none;
 }
 
 .replay-tag.disabled .replay-map-name {
-  background: #f9f9f9;
-  border-right-color: #f0f0f0;
-  color: #a0a0a0;
+  background: var(--vis-bg-subtle);
+  border-right-color: var(--vis-border);
+  color: var(--vis-text-tertiary);
 }
 
 .replay-tag.disabled .replay-code.empty-code {
   padding: 4px 12px;
-  color: #c0c0c0;
+  color: var(--vis-text-disabled);
   font-family: var(--vis-font-body);
   font-size: 14px;
   font-weight: 700;
 }
 
 @media (max-width: 768px) {
+  .group-block {
+    margin-bottom: 18px;
+  }
+
+  .liquipedia-matches-container {
+    gap: 10px;
+  }
+
+  .matches-list {
+    gap: 10px;
+  }
+
   .team-name {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .match-content {
-    padding: 10px 12px;
+    padding: 12px;
+  }
+
+  .team-side {
+    gap: 6px;
   }
 
   .team-logo-container {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .team-logo {
+    max-width: 22px;
+    max-height: 22px;
+  }
+
+  .score-section {
+    min-width: 92px;
+    padding: 0 6px;
+  }
+
+  .score-row {
+    gap: 4px;
+  }
+
+  .score-number {
+    min-width: 20px;
+    font-size: 20px;
+  }
+
+  .score-colon {
+    font-size: 15px;
+  }
+
+  .winner-arrow {
+    width: 9px;
+    font-size: 9px;
+  }
+
+  .bo-format {
+    margin-top: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
   }
 
   .match-replays {
@@ -609,13 +714,14 @@ export default {
   }
 
   .replay-label {
+    min-height: 36px;
     padding: 6px 0;
     font-size: 12px;
   }
 
   .replay-tags {
     gap: 6px;
-    padding: 4px 12px;
+    padding: 6px 12px 10px;
   }
 
   .replay-tag {
@@ -625,6 +731,28 @@ export default {
   .replay-map-name,
   .replay-code {
     padding: 3px 6px;
+  }
+
+  .show-more-container {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .match-content {
+    padding: 10px;
+  }
+
+  .team-name {
+    font-size: 12px;
+  }
+
+  .score-section {
+    min-width: 84px;
+  }
+
+  .score-number {
+    font-size: 18px;
   }
 }
 </style>

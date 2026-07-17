@@ -1,5 +1,5 @@
 <template>
-  <div class="vis-card">
+  <div class="hero-ban-chart">
     <SlantedTitle title="英雄禁用统计">
       <template #title-suffix>
         <el-tooltip content="统计当前赛季各英雄被禁用的次数和频率（默认显示禁用次数Top10）" placement="top">
@@ -155,8 +155,8 @@ export default {
               },
               itemStyle: {
                 color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                  { offset: 0, color: '#A8ABB2' },
-                  { offset: 1, color: '#606266' }
+                  { offset: 0, color: '#FF9E0F' },
+                  { offset: 1, color: '#FF6A00' }
                 ]),
                 borderRadius: [0, 4, 4, 0],
                 shadowColor: 'rgba(0, 0, 0, 0.1)',
@@ -262,22 +262,19 @@ export default {
 </script>
 
 <style scoped>
-.vis-card {
-  height: auto;
+/* 去容器化：M1 斜切标题 + 图表无缝直排（参考积分榜页面直排感） */
+.hero-ban-chart {
+  position: relative;
+  height: 100%;
   display: block;
-  overflow: visible;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.vis-card:hover {
-  box-shadow: none;
 }
 
 .card-content {
-  padding: 24px;
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .info-icon {
@@ -304,19 +301,6 @@ export default {
 
   .card-content {
     padding: 0;
-  }
-}
-
-.card-content {
-  min-height: 360px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-@media (max-width: 768px) {
-  .card-content {
     min-height: 280px;
   }
 }

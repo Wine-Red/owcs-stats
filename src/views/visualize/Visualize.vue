@@ -55,9 +55,10 @@
 
       <Transition name="page-fade" mode="out-in">
         <div v-if="!isPageLoading" class="vis-body">
-          <!-- 赛事概览横幅 -->
+          <!-- 赛事概览横幅（全宽贴边） -->
           <TournamentBanner 
-            :seasonId="filterForm.seasonId" 
+            class="banner-fullbleed"
+            :seasonId="filterForm.seasonId"
             :tags="seasonVisualConfig.tags" 
             :dateRange="seasonVisualConfig.dateRange"
           />
@@ -566,13 +567,20 @@ export default {
   overflow-x: hidden;
 }
 
-/* 标签页导航样式 */
+/* 深色赛事横幅全宽贴边：抵消 vis-content 留白，直达页面左/右/顶部边缘 */
+.vis-body > .banner-fullbleed {
+  margin: -24px -32px 0;
+}
+
+/* 标签页导航样式：标签型按钮（激活 = 深色字 + 渐变斜切下划线） */
 .vis-tabs-container {
   display: flex;
   margin-top: 0;
-  margin-bottom: 32px;
-  width: 100%;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+  /* 全宽贴边：下划线/背景延伸至页面边缘，文字 padding 不变 */
+  margin-left: -32px;
+  margin-right: -32px;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
 }
 
 .vis-tabs {
@@ -581,20 +589,43 @@ export default {
 }
 
 .vis-tab-item {
+  position: relative;
   flex: 1;
-  text-align: center;
-  padding: 12px 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  font-family: var(--vis-font-display);
+  font-style: italic;
   font-size: 15px;
-  font-weight: 500;
-  color: #666;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--vis-text-tertiary);
   cursor: pointer;
   border: none;
   background: transparent;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition: color var(--vis-dur-fast) var(--vis-ease);
   user-select: none;
   margin-bottom: -1px;
   outline: none;
+  white-space: nowrap;
+}
+
+/* M1 · 渐变斜切下划线（激活态滑入） */
+.vis-tab-item::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vis-primary-gradient);
+  transform: translateX(-50%) skewX(var(--vis-slant)) scaleX(0);
+  transform-origin: center;
+  transition: transform var(--vis-dur) var(--vis-ease);
+  pointer-events: none;
 }
 
 .vis-tab-item:focus-visible {
@@ -603,24 +634,27 @@ export default {
 }
 
 .vis-tab-item.active {
-  color: #111;
-  font-weight: 600;
-  border-bottom: 2px solid #111;
+  color: var(--vis-text-strong);
+  font-weight: 800;
+}
+
+.vis-tab-item.active::after {
+  transform: translateX(-50%) skewX(var(--vis-slant)) scaleX(1);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .vis-tab-item:hover {
-    color: #111;
+    color: var(--vis-text-strong);
   }
 }
 
 @media (hover: none) {
   .vis-tab-item:hover {
-    color: #666;
+    color: var(--vis-text-tertiary);
   }
 
   .vis-tab-item.active:hover {
-    color: #111;
+    color: var(--vis-text-strong);
   }
 }
 
@@ -675,13 +709,13 @@ export default {
   font-family: var(--vis-font-display);
   font-size: 28px;
   font-weight: 800;
-  color: #1A1A1A;
+  color: var(--vis-text-strong);
   margin: 0;
   letter-spacing: 1px;
 }
 
 .vis-title .subtitle {
-  color: #FF9E0F;
+  color: var(--vis-primary);
 }
 
 .header-right {
@@ -695,7 +729,7 @@ export default {
 }
 
 .vis-content {
-  padding: 48px 32px 32px;
+  padding: 24px 32px 32px;
   width: 100%;
   flex: 1;
   box-sizing: border-box;
@@ -766,10 +800,9 @@ export default {
   margin: 0 auto;
 }
 
+/* 赛事数据区去容器化：区块直排落地，仅靠间距节奏分隔，无卡片底色/分隔线/内补白 */
 .stats-data-section {
-  position: relative;
-  padding-bottom: 48px;
-  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  min-width: 0;
 }
 
 .stats-compact-grid {
@@ -777,12 +810,10 @@ export default {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 36px;
   align-items: stretch;
-  padding-bottom: 8px;
 }
 
 .stats-compact-section {
   min-width: 0;
-  padding-top: 4px;
 }
 
 .span-6 {
@@ -806,12 +837,28 @@ export default {
 
 @media (max-width: 768px) {
   .vis-content {
-    padding: 12px 8px 20px;
+    padding: 12px 10px 24px;
+  }
+
+  .vis-body > .banner-fullbleed {
+    margin: -12px -10px 0;
   }
 
   .vis-tabs-container {
-    margin-top: -14px;
-    margin-bottom: 14px;
+    margin-top: 0;
+    margin-bottom: 16px;
+    margin-left: -10px;
+    margin-right: -10px;
+  }
+
+  .vis-tab-item {
+    min-height: 44px;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .vis-tab-item::after {
+    width: 28px;
   }
 
   .overview-section {
@@ -822,12 +869,8 @@ export default {
     gap: 34px;
   }
 
-  .stats-data-section {
-    padding-bottom: 34px;
-  }
-  
   .vis-header {
-    padding: 0 8px; /* 减小内边距 */
+    padding: 0 10px; /* 减小内边距 */
     flex-direction: row;
     align-items: center;
     height: 64px;
@@ -879,6 +922,21 @@ export default {
   }
 }
 
+@media (max-width: 420px) {
+  .vis-content {
+    padding: 10px 10px 20px;
+  }
+
+  .vis-body > .banner-fullbleed {
+    margin: -10px -10px 0;
+  }
+
+  .vis-tab-item {
+    padding: 8px 4px;
+    font-size: 12.5px;
+  }
+}
+
 /* 全局覆盖 Select 下拉框样式以确保内容显示完整 */
 :deep(.vis-season-select .el-input__inner) {
   text-overflow: ellipsis;
@@ -911,18 +969,33 @@ export default {
 }
 
 .stage-tab {
+  position: relative;
   padding: 8px 16px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: bold;
-  color: #333;
+  font-weight: 600;
+  color: #909399;
   border: none;
   background: transparent;
-  border-bottom: 2px solid transparent;
-  transition: color 0.3s, border-color 0.3s;
+  transition: color 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   white-space: nowrap;
   margin-bottom: -1px;
   outline: none;
+}
+
+/* M1 · 下拉赛段标签：激活 = 深色字 + 渐变下划线 */
+.stage-tab::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff6a00 0%, #ff9e0f 100%);
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
 }
 
 .stage-tab:focus-visible {
@@ -931,12 +1004,16 @@ export default {
 }
 
 .stage-tab:hover {
-  color: #000;
+  color: #111;
 }
 
 .stage-tab.active {
-  color: #000;
-  border-bottom-color: #333;
+  color: #111;
+  font-weight: 800;
+}
+
+.stage-tab.active::after {
+  transform: translateX(-50%) scaleX(1);
 }
 
 .vis-dropdown-tabs .el-select-dropdown__item {

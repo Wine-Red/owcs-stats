@@ -1,11 +1,11 @@
 <template>
-  <div class="vis-card">
+  <div class="radar-section">
     <SlantedTitle title="选手能力雷达">
       <template #title-suffix>
         <el-tooltip content="展示选手五维能力图（默认显示该职责平均水平，可对比两名选手）" placement="top">
           <el-icon class="info-icon"><InfoFilled /></el-icon>
         </el-tooltip>
-        <el-dropdown trigger="click" @command="handleExportCommand">
+        <el-dropdown trigger="click" popper-class="vis-export-dropdown" @command="handleExportCommand">
           <el-button link class="export-btn">
             <el-icon><Download /></el-icon>
             <span class="export-text">导出</span>
@@ -91,7 +91,7 @@
       </template>
     </SlantedTitle>
     
-    <div class="card-content">
+    <div class="radar-body">
       <div ref="radarChart" class="chart-container"></div>
     </div>
     <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
@@ -345,18 +345,30 @@ export default {
         };
 
         const isMobile = window.innerWidth <= 768;
+        const isSmallMobile = window.innerWidth <= 420;
 
         const option = {
             tooltip: {
                 trigger: 'item',
-                confine: true
+                confine: true,
+                backgroundColor: '#FFFFFF',
+                borderColor: '#EBEEF5',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#303133',
+                    fontSize: 12
+                },
+                padding: [10, 14],
+                extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
             },
             legend: {
                 bottom: 0,
                 itemWidth: isMobile ? 12 : 16,
                 itemHeight: isMobile ? 8 : 10,
+                inactiveColor: '#C0C4CC',
                 textStyle: {
-                    fontSize: isMobile ? 11 : 12
+                    fontSize: isMobile ? 11 : 12,
+                    color: '#606266'
                 },
                 data: seriesData.map(s => s.name)
             },
@@ -364,8 +376,8 @@ export default {
                 indicator: indicators,
                 shape: 'polygon',
                 splitNumber: 5,
-                center: ['50%', isMobile ? '47%' : '50%'],
-                radius: isMobile ? '52%' : '60%',
+                center: ['50%', isMobile ? (isSmallMobile ? '53%' : '51%') : '50%'],
+                radius: isMobile ? (isSmallMobile ? '46%' : '52%') : '60%',
                 axisName: {
                     formatter: function (value, indicator) {
                         const p1Val = indicator.p1Val !== undefined ? formatAxisValue(indicator.p1Val) : '';
@@ -400,9 +412,9 @@ export default {
                 splitLine: {
                     lineStyle: {
                         color: [
-                            'rgba(238, 197, 102, 0.1)', 'rgba(238, 197, 102, 0.2)',
-                            'rgba(238, 197, 102, 0.4)', 'rgba(238, 197, 102, 0.6)',
-                            'rgba(238, 197, 102, 0.8)', 'rgba(238, 197, 102, 1)'
+                            'rgba(17, 17, 17, 0.05)', 'rgba(17, 17, 17, 0.08)',
+                            'rgba(17, 17, 17, 0.12)', 'rgba(17, 17, 17, 0.16)',
+                            'rgba(17, 17, 17, 0.2)', 'rgba(17, 17, 17, 0.24)'
                         ].reverse()
                     }
                 },
@@ -411,7 +423,7 @@ export default {
                 },
                 axisLine: {
                     lineStyle: {
-                        color: 'rgba(238, 197, 102, 0.5)'
+                        color: 'rgba(17, 17, 17, 0.16)'
                     }
                 }
             },
@@ -492,27 +504,54 @@ export default {
 </script>
 
 <style scoped>
-.vis-card {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+/* 去容器化：无白卡包裹，M1 斜切标题 + 内容直排于页面，区间以 1px 细线与留白分隔 */
+.radar-section {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.card-content {
-  padding: 24px;
+/* 标题区（含职责切换与选手选择器）：底部 1px 浅灰细分隔线 */
+.radar-section :deep(.slanted-title) {
+  margin-bottom: 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--vis-border, #e6e8ec);
+}
+
+/* 图表区：直接落在页面上，留白分隔 + M3 战术角标（对角 L 形细线） */
+.radar-body {
+  position: relative;
   flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  min-height: 360px;
+  padding: 20px 6px 0;
+}
+
+.radar-body::before,
+.radar-body::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.radar-body::before {
+  top: 10px;
+  left: 0;
+  border-top: 1px solid rgba(17, 17, 17, 0.22);
+  border-left: 1px solid rgba(17, 17, 17, 0.22);
+}
+
+.radar-body::after {
+  right: 0;
+  bottom: 0;
+  border-right: 1px solid rgba(17, 17, 17, 0.22);
+  border-bottom: 1px solid rgba(17, 17, 17, 0.22);
 }
 
 .chart-container {
   width: 100%;
-  height: 400px;
+  height: 360px;
 }
 
 .header-controls {
@@ -530,42 +569,8 @@ export default {
   width: 140px;
 }
 
-/* 强制应用磨砂玻璃风格，文字颜色使用深色以保持对比度 */
-:deep(.player-select .el-input__wrapper) {
-  background-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3) inset !important;
-  border-radius: 18px !important;
-  padding: 4px 12px !important;
-  transition: all 0.3s ease;
-}
-
-:deep(.player-select .el-input__wrapper:hover) {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
-}
-
-:deep(.player-select .el-input__wrapper.is-focus) {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-  box-shadow: 0 0 0 1px #FFFFFF inset !important;
-}
-
-:deep(.player-select .el-input__inner) {
-  color: #303133 !important;
-  font-weight: 600;
-  text-shadow: none;
-}
-
-:deep(.player-select .el-input__inner::placeholder) {
-  color: #606266 !important;
-  opacity: 0.8;
-}
-
-:deep(.player-select .el-input__suffix .el-icon) {
-  color: #606266 !important;
-}
-
 .custom-select-label {
-  color: #606266;
+  color: #69707d;
   font-size: 12px;
   margin-right: 8px;
   font-weight: 600;
@@ -574,134 +579,9 @@ export default {
 }
 
 .info-icon {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  /* margin-left: 8px; 移除这里的margin，由父容器padding控制 */
-}
-.info-icon:hover {
-  color: #fff;
-}
-
-.export-btn {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 12px;
-  padding: 0;
-  height: auto;
-}
-.export-btn:hover {
-  color: #FFFFFF;
-}
-.export-text {
-  font-weight: 500;
-}
-@media (max-width: 768px) {
-  .export-text {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .header-controls {
-    flex-direction: column;
-    align-items: flex-start;
-    margin-top: 8px;
-    width: 100%;
-  }
-  
-  .player-selectors {
-    width: 100%;
-    flex-direction: column;
-  }
-  
-  .player-select {
-    width: 100%;
-  }
-  
-  .role-radio-group {
-    width: 100%;
-    display: flex;
-  }
-  
-  :deep(.role-radio-group .el-radio-button) {
-    flex: 1;
-  }
-  
-  :deep(.role-radio-group .el-radio-button__inner) {
-    width: 100%;
-  }
-}
-
-/* 添加单选按钮内容的 flex 布局及图标大小控制 */
-.role-btn-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.role-icon {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  /* 默认状态（未激活）：通过极高亮度和零饱和度，强行把任何图标变纯白 */
-  filter: brightness(0) invert(1);
-  transition: all 0.3s;
-}
-
-/* 调整单选按钮的内边距，使其变成更匀称的正方形或小矩形 */
-:deep(.el-radio-button__inner) {
-  padding: 8px 12px; 
-}
-
-/* 当单选按钮被选中时，转换为主题橙色 */
-:deep(.el-radio-button.is-active .role-icon) {
-  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
-}
-
-.option-with-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.option-logo {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.vis-card {
-  height: auto;
-  display: block;
-  overflow: visible;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.vis-card:hover {
-  box-shadow: none;
-}
-
-.card-content {
-  min-height: 360px;
-  padding: 0;
-  display: block;
-}
-
-.chart-container {
-  width: 100%;
-  height: 360px;
-}
-
-.info-icon {
-  color: #8a8f98;
   font-size: 17px;
+  color: #8a8f98;
+  cursor: pointer;
 }
 
 .info-icon:hover,
@@ -712,13 +592,19 @@ export default {
 .export-btn {
   color: #68707d;
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+  padding: 0;
+  height: auto;
 }
 
-.custom-select-label {
-  color: #69707d;
-  font-weight: 600;
+.export-text {
+  font-weight: 500;
 }
 
+/* 职责切换 radio：浅灰底胶囊组，激活黑底白字 */
 .header-controls :deep(.el-radio-group) {
   padding: 2px !important;
   background: #f1f2f4 !important;
@@ -728,6 +614,7 @@ export default {
 }
 
 .header-controls :deep(.el-radio-button__inner) {
+  padding: 8px 12px;
   color: #69707d !important;
   background: transparent !important;
   border: 0 !important;
@@ -736,11 +623,12 @@ export default {
 }
 
 .header-controls :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  color: #111 !important;
-  background: #fff !important;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08) !important;
+  color: #fff !important;
+  background: #111 !important;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.24) !important;
 }
 
+/* 选手选择器：白底细边输入框，hover/focus 橙色描边 */
 .header-controls :deep(.el-select .el-input__wrapper) {
   padding: 2px 10px !important;
   background: #fff !important;
@@ -756,12 +644,24 @@ export default {
 .header-controls :deep(.el-input__inner),
 .header-controls :deep(.el-input__suffix .el-icon) {
   color: #303133 !important;
+  font-weight: 600;
   text-shadow: none;
 }
 
+/* radio 图标：默认去色低对比，激活转主题橙 */
+.role-btn-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .role-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
   opacity: 0.82;
   filter: grayscale(1) contrast(0.35);
+  transition: all 0.3s;
 }
 
 :deep(.el-radio-button.is-active .role-icon) {
@@ -769,16 +669,26 @@ export default {
   filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
 }
 
-@media (max-width: 768px) {
-  .card-content {
-    min-height: 300px;
-  }
+.option-with-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  .chart-container {
-    height: 330px;
+.option-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .radar-section :deep(.slanted-title) {
+    padding-bottom: 12px;
   }
 
   .header-controls {
+    flex-direction: column;
+    align-items: flex-start;
     width: 100%;
     margin-top: 0;
     gap: 8px;
@@ -790,9 +700,52 @@ export default {
     width: 100%;
   }
 
+  .role-radio-group {
+    display: flex;
+  }
+
+  :deep(.role-radio-group .el-radio-button) {
+    flex: 1;
+  }
+
+  :deep(.role-radio-group .el-radio-button__inner) {
+    width: 100%;
+  }
+
+  .player-selectors {
+    flex-direction: column;
+  }
+
   .header-controls :deep(.el-select .el-input__wrapper) {
     min-height: 36px !important;
     border-radius: 8px !important;
   }
+
+  .radar-body {
+    min-height: 300px;
+    padding-top: 14px;
+  }
+
+  .chart-container {
+    height: 330px;
+  }
+
+  .export-text {
+    display: none;
+  }
+}
+</style>
+
+<style>
+/* el-select / el-dropdown 的 popper 会 teleport 到 body，需非 scoped 覆写（清除 Element 默认蓝） */
+.vis-dropdown .el-select-dropdown__item.is-selected {
+  color: #ff6a00;
+  font-weight: 700;
+}
+
+.vis-export-dropdown .el-dropdown-menu__item:not(.is-disabled):hover,
+.vis-export-dropdown .el-dropdown-menu__item:not(.is-disabled):focus {
+  background-color: rgba(255, 106, 0, 0.08);
+  color: #ff6a00;
 }
 </style>

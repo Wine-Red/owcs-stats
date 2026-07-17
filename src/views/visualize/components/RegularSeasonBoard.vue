@@ -28,7 +28,7 @@
         <el-table-column label="#" width="40" align="center">
           <template #default="scope">
             <div class="rank-cell">
-              <span class="rank-number" :class="{ 'rank-qualified': isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount }">{{ scope.$index + 1 }}</span>
+              <span class="rank-number" :class="{ 'rank-top': scope.$index < 3, 'rank-qualified': isCurrentStage && qualificationCount > 0 && scope.$index < qualificationCount }">{{ scope.$index + 1 }}</span>
             </div>
           </template>
         </el-table-column>
@@ -52,7 +52,7 @@
         </el-table-column>
         <el-table-column v-if="currentTemplate === 'wl_maps'" label="W-L" width="55" align="center">
           <template #default="scope">
-            <span class="font-mono">{{ scope.row.matchesWon }}-{{ scope.row.matchesLost }}</span>
+            <span class="font-mono wl-cell"><span class="wl-win">{{ scope.row.matchesWon }}</span><span class="wl-sep">-</span><span class="wl-loss">{{ scope.row.matchesLost }}</span></span>
           </template>
         </el-table-column>
         <el-table-column v-if="currentTemplate === 'points_3_0'" label="PTS" width="50" align="center">
@@ -481,71 +481,94 @@ export default {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
+/* M1 · 斜切标题条：渐变斜块锚点 + 斜体展示字 */
 .section-title {
-  font-family: var(--vis-font-heading);
-  font-size: 20px;
-  color: #1a1a1a;
+  font-family: var(--vis-font-display);
+  font-size: 18px;
+  color: var(--vis-text-strong);
   margin: 0;
-  font-weight: 700;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .section-title::before {
   content: '';
-  width: 6px;
-  height: 22px;
+  width: 4px;
+  height: 16px;
   flex: 0 0 auto;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ff6a00 0%, #ffb11a 100%);
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
 }
 
+/* 阶段切换：紧凑 chip 轨道（黑底白字激活，移动端横向滑动） */
 .stage-tabs {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
-  border-radius: 7px;
-  background: #f0f2f5;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--vis-bg-muted);
   overflow-x: auto;
   max-width: calc(100% - 120px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.stage-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .stage-tab {
   flex: 0 0 auto;
-  padding: 4px 8px;
-  border-radius: 5px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #606266;
+  color: var(--vis-text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color var(--vis-dur-fast) var(--vis-ease), color var(--vis-dur-fast) var(--vis-ease), box-shadow var(--vis-dur-fast) var(--vis-ease);
   line-height: 1;
   white-space: nowrap;
+  scroll-snap-align: start;
+}
+
+/* 抵消 Visualize.vue 全局 .stage-tab 的下划线装饰 */
+.stage-tab::after {
+  content: none;
 }
 
 .stage-tab:hover {
-  color: #1a1a1a;
+  color: var(--vis-text-strong);
 }
 
 .stage-tab.active {
-  background: #ffffff;
-  color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: var(--vis-primary-strong);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.22);
 }
 
 .standings-table-container {
-  border-radius: 12px;
+  border-radius: 14px;
   overflow-x: auto;
   overflow-y: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  background: #ffffff;
+  background: var(--vis-bg-card);
+  border: 1px solid var(--vis-border);
+  box-shadow: var(--vis-shadow);
 }
 
 /* 移除最小宽度限制，让表格能在移动端自适应收缩 */
@@ -556,22 +579,22 @@ export default {
 .team-cell {
   display: flex;
   align-items: center;
-  gap: 6px; /* 减小间距 */
+  gap: 6px;
   width: 100%;
 }
 
 .team-cell-clickable {
-  min-height: 30px;
+  min-height: 36px;
   margin: -3px -5px;
   padding: 3px 5px;
   border-radius: 7px;
   cursor: pointer;
-  transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition: background-color var(--vis-dur-fast) var(--vis-ease), transform var(--vis-dur-fast) var(--vis-ease);
 }
 
 .team-cell-clickable:hover,
 .team-cell-clickable:focus-visible {
-  background: rgba(255, 158, 15, 0.08);
+  background: var(--vis-team-right-soft);
   outline: none;
 }
 
@@ -580,21 +603,21 @@ export default {
 }
 
 .team-cell-clickable .team-name {
-  color: #111;
+  color: var(--vis-text-strong);
   text-decoration: underline;
-  text-decoration-color: rgba(255, 158, 15, 0.42);
+  text-decoration-color: rgba(255, 106, 0, 0.35);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
 .team-cell-clickable:hover .team-name,
 .team-cell-clickable:focus-visible .team-name {
-  color: #ff6a00;
-  text-decoration-color: #ff6a00;
+  color: var(--vis-accent);
+  text-decoration-color: var(--vis-accent);
 }
 
 .team-logo {
-  width: 24px; /* 减小 logo 尺寸 */
+  width: 24px;
   height: 24px;
   object-fit: contain;
   flex-shrink: 0;
@@ -603,21 +626,21 @@ export default {
 .team-logo-placeholder {
   width: 24px;
   height: 24px;
-  background: #f0f2f5;
+  background: var(--vis-bg-muted);
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: bold;
-  color: #666;
+  color: var(--vis-text-secondary);
   flex-shrink: 0;
 }
 
 .team-name {
   font-family: var(--vis-font-body);
   font-weight: 600;
-  color: #333;
+  color: var(--vis-text-primary);
   font-size: 13px;
   white-space: nowrap;
   flex-shrink: 1;
@@ -627,7 +650,7 @@ export default {
 
 .team-roster-cue {
   flex: 0 0 auto;
-  color: #ff8a00;
+  color: var(--vis-accent);
   font-size: 16px;
   font-weight: 800;
   line-height: 1;
@@ -638,100 +661,49 @@ export default {
 .font-mono {
   font-family: var(--vis-font-numeric);
   font-weight: 600;
-  font-size: 14px; /* 减小字体大小 */
+  font-size: 13px;
+  color: var(--vis-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 胜/负分列着色：success/error 只落在数字上，不整行染色 */
+.wl-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.wl-win {
+  color: var(--vis-success);
+  font-weight: 700;
+}
+
+.wl-sep {
+  color: var(--vis-text-disabled);
+}
+
+.wl-loss {
+  color: var(--vis-error);
+  font-weight: 700;
 }
 
 .map-diff {
   display: inline-block;
   min-width: 20px;
   text-align: right;
+  font-weight: 700;
 }
 
 .text-success {
-  color: #28a745;
+  color: var(--vis-success);
 }
 
 .text-danger {
-  color: #dc3545;
+  color: var(--vis-error);
 }
 
 .text-neutral {
-  color: #6c757d;
-}
-
-.rank-number {
-  font-family: var(--vis-font-numeric);
-  font-weight: 700;
-  color: #666;
-}
-
-.rank-qualified {
-  color: transparent;
-  background-clip: text;
-  -webkit-background-clip: text;
-  background-image: linear-gradient(135deg, #facc15 0%, #ff8a00 100%);
-  text-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
-  font-size: 1.1em;
-}
-
-:deep(.el-table__row.qualified-row > td.el-table__cell) {
-  background-color: rgba(250, 204, 21, 0.06) !important;
-}
-
-:deep(.el-table--enable-row-hover .el-table__body tr.qualified-row:hover > td.el-table__cell) {
-  background-color: rgba(250, 204, 21, 0.1) !important;
-}
-
-:deep(.el-table__row.qualified-row > td:first-child) {
-  position: relative;
-}
-
-:deep(.el-table__row.qualified-row > td:first-child::before) {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background-color: rgba(250, 204, 21, 0.8);
-  border-top-right-radius: 2px;
-  border-bottom-right-radius: 2px;
-}
-
-:deep(.el-table__row.qualified-row > td:last-child) {
-  position: relative;
-}
-
-:deep(.el-table__row.qualified-row > td:last-child::after) {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 80px;
-  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
-  pointer-events: none;
-}
-
-:deep(.el-table__row.qualified-last-row > td.el-table__cell) {
-  border-bottom: 2px dashed rgba(250, 204, 21, 0.4) !important;
-}
-
-.qualification-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 4px;
-  font-size: 9px;
-  font-weight: 700;
-  color: #c98e00;
-  background: linear-gradient(135deg, rgba(254, 240, 138, 0.5) 0%, rgba(253, 224, 71, 0.4) 100%);
-  border: 1px solid rgba(250, 204, 21, 0.4);
-  border-radius: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-  line-height: 1.1;
-  box-shadow: none;
-  flex-shrink: 0;
+  color: var(--vis-text-tertiary);
 }
 
 .rank-cell {
@@ -740,45 +712,189 @@ export default {
   justify-content: center;
 }
 
-:deep(.el-table th.el-table__cell) {
-  background-color: #f8f9fa;
-  color: #495057;
+/* M4 · 排名数字：默认 #909399，前三/晋级位渐变橙斜体 */
+.rank-number {
+  font-family: var(--vis-font-numeric);
+  font-size: 14px;
   font-weight: 700;
-  border-bottom: 2px solid #dee2e6;
+  color: var(--vis-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 修复：渐变裁剪区域（background-clip:text 只覆盖 padding box）小于
+   斜体字形墨迹范围时，数字底部与右侧斜伸部分会被裁掉。
+   通过加大 line-height + 四周 padding 扩大绘制区域，保证完整显示。 */
+.rank-top,
+.rank-qualified {
+  display: inline-block;
+  font-style: italic;
+  font-weight: 900;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: var(--vis-primary-gradient);
+  background-size: 100% 100%;
+  line-height: 1.4;
+  padding: 2px 3px 3px 1px;
+  overflow: visible;
+}
+
+/* 晋级区：仅左侧渐变窄条 + 底部分隔，不整行染色 */
+:deep(.el-table__row.qualified-row > td:first-child) {
+  position: relative;
+}
+
+:deep(.el-table__row.qualified-row > td:first-child::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--vis-primary-gradient);
+}
+
+:deep(.el-table__row.qualified-last-row > td.el-table__cell) {
+  border-bottom: 1px solid var(--vis-border-strong) !important;
+}
+
+.qualification-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--vis-primary-gradient);
+  border-radius: 3px;
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+
+/* 表头：11px / 700 / #909399 / 大写字距（覆盖 inline header-cell-style） */
+:deep(.el-table th.el-table__cell) {
+  background-color: var(--vis-bg-subtle) !important;
+  color: var(--vis-text-tertiary) !important;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--vis-border-strong) !important;
+  padding: 8px 0;
 }
 
 :deep(.el-table td.el-table__cell) {
-  border-bottom: 1px solid #edf2f7;
+  border-bottom: 1px solid var(--vis-border) !important;
+}
+
+:deep(.el-table__body tr:last-child > td.el-table__cell) {
+  border-bottom: none !important;
+}
+
+/* 行 hover：轻微浅灰 */
+:deep(.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell) {
+  background-color: var(--vis-bg-subtle) !important;
 }
 
 @media (max-width: 768px) {
+  .section-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
   .section-title {
-    margin: 0 0 6px 0;
+    font-size: 16px;
   }
+
+  .section-title::before {
+    height: 14px;
+  }
+
+  .stage-tabs {
+    max-width: calc(100% - 96px);
+    padding: 2px;
+  }
+
+  .stage-tab {
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: 10.5px;
+  }
+
+  .standings-table-container {
+    border-radius: 12px;
+  }
+
   :deep(.el-table .cell) {
-    padding: 0 4px;
+    padding: 0 3px;
+    line-height: 1.3;
   }
+
   :deep(.el-table th.el-table__cell) {
     padding: 6px 0;
+    font-size: 10.5px;
+    letter-spacing: 0.2px;
   }
+
   :deep(.el-table td.el-table__cell) {
     padding: 6px 0;
   }
+
   .team-name {
-    font-size: 13px;
+    font-size: 12.5px;
   }
+
+  .team-logo {
+    width: 22px;
+    height: 22px;
+  }
+
   .font-mono {
+    font-size: 12.5px;
+  }
+
+  .rank-number {
     font-size: 13px;
   }
+
   .team-cell {
     gap: 4px;
   }
+
   .team-cell-clickable {
-    min-height: 32px;
+    min-height: 36px;
     padding: 4px 5px;
   }
+
   .team-roster-cue {
     font-size: 14px;
+  }
+
+  .qualification-badge {
+    font-size: 8px;
+    margin-left: 4px;
+  }
+}
+
+@media (max-width: 420px) {
+  .section-title {
+    font-size: 15px;
+  }
+
+  .stage-tabs {
+    max-width: calc(100% - 84px);
+  }
+
+  .team-name {
+    font-size: 12px;
+  }
+
+  .font-mono {
+    font-size: 12px;
   }
 }
 </style>

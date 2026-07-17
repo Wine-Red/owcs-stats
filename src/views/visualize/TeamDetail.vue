@@ -21,7 +21,7 @@
       </header>
 
       <!-- 战队横幅 -->
-      <div class="match-banner">
+      <div class="match-banner vis-arena-banner">
         <div class="team-banner-center">
           <img :src="getTeamLogo(team?.id)" class="team-logo-large" alt="" />
           <div class="team-name-large">{{ team?.name || '未知战队' }}</div>
@@ -43,7 +43,7 @@
       </div>
 
       <!-- 战绩 -->
-      <div class="team-record-container" v-if="scoreStat">
+      <div class="team-record-container vis-arena-banner" v-if="scoreStat">
         <div class="team-record-badge">
           <span class="record-item">{{ scoreStat.matchWin }}W - {{ scoreStat.matchLoss }}L</span>
           <span class="record-divider">|</span>
@@ -532,7 +532,7 @@ export default {
 <style scoped>
 .team-detail-page {
   min-height: 100vh;
-  background-color: #fff;
+  background: #fafafa;
   font-family: var(--vis-font-body);
 }
 
@@ -541,6 +541,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  background: #fafafa;
 }
 
 .loading-panel {
@@ -551,17 +552,19 @@ export default {
 }
 
 .loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-top-color: #111;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 106, 0, 0.14);
+  border-top-color: #ff6a00;
   border-radius: 50%;
-  animation: spinner-rotate 1s linear infinite;
+  animation: spinner-rotate 0.8s linear infinite;
 }
 
 .loading-text {
-  color: #666;
-  font-size: 14px;
+  color: #909399;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 @keyframes spinner-rotate {
@@ -582,28 +585,34 @@ export default {
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  padding: 14px 20px 10px;
+  padding: 12px 20px;
 }
 
 .back-btn {
-  font-size: 15px;
-  color: #606266;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-size: 14px;
+  color: #909399;
   font-weight: 600;
-  transition: color 0.2s;
+  transition: color 0.2s var(--vis-ease);
 }
 
-.back-btn:hover {
+.back-btn:hover,
+.back-btn:active {
   color: #111;
 }
 
 .tournament-info {
+  min-width: 0;
   text-align: center;
 }
 
 .tournament-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
-  color: #303133;
+  color: #111;
+  letter-spacing: -0.01em;
 }
 
 .empty-space {
@@ -619,98 +628,99 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 14px;
-  background: #f4f4f5;
-  border-radius: 20px;
-  color: #111;
+  min-height: 32px;
+  padding: 4px 14px;
+  background: rgba(17, 17, 17, 0.05);
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  border-radius: 999px;
+  color: #606266;
   font-size: 12px;
-  font-weight: 800;
-  transition: all 0.2s;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: background-color 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease), color 0.2s var(--vis-ease);
+}
+
+.season-dropdown-link .text {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .season-dropdown-link:hover {
-  background: #ebeef5;
-}
-
-.minimal-dropdown-menu {
-  border-radius: 12px;
-  padding: 8px;
-  border: 1px solid #ebeef5;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-}
-
-.minimal-dropdown-menu .el-dropdown-item {
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #606266;
-  margin-bottom: 2px;
-}
-
-.minimal-dropdown-menu .el-dropdown-item:hover {
-  background: #f4f4f5;
+  background: rgba(17, 17, 17, 0.08);
+  border-color: rgba(17, 17, 17, 0.1);
   color: #111;
 }
 
-.minimal-dropdown-menu .el-dropdown-item.is-active {
-  background: #111;
-  color: #fff;
-}
-
-.dropdown-divider {
-  margin: 4px 0;
-}
-
+/* 浅色赛事横幅延续段：战绩条与主横幅同底，全宽贴边平收 */
 .team-record-container {
+  position: relative;
   display: flex;
   justify-content: center;
-  background: #fff;
-  padding-bottom: 16px;
-  border-bottom: 10px solid #fafafa;
+  padding: 0 40px 26px;
 }
 
+/* 浅色赛事横幅：队标轻微悬浮（不加圆底），队名 24px/900 深色字 */
 .match-banner {
-  background: #fff;
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 10px 40px 8px;
+  padding: 26px 40px 22px;
 }
 
 .team-banner-center {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .team-logo-large {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08));
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.16));
 }
 
 .team-name-large {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 24px;
   font-weight: 900;
   color: #111;
   font-family: var(--vis-font-display);
-  letter-spacing: 0.5px;
-  line-height: 1;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
 }
 
+/* M4 · 战绩记分胶囊：白底细边框深字，Oxanium 斜体数字，胜/负用 success/error 语义色 */
 .team-record-badge {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8f9fa;
-  padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 12px;
+  min-height: 32px;
+  background: #fff;
+  border: 1px solid var(--vis-border);
+  padding: 5px 16px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 13px;
   font-weight: 800;
-  color: #606266;
+  color: #111;
   font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-item {
+  font-style: italic;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .record-divider {
@@ -718,57 +728,70 @@ export default {
   font-weight: 400;
 }
 
-.text-success { color: #28a745; }
-.text-danger { color: #dc3545; }
+.text-success { color: var(--vis-success); }
+.text-danger { color: var(--vis-error); }
 
 .tabs-container {
   display: flex;
   flex-direction: column;
 }
 
+/* Element Plus v-loading 默认主题色为蓝色，收敛为黑橙体系 */
+.tabs-container :deep(.el-loading-spinner .path) {
+  stroke: #ff6a00;
+}
+
+.tabs-container :deep(.el-loading-text) {
+  color: #909399;
+}
+
 .custom-tabs-nav {
   display: flex;
+  gap: 8px;
+  padding: 10px 20px;
   background: #fff;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--vis-border);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-tabs-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-nav-item {
-  flex: 1;
-  text-align: center;
-  padding: 16px 0;
-  font-weight: 800;
-  font-size: 15px;
-  color: #909399;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  user-select: none;
   position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--vis-bg-muted);
+  color: var(--vis-text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s var(--vis-ease), background-color 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
+  user-select: none;
+  scroll-snap-align: start;
 }
 
 .tab-nav-item:hover {
   color: #111;
+  background: rgba(17, 17, 17, 0.1);
 }
 
 .tab-nav-item.active {
-  color: #111;
-}
-
-@keyframes lineScale {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-.tab-nav-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 30%;
-  width: 40%;
-  height: 3px;
   background: #111;
-  border-radius: 3px 3px 0 0;
-  animation: lineScale 0.25s ease-out forwards;
-  transform-origin: center;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.18);
 }
 
 .tab-content-area {
@@ -798,31 +821,47 @@ export default {
 .minimal-roster {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 0 10px;
+  gap: 16px;
 }
 
+/* 数据卡：白底细边框轻阴影 */
 .m-role-section {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--vis-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+/* M1 · 斜切标题条：渐变斜块锚点 + 斜体展示字 */
 .m-role-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-bottom: 6px;
-  margin-bottom: 4px;
-  border-bottom: 2px solid #111;
+  gap: 8px;
+  padding: 12px 14px 10px;
   font-weight: 900;
   font-size: 14px;
+  font-style: italic;
   color: #111;
-  letter-spacing: 1px;
+  font-family: var(--vis-font-display);
+  letter-spacing: 0.04em;
+}
+
+.m-role-title::before {
+  content: '';
+  width: 4px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
 }
 
 .m-role-icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   filter: brightness(0);
 }
 
@@ -830,21 +869,25 @@ export default {
   display: grid;
   grid-template-columns: 2.5fr 1fr 1.5fr 1.5fr 1fr;
   align-items: center;
+  column-gap: 8px;
 }
 
 .m-grid-header {
-  padding: 8px;
+  padding: 7px 14px;
   font-size: 11px;
   color: #909399;
   font-weight: 700;
-  border-bottom: 1px solid #ebeef5;
+  letter-spacing: 0.04em;
+  background: var(--vis-bg-subtle);
+  border-top: 1px solid var(--vis-border);
+  border-bottom: 1px solid var(--vis-border);
 }
 
 .m-grid-row {
-  padding: 10px 8px;
+  padding: 10px 14px;
   font-size: 13px;
-  border-bottom: 1px dashed #f0f2f5;
-  transition: background-color 0.2s;
+  border-bottom: 1px solid #f0f2f5;
+  transition: background-color 0.2s var(--vis-ease);
 }
 
 .m-grid-row:hover {
@@ -862,7 +905,11 @@ export default {
 }
 
 .text-left { text-align: left; }
-.text-right { text-align: right; font-family: var(--vis-font-numeric); }
+.text-right {
+  text-align: right;
+  font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
 
 .font-bold {
   font-weight: 800;
@@ -883,62 +930,74 @@ export default {
 .h2h-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 0 10px;
+  gap: 10px;
 }
 
 .h2h-match-row {
+  position: relative;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border-radius: 8px;
-  padding: 12px 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s;
-  position: relative;
-  overflow: hidden;
   gap: 10px;
+  padding: 12px 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--vis-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   cursor: pointer;
+  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease);
 }
 
-.h2h-match-row:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+/* M5 · hover 顶部渐变线 */
+.h2h-match-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--vis-primary-gradient);
+  opacity: 0;
+  transition: opacity 0.2s var(--vis-ease);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .h2h-match-row:hover {
+    transform: translateY(-2px);
+    border-color: var(--vis-border-strong);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .h2h-match-row:hover::before {
+    opacity: 1;
+  }
 }
 
 .h2h-match-row:active {
   transform: scale(0.98);
 }
 
-.h2h-match-row::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: #dcdfe6;
-  border-radius: 4px 0 0 4px;
-}
-
 .h2h-match-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-left: 4px;
 }
 
 .h2h-date {
-  font-size: 13px;
+  flex-shrink: 0;
   color: #111;
+  font-family: var(--vis-font-numeric);
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.5px;
-  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .h2h-tournament {
-  font-size: 12px;
   color: #909399;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -950,50 +1009,79 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 0 8px 4px;
 }
 
+/* 左队黑、右队橙镜像 */
 .h2h-team {
   display: flex;
   align-items: center;
   gap: 10px;
   flex: 1;
+  min-width: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #606266;
 }
 
-.h2h-team.t1 { justify-content: flex-end; }
-.h2h-team.t2 { justify-content: flex-start; }
-.h2h-team.is-winner { color: #111; font-weight: 900; }
-.h2h-team.is-loser { opacity: 0.6; }
+.h2h-team .team-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-team.t1 {
+  justify-content: flex-end;
+  color: #111;
+}
+
+.h2h-team.t2 {
+  justify-content: flex-start;
+  color: #ff6a00;
+}
+
+.h2h-team.is-winner {
+  font-weight: 900;
+}
+
+.h2h-team.is-loser {
+  opacity: 0.55;
+}
 
 .h2h-logo {
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
   object-fit: contain;
 }
 
+/* 比分胶囊：M4 斜体数字，固定宽度居中不抖动 */
 .h2h-score-box {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f4f4f5;
-  padding: 4px 16px;
-  border-radius: 20px;
-  font-weight: 900;
+  flex-shrink: 0;
+  min-width: 72px;
+  padding: 4px 14px;
+  background: var(--vis-bg-muted);
+  border-radius: 999px;
+  font-family: var(--vis-font-numeric);
   font-size: 16px;
-  min-width: 60px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
 .score-num {
+  min-width: 20px;
   color: #909399;
-  width: 20px;
+  font-style: italic;
   text-align: center;
 }
 
 .score-num.is-winner {
-  color: #111;
+  background: var(--vis-primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .score-colon {
@@ -1004,7 +1092,7 @@ export default {
 
 @media (max-width: 768px) {
   .detail-header {
-    padding: 12px 16px 8px;
+    padding: 12px 16px;
   }
   .tournament-name {
     font-size: 14px;
@@ -1013,57 +1101,81 @@ export default {
     width: 40px;
   }
   .match-banner {
-    padding: 8px 12px 6px;
+    padding: 20px 12px 18px;
+  }
+  .team-banner-center {
+    gap: 8px;
   }
   .team-logo-large {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
   }
   .team-name-large {
     font-size: 20px;
   }
-  .team-banner-center {
-    gap: 6px;
-  }
   .season-dropdown-link {
-    padding: 4px 12px;
+    min-height: 30px;
+    padding: 3px 12px;
     font-size: 11px;
   }
+  .season-dropdown-link .text {
+    max-width: 150px;
+  }
   .team-record-container {
-    padding-bottom: 12px;
+    padding: 0 12px 22px;
   }
   .team-record-badge {
     gap: 8px;
+    min-height: 30px;
     padding: 4px 12px;
     font-size: 11px;
   }
+  .custom-tabs-nav {
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .tab-nav-item {
+    min-height: 30px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+  .seamless-content {
+    padding: 12px;
+  }
+  .minimal-roster {
+    gap: 12px;
+  }
+  .m-role-title {
+    padding: 10px 12px 8px;
+    font-size: 13px;
+  }
   .m-grid-header, .m-grid-row {
     grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1fr;
+    column-gap: 6px;
   }
   .m-grid-header {
     font-size: 10px;
-    padding: 6px 4px;
+    padding: 6px 10px;
   }
   .m-grid-row {
     font-size: 12px;
-    padding: 8px 4px;
+    padding: 9px 10px;
   }
-  .minimal-roster {
-    padding: 0;
+  .h2h-list {
+    gap: 8px;
   }
   .h2h-match-row {
     padding: 10px 12px;
     gap: 8px;
-  }
-  .h2h-match-info {
-    padding-left: 2px;
-    gap: 6px;
   }
   .h2h-date {
     font-size: 12px;
   }
   .h2h-tournament {
     font-size: 11px;
+  }
+  .h2h-matchup {
+    gap: 8px;
   }
   .h2h-team {
     font-size: 13px;
@@ -1076,14 +1188,98 @@ export default {
   .h2h-score-box {
     padding: 2px 10px;
     font-size: 14px;
-    min-width: 48px;
+    min-width: 56px;
   }
-  .h2h-matchup {
-    gap: 8px;
+  .score-num {
+    min-width: 16px;
+  }
+  .score-colon {
+    margin: 0 4px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .detail-header {
+    padding: 10px 12px;
+  }
+  .match-banner {
+    padding: 16px 10px 14px;
+  }
+  .team-logo-large {
+    width: 48px;
+    height: 48px;
+  }
+  .team-name-large {
+    font-size: 18px;
+  }
+  .team-record-container {
+    padding: 0 10px 20px;
+  }
+  .team-record-badge {
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 10px;
+  }
+  .custom-tabs-nav {
+    padding: 8px 10px;
   }
   .tab-nav-item {
-    font-size: 13px;
-    padding: 12px 0;
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 10px;
   }
+  .seamless-content {
+    padding: 10px;
+  }
+  .m-grid-header, .m-grid-row {
+    grid-template-columns: 1.8fr 0.9fr 1.1fr 1.1fr 0.9fr;
+  }
+  .m-grid-header {
+    padding: 6px 8px;
+  }
+  .m-grid-row {
+    padding: 8px;
+  }
+  .h2h-matchup {
+    gap: 6px;
+  }
+  .h2h-team {
+    font-size: 12px;
+  }
+  .h2h-score-box {
+    padding: 2px 8px;
+    font-size: 13px;
+    min-width: 48px;
+  }
+}
+</style>
+
+<!-- el-dropdown 弹层挂载于 body，scoped 无法触达；minimal-dropdown-menu 为本组件独有类名，样式仅作用于本页下拉 -->
+<style>
+.minimal-dropdown-menu {
+  border-radius: 12px !important;
+  padding: 6px !important;
+}
+
+.minimal-dropdown-menu .el-dropdown-menu__item {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #606266;
+  line-height: 32px;
+  padding: 0 14px;
+}
+
+.minimal-dropdown-menu .el-dropdown-menu__item:not(.is-disabled):hover,
+.minimal-dropdown-menu .el-dropdown-menu__item:not(.is-disabled):focus {
+  background: #f4f4f5;
+  color: #111;
+}
+
+.minimal-dropdown-menu .el-dropdown-menu__item.is-active {
+  background: rgba(255, 106, 0, 0.08);
+  color: #ff6a00;
+  font-weight: 800;
 }
 </style>
