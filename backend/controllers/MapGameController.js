@@ -1,5 +1,6 @@
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
+const PlayerHeroStat = require('../models/PlayerHeroStat');
 const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
@@ -254,7 +255,12 @@ const MapGameController = {
           include: [
             { model: Player, as: 'player' },
             { model: Hero, as: 'hero' },
-            { model: Team, as: 'team' }
+            { model: Team, as: 'team' },
+            {
+              model: PlayerHeroStat,
+              as: 'heroStats',
+              include: [{ model: Hero, as: 'hero' }]
+            }
           ]
         }),
         // 2. 获取该赛季所有队伍
@@ -472,14 +478,54 @@ const MapGameController = {
       await mapGame.update(mapGameData, { transaction: t });
 
       if (playerStats && Array.isArray(playerStats)) {
+        const existingStats = await PlayerStat.findAll({
+          where: { mapGameId: id },
+          attributes: ['id'],
+          transaction: t
+        });
+        const existingStatIds = existingStats.map(stat => stat.id);
+        if (existingStatIds.length > 0) {
+          await PlayerHeroStat.destroy({
+            where: { playerStatId: { [Op.in]: existingStatIds } },
+            transaction: t
+          });
+        }
         await PlayerStat.destroy({ where: { mapGameId: id }, transaction: t });
-        
-        const statsWithMapGameId = playerStats.map(stat => ({
-          ...stat,
-          mapGameId: id
-        }));
-        await PlayerStat.bulkCreate(statsWithMapGameId, { transaction: t });
+
+        for (const stat of playerStats) {
+          const statData = { ...stat };
+          const heroStats = statData.heroStats || [];
+          delete statData.heroStats;
+          delete statData.id;
+          delete statData.player;
+          delete statData.hero;
+          delete statData.team;
+          const createdStat = await PlayerStat.create({
+            ...statData,
+            mapGameId: id
+          }, { transaction: t });
+
+          const normalizedHeroStats = (Array.isArray(heroStats) ? heroStats : [])
+            .filter(heroStat => heroStat && (heroStat.heroId || heroStat.heroName))
+            .map(heroStat => {
+              const heroStatData = { ...heroStat };
+              delete heroStatData.id;
+              delete heroStatData.playerStatId;
+              delete heroStatData.hero;
+              delete heroStatData.editorKey;
+              return {
+                ...heroStatData,
+                playerStatId: createdStat.id
+              };
+            });
+
+          if (normalizedHeroStats.length > 0) {
+            await PlayerHeroStat.bulkCreate(normalizedHeroStats, { transaction: t });
+          }
+        }
       }
+
+      // 赛季聚合统计改为读取接口实时计算，这里不再重写预聚合表
 
       await t.commit();
       res.status(200).json(mapGame);
@@ -498,6 +544,14 @@ const MapGameController = {
         return res.status(404).json({ error: 'MapGame not found' });
       }
       // 删除关联的选手统计数据
+      const playerStats = await PlayerStat.findAll({
+        where: { mapGameId: id },
+        attributes: ['id']
+      });
+      const playerStatIds = playerStats.map(stat => stat.id);
+      if (playerStatIds.length > 0) {
+        await PlayerHeroStat.destroy({ where: { playerStatId: { [Op.in]: playerStatIds } } });
+      }
       await PlayerStat.destroy({ where: { mapGameId: id } });
       // 删除地图局
       await mapGame.destroy();

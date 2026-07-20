@@ -120,17 +120,6 @@
     <div class="quick-actions">
       <h3 class="section-title">核心功能模块</h3>
       <div class="artistic-actions">
-        <div class="art-card" @click="$router.push('/data-manage/season-stats-upload')">
-          <div class="art-content">
-            <div class="art-icon"><el-icon><Plus /></el-icon></div>
-            <div class="art-text">
-              <h4 class="art-title">赛季数据导入</h4>
-              <p class="art-desc">快速导入赛季选手总览与阶段数据，适合作为仪表盘后的第一步操作。</p>
-            </div>
-          </div>
-          <div class="art-arrow"><el-icon><ArrowRight /></el-icon></div>
-        </div>
-
         <div class="art-card" @click="$router.push('/visualize')">
           <div class="art-content">
             <div class="art-icon"><el-icon><View /></el-icon></div>

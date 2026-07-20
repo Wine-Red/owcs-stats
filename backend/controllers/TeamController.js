@@ -3,13 +3,24 @@ const Player = require('../models/Player');
 const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
+const PlayerHeroStat = require('../models/PlayerHeroStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
-const SeasonPlayerStat = require('../models/SeasonPlayerStat');
-const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
 const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
+
+const deletePlayerStats = async (where, transaction) => {
+  const stats = await PlayerStat.findAll({ where, attributes: ['id'], transaction });
+  const statIds = stats.map(stat => stat.id);
+  if (statIds.length > 0) {
+    await PlayerHeroStat.destroy({
+      where: { playerStatId: { [Op.in]: statIds } },
+      transaction
+    });
+  }
+  return PlayerStat.destroy({ where, transaction });
+};
 
 const TeamController = {
   // 获取所有队伍
@@ -91,10 +102,7 @@ const TeamController = {
 
         if (mapGameIds.length > 0) {
           // Delete PlayerStats associated with these MapGames
-          await PlayerStat.destroy({
-            where: { mapGameId: { [Op.in]: mapGameIds } },
-            transaction: t
-          });
+          await deletePlayerStats({ mapGameId: { [Op.in]: mapGameIds } }, t);
         }
 
         // Delete MapGames
@@ -121,10 +129,7 @@ const TeamController = {
       const orphanMapGameIds = orphanMapGames.map(mg => mg.id);
       
       if (orphanMapGameIds.length > 0) {
-        await PlayerStat.destroy({
-          where: { mapGameId: { [Op.in]: orphanMapGameIds } },
-          transaction: t
-        });
+        await deletePlayerStats({ mapGameId: { [Op.in]: orphanMapGameIds } }, t);
         await MapGame.destroy({
           where: { id: { [Op.in]: orphanMapGameIds } },
           transaction: t
@@ -132,22 +137,7 @@ const TeamController = {
       }
 
       // Delete any leftover PlayerStats directly tied to the team (just in case)
-      await PlayerStat.destroy({
-        where: { teamId: id },
-        transaction: t
-      });
-
-      // SeasonPlayerStat
-      await SeasonPlayerStat.destroy({
-        where: { teamId: id },
-        transaction: t
-      });
-
-      // SeasonTeamScoreStat
-      await SeasonTeamScoreStat.destroy({
-        where: { teamId: id },
-        transaction: t
-      });
+      await deletePlayerStats({ teamId: id }, t);
 
       // SeasonStageSnapshotTeamScoreStat
       await SeasonStageSnapshotTeamScoreStat.destroy({
@@ -175,12 +165,6 @@ const TeamController = {
         transaction: t
       });
 
-      // Finally, delete the players directly associated with this team
-      await Player.destroy({
-        where: { teamId: id },
-        transaction: t
-      });
-
       // Delete the team itself
       await team.destroy({ transaction: t });
 
@@ -200,7 +184,23 @@ const TeamController = {
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });
       }
-      const players = await Player.findAll({ where: { teamId: id } });
+      const seasonTeams = await SeasonTeam.findAll({
+        where: { teamId: id },
+        attributes: ['id']
+      });
+      const seasonTeamIds = seasonTeams.map(seasonTeam => seasonTeam.id);
+      if (seasonTeamIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      const memberships = await SeasonTeamPlayer.findAll({
+        where: { seasonTeamId: { [Op.in]: seasonTeamIds } },
+        include: [{ model: Player }]
+      });
+      const players = [...new Map(
+        memberships
+          .filter(membership => membership.Player)
+          .map(membership => [membership.Player.id, membership.Player])
+      ).values()];
       res.status(200).json(players);
     } catch (error) {
       res.status(500).json({ error: error.message });

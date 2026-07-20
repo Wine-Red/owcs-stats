@@ -8,59 +8,52 @@
     </div>
 
     <div v-else class="detail-container">
-      <header class="detail-header">
-        <el-button link @click="goBack" class="back-btn">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
-        <div class="tournament-info">
-          <span class="tournament-name" :title="queryParams.tournament || '比赛详情'">{{ formattedTournament }}</span>
-        </div>
-        <div class="empty-space"></div>
-      </header>
+      <DetailTopbar :title="formattedTournament" @back="goBack" />
 
-      <div class="match-banner vis-arena-banner">
-        <div class="team left-team team-link" @click="goToTeamDetail(queryParams.team1Id)">
-          <span class="team-name" :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
-            {{ queryParams.team1 || 'Team 1' }}
-          </span>
-          <img :src="queryParams.team1Logo" class="team-logo" alt="" />
-        </div>
-
-        <div class="match-center">
-          <div class="match-meta-time">{{ formatDateTime(queryParams.matchDate) }}</div>
-          <div class="match-score">
-            <span :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
-              {{ displayScore(queryParams.team1Score) }}
+      <div class="match-hero vis-arena-banner">
+        <div class="match-banner">
+          <div class="team left-team team-link" @click="goToTeamDetail(queryParams.team1Id)">
+            <span class="team-name" :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
+              {{ queryParams.team1 || 'Team 1' }}
             </span>
-            <span class="score-colon">:</span>
-            <span :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team2Id) }">
-              {{ displayScore(queryParams.team2Score) }}
+            <img :src="queryParams.team1Logo" class="team-logo" alt="" />
+          </div>
+
+          <div class="match-center">
+            <div class="match-meta-time">{{ formatDateTime(queryParams.matchDate) }}</div>
+            <div class="match-score">
+              <span :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
+                {{ displayScore(queryParams.team1Score) }}
+              </span>
+              <span class="score-colon">:</span>
+              <span :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team2Id) }">
+                {{ displayScore(queryParams.team2Score) }}
+              </span>
+            </div>
+            <div class="match-status-badge">已完赛</div>
+          </div>
+
+          <div class="team right-team team-link" @click="goToTeamDetail(queryParams.team2Id)">
+            <img :src="queryParams.team2Logo" class="team-logo" alt="" />
+            <span class="team-name" :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team2Id) }">
+              {{ queryParams.team2 || 'Team 2' }}
             </span>
           </div>
-          <div class="match-status-badge">已完赛</div>
         </div>
 
-        <div class="team right-team team-link" @click="goToTeamDetail(queryParams.team2Id)">
-          <img :src="queryParams.team2Logo" class="team-logo" alt="" />
-          <span class="team-name" :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team2Id) }">
-            {{ queryParams.team2 || 'Team 2' }}
-          </span>
-        </div>
-      </div>
-
-      <div class="match-summary-strip">
-        <div class="summary-pill">
-          <span class="summary-label">赛制</span>
-          <span class="summary-value">{{ queryParams.boFormat || '--' }}</span>
-        </div>
-        <div class="summary-pill">
-          <span class="summary-label">地图数</span>
-          <span class="summary-value">{{ matchDetails.mapGames.length }}</span>
-        </div>
-        <div class="summary-pill">
-          <span class="summary-label">胜者</span>
-          <span class="summary-value">{{ winnerName }}</span>
+        <div class="match-summary-strip">
+          <div class="summary-pill">
+            <span class="summary-label">赛制</span>
+            <span class="summary-value">{{ queryParams.boFormat || '--' }}</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">地图数</span>
+            <span class="summary-value">{{ matchDetails.mapGames.length }}</span>
+          </div>
+          <div class="summary-pill">
+            <span class="summary-label">胜者</span>
+            <span class="summary-value">{{ winnerName }}</span>
+          </div>
         </div>
       </div>
 
@@ -87,22 +80,14 @@
 
           <template v-else>
             <div v-show="activeTab === 'overall'" class="seamless-content">
-              <div class="content-mode-switch">
-                <button
-                  class="mode-chip"
-                  :class="{ active: contentMode === 'analysis' }"
-                  @click="switchContentMode('analysis')"
-                >
-                  比赛分析
-                </button>
-                <button
-                  class="mode-chip"
-                  :class="{ active: contentMode === 'data' }"
-                  @click="switchContentMode('data')"
-                >
-                  选手总览
-                </button>
-              </div>
+              <ContentChoiceGroup
+                class="content-mode-switch"
+                :model-value="contentMode"
+                :items="overallModeTabs"
+                hide-label
+                aria-label="全场内容视图"
+                @update:model-value="switchContentMode"
+              />
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
                 <div v-if="contentMode === 'data'" key="overall-data" class="overall-stats-container mode-panel">
@@ -262,22 +247,14 @@
                 </div>
               </div>
 
-              <div class="content-mode-switch">
-                <button
-                  class="mode-chip"
-                  :class="{ active: contentMode === 'analysis' }"
-                  @click="switchContentMode('analysis')"
-                >
-                  地图分析
-                </button>
-                <button
-                  class="mode-chip"
-                  :class="{ active: contentMode === 'data' }"
-                  @click="switchContentMode('data')"
-                >
-                  选手数据
-                </button>
-              </div>
+              <ContentChoiceGroup
+                class="content-mode-switch"
+                :model-value="contentMode"
+                :items="mapModeTabs"
+                hide-label
+                aria-label="地图内容视图"
+                @update:model-value="switchContentMode"
+              />
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
                 <div v-if="contentMode === 'analysis' && currentMapOverview" key="map-analysis" class="map-analysis-simple mode-panel">
@@ -478,17 +455,18 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { ArrowLeft } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import DetailTopbar from './components/DetailTopbar.vue';
+import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 
 export default {
   name: 'MatchDetail',
-  components: { ArrowLeft },
+  components: { DetailTopbar, ContentChoiceGroup },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -497,6 +475,14 @@ export default {
     const isLoading = ref(true);
     const activeTab = ref('overall');
     const contentMode = ref('analysis');
+    const overallModeTabs = [
+      { value: 'analysis', label: '比赛分析' },
+      { value: 'data', label: '选手总览' }
+    ];
+    const mapModeTabs = [
+      { value: 'analysis', label: '地图分析' },
+      { value: 'data', label: '选手数据' }
+    ];
     const matchDetails = ref({ mapGames: [], playerStats: [] });
     const teamAnalysisRadarRef = ref(null);
     const mapPlayerRadarRefs = ref({});
@@ -1589,6 +1575,8 @@ export default {
       matchDetails,
       activeTab,
       contentMode,
+      overallModeTabs,
+      mapModeTabs,
       winnerName,
       overallStats,
       overallTeamSections,
@@ -1670,42 +1658,9 @@ export default {
   width: 100%;
 }
 
-.detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: #fff;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  color: #909399;
-  font-size: 14px;
-  font-weight: 600;
-  transition: color 0.2s var(--vis-ease);
-}
-
-.back-btn:hover {
-  color: #111;
-}
-
-.tournament-info {
-  min-width: 0;
-  text-align: center;
-}
-
-.tournament-name {
-  color: #111;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.empty-space {
-  width: 60px;
+.match-hero {
+  position: relative;
+  border-bottom: 1px solid var(--vis-border);
 }
 
 .match-banner {
@@ -1713,7 +1668,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 26px 40px 22px;
+  padding: 26px 40px 18px;
 }
 
 .team {
@@ -1853,9 +1808,8 @@ export default {
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 12px 40px 14px;
-  background: #fafafa;
-  border-bottom: 1px solid var(--vis-border);
+  padding: 0 40px 18px;
+  background: transparent;
 }
 
 .summary-pill {
@@ -1991,13 +1945,13 @@ export default {
 }
 
 .content-mode-switch {
-  display: inline-flex;
-  gap: 4px;
-  margin-bottom: 0;
-  padding: 4px;
-  background: var(--vis-bg-muted);
-  border: 1px solid var(--vis-border);
-  border-radius: 999px;
+  width: calc(100% + 40px);
+  margin: 16px -20px;
+  padding: 0;
+}
+
+.seamless-content > .content-mode-switch:first-child {
+  margin-top: -20px;
 }
 
 .mode-chip {
@@ -3087,25 +3041,9 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .detail-header {
-    padding: 12px 16px;
-  }
-
-  .tournament-name {
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-  }
-
-  .empty-space {
-    width: 40px;
-  }
-
   .match-banner {
     gap: 8px;
-    padding: 18px 12px 14px;
+    padding: 18px 12px 12px;
   }
 
   .team {
@@ -3142,7 +3080,7 @@ export default {
   .match-summary-strip {
     flex-wrap: wrap;
     gap: 8px;
-    padding: 10px 12px 12px;
+    padding: 0 12px 12px;
   }
 
   .summary-pill {
@@ -3218,14 +3156,13 @@ export default {
   }
 
   .content-mode-switch {
-    margin-bottom: 0;
-    padding: 3px;
+    width: calc(100% + 24px);
+    margin: 12px -12px;
+    padding: 0;
   }
 
-  .mode-chip {
-    min-height: 28px;
-    padding: 0 12px;
-    font-size: 11px;
+  .seamless-content > .content-mode-switch:first-child {
+    margin-top: -12px;
   }
 
   .analysis-card-header {
@@ -3452,13 +3389,19 @@ export default {
 }
 
 @media (max-width: 420px) {
-  .detail-header {
-    padding: 10px 12px;
-  }
-
   .match-banner {
     gap: 6px;
-    padding: 14px 10px 12px;
+    padding: 14px 10px 10px;
+  }
+
+  .content-mode-switch {
+    width: calc(100% + 20px);
+    margin-right: -10px;
+    margin-left: -10px;
+  }
+
+  .seamless-content > .content-mode-switch:first-child {
+    margin-top: -10px;
   }
 
   .team {
@@ -3494,7 +3437,7 @@ export default {
 
   .match-summary-strip {
     gap: 6px;
-    padding: 8px 10px 10px;
+    padding: 0 10px 10px;
   }
 
   .summary-pill {

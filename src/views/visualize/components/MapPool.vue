@@ -263,7 +263,7 @@ export default {
 /* M1 · 斜切标题条：渐变斜块 + Oxanium 斜体 + 1px 浅灰细分隔线 */
 .section-title {
   font-family: var(--vis-font-display);
-  font-size: 20px;
+  font-size: 18px;
   font-style: italic;
   color: #111;
   margin: 0 0 14px 0;
@@ -280,7 +280,7 @@ export default {
 .section-title::before {
   content: '';
   width: 4px;
-  height: 18px;
+  height: 16px;
   flex: 0 0 auto;
   border-radius: 1px;
   background: var(--vis-primary-gradient);
@@ -427,12 +427,18 @@ export default {
     margin-bottom: 12px;
   }
   .section-title {
-    font-size: 18px;
+    font-size: 16px;
     margin: 0 0 10px 0;
     padding-bottom: 8px;
   }
   .section-title::before {
-    height: 16px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .section-title {
+    font-size: 15px;
   }
 }
 

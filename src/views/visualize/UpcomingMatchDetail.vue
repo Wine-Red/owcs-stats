@@ -8,17 +8,7 @@
     </div>
     
     <div v-else class="detail-container">
-      <!-- 页面头部 -->
-      <header class="detail-header">
-        <el-button link @click="goBack" class="back-btn">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
-        <div class="tournament-info">
-          <span class="tournament-name" :title="queryParams.tournament">{{ formattedTournament }}</span>
-        </div>
-        <div class="empty-space"></div>
-      </header>
+      <DetailTopbar :title="formattedTournament || '赛前详情'" @back="goBack" />
 
       <!-- 对阵横幅 -->
       <div class="match-banner vis-arena-banner">
@@ -40,18 +30,12 @@
 
       <!-- 内容区网格（转为全页面 Tab 切换结构） -->
       <div class="tabs-container">
-        <!-- 自定义 Tabs Header (无边框轻量设计) -->
-        <div class="custom-tabs-nav">
-          <div class="tab-nav-item" :class="{ active: activeTab === 'team' }" @click="switchTab('team')">
-            战队对比
-          </div>
-          <div class="tab-nav-item" :class="{ active: activeTab === 'players' }" @click="switchTab('players')">
-            选手对位
-          </div>
-          <div class="tab-nav-item" :class="{ active: activeTab === 'h2h' }" @click="switchTab('h2h')">
-            历史交手
-          </div>
-        </div>
+        <DetailSectionTabs
+          :model-value="activeTab"
+          :items="detailTabs"
+          aria-label="赛前详情分区"
+          @update:model-value="switchTab"
+        />
 
         <div class="tab-content-area">
           <!-- 战队对比 Tab -->
@@ -229,15 +213,16 @@
 import { ref, onMounted, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { ArrowLeft } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
+import DetailTopbar from './components/DetailTopbar.vue';
+import DetailSectionTabs from './components/DetailSectionTabs.vue';
 
 export default {
   name: 'UpcomingMatchDetail',
-  components: { ArrowLeft, MapWinRateAnalysis },
+  components: { DetailTopbar, DetailSectionTabs, MapWinRateAnalysis },
   setup() {
     const comparisonRoles = ['tank', 'damage', 'support'];
     const route = useRoute();
@@ -330,6 +315,11 @@ export default {
     });
     
     const activeTab = ref('team');
+    const detailTabs = [
+      { value: 'team', label: '战队对比' },
+      { value: 'players', label: '选手对位' },
+      { value: 'h2h', label: '历史交手' }
+    ];
     const teamRadarRef = ref(null);
     let radarChartInstance = null;
 
@@ -659,8 +649,6 @@ export default {
       let totalKills = 0;
       let totalDeaths = 0;
       let totalAssists = 0;
-      let maxDuration = 0;
-
       // When a team has more than 5 players (substitutions), summing all players' stats 
       // is still correct for the *team's* total stats. 
       // However, for the team's *actual game time*, taking the maximum individual player time
@@ -1029,7 +1017,7 @@ export default {
             color: '#606266',
             fontSize: 12,
             fontWeight: 'bold',
-            formatter: function (value, indicator) {
+            formatter: function (value) {
                let t1v = t1 ? t1[dataKeys[indicators.findIndex(i => i.name === value)]] : 0;
                let t2v = t2 ? t2[dataKeys[indicators.findIndex(i => i.name === value)]] : 0;
                if (t1v > 100) t1v = Math.round(t1v);
@@ -1079,16 +1067,14 @@ export default {
         if (seasonId) {
           await store.dispatch('getSeasonTeams', Number(seasonId));
         }
-        const [allGlobalMatchesRes, seasonMatchesRes, statsRes, scoreStatsRes, seasonMapGamesRes] = await Promise.all([
+        const [allGlobalMatchesRes, statsRes, scoreStatsRes, seasonMapGamesRes] = await Promise.all([
           apiService.getMatches({ pageSize: 2000 }), // 获取尽可能多的全局比赛
-          apiService.getMatches({ seasonId, pageSize: 2000 }),
           apiService.getSeasonPlayerStats(seasonId),
           apiService.getSeasonTeamScoreStats(seasonId),
           apiService.getMapGames({ seasonId, pageSize: 2000 })
         ]);
 
         const allMatches = Array.isArray(allGlobalMatchesRes) ? allGlobalMatchesRes : allGlobalMatchesRes.data || allGlobalMatchesRes.list || [];
-        const seasonMatches = Array.isArray(seasonMatchesRes) ? seasonMatchesRes : seasonMatchesRes.data || seasonMatchesRes.list || [];
         const scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
         seasonMapGames.value = Array.isArray(seasonMapGamesRes) ? seasonMapGamesRes : seasonMapGamesRes.data || seasonMapGamesRes.list || [];
         const t1Name = queryParams.value.team1;
@@ -1126,8 +1112,6 @@ export default {
 
         if (team1) team1MatchStr = team1.name;
         if (team2) team2MatchStr = team2.name;
-
-        const isCompletedMatch = (match) => match && (match.winnerId != null || (match.team1Score != null && match.team2Score != null));
 
         // Get score stats
         const getTeamScoreStat = (teamId, searchName) => {
@@ -1240,6 +1224,7 @@ export default {
       roleMaxStats,
       hasAnyPlayers,
       activeTab,
+      detailTabs,
       teamRadarRef,
       setPlayerRadarRef,
       switchTab,
@@ -1309,44 +1294,6 @@ export default {
   display: flex;
   flex-direction: column;
   width: 100%;
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: #fff;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  color: #909399;
-  font-size: 14px;
-  font-weight: 600;
-  transition: color 0.2s var(--vis-ease);
-}
-
-.back-btn:hover {
-  color: #111;
-}
-
-.tournament-info {
-  min-width: 0;
-  text-align: center;
-}
-
-.tournament-name {
-  color: #111;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.empty-space {
-  width: 60px;
 }
 
 .match-banner {
@@ -2167,30 +2114,6 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .detail-header {
-    padding: 10px 16px;
-  }
-
-  .tournament-info {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    overflow: hidden;
-    padding: 0 10px;
-  }
-
-  .tournament-name {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-  }
-
-  .empty-space {
-    width: 40px;
-  }
-
   .match-banner {
     gap: 8px;
     padding: 18px 12px 16px;
@@ -2378,22 +2301,6 @@ export default {
 }
 
 @media (max-width: 420px) {
-  .detail-header {
-    padding: 8px 12px;
-  }
-
-  .back-btn {
-    font-size: 13px;
-  }
-
-  .tournament-name {
-    font-size: 13px;
-  }
-
-  .empty-space {
-    width: 32px;
-  }
-
   .match-banner {
     gap: 6px;
     padding: 14px 10px 14px;

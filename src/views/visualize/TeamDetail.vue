@@ -8,66 +8,53 @@
     </div>
     
     <div v-else class="detail-container">
-      <!-- 页面头部 -->
-      <header class="detail-header">
-        <el-button link @click="goBack" class="back-btn">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
-        <div class="tournament-info">
-          <span class="tournament-name">战队详情</span>
-        </div>
-        <div class="empty-space"></div>
-      </header>
+      <DetailTopbar title="战队详情" @back="goBack" />
 
-      <!-- 战队横幅 -->
-      <div class="match-banner vis-arena-banner">
-        <div class="team-banner-center">
-          <img :src="getTeamLogo(team?.id)" class="team-logo-large" alt="" />
-          <div class="team-name-large">{{ team?.name || '未知战队' }}</div>
-          
-          <el-dropdown trigger="click" @command="selectSeason" class="season-dropdown" placement="bottom">
-            <div class="season-dropdown-link">
-              <span class="text">{{ currentSeasonName }}</span>
-              <el-icon class="icon"><ArrowDown /></el-icon>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu class="minimal-dropdown-menu">
-                <el-dropdown-item v-for="s in availableSeasons" :key="s.id" :command="s.id" :class="{ 'is-active': String(currentSeasonId) === String(s.id) }">
-                  {{ s.name }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </div>
+      <!-- 战队信息与战绩共用一张连续横幅 -->
+      <div class="team-hero vis-arena-banner">
+        <div class="match-banner">
+          <div class="team-banner-center">
+            <img :src="getTeamLogo(team?.id)" class="team-logo-large" alt="" />
+            <div class="team-name-large">{{ team?.name || '未知战队' }}</div>
 
-      <!-- 战绩 -->
-      <div class="team-record-container vis-arena-banner" v-if="scoreStat">
-        <div class="team-record-badge">
-          <span class="record-item">{{ scoreStat.matchWin }}W - {{ scoreStat.matchLoss }}L</span>
-          <span class="record-divider">|</span>
-          <span class="record-item">{{ scoreStat.mapWin }}W - {{ scoreStat.mapLoss }}L</span>
-          <span class="record-divider">|</span>
-          <span class="record-item" :class="scoreStat.mapDiff > 0 ? 'text-success' : (scoreStat.mapDiff < 0 ? 'text-danger' : '')">
-            {{ scoreStat.mapDiff > 0 ? '+' : '' }}{{ scoreStat.mapDiff }}
-          </span>
+            <el-dropdown trigger="click" @command="selectSeason" class="season-dropdown" placement="bottom">
+              <div class="season-dropdown-link">
+                <span class="text">{{ currentSeasonName }}</span>
+                <el-icon class="icon"><ArrowDown /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu class="minimal-dropdown-menu">
+                  <el-dropdown-item v-for="s in availableSeasons" :key="s.id" :command="s.id" :class="{ 'is-active': String(currentSeasonId) === String(s.id) }">
+                    {{ s.name }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+
+        <!-- 战绩 -->
+        <div class="team-record-container" v-if="scoreStat">
+          <div class="team-record-badge">
+            <span class="record-item">{{ scoreStat.matchWin }}W - {{ scoreStat.matchLoss }}L</span>
+            <span class="record-divider">|</span>
+            <span class="record-item">{{ scoreStat.mapWin }}W - {{ scoreStat.mapLoss }}L</span>
+            <span class="record-divider">|</span>
+            <span class="record-item" :class="scoreStat.mapDiff > 0 ? 'text-success' : (scoreStat.mapDiff < 0 ? 'text-danger' : '')">
+              {{ scoreStat.mapDiff > 0 ? '+' : '' }}{{ scoreStat.mapDiff }}
+            </span>
+          </div>
         </div>
       </div>
 
       <!-- 内容区网格 -->
       <div class="tabs-container" v-loading="seasonLoading">
-        <div class="custom-tabs-nav">
-          <div class="tab-nav-item" :class="{ active: activeTab === 'roster' }" @click="switchTab('roster')">
-            选手阵容
-          </div>
-          <div class="tab-nav-item" :class="{ active: activeTab === 'matches' }" @click="switchTab('matches')">
-            历史比赛
-          </div>
-          <div class="tab-nav-item" :class="{ active: activeTab === 'analysis' }" @click="switchTab('analysis')">
-            数据分析
-          </div>
-        </div>
+        <DetailSectionTabs
+          :model-value="activeTab"
+          :items="detailTabs"
+          aria-label="战队详情分区"
+          @update:model-value="switchTab"
+        />
 
         <div class="tab-content-area">
           <!-- 选手阵容 Tab -->
@@ -92,15 +79,25 @@
                   <div class="m-col text-right">时长(m)</div>
                 </div>
 
-                <div class="m-grid-row" v-for="p in rosterGroups[role]" :key="p.name">
-                  <div class="m-col text-left font-bold">{{ p.name }}</div>
+                <button
+                  class="m-grid-row"
+                  v-for="p in rosterGroups[role]"
+                  :key="p.id || p.name"
+                  type="button"
+                  :aria-label="`打开 ${p.name} 的个人页面`"
+                  @click="goToPlayerDetail(p)"
+                >
+                  <div class="m-col text-left font-bold player-entry">
+                    <span class="player-entry__name">{{ p.name }}</span>
+                    <span class="player-entry__indicator" aria-hidden="true">›</span>
+                  </div>
                   <div class="m-col text-right" :class="{'highlight-text': p.kd === roleMaxStats[role].kd && p.kd > 0}">{{ p.kd }}</div>
                   <div class="m-col text-right" :class="{'highlight-text': p.damagePer10 === roleMaxStats[role].damage && p.damagePer10 > 0}">{{ p.damagePer10 }}</div>
                   <div class="m-col text-right" v-if="role==='support'" :class="{'highlight-text': p.healingPer10 === roleMaxStats[role].healing && p.healingPer10 > 0}">{{ p.healingPer10 }}</div>
                   <div class="m-col text-right" v-if="role==='tank'" :class="{'highlight-text': p.mitigationPer10 === roleMaxStats[role].mitigation && p.mitigationPer10 > 0}">{{ p.mitigationPer10 }}</div>
                   <div class="m-col text-right" v-if="role==='damage'" :class="{'highlight-text': p.elimsPer10 === roleMaxStats[role].elims && p.elimsPer10 > 0}">{{ p.elimsPer10 }}</div>
                   <div class="m-col text-right text-muted">{{ Math.round(p.gameTime) }}</div>
-                </div>
+                </button>
               </div>
             </div>
           </div>
@@ -140,7 +137,7 @@
             </div>
           </div>
 
-          <div v-show="activeTab === 'analysis'" class="seamless-content">
+          <div v-show="activeTab === 'analysis'" class="seamless-content analysis-content">
             <MapWinRateAnalysis
               :map-games="seasonMapGames"
               :primary-team-id="queryParams.teamId"
@@ -162,14 +159,16 @@
 import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue';
+import { ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
+import DetailTopbar from './components/DetailTopbar.vue';
+import DetailSectionTabs from './components/DetailSectionTabs.vue';
 
 export default {
   name: 'TeamDetail',
-  components: { ArrowLeft, ArrowDown, MapWinRateAnalysis },
+  components: { ArrowDown, DetailTopbar, DetailSectionTabs, MapWinRateAnalysis },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -210,15 +209,16 @@ export default {
     });
 
     const activeTab = ref('roster');
+    const detailTabs = [
+      { value: 'roster', label: '选手阵容' },
+      { value: 'matches', label: '历史比赛' },
+      { value: 'analysis', label: '数据分析' }
+    ];
 
     const hasAnyPlayers = computed(() => {
       return ['tank', 'damage', 'support'].some(r => rosterGroups.value[r].length > 0);
     });
     
-    const seasonName = computed(() => {
-      return getSeasonName(queryParams.value.seasonId) || '战队详情';
-    });
-
     const switchTab = async (tab) => {
       if (activeTab.value !== tab) {
         trackPublicEvent('战队详情-切换标签', {
@@ -238,7 +238,7 @@ export default {
         source: queryParams.value.from || 'visualize'
       }, route);
 
-      if (queryParams.value.from === 'match-detail' || queryParams.value.from === 'upcoming-match-detail') {
+      if (['match-detail', 'upcoming-match-detail', 'player-detail'].includes(queryParams.value.from)) {
         router.back();
         return;
       }
@@ -291,6 +291,24 @@ export default {
           team1Logo: matchData.team1Logo,
           team2Logo: matchData.team2Logo,
           tournament: match.tournamentName || ''
+        }
+      });
+    };
+
+    const goToPlayerDetail = (selectedPlayer) => {
+      if (!selectedPlayer?.id) return;
+      trackPublicEvent('战队详情-打开选手个人页', {
+        seasonId: currentSeasonId.value || queryParams.value.seasonId,
+        teamId: queryParams.value.teamId,
+        playerId: selectedPlayer.id
+      }, route);
+      router.push({
+        path: '/visualize/player-detail',
+        query: {
+          playerId: String(selectedPlayer.id),
+          seasonId: String(currentSeasonId.value || queryParams.value.seasonId || ''),
+          teamId: String(queryParams.value.teamId || ''),
+          from: 'team-detail'
         }
       });
     };
@@ -462,6 +480,8 @@ export default {
 
           const playerObj = {
             name: p.player?.name || p.playerName || '未知',
+            id: p.playerId || p.player?.id,
+            teamId: p.teamId || p.team?.id || teamId,
             role: p.player?.role || p.role || 'damage',
             gameTime: duration,
             damagePer10: p10(damage),
@@ -514,9 +534,11 @@ export default {
       roleMaxStats,
       hasAnyPlayers,
       activeTab,
+      detailTabs,
       switchTab,
       goBack,
       goToMatchDetail,
+      goToPlayerDetail,
       formatDateOnly,
       formatTournamentName,
       getRoleIconUrl,
@@ -580,45 +602,6 @@ export default {
   flex-direction: column;
 }
 
-.detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #fff;
-  padding: 12px 20px;
-}
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  font-size: 14px;
-  color: #909399;
-  font-weight: 600;
-  transition: color 0.2s var(--vis-ease);
-}
-
-.back-btn:hover,
-.back-btn:active {
-  color: #111;
-}
-
-.tournament-info {
-  min-width: 0;
-  text-align: center;
-}
-
-.tournament-name {
-  font-size: 15px;
-  font-weight: 800;
-  color: #111;
-  letter-spacing: -0.01em;
-}
-
-.empty-space {
-  width: 60px;
-}
-
 .season-dropdown {
   margin-top: 0;
   cursor: pointer;
@@ -641,10 +624,12 @@ export default {
 }
 
 .season-dropdown-link .text {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: none;
+  overflow: visible;
+  text-align: center;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .season-dropdown-link:hover {
@@ -653,12 +638,16 @@ export default {
   color: #111;
 }
 
-/* 浅色赛事横幅延续段：战绩条与主横幅同底，全宽贴边平收 */
+/* 主信息与战绩由同一背景承载，避免纹理在中间重新起算 */
+.team-hero {
+  position: relative;
+}
+
 .team-record-container {
   position: relative;
   display: flex;
   justify-content: center;
-  padding: 0 40px 26px;
+  padding: 0 40px 16px;
 }
 
 /* 浅色赛事横幅：队标轻微悬浮（不加圆底），队名 24px/900 深色字 */
@@ -667,21 +656,21 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 26px 40px 22px;
+  padding: 16px 40px 12px;
 }
 
 .team-banner-center {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
   max-width: 100%;
 }
 
 .team-logo-large {
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   object-fit: contain;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.16));
 }
@@ -691,7 +680,7 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 900;
   color: #111;
   font-family: var(--vis-font-display);
@@ -704,10 +693,10 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 32px;
+  min-height: 28px;
   background: #fff;
   border: 1px solid var(--vis-border);
-  padding: 5px 16px;
+  padding: 3px 14px;
   border-radius: 999px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   font-size: 13px;
@@ -734,6 +723,8 @@ export default {
 .tabs-container {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Element Plus v-loading 默认主题色为蓝色，收敛为黑橙体系 */
@@ -811,6 +802,11 @@ export default {
   animation: tabFadeIn 0.3s ease-out forwards;
 }
 
+.analysis-content {
+  padding-right: clamp(28px, 4vw, 44px);
+  padding-left: clamp(28px, 4vw, 44px);
+}
+
 .empty-state {
   color: #909399;
   text-align: center;
@@ -822,6 +818,8 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 /* 数据卡：白底细边框轻阴影 */
@@ -884,14 +882,42 @@ export default {
 }
 
 .m-grid-row {
+  width: 100%;
   padding: 10px 14px;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
   font-size: 13px;
   border-bottom: 1px solid #f0f2f5;
+  text-align: inherit;
+  cursor: pointer;
   transition: background-color 0.2s var(--vis-ease);
 }
 
 .m-grid-row:hover {
   background-color: #f8f9fa;
+}
+
+.m-grid-row:hover .player-entry__name,
+.m-grid-row:focus-visible .player-entry__name {
+  color: var(--vis-accent);
+  text-decoration-color: var(--vis-accent);
+}
+
+.m-grid-row:hover .player-entry__indicator,
+.m-grid-row:focus-visible .player-entry__indicator {
+  color: var(--vis-accent);
+  opacity: 1;
+}
+
+.m-grid-row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--vis-accent);
+  outline-offset: -2px;
 }
 
 .m-grid-row:last-child {
@@ -915,6 +941,34 @@ export default {
   font-weight: 800;
   color: #111;
   font-family: var(--vis-font-body);
+}
+
+.player-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-entry__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 106, 0, 0.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color 0.2s var(--vis-ease);
+}
+
+.player-entry__indicator {
+  flex: 0 0 auto;
+  color: var(--vis-accent);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.72;
+  transform: translateY(-1px);
+  transition: color 0.2s var(--vis-ease), opacity 0.2s var(--vis-ease);
 }
 
 .text-muted {
@@ -1091,27 +1145,26 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .detail-header {
-    padding: 12px 16px;
+  .detail-container,
+  .tabs-container,
+  .tab-content-area,
+  .seamless-content {
+    min-width: 0;
+    max-width: 100vw;
   }
-  .tournament-name {
-    font-size: 14px;
-  }
-  .empty-space {
-    width: 40px;
-  }
+
   .match-banner {
-    padding: 20px 12px 18px;
+    padding: 14px 12px 10px;
   }
   .team-banner-center {
     gap: 8px;
   }
   .team-logo-large {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
   }
   .team-name-large {
-    font-size: 20px;
+    font-size: 19px;
   }
   .season-dropdown-link {
     min-height: 30px;
@@ -1119,10 +1172,10 @@ export default {
     font-size: 11px;
   }
   .season-dropdown-link .text {
-    max-width: 150px;
+    max-width: none;
   }
   .team-record-container {
-    padding: 0 12px 22px;
+    padding: 0 12px 14px;
   }
   .team-record-badge {
     gap: 8px;
@@ -1141,6 +1194,10 @@ export default {
   }
   .seamless-content {
     padding: 12px;
+  }
+  .analysis-content {
+    padding-right: 24px;
+    padding-left: 24px;
   }
   .minimal-roster {
     gap: 12px;
@@ -1200,21 +1257,18 @@ export default {
 }
 
 @media (max-width: 420px) {
-  .detail-header {
-    padding: 10px 12px;
-  }
   .match-banner {
-    padding: 16px 10px 14px;
+    padding: 12px 10px 8px;
   }
   .team-logo-large {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
   .team-name-large {
     font-size: 18px;
   }
   .team-record-container {
-    padding: 0 10px 20px;
+    padding: 0 10px 12px;
   }
   .team-record-badge {
     gap: 6px;
@@ -1231,6 +1285,10 @@ export default {
   }
   .seamless-content {
     padding: 10px;
+  }
+  .analysis-content {
+    padding-right: 20px;
+    padding-left: 20px;
   }
   .m-grid-header, .m-grid-row {
     grid-template-columns: 1.8fr 0.9fr 1.1fr 1.1fr 0.9fr;

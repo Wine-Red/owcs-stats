@@ -99,13 +99,14 @@
           
           <el-table-column prop="playerName" label="选手" min-width="120" fixed>
             <template #default="scope">
-              <div class="player-cell">
+              <button type="button" class="player-cell player-link" @click="goToPlayerDetail(scope.row)">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
                 <div class="player-info">
                   <span class="player-name">{{ scope.row.playerName }}</span>
                   <span class="team-name-sub">{{ scope.row.teamName }}</span>
                 </div>
-              </div>
+                <span class="player-link-indicator" aria-hidden="true">›</span>
+              </button>
             </template>
           </el-table-column>
 
@@ -211,6 +212,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
@@ -237,6 +239,7 @@ export default {
   },
   setup(props) {
     const store = useStore();
+    const router = useRouter();
     const playerStatsChart = ref(null);
     const playerFilter = ref([]);
     const playerRole = ref('damage');
@@ -392,6 +395,20 @@ export default {
             return order === 'descending' ? -result : result;
         });
     });
+
+    const goToPlayerDetail = (selectedPlayer) => {
+      const selectedPlayerId = selectedPlayer?.playerId || selectedPlayer?.player?.id;
+      if (!selectedPlayerId) return;
+      router.push({
+        path: '/visualize/player-detail',
+        query: {
+          playerId: String(selectedPlayerId),
+          seasonId: String(props.seasonId || ''),
+          teamId: String(selectedPlayer.teamId || selectedPlayer.team?.id || ''),
+          from: 'visualize'
+        }
+      });
+    };
 
     const displayedPlayerLeaderboard = computed(() => {
         if (isExpanded.value) {
@@ -925,7 +942,8 @@ export default {
       previewImage,
       handleExport,
       handleExportLeaderboard,
-      sortState
+      sortState,
+      goToPlayerDetail
     };
   }
 };
@@ -1095,6 +1113,35 @@ export default {
   gap: 8px;
 }
 
+.player-link {
+  width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-link:hover .player-name,
+.player-link:focus-visible .player-name {
+  color: var(--vis-accent);
+  text-decoration-color: var(--vis-accent);
+}
+
+.player-link:hover .player-link-indicator,
+.player-link:focus-visible .player-link-indicator {
+  color: var(--vis-accent);
+  opacity: 1;
+}
+
+.player-link:focus-visible {
+  outline: 2px solid var(--vis-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .team-logo-small {
   width: 20px;
   height: 20px;
@@ -1104,7 +1151,19 @@ export default {
 .player-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   line-height: 1.2;
+}
+
+.player-link-indicator {
+  flex: 0 0 auto;
+  color: var(--vis-accent);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.72;
+  transform: translateY(-1px);
+  transition: color 0.2s var(--vis-ease), opacity 0.2s var(--vis-ease);
 }
 
 .player-name {
@@ -1112,6 +1171,10 @@ export default {
   font-weight: 600;
   color: #303133;
   font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 106, 0, 0.35);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .team-name-sub {

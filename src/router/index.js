@@ -49,6 +49,14 @@ const routes = [
     }
   },
   {
+    path: '/visualize/player-detail',
+    name: 'PlayerDetail',
+    component: () => import('../views/visualize/PlayerDetail.vue'),
+    meta: {
+      analyticsPage: 'visualize_player_detail'
+    }
+  },
+  {
     path: '/analytics',
     name: 'Analytics',
     component: () => import('../views/analytics/Analytics.vue')

@@ -4,9 +4,6 @@ const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
-const SeasonPlayerStat = require('../models/SeasonPlayerStat');
-const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
-const SeasonMapPickStat = require('../models/SeasonMapPickStat');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -57,10 +54,8 @@ const SeasonController = {
         });
       }
       
-      // 6. 计算将要删除的 SeasonPlayerStat 数量
-      const seasonPlayerStatsCount = await SeasonPlayerStat.count({
-        where: { seasonId: id }
-      });
+      // 6. 赛季统计已改为接口实时计算，无预聚合表数据需要删除
+      const seasonPlayerStatsCount = 0;
 
       res.status(200).json({
         matchesCount: matchIds.length,
@@ -186,22 +181,6 @@ const SeasonController = {
 
       // 2.5 删除 SeasonTeams (依赖 Season)
       await SeasonTeam.destroy({
-        where: { seasonId: id },
-        transaction
-      });
-
-      // 2.6 删除 SeasonPlayerStats (依赖 Season)
-      await SeasonPlayerStat.destroy({
-        where: { seasonId: id },
-        transaction
-      });
-
-      // 2.7 删除赛季比分与地图选取统计（新表，依赖 Season）
-      await SeasonTeamScoreStat.destroy({
-        where: { seasonId: id },
-        transaction
-      });
-      await SeasonMapPickStat.destroy({
         where: { seasonId: id },
         transaction
       });

@@ -95,6 +95,12 @@ const MapGame = sequelize.define('MapGame', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '比赛回放代码'
+  },
+  statsVersion: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+    comment: 'External match statistics schema version'
   }
 }, {
   tableName: 'map_games',

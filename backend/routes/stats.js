@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const StatsController = require('../controllers/StatsController');
 
+router.get('/player/:playerId/profile', StatsController.getPlayerProfile);
+
 // 获取选手统计数据
 router.get('/player', StatsController.getPlayerStats);
 

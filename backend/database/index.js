@@ -8,17 +8,37 @@ const Hero = require('../models/Hero');
 const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
 const MapGame = require('../models/MapGame'); // eslint-disable-line no-unused-vars
 const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-unused-vars
-const SeasonPlayerStat = require('../models/SeasonPlayerStat'); // eslint-disable-line no-unused-vars
-const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat'); // eslint-disable-line no-unused-vars
-const SeasonMapPickStat = require('../models/SeasonMapPickStat'); // eslint-disable-line no-unused-vars
+const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-line no-unused-vars
 const SeasonStageSnapshot = require('../models/SeasonStageSnapshot'); // eslint-disable-line no-unused-vars
 const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
+
+const lowerTableName = table => {
+  if (typeof table === 'string') return table.toLowerCase();
+  return String(table?.tableName || table?.name || '').toLowerCase();
+};
+
+const ensureIncrementalSyncSchema = async () => {
+  const queryInterface = sequelize.getQueryInterface();
+  const tables = await queryInterface.showAllTables();
+  if (!tables.map(lowerTableName).includes('map_games')) return;
+  const columns = await queryInterface.describeTable('map_games');
+  if (!columns.statsVersion) {
+    const { DataTypes } = require('sequelize');
+    await queryInterface.addColumn('map_games', 'statsVersion', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      comment: 'External match statistics schema version'
+    });
+  }
+};
 
 const initDatabase = async () => {
   try {
     // 测试数据库连接
     await sequelize.authenticate();
+    await ensureIncrementalSyncSchema();
     console.log('数据库连接成功');
 
     // 设置模型关联关系
@@ -40,17 +60,15 @@ const initDatabase = async () => {
 const setupAssociations = () => {
   const Season = require('../models/Season');
   const Team = require('../models/Team');
-  const SeasonTeam = require('../models/SeasonTeam');
-  const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+  const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
+  const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
   const Player = require('../models/Player');
   const Map = require('../models/Map');
   const Hero = require('../models/Hero');
-  const Match = require('../models/Match');
+  const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
   const MapGame = require('../models/MapGame');
   const PlayerStat = require('../models/PlayerStat');
-  const SeasonPlayerStat = require('../models/SeasonPlayerStat');
-  const SeasonTeamScoreStat = require('../models/SeasonTeamScoreStat');
-  const SeasonMapPickStat = require('../models/SeasonMapPickStat');
+  const PlayerHeroStat = require('../models/PlayerHeroStat');
   const SeasonStageSnapshot = require('../models/SeasonStageSnapshot');
   const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
 
@@ -62,21 +80,7 @@ const setupAssociations = () => {
 
   // MapGame 关联
   MapGame.hasMany(PlayerStat, { foreignKey: 'mapGameId', as: 'playerStats' });
-
-  // SeasonPlayerStat 关联
-  SeasonPlayerStat.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
-  SeasonPlayerStat.belongsTo(Player, { foreignKey: 'playerId', as: 'player' });
-  SeasonPlayerStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
-
-  Season.hasMany(SeasonPlayerStat, { foreignKey: 'seasonId', as: 'seasonPlayerStats' });
-
-  SeasonTeamScoreStat.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
-  SeasonTeamScoreStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
-  Season.hasMany(SeasonTeamScoreStat, { foreignKey: 'seasonId', as: 'seasonTeamScoreStats' });
-
-  SeasonMapPickStat.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
-  SeasonMapPickStat.belongsTo(Map, { foreignKey: 'mapId', as: 'map' });
-  Season.hasMany(SeasonMapPickStat, { foreignKey: 'seasonId', as: 'seasonMapPickStats' });
+  PlayerStat.hasMany(PlayerHeroStat, { foreignKey: 'playerStatId', as: 'heroStats', onDelete: 'CASCADE' });
 
   SeasonStageSnapshot.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
   Season.hasMany(SeasonStageSnapshot, { foreignKey: 'seasonId', as: 'stageSnapshots' });
@@ -161,6 +165,7 @@ const initBasicData = async () => {
     { name: '黑百合', role: 'damage', subRole: '神准' },
     // 输出 - 奇袭
     { name: '安燃', role: 'damage', subRole: '奇袭' },
+    { name: '死怨', role: 'damage', subRole: '奇袭' },
     { name: '源氏', role: 'damage', subRole: '奇袭' },
     { name: '死神', role: 'damage', subRole: '奇袭' },
     { name: '猎空', role: 'damage', subRole: '奇袭' },
@@ -178,6 +183,7 @@ const initBasicData = async () => {
     { name: '回声', role: 'damage', subRole: '侦察' },
     { name: '弗雷娅', role: 'damage', subRole: '侦察' },
     { name: '法老之鹰', role: 'damage', subRole: '侦察' },
+    { name: '西拉', role: 'damage', subRole: '侦察' },
     { name: '黑影', role: 'damage', subRole: '侦察' },
 
     // 支援 - 战术

@@ -107,6 +107,7 @@ const apiService = {
 
   // 统计数据相关
   getPlayerStatsData: (params) => api.get('/stats/player', { params }),
+  getPlayerProfile: (playerId, params) => api.get(`/stats/player/${playerId}/profile`, { params }),
   getTeamStatsData: (params) => api.get('/stats/team', { params }),
   getSeasonStatsData: (params) => api.get('/stats/season', { params }),
   getHeroStatsData: (params) => api.get('/stats/hero', { params }),
@@ -131,12 +132,6 @@ const apiService = {
   deleteSeasonTeamPlayer: (id) => api.delete(`/season-team-players/${id}`),
 
   // Season Stats (New)
-  uploadSeasonStats: (formData) => api.post('/season-stats/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  previewAISeasonStats: (formData) => api.post('/season-stats/ai-preview', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
   getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
   getSeasonTeamScoreStats: (seasonId, params) => api.get(`/season-stats/${seasonId}/team-score`, params ? { params } : undefined),
   getSeasonMapPickStats: (seasonId) => api.get(`/season-stats/${seasonId}/map-picks`),
