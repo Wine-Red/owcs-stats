@@ -103,8 +103,7 @@ export default {
       {
         title: '数据采集',
         items: [
-          { to: '/data-entry', label: '数据录入' },
-          { to: '/data-manage/season-stats-upload', label: '赛季数据导入' }
+          { to: '/data-entry', label: '数据录入' }
         ]
       },
       {
@@ -144,7 +143,7 @@ export default {
       return route.meta.layout === 'blank';
     });
 
-    const hideFooterRouteNames = ['MatchDetail', 'TeamDetail', 'UpcomingMatchDetail'];
+    const hideFooterRouteNames = ['MatchDetail', 'TeamDetail', 'PlayerDetail', 'UpcomingMatchDetail'];
 
     // 控制侧边导航栏的显示
     // 在 /visualize 及其子路由下完全不渲染侧边栏

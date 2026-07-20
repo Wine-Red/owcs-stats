@@ -1,68 +1,114 @@
 <template>
-  <div class="upcoming-matches-wrapper" v-if="displayMatches.length > 0 || isLoading">
-    <div class="upcoming-header" @click="toggleCollapse">
-      <div class="header-title">
-        <el-icon><Calendar /></el-icon>
-        <span>Upcoming</span>
-      </div>
-      <el-icon class="collapse-icon" :class="{ 'is-collapsed': isCollapsed }">
-        <ArrowUp />
-      </el-icon>
-    </div>
-    
-    <el-collapse-transition>
-      <div v-show="!isCollapsed">
-        <!-- 简单的转圈加载状态 -->
-        <div class="upcoming-loading" v-if="isLoading">
-          <div class="loading-spinner"></div>
-          <div class="loading-text">加载中...</div>
-        </div>
-
-        <!-- 真实数据 -->
-        <div class="upcoming-list-container" v-else>
-          <div class="upcoming-list">
-            <div v-for="(match, index) in displayMatches" :key="index" class="upcoming-card vis-card-lift" @click="goToDetail(match)">
-              <!-- 状态与时间 -->
-              <div class="match-status">
-                <span v-if="isOngoing(match.timestamp)" class="status-badge ongoing"><span class="vis-live-dot" aria-hidden="true"></span>LIVE</span>
-                <span v-else class="status-badge upcoming"><span class="status-time">{{ formatTime(match.timestamp) }}</span></span>
-              </div>
-
-              <!-- 队伍对抗 -->
-              <div class="match-teams">
-                <!-- 队伍1 -->
-                <div class="team-side left-side">
-                  <div class="team-logo-container">
-                    <img :src="match.team1.logo" class="team-logo" alt="" />
-                  </div>
-                  <span class="team-name" :title="match.team1.name">{{ match.team1.name }}</span>
-                </div>
-
-                <div class="vs-text">vs</div>
-
-                <!-- 队伍2 -->
-                <div class="team-side right-side">
-                  <div class="team-logo-container">
-                    <img :src="match.team2.logo" class="team-logo" alt="" />
-                  </div>
-                  <span class="team-name" :title="match.team2.name">{{ match.team2.name }}</span>
-                </div>
-              </div>
-              
-              <!-- 底部可点击提示 -->
-              <div class="match-action-hint">
-                赛事前瞻
-              </div>
-            </div>
+  <teleport to="body">
+    <div class="upcoming-fab-root" v-if="displayMatches.length > 0 || isLoading">
+      <!-- 向上展开的赛程面板 -->
+      <transition name="upcoming-panel">
+        <div
+          v-show="isOpen"
+          ref="panelRef"
+          class="upcoming-panel"
+          role="dialog"
+          aria-label="最近赛程"
+        >
+          <div class="panel-header">
+            <span class="panel-title-bar" aria-hidden="true"></span>
+            <span class="panel-title">Upcoming</span>
+            <span class="panel-count" v-if="!isLoading">{{ displayMatches.length }}</span>
+            <span class="panel-count panel-count--live" v-if="liveCount > 0">
+              <span class="vis-live-dot" aria-hidden="true"></span>{{ liveCount }} LIVE
+            </span>
           </div>
+
+          <!-- 加载状态 -->
+          <div class="panel-loading" v-if="isLoading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">加载中...</div>
+          </div>
+
+          <!-- 赛程列表：按日期分组，纵向排列 -->
+          <transition-group v-else name="upcoming-item" tag="div" class="panel-list">
+            <div
+              v-for="item in listItems"
+              :key="item.key"
+              :class="item.type === 'header' ? 'date-divider' : 'upcoming-card vis-card-lift'"
+              :style="{ '--item-index': item.index }"
+              @click="item.type === 'match' && goToDetail(item.match)"
+            >
+              <!-- 日期分隔行 -->
+              <template v-if="item.type === 'header'">
+                <span class="date-label">{{ item.label }}</span>
+                <span class="date-line" aria-hidden="true"></span>
+              </template>
+
+              <!-- 比赛卡 -->
+              <template v-else>
+                <!-- 状态与时间 -->
+                <div class="match-status">
+                  <span v-if="isOngoing(item.match.timestamp)" class="status-badge ongoing">
+                    <span class="vis-live-dot" aria-hidden="true"></span>LIVE
+                  </span>
+                  <span v-else class="status-badge upcoming">
+                    <span class="status-time">{{ formatClock(item.match.timestamp) }}</span>
+                  </span>
+                </div>
+
+                <!-- 队伍对抗 -->
+                <div class="match-teams">
+                  <div class="team-side left-side">
+                    <div class="team-logo-container">
+                      <img :src="item.match.team1.logo" class="team-logo" alt="" />
+                    </div>
+                    <span class="team-name" :title="item.match.team1.name">{{ item.match.team1.name }}</span>
+                  </div>
+
+                  <div class="vs-text">vs</div>
+
+                  <div class="team-side right-side">
+                    <div class="team-logo-container">
+                      <img :src="item.match.team2.logo" class="team-logo" alt="" />
+                    </div>
+                    <span class="team-name" :title="item.match.team2.name">{{ item.match.team2.name }}</span>
+                  </div>
+                </div>
+
+                <div class="match-action-hint">赛事前瞻</div>
+              </template>
+            </div>
+          </transition-group>
         </div>
-      </div>
-    </el-collapse-transition>
-  </div>
+      </transition>
+
+      <!-- 圆形半透明悬浮按钮 -->
+      <button
+        ref="fabRef"
+        type="button"
+        class="upcoming-fab"
+        :class="{ 'is-open': isOpen, 'is-loading': isLoading }"
+        :aria-expanded="isOpen"
+        aria-label="展开最近赛程"
+        @click="togglePanel"
+      >
+        <span class="fab-glow" aria-hidden="true"></span>
+        <span class="fab-icon fab-icon--calendar" aria-hidden="true">
+          <el-icon><Calendar /></el-icon>
+        </span>
+        <span class="fab-icon fab-icon--close" aria-hidden="true">
+          <el-icon><ArrowUp /></el-icon>
+        </span>
+
+        <!-- 数量徽标 -->
+        <span class="fab-badge" v-if="!isLoading && displayMatches.length > 0">
+          {{ displayMatches.length > 9 ? '9+' : displayMatches.length }}
+        </span>
+        <!-- LIVE 呼吸点 -->
+        <span class="fab-live" v-if="liveCount > 0" aria-hidden="true"></span>
+      </button>
+    </div>
+  </teleport>
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { Calendar, ArrowUp } from '@element-plus/icons-vue';
@@ -72,9 +118,17 @@ import { trackPublicEvent } from '@/utils/analytics';
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
 const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 // 声明一个模块级别的 Promise，用于防止多个组件实例或并发请求导致重复调用 API
 let fetchPromise = null;
+
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
 export default {
   name: 'UpcomingMatches',
@@ -98,27 +152,44 @@ export default {
     const router = useRouter();
     const allMatches = ref([]);
     const isLoading = ref(true);
-    const isCollapsed = ref(false);
+    const isOpen = ref(false);
+    const panelRef = ref(null);
+    const fabRef = ref(null);
 
-    const toggleCollapse = () => {
-      isCollapsed.value = !isCollapsed.value;
+    const togglePanel = () => {
+      isOpen.value = !isOpen.value;
+    };
+
+    const closePanel = () => {
+      isOpen.value = false;
+    };
+
+    const onDocClick = (event) => {
+      if (!isOpen.value) return;
+      const target = event.target;
+      if (panelRef.value?.contains(target) || fabRef.value?.contains(target)) return;
+      closePanel();
+    };
+
+    const onDocKeydown = (event) => {
+      if (event.key === 'Escape') closePanel();
     };
 
     const displayMatches = computed(() => {
       if (!props.liquipediaTournamentName) return [];
-      
+
       const targetName = props.liquipediaTournamentName.toLowerCase();
-      const filtered = allMatches.value
+      return allMatches.value
         .filter(m => {
           if (!m.tournamentName.toLowerCase().includes(targetName)) return false;
-          
+
           // 只过滤双方都还是 TBD 的占位对局，单边 TBD 仍然展示
           const t1Name = String(m.teamA?.name || m.team1?.name || m.team1 || '').toLowerCase();
           const t2Name = String(m.teamB?.name || m.team2?.name || m.team2 || '').toLowerCase();
-          
+
           const isT1Tbd = t1Name === 'tbd' || t1Name === '' || t1Name === 'to be determined' || t1Name.includes('tbd');
           const isT2Tbd = t2Name === 'tbd' || t2Name === '' || t2Name === 'to be determined' || t2Name.includes('tbd');
-          
+
           return !(isT1Tbd && isT2Tbd);
         })
         .slice()
@@ -127,46 +198,88 @@ export default {
           const right = Number.isFinite(b.timestamp) ? b.timestamp : Number.MAX_SAFE_INTEGER;
           return left - right;
         });
-
-      const firstTimedMatch = filtered.find(match => Number.isFinite(match.timestamp));
-      if (!firstTimedMatch) return filtered;
-
-      const windowStart = firstTimedMatch.timestamp;
-      const windowEnd = windowStart + (3 * 24 * 60 * 60 * 1000);
-      return filtered.filter(match => !Number.isFinite(match.timestamp) || (match.timestamp >= windowStart && match.timestamp <= windowEnd));
     });
+
+    const liveCount = computed(() =>
+      displayMatches.value.filter(match => isOngoing(match.timestamp)).length
+    );
 
     const isOngoing = (timestamp) => {
       if (!timestamp) return false;
       return timestamp < Date.now();
     };
 
-    const formatTime = (timestamp) => {
+    // 卡片内只显示当天时刻，日期由分组标题承担
+    const formatClock = (timestamp) => {
       if (!timestamp) return 'TBD';
       const date = new Date(timestamp);
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${month}/${day} ${hours}:${minutes}`;
+      return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
     };
+
+    // 日期分组标题：今天 / 明天 / MM/DD 周X
+    const formatDateLabel = (timestamp) => {
+      const date = new Date(timestamp);
+      const today = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(today.getDate() + 1);
+
+      const mmdd = `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}`;
+      const week = WEEK_LABELS[date.getDay()];
+
+      if (isSameDay(date, today)) return `今天 · ${mmdd} ${week}`;
+      if (isSameDay(date, tomorrow)) return `明天 · ${mmdd} ${week}`;
+      return `${mmdd} ${week}`;
+    };
+
+    const dateKeyOf = (timestamp) => {
+      const date = new Date(timestamp);
+      return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    };
+
+    // 拍平为 [日期标题, 比赛卡, ...] 的渲染序列，index 用于级联入场动效
+    const listItems = computed(() => {
+      const items = [];
+      let lastKey = null;
+      let index = 0;
+
+      displayMatches.value.forEach((match, matchIndex) => {
+        const key = Number.isFinite(match.timestamp) ? dateKeyOf(match.timestamp) : 'tbd';
+        if (key !== lastKey) {
+          items.push({
+            type: 'header',
+            key: `header-${key}`,
+            label: key === 'tbd' ? '时间待定' : formatDateLabel(match.timestamp),
+            index: index++
+          });
+          lastKey = key;
+        }
+        items.push({
+          type: 'match',
+          key: `match-${match.timestamp || 'tbd'}-${match.team1.name}-${match.team2.name}-${matchIndex}`,
+          match,
+          index: index++
+        });
+      });
+
+      return items;
+    });
 
     const getTeamByApiName = (apiName) => {
       if (!apiName || apiName === 'TBD') return null;
       const nameLower = apiName.toLowerCase();
       // Precise matching first
-      let matchedTeam = store.state.teams.find(t => 
-        t.name.toLowerCase() === nameLower || 
+      let matchedTeam = store.state.teams.find(t =>
+        t.name.toLowerCase() === nameLower ||
         (t.abbreviation && t.abbreviation.toLowerCase() === nameLower)
       );
-      
+
       // If no exact match, try a more cautious partial match
       if (!matchedTeam) {
         // e.g. DAL should NOT match AL, but Team Falcons could match Falcons
         // We only match if the lengths are reasonably close or if words match
         matchedTeam = store.state.teams.find(t => {
           const tNameLower = t.name.toLowerCase();
-          return tNameLower.includes(nameLower) && nameLower.length > 3 || 
+          return tNameLower.includes(nameLower) && nameLower.length > 3 ||
                  nameLower.includes(tNameLower) && tNameLower.length > 3;
         });
       }
@@ -209,7 +322,7 @@ export default {
         isLoading.value = false;
         return;
       }
-      
+
       isLoading.value = true;
       try {
         const cached = sessionStorage.getItem(CACHE_KEY);
@@ -256,6 +369,13 @@ export default {
 
     onMounted(() => {
       fetchLiquipediaMatches();
+      document.addEventListener('click', onDocClick, true);
+      document.addEventListener('keydown', onDocKeydown);
+    });
+
+    onBeforeUnmount(() => {
+      document.removeEventListener('click', onDocClick, true);
+      document.removeEventListener('keydown', onDocKeydown);
     });
 
     watch(() => props.liquipediaTournamentName, () => {
@@ -277,13 +397,15 @@ export default {
     const goToDetail = (match) => {
       if (!props.seasonId) return;
 
+      closePanel();
+
       trackPublicEvent('首页-打开未开赛详情', {
         source: 'upcoming_matches',
         seasonId: props.seasonId,
         team1Name: match?.team1?.name,
         team2Name: match?.team2?.name
       }, route);
-      
+
       const matchData = {
         seasonId: props.seasonId,
         team1: match.team1.name,
@@ -307,11 +429,15 @@ export default {
 
     return {
       displayMatches,
+      listItems,
+      liveCount,
       isLoading,
-      isCollapsed,
-      toggleCollapse,
+      isOpen,
+      panelRef,
+      fabRef,
+      togglePanel,
       isOngoing,
-      formatTime,
+      formatClock,
       goToDetail
     };
   }
@@ -319,95 +445,350 @@ export default {
 </script>
 
 <style scoped>
-.upcoming-matches-wrapper {
-  margin-bottom: 16px;
+/* ================= 悬浮根容器：右下角固定 ================= */
+.upcoming-fab-root {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
 }
 
-.upcoming-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  min-height: 36px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--vis-text-primary);
-  margin-bottom: 8px;
+.upcoming-fab-root > * {
+  pointer-events: auto;
+}
+
+/* ================= 圆形半透明悬浮按钮 ================= */
+.upcoming-fab {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--vis-border-strong);
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 6px 20px rgba(17, 17, 17, 0.12);
   cursor: pointer;
-  user-select: none;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: background-color var(--vis-dur-fast) var(--vis-ease);
-  width: max-content;
-}
-
-.upcoming-header:hover {
-  background-color: var(--vis-team-left-soft);
-}
-
-.header-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  padding: 0;
+  color: var(--vis-text-strong);
+  transition:
+    transform var(--vis-dur) var(--vis-ease),
+    box-shadow var(--vis-dur) var(--vis-ease),
+    background var(--vis-dur) var(--vis-ease),
+    border-color var(--vis-dur) var(--vis-ease),
+    color var(--vis-dur) var(--vis-ease);
+}
+
+/* 品牌橙微光，hover / 展开时浮现 */
+.fab-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: var(--vis-primary-gradient);
+  opacity: 0;
+  transition: opacity var(--vis-dur) var(--vis-ease);
+}
+
+.upcoming-fab:hover .fab-glow,
+.upcoming-fab.is-open .fab-glow {
+  opacity: 1;
+}
+
+.upcoming-fab:hover,
+.upcoming-fab.is-open {
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(255, 106, 0, 0.32);
+  transform: translateY(-2px);
+}
+
+.upcoming-fab:active {
+  transform: translateY(0) scale(0.92);
+  transition-duration: 0.1s;
+}
+
+/* 双图标交叉淡入淡出 + 旋转 */
+.fab-icon {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition:
+    opacity var(--vis-dur) var(--vis-ease),
+    transform var(--vis-dur) var(--vis-ease);
+}
+
+.fab-icon--calendar {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.fab-icon--close {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.6);
+}
+
+.upcoming-fab.is-open .fab-icon--calendar {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.6);
+}
+
+.upcoming-fab.is-open .fab-icon--close {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+/* 加载态：图标换旋转描边圈 */
+.upcoming-fab.is-loading .fab-icon {
+  opacity: 0;
+}
+
+.upcoming-fab.is-loading::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  border-top-color: var(--vis-accent);
+  border-radius: 50%;
+  animation: upcoming-spin 0.8s linear infinite;
+}
+
+@keyframes upcoming-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 数量徽标：品牌橙渐变胶囊 */
+.fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--vis-primary-gradient);
+  color: #ffffff;
+  font-family: var(--vis-font-numeric);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(255, 106, 0, 0.35);
+  transition: transform var(--vis-dur) var(--vis-ease);
+}
+
+.upcoming-fab:hover .fab-badge {
+  transform: scale(1.1);
+}
+
+/* LIVE 呼吸点（左下，与数量徽标错开） */
+.fab-live {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--vis-live);
+  border: 2px solid #ffffff;
+  animation: vis-live-pulse 2s var(--vis-ease) infinite;
+}
+
+/* ================= 向上展开的赛程面板 ================= */
+.upcoming-panel {
+  width: 300px;
+  max-width: calc(100vw - 40px);
+  max-height: min(74vh, 660px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--vis-border);
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 12px 40px rgba(17, 17, 17, 0.14);
+  overflow: hidden;
+  transform-origin: bottom right;
+}
+
+/* 面板入场：自右下放大 + 上移 + 淡入，弹性回稳 */
+.upcoming-panel-enter-active {
+  transition:
+    opacity 0.28s var(--vis-ease),
+    transform 0.32s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+.upcoming-panel-leave-active {
+  transition:
+    opacity 0.2s var(--vis-ease),
+    transform 0.22s var(--vis-ease);
+}
+
+.upcoming-panel-enter-from,
+.upcoming-panel-leave-to {
+  opacity: 0;
+  transform: translateY(14px) scale(0.88);
+}
+
+/* 面板头部：斜切渐变条 + 标题 + 计数 */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--vis-border);
+  flex-shrink: 0;
+}
+
+.panel-title-bar {
+  width: 4px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant));
+  flex: 0 0 auto;
+}
+
+.panel-title {
   font-family: var(--vis-font-display);
   font-style: italic;
   font-weight: 800;
+  font-size: 14px;
   letter-spacing: 0.02em;
   color: var(--vis-text-strong);
 }
 
-.collapse-icon {
-  font-size: 12px;
+.panel-count {
+  margin-left: auto;
+  font-family: var(--vis-font-numeric);
+  font-size: 11px;
+  font-weight: 800;
   color: var(--vis-text-tertiary);
-  transition: transform var(--vis-dur) var(--vis-ease);
-  margin-left: 8px;
+  background: var(--vis-bg-muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
 }
 
-.collapse-icon.is-collapsed {
-  transform: rotate(180deg);
+.panel-count--live {
+  margin-left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(245, 108, 108, 0.12);
+  color: var(--vis-live);
 }
 
-.upcoming-header .el-icon {
-  color: var(--vis-accent);
-  font-size: 14px;
+.panel-count--live .vis-live-dot {
+  width: 5px;
+  height: 5px;
 }
 
-.upcoming-list-container {
-  width: 100%;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  /* 隐藏滚动条 */
+/* 列表：纵向滚动，隐藏滚动条 */
+.panel-list {
+  overflow-y: auto;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* 移动端横向 scroll-snap */
-  scroll-snap-type: x proximity;
+  overscroll-behavior: contain;
 }
 
-.upcoming-list-container::-webkit-scrollbar {
+.panel-list::-webkit-scrollbar {
   display: none;
 }
 
-.upcoming-list {
+/* 日期分隔行：斜切渐变小节标 + 延伸细线 */
+.date-divider {
   display: flex;
-  gap: 10px;
-  min-width: max-content;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px 0;
+  flex-shrink: 0;
 }
 
-/* 比赛卡：白底轻边框 + 全局 .vis-card-lift hover（上浮 + 顶部渐变线） */
+.date-divider:first-child {
+  padding-top: 2px;
+}
+
+.date-label {
+  font-family: var(--vis-font-numeric);
+  font-style: italic;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--vis-text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-label::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 1px;
+  background: var(--vis-primary-gradient);
+  transform: skewX(var(--vis-slant)) translateY(1px);
+}
+
+.date-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--vis-border-strong), transparent);
+}
+
+/* 卡片依次浮现（面板展开时的级联动效，超过 10 项后不再递增延迟） */
+.upcoming-item-enter-active {
+  transition:
+    opacity 0.3s var(--vis-ease),
+    transform 0.3s var(--vis-ease);
+  transition-delay: calc(min(var(--item-index, 0), 10) * 40ms);
+}
+
+.upcoming-item-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+}
+
+.upcoming-item-leave-active {
+  transition: opacity 0.15s var(--vis-ease);
+  position: absolute;
+}
+
+.upcoming-item-leave-to {
+  opacity: 0;
+}
+
+/* 比赛卡：沿用白底轻边框 + 全局 .vis-card-lift hover */
 .upcoming-card {
-  scroll-snap-align: start;
   background: var(--vis-bg-card);
   border: 1px solid var(--vis-border);
   border-radius: 12px;
   box-shadow: var(--vis-shadow);
-  padding: 10px 10px 8px;
-  width: 148px;
+  padding: 10px 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .upcoming-card:active {
@@ -469,12 +850,9 @@ export default {
   font-size: 9px;
   font-weight: 600;
   color: var(--vis-text-tertiary);
-  background: transparent;
-  padding: 0;
-  margin-top: 0;
-  transition: color var(--vis-dur-fast) var(--vis-ease), opacity var(--vis-dur-fast) var(--vis-ease);
   letter-spacing: 0.5px;
   opacity: 0.75;
+  transition: color var(--vis-dur-fast) var(--vis-ease), opacity var(--vis-dur-fast) var(--vis-ease);
 }
 
 .upcoming-card:hover .match-action-hint {
@@ -544,17 +922,13 @@ export default {
   text-transform: uppercase;
 }
 
-/* 转圈加载动画 */
-.upcoming-loading {
+/* 面板内加载状态 */
+.panel-loading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  padding: 12px 16px;
-  background: var(--vis-bg-card);
-  border: 1px solid var(--vis-border);
-  border-radius: 10px;
-  width: max-content;
-  box-shadow: var(--vis-shadow);
+  padding: 28px 16px;
 }
 
 .loading-spinner {
@@ -563,7 +937,7 @@ export default {
   border: 2px solid rgba(0, 0, 0, 0.1);
   border-top-color: var(--vis-accent);
   border-radius: 50%;
-  animation: spinner-rotate 0.8s linear infinite;
+  animation: upcoming-spin 0.8s linear infinite;
 }
 
 .loading-text {
@@ -572,65 +946,40 @@ export default {
   font-weight: 500;
 }
 
-@keyframes spinner-rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
+/* ================= 响应式 ================= */
 @media (max-width: 767px) {
-  .upcoming-card {
-    box-shadow: var(--vis-shadow);
+  .upcoming-fab-root {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .upcoming-fab {
+    width: 50px;
+    height: 50px;
+  }
+
+  .upcoming-panel {
+    width: min(300px, calc(100vw - 28px));
+    max-height: min(70vh, 600px);
   }
 }
 
-@media (max-width: 420px) {
-  .upcoming-card {
-    width: 140px;
-  }
-}
-
-@media (min-width: 768px) {
-  .upcoming-matches-wrapper {
-    margin-bottom: 24px;
-  }
-
-  .upcoming-header {
-    font-size: 14px;
-    margin-bottom: 12px;
+/* 尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .upcoming-panel-enter-active,
+  .upcoming-panel-leave-active,
+  .upcoming-item-enter-active,
+  .upcoming-item-leave-active,
+  .upcoming-fab,
+  .fab-icon,
+  .fab-glow,
+  .fab-badge {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 
-  .upcoming-list {
-    gap: 12px;
-  }
-
-  .upcoming-card {
-    width: 180px;
-    padding: 12px;
-    border-radius: 14px;
-    gap: 8px;
-  }
-
-  .team-logo-container {
-    width: 18px;
-    height: 18px;
-  }
-
-  .team-name {
-    font-size: 12px;
-  }
-
-  .status-badge {
-    font-size: 10px;
-    padding: 2px 8px;
-  }
-
-  .vs-text {
-    font-size: 10px;
-    padding: 0 6px;
-  }
-
-  .match-action-hint {
-    font-size: 10px;
+  .fab-live {
+    animation: none;
   }
 }
 </style>

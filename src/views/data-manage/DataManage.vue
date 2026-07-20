@@ -404,11 +404,6 @@
       </el-card>
     </div>
 
-    <!-- 赛季数据导入 -->
-    <div v-show="activeTab === 'season-stats-upload'">
-      <SeasonStatsUpload />
-    </div>
-
     <!-- 赛季管理 -->
     <div v-show="activeTab === 'seasons'">
       <el-card class="data-card list-card">
@@ -997,9 +992,35 @@
                     style="width: 100%"
                   />
                 </el-form-item>
+                <el-form-item label="数据结构版本">
+                  <el-input-number v-model="mapGame.statsVersion" :min="1" :step="1" style="width: 100%" />
+                </el-form-item>
               </el-form>
 
-              <div class="player-stats-container">
+              <div class="player-editor-grid">
+                <PlayerStatsEditor
+                  :stats="mapGame.team1Stats"
+                  :title="`${getTeamName(currentMatchForEdit.team1Id)} 选手数据`"
+                  :team-id="currentMatchForEdit.team1Id"
+                  :available-players="mapGame.team1AvailablePlayers"
+                  :fallback-players="players"
+                  :heroes="heroes"
+                  accent="#facc15"
+                  @add-row="addStatRow(mapGame.team1Stats, currentMatchForEdit.team1Id)"
+                />
+                <PlayerStatsEditor
+                  :stats="mapGame.team2Stats"
+                  :title="`${getTeamName(currentMatchForEdit.team2Id)} 选手数据`"
+                  :team-id="currentMatchForEdit.team2Id"
+                  :available-players="mapGame.team2AvailablePlayers"
+                  :fallback-players="players"
+                  :heroes="heroes"
+                  accent="#a3a3a3"
+                  @add-row="addStatRow(mapGame.team2Stats, currentMatchForEdit.team2Id)"
+                />
+              </div>
+
+              <div v-if="false" class="player-stats-container">
                 <el-row :gutter="20">
                   <!-- 队伍1 选手 -->
                   <el-col :span="12">
@@ -1141,8 +1162,8 @@ import {
 } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
-import SeasonStatsUpload from './components/SeasonStatsUpload.vue';
 import AIReportChat from './components/AIReportChat.vue';
+import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
 
 export default {
   name: 'DataManage',
@@ -1155,14 +1176,13 @@ export default {
     Upload,
     Download,
     MapDataImport,
-    SeasonStatsUpload,
-    AIReportChat
+    AIReportChat,
+    PlayerStatsEditor
   },
   setup() {
     // 页面标题映射
     const pageTitleMap = {
       'ai-reports': '赛事数据助手',
-      'season-stats-upload': '赛季数据导入',
       'seasons': '赛季管理',
       'season-visualize': '赛季可视化配置',
       'teams': '队伍管理',
@@ -1188,7 +1208,7 @@ export default {
     // 监听路由参数来决定激活的 tab
     const route = useRoute();
     const router = useRouter();
-    const activeTab = ref(route.path.split('/').pop() || 'season-stats-upload');
+    const activeTab = ref(route.path.split('/').pop() || 'seasons');
     
     watch(() => route.path, (newPath) => {
       const tabName = newPath.split('/').pop();
@@ -2050,19 +2070,30 @@ export default {
           const player = stat.player || players.value.find(p => p.id === stat.playerId);
           return {
             ...stat,
+            editorKey: `stat-${stat.id || `${teamId}-${stat.playerId || Math.random()}`}`,
             role: player ? (player.role === 'tank' ? 'tank' : player.role === 'damage' ? 'damage' : 'support') : 'tank',
-            kad: `${stat.kills || 0}/${stat.assists || 0}/${stat.deaths || 0}`
+            kad: `${stat.kills || 0}/${stat.assists || 0}/${stat.deaths || 0}`,
+            finalBlows: stat.finalBlows || 0,
+            ultsUsed: stat.ultsUsed || 0,
+            heroStats: (Array.isArray(stat.heroStats) ? stat.heroStats : []).map(heroStat => ({
+              ...heroStat,
+              editorKey: `hero-stat-${heroStat.id || Math.random()}`
+            }))
           };
         });
 
       while (teamStats.length < 5) {
         teamStats.push({
+          editorKey: `new-stat-${teamId}-${teamStats.length}-${Date.now()}`,
           playerId: '',
           role: 'tank',
           kad: '',
           damage: 0,
           healing: 0,
           mitigation: 0,
+          finalBlows: 0,
+          ultsUsed: 0,
+          heroStats: [],
           teamId
         });
       }
@@ -2500,12 +2531,16 @@ export default {
 
     const addStatRow = (statsArray, teamId) => {
       statsArray.push({
+        editorKey: `new-stat-${teamId}-${Date.now()}-${statsArray.length}`,
         playerId: '',
         role: 'tank',
         kad: '',
         damage: 0,
         healing: 0,
         mitigation: 0,
+        finalBlows: 0,
+        ultsUsed: 0,
+        heroStats: [],
         teamId: teamId
       });
     };
@@ -2516,6 +2551,9 @@ export default {
       stat.damage = 0;
       stat.healing = 0;
       stat.mitigation = 0;
+      stat.finalBlows = 0;
+      stat.ultsUsed = 0;
+      stat.heroStats = [];
     };
 
     const saveMapGameEdit = async () => {
@@ -2557,7 +2595,22 @@ export default {
                 healing: ps.healing || 0,
                 mitigation: ps.mitigation || 0,
                 ultsUsed: ps.ultsUsed || 0,
-                finalBlows: ps.finalBlows || 0
+                finalBlows: ps.finalBlows || 0,
+                heroStats: (Array.isArray(ps.heroStats) ? ps.heroStats : [])
+                  .filter(heroStat => heroStat.heroId || heroStat.heroName)
+                  .map(heroStat => ({
+                    heroId: heroStat.heroId || null,
+                    heroName: heroStat.heroName || getHeroName(heroStat.heroId),
+                    usageSeconds: Number(heroStat.usageSeconds) || 0,
+                    usagePercentage: Number(heroStat.usagePercentage) || 0,
+                    finalBlows: Number(heroStat.finalBlows) || 0,
+                    deathsByFinalBlow: Number(heroStat.deathsByFinalBlow) || 0,
+                    ultReady: Number(heroStat.ultReady) || 0,
+                    ultUsed: Number(heroStat.ultUsed) || 0,
+                    avgUltChargeSeconds: heroStat.avgUltChargeSeconds === null || heroStat.avgUltChargeSeconds === ''
+                      ? null
+                      : Number(heroStat.avgUltChargeSeconds) || 0
+                  }))
               };
             });
           
@@ -2567,6 +2620,10 @@ export default {
             team1BanHeroId: mapGame.team1BanHeroId,
             team2BanHeroId: mapGame.team2BanHeroId,
             duration: mapGame.duration,
+            team1Score: mapGame.team1Score,
+            team2Score: mapGame.team2Score,
+            replayId: mapGame.replayId || null,
+            statsVersion: mapGame.statsVersion || 1,
             playerStats: playerStats
           });
         }
@@ -2874,7 +2931,7 @@ export default {
         await store.dispatch('loadBaseData');
       } catch (error) {
         if (error !== 'cancel') {
-          ElMessage.error('删除失败: ' + error.message);
+          ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
         }
       }
     };
@@ -3352,6 +3409,12 @@ export default {
 
 .player-stats-container {
   margin-top: 10px;
+}
+.player-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
 }
 .team-panel {
   background: #1a1a1a;

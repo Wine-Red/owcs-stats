@@ -130,23 +130,37 @@
                 <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
               </template>
               <template v-else>
-                <div class="stats-flow">
-                  <section class="stats-data-section" v-if="chartConfig.teamStats">
-                    <TeamStatsChart :seasonId="filterForm.seasonId" />
-                  </section>
+                <ContentChoiceGroup
+                  v-if="statsCategoryTabs.length"
+                  class="stats-category-choices"
+                  :model-value="activeStatsCategory"
+                  :items="statsCategoryTabs"
+                  hide-label
+                  aria-label="赛事数据分类"
+                  @update:model-value="switchStatsCategory"
+                />
 
-                  <section class="stats-data-section" v-if="chartConfig.playerStats">
-                    <PlayerStatsChart :seasonId="filterForm.seasonId" />
-                  </section>
+                <div class="stats-workspace">
+                  <Transition name="stats-panel-fade" mode="out-in" @after-enter="handleStatsPanelAfterEnter">
+                    <div v-if="activeStatsCategory" :key="activeStatsCategory" class="stats-category-panel">
+                      <section v-if="activeStatsCategory === 'team'" class="stats-data-section">
+                        <TeamStatsChart :seasonId="filterForm.seasonId" />
+                      </section>
 
-                  <div class="stats-compact-grid" v-if="chartConfig.heroBan || chartConfig.playerRadar">
-                    <section class="stats-compact-section" v-if="chartConfig.heroBan">
-                      <HeroBanChart :seasonId="filterForm.seasonId" />
-                    </section>
-                    <section class="stats-compact-section" v-if="chartConfig.playerRadar">
-                      <PlayerRadarChart :seasonId="filterForm.seasonId" />
-                    </section>
-                  </div>
+                      <section v-else-if="activeStatsCategory === 'player'" class="stats-data-section">
+                        <PlayerStatsChart :seasonId="filterForm.seasonId" />
+                      </section>
+
+                      <section v-else-if="activeStatsCategory === 'hero'" class="stats-data-section">
+                        <HeroBanChart :seasonId="filterForm.seasonId" />
+                      </section>
+
+                      <section v-else-if="activeStatsCategory === 'radar'" class="stats-data-section">
+                        <PlayerRadarChart :seasonId="filterForm.seasonId" />
+                      </section>
+                    </div>
+                    <div v-else key="empty" class="stats-category-empty">当前赛季暂无可展示的数据分类</div>
+                  </Transition>
                 </div>
               </template>
             </div>
@@ -173,6 +187,7 @@ import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
 import MapPool from './components/MapPool.vue';
 import RecentMatches from './components/RecentMatches.vue';
 import UpcomingMatches from './components/UpcomingMatches.vue';
+import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
 import apiService from '@/services/api';
 
@@ -187,13 +202,15 @@ export default {
     RegularSeasonBoard,
     MapPool,
     RecentMatches,
-    UpcomingMatches
+    UpcomingMatches,
+    ContentChoiceGroup
   },
   setup() {
     const store = useStore();
     const route = useRoute();
     
     const currentTab = ref('overview');
+    const activeStatsCategory = ref('team');
 
     watch(currentTab, (newTab) => {
       trackPublicEvent('首页-切换标签', {
@@ -221,6 +238,11 @@ export default {
         await nextTick();
         window.dispatchEvent(new Event('resize'));
       }
+    };
+
+    const handleStatsPanelAfterEnter = async () => {
+      await nextTick();
+      window.dispatchEvent(new Event('resize'));
     };
 
     const loadSeasonData = async (seasonId) => {
@@ -324,6 +346,30 @@ export default {
       playerStats: true,
       playerRadar: true
     });
+
+    const statsCategoryTabs = computed(() => [
+      chartConfig.value.teamStats && { value: 'team', label: '战队数据' },
+      chartConfig.value.playerStats && { value: 'player', label: '选手数据' },
+      chartConfig.value.heroBan && { value: 'hero', label: '英雄禁用' },
+      chartConfig.value.playerRadar && { value: 'radar', label: '选手对比' }
+    ].filter(Boolean));
+
+    watch(statsCategoryTabs, (items) => {
+      if (!items.some(item => item.value === activeStatsCategory.value)) {
+        activeStatsCategory.value = items[0]?.value || '';
+      }
+    }, { immediate: true });
+
+    const switchStatsCategory = async (category) => {
+      if (activeStatsCategory.value === category) return;
+      activeStatsCategory.value = category;
+      trackPublicEvent('首页-切换赛事数据分类', {
+        category,
+        seasonId: filterForm.value.seasonId,
+        stage: activeStage.value
+      }, route);
+      await handleStatsPanelAfterEnter();
+    };
     
     const seasons = computed(() => store.state.seasons);
     const OTHER_STAGE_LABEL = '其他赛季';
@@ -484,6 +530,11 @@ export default {
       if (['overview', 'recent', 'stats'].includes(requestedTab)) {
         currentTab.value = requestedTab;
       }
+
+      const requestedStatsCategory = typeof route.query.statsView === 'string' ? route.query.statsView : '';
+      if (statsCategoryTabs.value.some(item => item.value === requestedStatsCategory)) {
+        activeStatsCategory.value = requestedStatsCategory;
+      }
       
       const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
       
@@ -535,6 +586,9 @@ export default {
     
     return {
       currentTab,
+      activeStatsCategory,
+      statsCategoryTabs,
+      switchStatsCategory,
       filterForm,
       seasonMatches,
       seasonMapGames,
@@ -550,7 +604,8 @@ export default {
       chartConfig,
       logoUrl,
       isPageLoading,
-      handleTabAfterEnter
+      handleTabAfterEnter,
+      handleStatsPanelAfterEnter
     };
   }
 };
@@ -792,27 +847,42 @@ export default {
   margin-bottom: 16px;
 }
 
-.stats-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
+.stats-workspace {
   max-width: 1480px;
   margin: 0 auto;
 }
 
-/* 赛事数据区去容器化：区块直排落地，仅靠间距节奏分隔，无卡片底色/分隔线/内补白 */
-.stats-data-section {
+.stats-category-choices {
+  width: calc(100% + 64px);
+  margin: -24px -32px 20px;
+}
+
+.stats-category-panel {
   min-width: 0;
 }
 
-.stats-compact-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 36px;
-  align-items: stretch;
+.stats-panel-fade-enter-active,
+.stats-panel-fade-leave-active {
+  transition: opacity 0.18s var(--vis-ease), transform 0.18s var(--vis-ease);
 }
 
-.stats-compact-section {
+.stats-panel-fade-enter-from,
+.stats-panel-fade-leave-to {
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+.stats-category-empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  color: var(--vis-text-tertiary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* 赛事数据区去容器化：区块直排落地，仅靠间距节奏分隔，无卡片底色/分隔线/内补白 */
+.stats-data-section {
   min-width: 0;
 }
 
@@ -830,9 +900,6 @@ export default {
     grid-column: span 12;
   }
 
-  .stats-compact-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 768px) {
@@ -865,8 +932,9 @@ export default {
     margin-bottom: 10px;
   }
 
-  .stats-flow {
-    gap: 34px;
+  .stats-category-choices {
+    width: calc(100% + 20px);
+    margin: -16px -10px 14px;
   }
 
   .vis-header {
@@ -934,6 +1002,13 @@ export default {
   .vis-tab-item {
     padding: 8px 4px;
     font-size: 12.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-panel-fade-enter-active,
+  .stats-panel-fade-leave-active {
+    transition: none;
   }
 }
 

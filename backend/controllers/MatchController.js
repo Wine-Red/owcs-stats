@@ -1,19 +1,18 @@
 const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
-const Config = require('../models/Config');
-const Team = require('../models/Team');
 const Season = require('../models/Season');
+const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
 const sequelize = require('../config/database');
-const SeasonStatController = require('./SeasonStatController');
+const { createIncrementalMatchSyncService } = require('../services/IncrementalMatchSyncService');
+const { createExternalMatchSyncClient } = require('../services/ExternalMatchSyncClient');
 const https = require('https');
 const zlib = require('zlib');
 const { URL } = require('url');
 const cheerio = require('cheerio');
 
-const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const EXTERNAL_MATCH_API_HEADERS = {
   Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
@@ -33,8 +32,7 @@ const EXTERNAL_MATCH_API_HEADERS = {
 let syncInProgress = false;
 const LIQUIPEDIA_API_BASE = 'https://liquipedia.net/overwatch/api.php';
 const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
-const LIQUIPEDIA_UPCOMING_PAGE = 'Liquipedia:Matches';
-const LIQUIPEDIA_ALLOWED_TIER_PAGES = ['S-Tier_Tournaments', 'A-Tier_Tournaments'];
+const LIQUIPEDIA_UPCOMING_WIKITEXT = '{{#invoke:Lua|invoke|module=MatchTicker/Custom|fn=mainPage|type=upcoming|limit=50|filterbuttons-liquipediatier=1,2}}';
 const LIQUIPEDIA_CACHE_TTL = 5 * 60 * 1000;
 
 const liquipediaUpcomingCache = {
@@ -43,53 +41,7 @@ const liquipediaUpcomingCache = {
   isFetching: false
 };
 
-const parseDuration = (durationValue) => {
-  if (!durationValue || typeof durationValue !== 'string') {
-    return 0;
-  }
-
-  const parts = durationValue.split(':');
-  if (parts.length !== 2) {
-    return 0;
-  }
-
-  const minutes = parseInt(parts[0], 10) || 0;
-  const seconds = parseInt(parts[1], 10) || 0;
-  return minutes + seconds / 60;
-};
-
-const parseKad = (kadValue) => {
-  let kills = 0;
-  let assists = 0;
-  let deaths = 0;
-
-  if (kadValue) {
-    const kadParts = String(kadValue).split('/');
-    if (kadParts.length === 3) {
-      kills = parseInt(kadParts[0], 10) || 0;
-      assists = parseInt(kadParts[1], 10) || 0;
-      deaths = parseInt(kadParts[2], 10) || 0;
-    }
-  }
-
-  return { kills, assists, deaths };
-};
-
 const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-
-const normalizeLiquipediaHref = (href) => {
-  const raw = String(href || '').trim();
-  if (!raw) return '';
-
-  const stripped = raw
-    .replace(/^https?:\/\/(?:www\.)?liquipedia\.net/i, '')
-    .replace(/^\/overwatch/i, '')
-    .split('#')[0]
-    .split('?')[0]
-    .trim();
-
-  return stripped.replace(/^\/+/, '');
-};
 
 const parseLiquipediaResponse = async (apiUrl) => {
   return await new Promise((resolve, reject) => {
@@ -136,49 +88,21 @@ const parseLiquipediaResponse = async (apiUrl) => {
   });
 };
 
-const fetchLiquipediaPageHtml = async (pageName) => {
-  const apiUrl = `${LIQUIPEDIA_API_BASE}?action=parse&format=json&prop=text&page=${encodeURIComponent(pageName)}&origin=*`;
+const fetchLiquipediaUpcomingHtml = async () => {
+  const apiUrl = `${LIQUIPEDIA_API_BASE}?action=parse&format=json&contentmodel=wikitext&prop=text&text=${encodeURIComponent(LIQUIPEDIA_UPCOMING_WIKITEXT)}&origin=*`;
   const data = await parseLiquipediaResponse(apiUrl);
   return data?.parse?.text?.['*'] || '';
 };
 
-const getLiquipediaAllowedTournamentRoots = async () => {
-  const tierPagesHtml = await Promise.all(LIQUIPEDIA_ALLOWED_TIER_PAGES.map(page => fetchLiquipediaPageHtml(page)));
-  const roots = new Set();
-
-  tierPagesHtml.forEach((html) => {
-    const $ = cheerio.load(html);
-    $('a[href]').each((_, element) => {
-      const href = $(element).attr('href');
-      const normalized = normalizeLiquipediaHref(href);
-      if (!normalized) return;
-      if (/^(Category:|File:|Template:|Special:|Help:|Portal:)/i.test(normalized)) return;
-      roots.add(normalized);
-    });
-  });
-
-  return Array.from(roots).sort((a, b) => b.length - a.length);
-};
-
-const isAllowedTournamentHref = (href, allowedRoots) => {
-  const normalizedHref = normalizeLiquipediaHref(href);
-  if (!normalizedHref) return false;
-  return allowedRoots.some(root => normalizedHref === root || normalizedHref.startsWith(`${root}/`));
-};
-
-const extractUpcomingMatchesFromMatchesPage = (pageHtml, allowedRoots) => {
+const extractUpcomingMatchesFromMatchesPage = (pageHtml) => {
   const $ = cheerio.load(pageHtml);
   const upcomingMatches = [];
-  const matchElements = $('[data-toggle-area-content="1"] .match-info');
+  const matchElements = $('.match-info');
 
   matchElements.each((_, element) => {
     const matchNode = $(element);
     const tournamentLinkEl = matchNode.find('.match-info-tournament-name a').first();
     const tournamentHref = tournamentLinkEl.attr('href') || '';
-
-    if (!isAllowedTournamentHref(tournamentHref, allowedRoots)) {
-      return;
-    }
 
     const timestampAttr = matchNode.find('.timer-object').first().attr('data-timestamp');
     const timestampRaw = Number(timestampAttr);
@@ -204,397 +128,28 @@ const extractUpcomingMatchesFromMatchesPage = (pageHtml, allowedRoots) => {
   });
 };
 
-const persistSyncSummary = async (summary) => {
-  const [config, created] = await Config.findOrCreate({
-    where: { key: SYNC_SUMMARY_CONFIG_KEY },
-    defaults: {
-      value: summary,
-      description: '最近一次比赛同步的更新摘要'
-    }
-  });
 
-  if (!created) {
-    config.value = summary;
-    config.description = '最近一次比赛同步的更新摘要';
-    config.changed('value', true);
-    await config.save();
-  }
-};
-
-const fetchExternalMatches = async () => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-  try {
-    const response = await fetch('https://match.owmini.xyz/api/matches', {
-      method: 'GET',
-      headers: EXTERNAL_MATCH_API_HEADERS,
-      signal: controller.signal
-    });
-
-    if (!response.ok) {
-      throw new Error(`外部接口请求失败: ${response.status} ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error('外部接口请求超时');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
+const incrementalMatchSyncService = createIncrementalMatchSyncService({
+  client: createExternalMatchSyncClient({ headers: EXTERNAL_MATCH_API_HEADERS })
+});
 
 const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
   if (syncInProgress) {
     return {
       message: '同步进行中，已跳过本次请求',
-      data: {
-        skipped: true,
-        source,
-        errors: []
-      }
+      data: { skipped: true, source, errors: [] }
     };
   }
-
   syncInProgress = true;
-
   try {
-    const matchesDataRaw = await fetchExternalMatches();
-    const matchesData = Array.isArray(matchesDataRaw) ? matchesDataRaw : [];
-    let newMatchesCount = 0;
-    let updatedMatchesCount = 0;
-
-    // --- 加载并应用队伍名称映射 ---
-    const mappingConfig = await Config.findByPk('team_name_mapping');
-    const teamNameMapping = mappingConfig && mappingConfig.value ? mappingConfig.value : {};
-    
-    if (Object.keys(teamNameMapping).length > 0) {
-      for (const match of matchesData) {
-        if (match.teamA && match.teamA.name && teamNameMapping[match.teamA.name]) {
-          match.teamA.name = teamNameMapping[match.teamA.name];
-        }
-        if (match.teamB && match.teamB.name && teamNameMapping[match.teamB.name]) {
-          match.teamB.name = teamNameMapping[match.teamB.name];
-        }
-      }
-    }
-    // ------------------------------------------------
-
-    let newMapGamesCount = 0;
-    let updatedMapGamesCount = 0;
-    let newPlayerStatsCount = 0;
-    let updatedPlayerStatsCount = 0;
-    const updatedMatches = [];
-    const errors = [];
-
-    // --- 内存缓存优化：预先加载所有基础数据字典，避免在循环中执行大量 N+1 查询 ---
-    let [allSeasons, allTeams, allMaps, allPlayers] = await Promise.all([
-      Season.findAll(),
-      Team.findAll(),
-      Map.findAll(),
-      Player.findAll()
-    ]);
-
-    const getSeasonFromCache = (eventName) => {
-      if (!eventName) return null;
-      const name = String(eventName).toLowerCase();
-      return allSeasons.find(s => 
-        (s.externalEventName && s.externalEventName.toLowerCase() === name) || 
-        (s.name && s.name.toLowerCase() === name)
-      );
-    };
-
-    const getMapFromCache = (mapName) => {
-      if (!mapName) return null;
-      const mapAliases = { '直布罗陀': '监测站：直布罗陀' };
-      const searchName = String(mapAliases[mapName] || mapName).toLowerCase();
-      return allMaps.find(m => m.name && m.name.toLowerCase() === searchName);
-    };
-
-    const getPlayerFromCache = (playerName) => {
-      if (!playerName) return null;
-      const name = String(playerName).toLowerCase();
-      return allPlayers.find(p => p.name && p.name.toLowerCase() === name);
-    };
-    // ----------------------------------------------------------------------
-
-    // --- 自动导入赛季数据：在同步比赛明细之前，先根据所有比赛提取队伍和选手，并计算赛季聚合统计数据 ---
-    const matchesBySeason = {};
-    for (const match of matchesData) {
-      if (match.eventName) {
-        const s = getSeasonFromCache(match.eventName);
-        if (s) {
-          if (!matchesBySeason[s.id]) matchesBySeason[s.id] = [];
-          matchesBySeason[s.id].push(match);
-        }
-      }
-    }
-
-    let seasonImportSummary = [];
-    for (const [seasonIdStr, sMatches] of Object.entries(matchesBySeason)) {
-      const sId = parseInt(seasonIdStr, 10);
-      const tSeason = await sequelize.transaction();
-      try {
-        const importResult = await SeasonStatController.autoImportFromAPI(sMatches, sId, tSeason, teamNameMapping);
-        await tSeason.commit();
-        seasonImportSummary.push(`赛季ID ${sId} 聚合统计：更新 ${importResult.insertedCount} 名选手，${importResult.teamScoreCount} 支战队比分，${importResult.mapPickCount} 张地图选取`);
-      } catch (err) {
-        await tSeason.rollback();
-        console.error(`Season Auto Import failed for seasonId ${sId}:`, err);
-        errors.push(`赛季数据预导入失败 (seasonId: ${sId}): ${err.message}`);
-      }
-    }
-
-    // 重新加载可能在上一阶段新创建的队伍和选手
-    allTeams = await Team.findAll();
-    allPlayers = await Player.findAll();
-
-    const getTeamFromCache = (teamName) => {
-      if (!teamName) return null;
-      const name = String(teamName).toLowerCase();
-      return allTeams.find(t => t.name && t.name.toLowerCase() === name);
-    };
-
-    for (const match of matchesData) {
-      const t = await sequelize.transaction();
-      try {
-        let season = null;
-        if (match.eventName) {
-          season = getSeasonFromCache(match.eventName);
-        }
-        if (!season) {
-          throw new Error(`未找到对应的赛季(eventName: ${match.eventName})`);
-        }
-
-        const team1 = getTeamFromCache(match.teamA.name);
-        if (!team1) {
-          throw new Error(`未找到对应的队伍: ${match.teamA.name}`);
-        }
-
-        const team2 = getTeamFromCache(match.teamB.name);
-        if (!team2) {
-          throw new Error(`未找到对应的队伍: ${match.teamB.name}`);
-        }
-
-        const winnerId = match.scoreA > match.scoreB ? team1.id : team2.id;
-        let matchDate = match.matchDate;
-        if (!matchDate) {
-          if (match.createdAt) {
-            matchDate = match.createdAt.split('T')[0];
-          } else {
-            matchDate = new Date().toISOString().split('T')[0];
-          }
-        }
-
-        const [dbMatch, created] = await Match.findOrCreate({
-          where: { externalId: match.id },
-          defaults: {
-            seasonId: season.id,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            winnerId,
-            matchDate,
-            boFormat: match.boFormat,
-            team1Score: match.scoreA,
-            team2Score: match.scoreB
-          },
-          transaction: t
-        });
-
-        let matchUpdated = false;
-        let updatedMapGamesForMatch = 0;
-        let updatedPlayerStatsForMatch = 0;
-
-        if (!created) {
-          const matchUpdatePayload = {
-            seasonId: season.id,
-            team1Id: team1.id,
-            team2Id: team2.id,
-            winnerId,
-            matchDate,
-            boFormat: match.boFormat,
-            team1Score: match.scoreA,
-            team2Score: match.scoreB
-          };
-          const hasMatchChanges = Object.entries(matchUpdatePayload).some(([key, value]) => dbMatch[key] !== value);
-          if (hasMatchChanges) {
-            await dbMatch.update(matchUpdatePayload, { transaction: t });
-            updatedMatchesCount++;
-            matchUpdated = true;
-          }
-        } else {
-          newMatchesCount++;
-        }
-
-        if (match.rounds && match.rounds.length > 0) {
-          for (const round of match.rounds) {
-            const map = getMapFromCache(round.mapName);
-            if (!map) {
-              throw new Error(`未找到对应的地图: ${round.mapName}`);
-            }
-
-            const mapGamePayload = {
-              seasonId: season.id,
-              team1Id: team1.id,
-              team2Id: team2.id,
-              winnerId: round.winner === 'A' ? team1.id : team2.id,
-              duration: parseDuration(round.duration),
-              team1Score: round.roundScoreA,
-              team2Score: round.roundScoreB,
-              replayId: round.replayId || null
-            };
-
-            const [mapGame, mapGameCreated] = await MapGame.findOrCreate({
-              where: {
-                matchId: dbMatch.id,
-                mapId: map.id
-              },
-              defaults: mapGamePayload,
-              transaction: t
-            });
-
-            if (mapGameCreated) {
-              newMapGamesCount++;
-            } else {
-              const hasMapGameChanges = Object.entries(mapGamePayload).some(([key, value]) => mapGame[key] !== value);
-              if (hasMapGameChanges) {
-                await mapGame.update(mapGamePayload, { transaction: t });
-                updatedMapGamesCount++;
-                updatedMapGamesForMatch++;
-              }
-            }
-
-            const buildPlayerStatsPayload = (players, teamId) => {
-              if (!Array.isArray(players) || players.length === 0) {
-                return [];
-              }
-
-              const payload = [];
-              for (const p of players) {
-                // Find player by name AND role
-                const nameLower = String(p.name).toLowerCase();
-                const pRole = p.role === 'T' ? 'tank' : p.role === 'D' ? 'damage' : p.role === 'S' ? 'support' : String(p.role).toLowerCase();
-                
-                // Match the specific role variant if available, otherwise fallback to the first one found
-                const matchingPlayers = allPlayers.filter(player => player.name && player.name.toLowerCase() === nameLower);
-                let player = matchingPlayers.find(player => player.role === pRole);
-                if (!player && matchingPlayers.length > 0) {
-                  player = matchingPlayers[0];
-                }
-
-                if (!player) {
-                  throw new Error(`未找到对应的选手: ${p.name}`);
-                }
-
-                const { kills, assists, deaths } = parseKad(p.kad);
-                payload.push({
-                  mapGameId: mapGame.id,
-                  playerId: player.id,
-                  teamId,
-                  kills,
-                  assists,
-                  deaths,
-                  damage: p.damage || 0,
-                  healing: p.healing || 0,
-                  mitigation: p.blocked || 0
-                });
-              }
-              return payload;
-            };
-
-            const playerStatsPayload = [
-              ...buildPlayerStatsPayload(round.playersA, team1.id),
-              ...buildPlayerStatsPayload(round.playersB, team2.id)
-            ];
-
-            let existingPlayerStatsCount = 0;
-            if (!mapGameCreated) {
-              existingPlayerStatsCount = await PlayerStat.count({
-                where: { mapGameId: mapGame.id },
-                transaction: t
-              });
-            }
-
-            if (playerStatsPayload.length > 0 || existingPlayerStatsCount > 0) {
-              if (!mapGameCreated && existingPlayerStatsCount > 0) {
-                await PlayerStat.destroy({
-                  where: { mapGameId: mapGame.id },
-                  transaction: t
-                });
-              }
-              if (playerStatsPayload.length > 0) {
-                await PlayerStat.bulkCreate(playerStatsPayload, { transaction: t });
-              }
-
-              if (mapGameCreated) {
-                newPlayerStatsCount += playerStatsPayload.length;
-              } else {
-                updatedPlayerStatsCount += playerStatsPayload.length;
-                updatedPlayerStatsForMatch += playerStatsPayload.length;
-              }
-            }
-          }
-        }
-
-        if (!created && (matchUpdated || updatedMapGamesForMatch > 0 || updatedPlayerStatsForMatch > 0)) {
-          updatedMatches.push({
-            matchId: dbMatch.id,
-            externalId: dbMatch.externalId,
-            seasonId: season.id,
-            seasonName: season.name,
-            team1Id: team1.id,
-            team1Name: team1.name,
-            team2Id: team2.id,
-            team2Name: team2.name,
-            winnerId,
-            team1Score: match.scoreA,
-            team2Score: match.scoreB,
-            matchDate,
-            boFormat: match.boFormat || '',
-            updatedMatch: matchUpdated,
-            updatedMapGamesCount: updatedMapGamesForMatch,
-            updatedPlayerStatsCount: updatedPlayerStatsForMatch,
-            syncedAt: new Date().toISOString()
-          });
-        }
-
-        await t.commit();
-      } catch (err) {
-        await t.rollback();
-        errors.push(`[${match.teamA?.name} vs ${match.teamB?.name}] ${err.message}`);
-      }
-    }
-
-    const syncSummary = {
-      source,
-      lastSyncAt: new Date().toISOString(),
-      newMatchesCount,
-      updatedMatchesCount,
-      newMapGamesCount,
-      updatedMapGamesCount,
-      newPlayerStatsCount,
-      updatedPlayerStatsCount,
-      updatedMatches: updatedMatches.slice(0, 20),
-      seasonImportSummary,
-      errors
-    };
-
-    await persistSyncSummary(syncSummary);
-
-    return {
-      message: errors.length > 0 ? '部分同步完成' : '同步完成',
-      data: syncSummary
-    };
+    return await incrementalMatchSyncService.run({ source });
   } finally {
     syncInProgress = false;
   }
 };
 
 const MatchController = {
-  // 从 Liquipedia:Matches 获取 Upcoming 的 S/A 级赛事 (带服务器级缓存)
+  // 从 Liquipedia 获取 Upcoming 的 S/A 级赛事（带服务器级缓存）
   getUpcomingMatches: async (req, res) => {
     try {
       const now = Date.now();
@@ -613,12 +168,9 @@ const MatchController = {
       }
 
       liquipediaUpcomingCache.isFetching = true;
-      const [pageHtml, allowedRoots] = await Promise.all([
-        fetchLiquipediaPageHtml(LIQUIPEDIA_UPCOMING_PAGE),
-        getLiquipediaAllowedTournamentRoots()
-      ]);
+      const pageHtml = await fetchLiquipediaUpcomingHtml();
 
-      liquipediaUpcomingCache.data = extractUpcomingMatchesFromMatchesPage(pageHtml, allowedRoots);
+      liquipediaUpcomingCache.data = extractUpcomingMatchesFromMatchesPage(pageHtml);
       liquipediaUpcomingCache.timestamp = now;
       liquipediaUpcomingCache.isFetching = false;
       res.status(200).json({ data: liquipediaUpcomingCache.data, cached: false });
