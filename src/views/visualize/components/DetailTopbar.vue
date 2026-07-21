@@ -102,10 +102,10 @@ export default {
     top: 0;
     z-index: 100;
     width: calc(100% + var(--detail-topbar-gutter, 0px) + var(--detail-topbar-gutter, 0px));
-    min-height: calc(52px + env(safe-area-inset-top));
+    min-height: 52px;
     margin-right: calc(0px - var(--detail-topbar-gutter, 0px));
     margin-left: calc(0px - var(--detail-topbar-gutter, 0px));
-    padding: env(safe-area-inset-top) 12px 0;
+    padding: 0 12px;
     border-bottom: 1px solid var(--vis-border);
   }
 
