@@ -743,6 +743,13 @@ export default {
       { flush: 'post' }
     );
 
+    watch(playerId, (nextId, previousId) => {
+      if (!nextId || nextId === previousId) return;
+      expandedMetric.value = null;
+      expandedHeroMetric.value = null;
+      loadData();
+    });
+
     onMounted(() => {
       loadData();
       window.addEventListener('resize', fitPlayerName);
