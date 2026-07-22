@@ -1,69 +1,54 @@
 <template>
   <div class="vis-card">
-    <SlantedTitle title="选手个人数据">
-      <template #title-suffix>
-        <el-tooltip content="展示选手在不同维度的表现分布（默认显示综合数据Top5选手）" placement="top">
-          <el-icon class="info-icon"><InfoFilled /></el-icon>
-        </el-tooltip>
-        <el-button 
-          link 
-          class="export-btn" 
-          @click="handleExport"
-        >
-          <el-icon><Download /></el-icon>
-          <span class="export-text">导出</span>
-        </el-button>
-      </template>
-      <template #extra>
-        <div class="header-controls">
-          <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
-            <el-radio-button label="tank">
-              <div class="role-btn-content">
-                <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
-              </div>
-            </el-radio-button>
-            <el-radio-button label="damage">
-              <div class="role-btn-content">
-                <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
-              </div>
-            </el-radio-button>
-            <el-radio-button label="support">
-              <div class="role-btn-content">
-                <img src="/icons/role/Support.png" class="role-icon" alt="support" />
-              </div>
-            </el-radio-button>
-          </el-radio-group>
-          <div class="select-wrapper">
-            <el-select 
-              v-model="playerFilter" 
-              placeholder="" 
-              :disabled="!seasonId" 
-              class="player-select-input"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              popper-class="vis-dropdown vis-dropdown-long"
-              size="small"
+    <div class="panel-header">
+      <div class="header-controls">
+        <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
+          <el-radio-button label="tank">
+            <div class="role-btn-content">
+              <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
+            </div>
+          </el-radio-button>
+          <el-radio-button label="damage">
+            <div class="role-btn-content">
+              <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
+            </div>
+          </el-radio-button>
+          <el-radio-button label="support">
+            <div class="role-btn-content">
+              <img src="/icons/role/Support.png" class="role-icon" alt="support" />
+            </div>
+          </el-radio-button>
+        </el-radio-group>
+        <div class="select-wrapper">
+          <el-select 
+            v-model="playerFilter" 
+            placeholder="" 
+            :disabled="!seasonId" 
+            class="player-select-input"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            popper-class="vis-dropdown vis-dropdown-long"
+            size="small"
+          >
+            <template #prefix>
+              <span class="custom-select-label">选手筛选列表</span>
+            </template>
+            <el-option
+              v-for="player in getFilteredPlayers"
+              :key="player.id"
+              :label="player.name"
+              :value="player.id"
             >
-              <template #prefix>
-                <span class="custom-select-label">选手筛选列表</span>
-              </template>
-              <el-option
-                v-for="player in getFilteredPlayers"
-                :key="player.id"
-                :label="player.name"
-                :value="player.id"
-              >
-                <div class="option-with-logo">
-                  <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
-                  <span>{{ player.name }}</span>
-                </div>
-              </el-option>
-            </el-select>
-          </div>
+              <div class="option-with-logo">
+                <img v-if="player.teamLogo" :src="player.teamLogo" class="option-logo" alt="" />
+                <span>{{ player.name }}</span>
+              </div>
+            </el-option>
+          </el-select>
         </div>
-      </template>
-    </SlantedTitle>
+      </div>
+    </div>
     <div class="card-content">
       <div ref="playerStatsChart" class="chart-container"></div>
       
@@ -137,6 +122,11 @@
                  <span :class="{ 'stat-highlight': sortState.prop === 'assistsPer10' }">{{ scope.row.assistsPer10 }}</span>
                </template>
             </el-table-column>
+            <el-table-column v-if="showFinalBlows" key="tank-fb" prop="finalBlowsPer10" label="最后一击/10min" width="130" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'finalBlowsPer10' }">{{ scope.row.finalBlowsPer10 }}</span>
+               </template>
+            </el-table-column>
           </template>
 
           <!-- Damage Columns -->
@@ -159,6 +149,11 @@
             <el-table-column key="dmg-deaths" prop="deathsPer10" label="死亡/10min" width="110" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
                <template #default="scope">
                  <span :class="{ 'stat-highlight': sortState.prop === 'deathsPer10' }">{{ scope.row.deathsPer10 }}</span>
+               </template>
+            </el-table-column>
+            <el-table-column v-if="showFinalBlows" key="dmg-fb" prop="finalBlowsPer10" label="最后一击/10min" width="130" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'finalBlowsPer10' }">{{ scope.row.finalBlowsPer10 }}</span>
                </template>
             </el-table-column>
           </template>
@@ -190,6 +185,11 @@
                  <span :class="{ 'stat-highlight': sortState.prop === 'assistsPer10' }">{{ scope.row.assistsPer10 }}</span>
                </template>
             </el-table-column>
+            <el-table-column v-if="showFinalBlows" key="supp-fb" prop="finalBlowsPer10" label="最后一击/10min" width="130" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+               <template #default="scope">
+                 <span :class="{ 'stat-highlight': sortState.prop === 'finalBlowsPer10' }">{{ scope.row.finalBlowsPer10 }}</span>
+               </template>
+            </el-table-column>
           </template>
           
           <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
@@ -215,8 +215,7 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
-import SlantedTitle from './SlantedTitle.vue';
+import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
 import { escapeHtml } from '@/utils/security';
@@ -224,8 +223,6 @@ import { escapeHtml } from '@/utils/security';
 export default {
   name: 'PlayerStatsChart',
   components: {
-    InfoFilled,
-    SlantedTitle,
     ArrowDown,
     ArrowUp,
     Download,
@@ -235,6 +232,11 @@ export default {
     seasonId: {
       type: [String, Number],
       default: ''
+    },
+    // 门控：仅当赛季写入了最后一击数据时展示「最后一击/10min」列
+    showFinalBlows: {
+      type: Boolean,
+      default: false
     }
   },
   setup(props) {
@@ -294,6 +296,10 @@ export default {
                 { prop: 'elimsPer10', label: '消灭/10min', highlight: sortState.value.prop === 'elimsPer10', weight: 1.2 },
                 { prop: 'assistsPer10', label: '助攻/10min', highlight: sortState.value.prop === 'assistsPer10', weight: 1.2 }
             ];
+        }
+
+        if (props.showFinalBlows) {
+            roleColumns.push({ prop: 'finalBlowsPer10', label: '最后一击/10min', highlight: sortState.value.prop === 'finalBlowsPer10', weight: 1.2 });
         }
 
         const columns = [
@@ -369,7 +375,8 @@ export default {
                 deathsPer10: p10(item.deaths),
                 assistsPer10: p10(item.assists),
                 healingPer10: p10(item.healing),
-                mitigationPer10: p10(item.mitigation)
+                mitigationPer10: p10(item.mitigation),
+                finalBlowsPer10: p10(item.finalBlows)
             };
         }).filter(s => s !== null);
 
@@ -538,40 +545,6 @@ export default {
                 calculateY = (item) => item.kd || 0;
         }
         
-        // 计算全局最大值和最小值用于固定坐标轴
-        // 初始化为极端值
-        let globalMaxX = -Infinity;
-        let globalMinX = Infinity;
-        let globalMaxY = -Infinity;
-        let globalMinY = Infinity;
-        
-        roleStats.forEach(item => {
-            const xVal = item[xKey] * 10;
-            const yVal = calculateY(item);
-            
-            if (xVal > globalMaxX) globalMaxX = xVal;
-            if (xVal < globalMinX) globalMinX = xVal;
-            
-            if (yVal > globalMaxY) globalMaxY = yVal;
-            if (yVal < globalMinY) globalMinY = yVal;
-        });
-
-        // 如果没有数据，重置为默认值
-        if (globalMaxX === -Infinity) { globalMaxX = 100; globalMinX = 0; }
-        if (globalMaxY === -Infinity) { globalMaxY = 100; globalMinY = 0; }
-
-        // 计算 padding，使散点不贴边
-        const xPadding = (globalMaxX - globalMinX) * 0.1 || 10;
-        const yPadding = (globalMaxY - globalMinY) * 0.1 || 10;
-
-        // 设置坐标轴范围
-        // 确保 min 不小于 0 (除非有负数数据，这里假设没有)
-        const xMin = Math.max(0, Math.floor((globalMinX - xPadding) * 100) / 100); 
-        const xMax = Math.ceil((globalMaxX + xPadding) * 100) / 100;
-        
-        const yMin = Math.max(0, Math.floor((globalMinY - yPadding) * 100) / 100);
-        const yMax = Math.ceil((globalMaxY + yPadding) * 100) / 100;
-        
         const seriesData = filteredStats.map(item => {
             const xVal = parseFloat((item[xKey] * 10).toFixed(2));
             const yVal = parseFloat(calculateY(item).toFixed(2));
@@ -594,6 +567,28 @@ export default {
                 symbolSize: symbolSize
             };
         }).filter(item => item !== null);
+
+        // 坐标轴范围按“当前展示的点”计算（此前按全部选手算，Top 筛选后大片留白、点挤成一团）
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        seriesData.forEach(d => {
+            const dx = d.value[0];
+            const dy = d.value[1];
+            if (dx < minX) minX = dx;
+            if (dx > maxX) maxX = dx;
+            if (dy < minY) minY = dy;
+            if (dy > maxY) maxY = dy;
+        });
+        if (maxX === -Infinity) { minX = 0; maxX = 100; }
+        if (maxY === -Infinity) { minY = 0; maxY = 100; }
+
+        // 15% padding 给顶部标签留位；全点重合时给最小跨度避免坐标轴退化
+        const xPadding = (maxX - minX) * 0.15 || Math.max(Math.abs(maxX) * 0.05, 1);
+        const yPadding = (maxY - minY) * 0.15 || Math.max(Math.abs(maxY) * 0.05, 0.5);
+
+        const xMin = Math.max(0, Math.floor((minX - xPadding) * 100) / 100);
+        const xMax = Math.ceil((maxX + xPadding) * 100) / 100;
+        const yMin = Math.max(0, Math.floor((minY - yPadding) * 100) / 100);
+        const yMax = Math.ceil((maxY + yPadding) * 100) / 100;
         
         const option = {
           title: {
@@ -704,6 +699,9 @@ export default {
               type: 'scatter',
               symbolSize: 10,
               data: seriesData,
+              labelLayout: {
+                  moveOverlap: 'shiftY'
+              },
               itemStyle: {
                   color: function(params) {
                       // 黑橙双主轴 + 中性灰色板（替代旧版蓝/绿/红杂色）
@@ -1124,8 +1122,7 @@ export default {
   cursor: pointer;
 }
 
-.player-link:hover .player-name,
-.player-link:focus-visible .player-name {
+.player-link:active .player-name {
   color: var(--vis-accent);
   text-decoration-color: var(--vis-accent);
 }
@@ -1172,7 +1169,7 @@ export default {
   color: #303133;
   font-size: 13px;
   text-decoration: underline;
-  text-decoration-color: rgba(255, 106, 0, 0.35);
+  text-decoration-color: rgba(0, 0, 0, 0.18);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
@@ -1221,6 +1218,15 @@ export default {
 
 .card-content {
   padding: 24px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .header-controls {

@@ -6,7 +6,7 @@
         <div class="loading-text">加载中...</div>
       </div>
     </div>
-    
+
     <div v-else class="detail-container">
       <DetailTopbar :title="formattedTournament || '赛前详情'" @back="goBack" />
 
@@ -28,7 +28,6 @@
         </div>
       </div>
 
-      <!-- 内容区网格（转为全页面 Tab 切换结构） -->
       <div class="tabs-container">
         <DetailSectionTabs
           :model-value="activeTab"
@@ -40,9 +39,11 @@
         <div class="tab-content-area">
           <!-- 战队对比 Tab -->
           <div v-show="activeTab === 'team'" class="seamless-content">
-            <div class="team-radar-wrapper">
+            <div class="team-radar-wrapper" v-if="teamStats.team1 || teamStats.team2">
               <div class="analysis-card-header">
-                <div class="analysis-card-title">战队雷达</div>
+                <div class="analysis-card-title">
+                  战队雷达
+                </div>
                 <div class="analysis-legend">
                   <span class="legend-chip team1-chip">{{ queryParams.team1 }}</span>
                   <span class="legend-chip team2-chip">{{ queryParams.team2 }}</span>
@@ -51,129 +52,149 @@
               <div class="radar-container team-radar-container" ref="teamRadarRef"></div>
             </div>
 
-            <!-- 附加对比数据 -->
-        <div class="team-extra-stats" v-if="teamStats.team1 && teamStats.team2">
-           <div class="analysis-card-header stats-card-header">
-             <div class="analysis-card-title">赛季战绩</div>
-           </div>
-
-           <div class="stat-item">
-              <div class="stat-header">
-                 <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.matchWin }}W - {{ teamStats.team1.scoreStat.matchLoss }}L</span>
-                 <span class="stat-label">大场战绩</span>
-                 <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.matchWin }}W - {{ teamStats.team2.scoreStat.matchLoss }}L</span>
+            <!-- 战绩对比（全赛季口径） -->
+            <div class="team-extra-stats" v-if="teamStats.team1 && teamStats.team2">
+              <div class="analysis-card-header stats-card-header">
+                <div class="analysis-card-title">
+                  赛季战绩
+                </div>
               </div>
-              <div class="stat-bars">
-                 <div class="bar-track left-track">
+
+              <div class="stat-item">
+                <div class="stat-header">
+                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.matchWin }}W - {{ teamStats.team1.scoreStat.matchLoss }}L</span>
+                  <span class="stat-label">大场战绩</span>
+                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.matchWin }}W - {{ teamStats.team2.scoreStat.matchLoss }}L</span>
+                </div>
+                <div class="stat-bars">
+                  <div class="bar-track left-track">
                     <div class="bar-fill t1-bg" :style="{ width: getPercentage(teamStats.team1.scoreStat.matchWin, teamStats.team1.scoreStat.matchWin + teamStats.team1.scoreStat.matchLoss) }"></div>
-                 </div>
-                 <div class="bar-track right-track">
+                  </div>
+                  <div class="bar-track right-track">
                     <div class="bar-fill t2-bg" :style="{ width: getPercentage(teamStats.team2.scoreStat.matchWin, teamStats.team2.scoreStat.matchWin + teamStats.team2.scoreStat.matchLoss) }"></div>
-                 </div>
+                  </div>
+                </div>
               </div>
-           </div>
 
-           <div class="stat-item">
-              <div class="stat-header">
-                 <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapWin }}W - {{ teamStats.team1.scoreStat.mapLoss }}L</span>
-                 <span class="stat-label">小局战绩</span>
-                 <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapWin }}W - {{ teamStats.team2.scoreStat.mapLoss }}L</span>
-              </div>
-              <div class="stat-bars">
-                 <div class="bar-track left-track">
+              <div class="stat-item">
+                <div class="stat-header">
+                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapWin }}W - {{ teamStats.team1.scoreStat.mapLoss }}L</span>
+                  <span class="stat-label">小局战绩</span>
+                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapWin }}W - {{ teamStats.team2.scoreStat.mapLoss }}L</span>
+                </div>
+                <div class="stat-bars">
+                  <div class="bar-track left-track">
                     <div class="bar-fill t1-bg" :style="{ width: getPercentage(teamStats.team1.scoreStat.mapWin, teamStats.team1.scoreStat.mapWin + teamStats.team1.scoreStat.mapLoss) }"></div>
-                 </div>
-                 <div class="bar-track right-track">
+                  </div>
+                  <div class="bar-track right-track">
                     <div class="bar-fill t2-bg" :style="{ width: getPercentage(teamStats.team2.scoreStat.mapWin, teamStats.team2.scoreStat.mapWin + teamStats.team2.scoreStat.mapLoss) }"></div>
-                 </div>
+                  </div>
+                </div>
               </div>
-           </div>
 
-           <div class="stat-item">
-              <div class="stat-header">
-                 <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team1.scoreStat.mapDiff }}</span>
-                 <span class="stat-label">净胜局</span>
-                 <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team2.scoreStat.mapDiff }}</span>
-              </div>
-              <div class="stat-bars">
-                 <div class="bar-track left-track">
+              <div class="stat-item">
+                <div class="stat-header">
+                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team1.scoreStat.mapDiff }}</span>
+                  <span class="stat-label">净胜局</span>
+                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team2.scoreStat.mapDiff }}</span>
+                </div>
+                <div class="stat-bars">
+                  <div class="bar-track left-track">
                     <div class="bar-fill t1-bg" :style="{ width: getPercentage(Math.max(0, teamStats.team1.scoreStat.mapDiff), Math.max(0, teamStats.team1.scoreStat.mapDiff, teamStats.team2.scoreStat.mapDiff)) }"></div>
-                 </div>
-                 <div class="bar-track right-track">
+                  </div>
+                  <div class="bar-track right-track">
                     <div class="bar-fill t2-bg" :style="{ width: getPercentage(Math.max(0, teamStats.team2.scoreStat.mapDiff), Math.max(0, teamStats.team1.scoreStat.mapDiff, teamStats.team2.scoreStat.mapDiff)) }"></div>
-                 </div>
+                  </div>
+                </div>
               </div>
-           </div>
-        </div>
+            </div>
 
-            <div class="team-analysis-block">
-              <MapWinRateAnalysis
-                :map-games="seasonMapGames"
-                :primary-team-id="team1ResolvedId"
-                :primary-team-name="queryParams.team1"
-                :secondary-team-id="team2ResolvedId"
-                :secondary-team-name="queryParams.team2"
-                :cover-map-cards="false"
-                :show-map-sample="false"
-                :show-map-insight="false"
-              />
+            <!-- 模式胜率：两队各自按全赛季统计 -->
+            <div class="team-analysis-block" v-if="showTeam1ModeWinRate || showTeam2ModeWinRate">
+              <div class="analysis-card-header stats-card-header">
+                <div class="analysis-card-title">
+                  模式胜率
+                </div>
+              </div>
+
+              <div v-if="showTeam1ModeWinRate" class="mode-team-group">
+                <div class="mode-team-label team-dark">{{ queryParams.team1 }}</div>
+                <MapWinRateAnalysis
+                  :map-games="seasonMapGames"
+                  :primary-team-id="team1ResolvedId"
+                  :primary-team-name="queryParams.team1"
+                  :show-map-sample="false"
+                  :show-map-insight="false"
+                  :show-single-mode-hint="false"
+                  hide-heading
+                />
+              </div>
+
+              <div v-if="showTeam2ModeWinRate" class="mode-team-group">
+                <div class="mode-team-label team-accent">{{ queryParams.team2 }}</div>
+                <MapWinRateAnalysis
+                  :map-games="seasonMapGames"
+                  :primary-team-id="team2ResolvedId"
+                  :primary-team-name="queryParams.team2"
+                  :show-map-sample="false"
+                  :show-map-insight="false"
+                  :show-single-mode-hint="false"
+                  hide-heading
+                />
+              </div>
             </div>
           </div>
 
-          <!-- 选手对位 Tab -->
+          <!-- 选手对位 Tab：单一合并雷达 + 顶部职责筛选 -->
           <div v-show="activeTab === 'players'" class="seamless-content player-comparison-body">
-            <div v-if="!hasAnyPlayers" class="empty-state">
-              暂无选手数据
-            </div>
-            <div v-else class="interactive-matchups">
-              <div v-for="role in ['tank', 'damage', 'support']" :key="role" class="role-arena" v-show="rolePlayers[role].t1.length || rolePlayers[role].t2.length">
-                
-                <div class="role-arena-header">
-                  <div class="header-line left-line"></div>
-                  <div class="header-title">
-                    <img :src="getRoleIconUrl(role)" class="role-icon-small" alt="" />
-                    <span class="role-name">{{ role.toUpperCase() }}</span>
-                  </div>
-                  <div class="header-line right-line"></div>
+            <div v-if="hasAnyPlayers" class="player-radar-block">
+              <div class="analysis-card-header stats-card-header">
+                <div class="analysis-card-title">
+                  选手对位
                 </div>
-                <div class="role-arena-body">
-                  <!-- Selectors -->
-                  <div class="player-selectors">
-                      <div class="team-selector t1-selector">
-                        <div v-for="p in rolePlayers[role].t1" :key="p.name"
-                             class="player-chip" :class="{active: selectedPlayers[role].t1?.name === p.name}"
-                             @click="selectPlayer(role, 't1', p)">
-                          <span class="chip-name">{{ p.name }}</span>
-                        </div>
-                      </div>
+              </div>
 
-                      <div class="selector-vs">VS</div>
+              <ContentChoiceGroup
+                class="role-filter"
+                :model-value="selectedRole"
+                :items="roleTabs"
+                hide-label
+                compact
+                aria-label="职责筛选"
+                @update:model-value="selectRole"
+              />
 
-                      <div class="team-selector t2-selector">
-                        <div v-for="p in rolePlayers[role].t2" :key="p.name"
-                             class="player-chip" :class="{active: selectedPlayers[role].t2?.name === p.name}"
-                             @click="selectPlayer(role, 't2', p)">
-                          <span class="chip-name">{{ p.name }}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                  <!-- Player Radar -->
-                  <div class="player-radar-wrapper" v-show="selectedPlayers[role].t1 || selectedPlayers[role].t2">
-                    <div class="player-radar-container" :ref="el => setPlayerRadarRef(el, role)"></div>
-                  </div>
-
+              <div class="player-selectors">
+                <div class="team-selector t1-selector">
+                  <span v-for="p in activeRolePlayers.t1" :key="p.name"
+                        class="player-chip t1-chip"
+                        :class="{ active: selectedPlayers[selectedRole]?.t1?.name === p.name }"
+                        @click="selectPlayer(selectedRole, 't1', p)">
+                    {{ p.name }}
+                  </span>
                 </div>
+
+                <div class="selector-vs">VS</div>
+
+                <div class="team-selector t2-selector">
+                  <span v-for="p in activeRolePlayers.t2" :key="p.name"
+                        class="player-chip t2-chip"
+                        :class="{ active: selectedPlayers[selectedRole]?.t2?.name === p.name }"
+                        @click="selectPlayer(selectedRole, 't2', p)">
+                    {{ p.name }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="player-radar-wrapper" v-show="hasActiveRadarData">
+                <div class="player-radar-container" ref="playerRadarRef"></div>
               </div>
             </div>
           </div>
 
           <!-- 历史交手 Tab -->
           <div v-show="activeTab === 'h2h'" class="seamless-content">
-            <div v-if="h2hMatches.length === 0" class="empty-state">
-              暂无交手记录
-            </div>
-            <div v-else class="h2h-list">
+            <div v-if="h2hMatches.length" class="h2h-list">
               <div v-for="match in h2hMatches" :key="match.id" class="h2h-match-row" @click="goToMatchDetail(match)">
                 <div class="h2h-match-info">
                   <div class="h2h-date">{{ formatDateOnly(match.matchDate) }}</div>
@@ -181,7 +202,7 @@
                     {{ getSeasonName(match.seasonId) || formatTournamentName(match.tournamentName) }}
                   </div>
                 </div>
-                
+
                 <div class="h2h-matchup">
                   <div class="h2h-team t1" :class="{'is-winner': match.winnerId === match.team1Id, 'is-loser': match.winnerId && match.winnerId !== match.team1Id}">
                     <span class="team-name">{{ getTeamName(match.team1Id) }}</span>
@@ -219,16 +240,17 @@ import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
+import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
 export default {
   name: 'UpcomingMatchDetail',
-  components: { DetailTopbar, DetailSectionTabs, MapWinRateAnalysis },
+  components: { DetailTopbar, DetailSectionTabs, MapWinRateAnalysis, ContentChoiceGroup },
   setup() {
     const comparisonRoles = ['tank', 'damage', 'support'];
     const route = useRoute();
     const router = useRouter();
     const store = useStore();
-    
+
     const isLoading = ref(true);
     const queryParams = ref({
       seasonId: route.query.seasonId,
@@ -244,7 +266,6 @@ export default {
     if (storedMatchStr) {
       try {
         const storedMatch = JSON.parse(storedMatchStr);
-        // Only use stored data if it matches the current teams in query
         if (storedMatch.team1 === queryParams.value.team1 && storedMatch.team2 === queryParams.value.team2) {
            if (!queryParams.value.team1Logo) queryParams.value.team1Logo = storedMatch.team1Logo;
            if (!queryParams.value.team2Logo) queryParams.value.team2Logo = storedMatch.team2Logo;
@@ -259,7 +280,7 @@ export default {
     const h2hMatches = ref([]);
     const seasonMapGames = ref([]);
     const teamStats = ref({ team1: null, team2: null });
-    
+
     const rolePlayers = ref({
       tank: { t1: [], t2: [] },
       damage: { t1: [], t2: [] },
@@ -272,16 +293,10 @@ export default {
       support: { t1: null, t2: null }
     });
 
-    const roleMaxStats = ref({
-      tank: { damage: 1000, healing: 1000, mitigation: 1000 },
-      damage: { damage: 1000, healing: 1000, mitigation: 1000 },
-      support: { damage: 1000, healing: 1000, mitigation: 1000 }
+    const hasAnyPlayers = computed(() => {
+      return comparisonRoles.some(r => rolePlayers.value[r].t1.length > 0 || rolePlayers.value[r].t2.length > 0);
     });
 
-    const hasAnyPlayers = computed(() => {
-      return ['tank', 'damage', 'support'].some(r => rolePlayers.value[r].t1.length > 0 || rolePlayers.value[r].t2.length > 0);
-    });
-    
     const formattedTournament = computed(() => {
       const name = queryParams.value.tournament;
       if (!name) return '';
@@ -313,26 +328,62 @@ export default {
       });
       return found?.id ? String(found.id) : '';
     });
-    
+
     const activeTab = ref('team');
-    const detailTabs = [
-      { value: 'team', label: '战队对比' },
-      { value: 'players', label: '选手对位' },
-      { value: 'h2h', label: '历史交手' }
-    ];
+    const detailTabs = computed(() => {
+      const tabs = [{ value: 'team', label: '战队对比' }];
+      if (hasAnyPlayers.value) tabs.push({ value: 'players', label: '选手对位' });
+      if (h2hMatches.value.length) tabs.push({ value: 'h2h', label: '历史交手' });
+      return tabs;
+    });
+
+    watch(detailTabs, (tabs) => {
+      if (!tabs.some(t => t.value === activeTab.value)) {
+        activeTab.value = 'team';
+      }
+    });
+
     const teamRadarRef = ref(null);
     let radarChartInstance = null;
 
-    const playerRadarRefs = ref({});
-    const playerRadarInstances = {};
+    const playerRadarRef = ref(null);
+    let playerRadarInstance = null;
 
-    const setPlayerRadarRef = (el, role) => {
-      if (el) {
-        playerRadarRefs.value[role] = el;
-      } else {
-        delete playerRadarRefs.value[role];
+    // 选手对位：职责筛选（T → D → S）
+    const selectedRole = ref('tank');
+    const roleTabs = computed(() => {
+      const labels = { tank: '重装', damage: '输出', support: '支援' };
+      return comparisonRoles
+        .filter(role => rolePlayers.value[role].t1.length || rolePlayers.value[role].t2.length)
+        .map(role => ({ value: role, label: labels[role] || role }));
+    });
+
+    watch(roleTabs, (tabs) => {
+      if (tabs.length && !tabs.some(t => t.value === selectedRole.value)) {
+        selectedRole.value = tabs[0].value;
       }
+    });
+
+    const activeRolePlayers = computed(() => {
+      return rolePlayers.value[selectedRole.value] || { t1: [], t2: [] };
+    });
+
+    const hasActiveRadarData = computed(() => {
+      const sel = selectedPlayers.value[selectedRole.value] || {};
+      return Boolean(sel.t1?.hasStats || sel.t2?.hasStats);
+    });
+
+    const teamParticipates = (teamId) => {
+      const normalized = String(teamId || '');
+      if (!normalized) return false;
+      return seasonMapGames.value.some(g =>
+        g && g.winnerId && g.mapId &&
+        (String(g.team1Id) === normalized || String(g.team2Id) === normalized)
+      );
     };
+
+    const showTeam1ModeWinRate = computed(() => teamParticipates(team1ResolvedId.value));
+    const showTeam2ModeWinRate = computed(() => teamParticipates(team2ResolvedId.value));
 
     const getPreferredSelectedPlayer = (players) => {
       if (!players.length) return null;
@@ -407,8 +458,8 @@ export default {
         ]
       };
 
-      const rolePlayers = players.filter(Boolean);
-      const maxDeaths = Math.max(0, ...rolePlayers.map(player => Number(player?.[deathKey]) || 0));
+      const pool = players.filter(Boolean);
+      const maxDeaths = Math.max(0, ...pool.map(player => Number(player?.[deathKey]) || 0));
       const survivalMax = maxDeaths === 0 ? 10 : Math.ceil(maxDeaths * 1.1);
 
       return (baseDefinitions[role] || baseDefinitions.damage).map((definition) => {
@@ -419,7 +470,7 @@ export default {
           };
         }
 
-        const maxValue = Math.max(0, ...rolePlayers.map(player => Number(player?.[definition.key]) || 0));
+        const maxValue = Math.max(0, ...pool.map(player => Number(player?.[definition.key]) || 0));
         return {
           ...definition,
           max: maxValue === 0 ? 10 : Math.ceil(maxValue * 1.1)
@@ -457,7 +508,7 @@ export default {
         }
 
         if (tab === 'players') {
-          renderVisiblePlayerRadars();
+          renderPlayerRadar();
           return;
         }
 
@@ -465,10 +516,17 @@ export default {
       });
     };
 
+    const selectRole = (role) => {
+      selectedRole.value = role;
+      nextTick(() => {
+        renderPlayerRadar();
+      });
+    };
+
     const selectPlayer = (role, teamKey, playerObj) => {
       selectedPlayers.value[role][teamKey] = playerObj;
       nextTick(() => {
-        renderPlayerRadar(role);
+        renderPlayerRadar();
       });
     };
 
@@ -479,7 +537,6 @@ export default {
         team2Id: team2ResolvedId.value
       }, route);
 
-      // Pass the seasonId back to the visualizer view via query parameter
       router.push({
         path: '/visualize',
         query: { seasonId: queryParams.value.seasonId }
@@ -586,16 +643,6 @@ export default {
       return `${Math.min((val / max) * 100, 100)}%`;
     };
 
-    const getRoleIconUrl = (role) => {
-      const baseUrl = import.meta.env.BASE_URL || '/';
-      if (!role) return `${baseUrl}icons/role/DPS.png`;
-      const lowerRole = role.toLowerCase();
-      if (lowerRole === 'tank') return `${baseUrl}icons/role/Tank.png`;
-      if (lowerRole === 'damage') return `${baseUrl}icons/role/DPS.png`;
-      if (lowerRole === 'support') return `${baseUrl}icons/role/Support.png`;
-      return `${baseUrl}icons/role/DPS.png`;
-    };
-
     const getTeamName = (teamId) => {
       const team = store.state.teams.find(t => t.id === teamId);
       return team ? team.name : 'Unknown';
@@ -612,24 +659,22 @@ export default {
       return season ? season.name : '';
     };
 
-      const isMatchBetweenTeams = (match, t1Name, t2Name) => {
+    const isMatchBetweenTeams = (match, t1Name, t2Name) => {
       const mTeam1 = getTeamName(match.team1Id).toLowerCase();
       const mTeam2 = getTeamName(match.team2Id).toLowerCase();
       const target1 = t1Name.toLowerCase();
       const target2 = t2Name.toLowerCase();
-      
-      // 避免模糊匹配时，如果某队名极短（如仅一两个字母）导致错误匹配其他队
-      const isMatch = (mTeam1 === target1 && mTeam2 === target2) || 
+
+      const isMatch = (mTeam1 === target1 && mTeam2 === target2) ||
                       (mTeam1 === target2 && mTeam2 === target1) ||
                       (match.teamA?.short?.toLowerCase() === target1 && match.teamB?.short?.toLowerCase() === target2) ||
                       (match.teamA?.short?.toLowerCase() === target2 && match.teamB?.short?.toLowerCase() === target1);
-      
-      // 回退方案：如果严格匹配和缩写匹配都没找到，再尝试模糊匹配，但加上长度限制避免误杀
+
       if (!isMatch && target1.length > 2 && target2.length > 2) {
-         return (mTeam1.includes(target1) && mTeam2.includes(target2)) || 
+         return (mTeam1.includes(target1) && mTeam2.includes(target2)) ||
                 (mTeam1.includes(target2) && mTeam2.includes(target1));
       }
-      
+
       return isMatch;
     };
 
@@ -649,14 +694,6 @@ export default {
       let totalKills = 0;
       let totalDeaths = 0;
       let totalAssists = 0;
-      // When a team has more than 5 players (substitutions), summing all players' stats 
-      // is still correct for the *team's* total stats. 
-      // However, for the team's *actual game time*, taking the maximum individual player time
-      // might be slightly inaccurate if NO single player played 100% of the maps (e.g. everyone rotated).
-      // But in the context of OWCS aggregated season data per player, the most reliable proxy 
-      // for "team's total game time" is indeed the max game time of any player, OR the sum of 
-      // all player times divided by 5. We use sum/5 here because it perfectly accounts for substitutions 
-      // across any number of players and matches.
       let sumOfAllPlayerDurations = 0;
 
       teamPlayers.forEach(p => {
@@ -668,17 +705,15 @@ export default {
         totalAssists += Number(p.assists || 0);
         sumOfAllPlayerDurations += (p.gameTime || 0);
       });
-      
-      // Because there are exactly 5 players on the field for a team at any given second,
-      // the true total game time of the team is exactly the sum of all its players' game times divided by 5.
+
       const teamTrueDuration = sumOfAllPlayerDurations / 5;
 
       let kd = totalKills;
       if (totalDeaths > 0) kd = parseFloat((totalKills / totalDeaths).toFixed(2));
-      
+
       let kad = totalKills + totalAssists;
       if (totalDeaths > 0) kad = parseFloat(((totalKills + totalAssists) / totalDeaths).toFixed(2));
-      
+
       const p10 = (val) => {
         if (!val || teamTrueDuration === 0) return 0;
         return parseFloat(((val / teamTrueDuration) * 10).toFixed(2));
@@ -697,21 +732,19 @@ export default {
     };
 
     const processPlayerMatchups = (allStats, team1Name, team2Name) => {
-      // Clear old data
       comparisonRoles.forEach(r => {
         rolePlayers.value[r] = { t1: [], t2: [] };
-        roleMaxStats.value[r] = { damage: 100, healing: 100, mitigation: 100 };
       });
 
       const t1Lower = team1Name.toLowerCase();
       const t2Lower = team2Name.toLowerCase();
-      
+
       let actualTeam1 = store.state.teams.find(t => {
          const tNameLower = t.name.toLowerCase();
          const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
          return tNameLower === t1Lower || tAbbrLower === t1Lower || tNameLower.includes(t1Lower) || t1Lower.includes(tNameLower);
       });
-      
+
       let actualTeam2 = store.state.teams.find(t => {
          const tNameLower = t.name.toLowerCase();
          const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
@@ -837,43 +870,29 @@ export default {
       });
 
       comparisonRoles.forEach(r => {
-         rolePlayers.value[r].t1.sort((a,b) => b.gameTime - a.gameTime);
-         rolePlayers.value[r].t2.sort((a,b) => b.gameTime - a.gameTime);
+         // 只保留本赛段有实际统计的选手参与对位
+         rolePlayers.value[r].t1 = rolePlayers.value[r].t1.filter(p => p.hasStats).sort((a, b) => b.gameTime - a.gameTime);
+         rolePlayers.value[r].t2 = rolePlayers.value[r].t2.filter(p => p.hasStats).sort((a, b) => b.gameTime - a.gameTime);
 
          selectedPlayers.value[r].t1 = getPreferredSelectedPlayer(rolePlayers.value[r].t1);
          selectedPlayers.value[r].t2 = getPreferredSelectedPlayer(rolePlayers.value[r].t2);
-
-         const allInRole = [...rolePlayers.value[r].t1, ...rolePlayers.value[r].t2];
-         if (allInRole.length > 0) {
-            roleMaxStats.value[r].damage = Math.max(...allInRole.map(p => p.damagePer10), 100);
-            roleMaxStats.value[r].healing = Math.max(...allInRole.map(p => p.healingPer10), 100);
-            roleMaxStats.value[r].mitigation = Math.max(...allInRole.map(p => p.mitigationPer10), 100);
-         }
       });
     };
 
-    const renderVisiblePlayerRadars = () => {
+    const renderPlayerRadar = () => {
       if (activeTab.value !== 'players') return;
+      if (!playerRadarRef.value) return;
 
-      nextTick(() => {
-        requestAnimationFrame(() => {
-          comparisonRoles.forEach(role => renderPlayerRadar(role));
-          handleResize();
-        });
-      });
-    };
-
-    const renderPlayerRadar = (role) => {
-      if (!playerRadarRefs.value[role]) return;
-      if (!playerRadarInstances[role]) {
-        playerRadarInstances[role] = echarts.init(playerRadarRefs.value[role]);
+      if (!playerRadarInstance) {
+        playerRadarInstance = echarts.init(playerRadarRef.value);
       }
 
-      const p1 = selectedPlayers.value[role].t1;
-      const p2 = selectedPlayers.value[role].t2;
+      const role = selectedRole.value;
+      const p1 = selectedPlayers.value[role]?.t1;
+      const p2 = selectedPlayers.value[role]?.t2;
 
-      if (!p1 && !p2) {
-        playerRadarInstances[role].clear();
+      if (!p1?.hasStats && !p2?.hasStats) {
+        playerRadarInstance.clear();
         return;
       }
 
@@ -883,10 +902,10 @@ export default {
         name: definition.name,
         max: definition.max
       }));
-      const radarLayout = getRadarLayout(playerRadarRefs.value[role]);
+      const radarLayout = getRadarLayout(playerRadarRef.value);
 
       const seriesData = [];
-      if (p1) {
+      if (p1?.hasStats) {
         seriesData.push({
           value: radarDefinitions.map(definition => getRadarMetricValue(p1, definition)),
           name: p1.name,
@@ -894,7 +913,7 @@ export default {
           areaStyle: { color: 'rgba(17, 17, 17, 0.16)' }
         });
       }
-      if (p2) {
+      if (p2?.hasStats) {
         seriesData.push({
           value: radarDefinitions.map(definition => getRadarMetricValue(p2, definition)),
           name: p2.name,
@@ -904,13 +923,9 @@ export default {
       }
 
       const option = {
+        animationDuration: 300,
         tooltip: { show: false },
-        legend: {
-          show: false,
-          bottom: 0,
-          data: seriesData.map(s => s.name),
-          textStyle: { fontSize: 12 }
-        },
+        legend: { show: false },
         radar: {
           indicator: indicators,
           shape: 'polygon',
@@ -923,8 +938,8 @@ export default {
             fontWeight: 'bold',
             formatter: function (value) {
                const definition = radarDefinitions.find(item => item.name === value);
-               const v1 = formatRadarAxisValue(getRadarMetricValue(p1, definition));
-               const v2 = formatRadarAxisValue(getRadarMetricValue(p2, definition));
+               const v1 = formatRadarAxisValue(getRadarMetricValue(p1?.hasStats ? p1 : null, definition));
+               const v2 = formatRadarAxisValue(getRadarMetricValue(p2?.hasStats ? p2 : null, definition));
                if (value === 'K/D' || value === 'KA/D') return `{name|${value}}\n{t1|${v1}} : {t2|${v2}}`;
                return `{name|${value}}\n{t1|${v1}}\n{t2|${v2}}`;
             },
@@ -946,7 +961,8 @@ export default {
         }]
       };
 
-      playerRadarInstances[role].setOption(option);
+      playerRadarInstance.setOption(option, true);
+      playerRadarInstance.resize();
     };
 
     const renderTeamRadar = () => {
@@ -1022,12 +1038,10 @@ export default {
                let t2v = t2 ? t2[dataKeys[indicators.findIndex(i => i.name === value)]] : 0;
                if (t1v > 100) t1v = Math.round(t1v);
                if (t2v > 100) t2v = Math.round(t2v);
-               
-               // For K/D (the topmost indicator), display side by side
+
                if (value === 'K/D') {
                  return `{name|${value}}\n{t1|${t1v}} : {t2|${t2v}}`;
                }
-               // For other indicators, display stacked vertically
                return `{name|${value}}\n{t1|${t1v}}\n{t2|${t2v}}`;
             },
             rich: {
@@ -1059,7 +1073,7 @@ export default {
       const startTime = performance.now();
       isLoading.value = true;
       try {
-        if (!store.state.teams.length || !store.state.players.length || !store.state.maps.length) {
+        if (!store.state.teams.length || !store.state.players.length || !store.state.maps.length || !store.state.seasons.length) {
           await store.dispatch('loadBaseData');
         }
 
@@ -1067,8 +1081,9 @@ export default {
         if (seasonId) {
           await store.dispatch('getSeasonTeams', Number(seasonId));
         }
+
         const [allGlobalMatchesRes, statsRes, scoreStatsRes, seasonMapGamesRes] = await Promise.all([
-          apiService.getMatches({ pageSize: 2000 }), // 获取尽可能多的全局比赛
+          apiService.getMatches({ pageSize: 2000 }),
           apiService.getSeasonPlayerStats(seasonId),
           apiService.getSeasonTeamScoreStats(seasonId),
           apiService.getMapGames({ seasonId, pageSize: 2000 })
@@ -1085,8 +1100,7 @@ export default {
           .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
 
         const allPlayerStats = statsRes || [];
-        
-        // Use abbreviations if team names are too long and causing mismatch
+
         let team1MatchStr = t1Name;
         let team2MatchStr = t2Name;
 
@@ -1094,26 +1108,25 @@ export default {
            const tNameLower = t.name.toLowerCase();
            const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
            const searchLower = t1Name.toLowerCase();
-           return tNameLower === searchLower || 
-                  tAbbrLower === searchLower || 
-                  tNameLower.includes(searchLower) || 
+           return tNameLower === searchLower ||
+                  tAbbrLower === searchLower ||
+                  tNameLower.includes(searchLower) ||
                   searchLower.includes(tNameLower);
         });
-        
+
         const team2 = store.state.teams.find(t => {
            const tNameLower = t.name.toLowerCase();
            const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
            const searchLower = t2Name.toLowerCase();
-           return tNameLower === searchLower || 
-                  tAbbrLower === searchLower || 
-                  tNameLower.includes(searchLower) || 
+           return tNameLower === searchLower ||
+                  tAbbrLower === searchLower ||
+                  tNameLower.includes(searchLower) ||
                   searchLower.includes(tNameLower);
         });
 
         if (team1) team1MatchStr = team1.name;
         if (team2) team2MatchStr = team2.name;
 
-        // Get score stats
         const getTeamScoreStat = (teamId, searchName) => {
           const sName = searchName.toLowerCase();
           return scoreStats.find(s => {
@@ -1133,7 +1146,6 @@ export default {
         teamStats.value.team2 = processTeamStats(allPlayerStats, team2MatchStr, team2?.id);
         if (teamStats.value.team2) teamStats.value.team2.scoreStat = t2ScoreStat;
 
-        // Fallback for names if not found
         if (!teamStats.value.team1) {
           teamStats.value.team1 = processTeamStats(allPlayerStats, t1Name, team1?.id);
           if (teamStats.value.team1) teamStats.value.team1.scoreStat = t1ScoreStat;
@@ -1165,7 +1177,7 @@ export default {
               handleResize();
             });
           } else if (activeTab.value === 'players') {
-            renderVisiblePlayerRadars();
+            renderPlayerRadar();
           }
         });
       }
@@ -1173,9 +1185,7 @@ export default {
 
     const handleResize = () => {
       if (radarChartInstance) radarChartInstance.resize();
-      Object.values(playerRadarInstances).forEach(inst => {
-        if (inst) inst.resize();
-      });
+      if (playerRadarInstance) playerRadarInstance.resize();
     };
 
     onMounted(() => {
@@ -1186,19 +1196,17 @@ export default {
     onUnmounted(() => {
       window.removeEventListener('resize', handleResize);
       if (radarChartInstance) radarChartInstance.dispose();
-      Object.values(playerRadarInstances).forEach(inst => {
-        if (inst) inst.dispose();
-      });
+      if (playerRadarInstance) playerRadarInstance.dispose();
     });
 
-      const isOngoing = computed(() => {
-        if (!queryParams.value.time) return false;
-        return queryParams.value.time < Date.now();
-      });
+    const isOngoing = computed(() => {
+      if (!queryParams.value.time) return false;
+      return queryParams.value.time < Date.now();
+    });
 
     watch(activeTab, (tab) => {
       if (tab === 'players') {
-        renderVisiblePlayerRadars();
+        nextTick(() => renderPlayerRadar());
       }
       if (tab === 'team') {
         nextTick(() => {
@@ -1221,13 +1229,19 @@ export default {
       teamStats,
       rolePlayers,
       selectedPlayers,
-      roleMaxStats,
       hasAnyPlayers,
       activeTab,
       detailTabs,
       teamRadarRef,
-      setPlayerRadarRef,
+      playerRadarRef,
+      selectedRole,
+      roleTabs,
+      activeRolePlayers,
+      hasActiveRadarData,
+      showTeam1ModeWinRate,
+      showTeam2ModeWinRate,
       switchTab,
+      selectRole,
       selectPlayer,
       goToTeamDetail,
       goBack,
@@ -1237,7 +1251,6 @@ export default {
       formatTournamentName,
       formatNumber,
       getPercentage,
-      getRoleIconUrl,
       getTeamName,
       getTeamLogo,
       getSeasonName,
@@ -1315,16 +1328,10 @@ export default {
 
 .team-link {
   cursor: pointer;
-  transition: transform 0.2s var(--vis-ease), opacity 0.2s var(--vis-ease);
-}
-
-.team-link:hover .team-name,
-.team-link:hover .team-logo {
-  opacity: 0.85;
 }
 
 .team-link:active {
-  transform: scale(0.98);
+  opacity: 0.75;
 }
 
 .left-team {
@@ -1347,10 +1354,6 @@ export default {
   letter-spacing: 0.01em;
 }
 
-.match-banner .left-team .team-name {
-  color: #111;
-}
-
 .match-banner .right-team .team-name {
   color: #ff6a00;
 }
@@ -1360,7 +1363,6 @@ export default {
   height: 60px;
   flex-shrink: 0;
   object-fit: contain;
-  filter: drop-shadow(0 4px 10px rgba(17, 17, 17, 0.16));
 }
 
 .match-time-center {
@@ -1399,11 +1401,7 @@ export default {
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  padding: 3px 12px;
-  background: #f4f4f5;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 999px;
-  color: #606266;
+  color: #909399;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1420,8 +1418,6 @@ export default {
 
 .match-status-badge.ongoing {
   color: #e64545;
-  background: rgba(245, 108, 108, 0.08);
-  border-color: rgba(245, 108, 108, 0.28);
 }
 
 .match-status-badge.ongoing::before {
@@ -1440,55 +1436,6 @@ export default {
   flex-direction: column;
 }
 
-.custom-tabs-nav {
-  display: flex;
-  gap: 8px;
-  padding: 10px 20px;
-  background: #fff;
-  border-bottom: 1px solid var(--vis-border);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.custom-tabs-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.tab-nav-item {
-  position: relative;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 32px;
-  padding: 0 16px;
-  border-radius: 999px;
-  background: var(--vis-bg-muted);
-  color: var(--vis-text-secondary);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  text-align: center;
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-  scroll-snap-align: start;
-  transition: color 0.2s var(--vis-ease), background-color 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
-}
-
-.tab-nav-item:hover {
-  color: #111;
-  background: rgba(17, 17, 17, 0.1);
-}
-
-.tab-nav-item.active {
-  background: #111;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.18);
-}
-
 .tab-content-area {
   display: flex;
   flex-direction: column;
@@ -1496,20 +1443,8 @@ export default {
   background: #fff;
 }
 
-@keyframes tabFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .seamless-content {
   padding: 16px 20px 24px;
-  animation: tabFadeIn 0.3s ease-out forwards;
 }
 
 .analysis-card-header {
@@ -1522,9 +1457,13 @@ export default {
   padding: 14px 18px 0;
 }
 
+.stats-card-header {
+  padding: 10px 4px 2px;
+}
+
 .analysis-card-title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   color: #111;
   font-family: var(--vis-font-display);
@@ -1539,6 +1478,7 @@ export default {
   width: 4px;
   height: 16px;
   flex: 0 0 auto;
+  align-self: center;
   border-radius: 1px;
   background: var(--vis-primary-gradient);
   transform: skewX(-8deg);
@@ -1548,84 +1488,31 @@ export default {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 
 .legend-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  max-width: 140px;
-  padding: 2px 10px;
-  border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 .team1-chip {
-  background: var(--vis-team-left-soft);
-  border: 1px solid rgba(17, 17, 17, 0.12);
   color: #111;
 }
 
 .team2-chip {
-  background: var(--vis-team-right-soft);
-  border: 1px solid rgba(255, 106, 0, 0.2);
   color: #ff6a00;
 }
 
 .team-radar-wrapper {
   position: relative;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: transform 0.25s var(--vis-ease), box-shadow 0.25s var(--vis-ease);
-}
-
-.team-radar-wrapper::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, #f0f2f5 0%, rgba(240, 242, 245, 0) 70%);
-  border-radius: 50%;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.team-radar-wrapper::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  z-index: 2;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--vis-primary-gradient);
-  opacity: 0;
-  transition: opacity 0.25s var(--vis-ease);
-  pointer-events: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .team-radar-wrapper:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  }
-
-  .team-radar-wrapper:hover::after {
-    opacity: 1;
-  }
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .team-radar-container {
@@ -1640,62 +1527,26 @@ export default {
   width: 100%;
 }
 
-.empty-state {
-  padding: 40px 0;
-  color: #909399;
-  text-align: center;
-  font-size: 14px;
-}
-
 .h2h-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .h2h-match-row {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 16px;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 12px 2px;
+  border-bottom: 1px solid #f0f2f5;
   cursor: pointer;
-  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease);
 }
 
-.h2h-match-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 14px;
-  right: 14px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--vis-primary-gradient);
-  opacity: 0;
-  transition: opacity 0.2s var(--vis-ease);
-  pointer-events: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .h2h-match-row:hover {
-    transform: translateY(-2px);
-    border-color: var(--vis-border-strong);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  }
-
-  .h2h-match-row:hover::before {
-    opacity: 1;
-  }
+.h2h-match-row:last-child {
+  border-bottom: 0;
 }
 
 .h2h-match-row:active {
-  transform: scale(0.98);
+  opacity: 0.75;
 }
 
 .h2h-match-info {
@@ -1778,9 +1629,6 @@ export default {
   justify-content: center;
   flex-shrink: 0;
   min-width: 72px;
-  padding: 4px 14px;
-  background: var(--vis-bg-muted);
-  border-radius: 999px;
   font-family: var(--vis-font-numeric);
   font-size: 16px;
   font-weight: 900;
@@ -1807,107 +1655,21 @@ export default {
   font-size: 14px;
 }
 
-.interactive-matchups {
+/* 选手对位：职责筛选 + 合并雷达 */
+.player-radar-block {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
-.role-arena {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: transform 0.25s var(--vis-ease), box-shadow 0.25s var(--vis-ease);
-}
-
-.role-arena::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  z-index: 2;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--vis-primary-gradient);
-  opacity: 0;
-  transition: opacity 0.25s var(--vis-ease);
-  pointer-events: none;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .role-arena:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  }
-
-  .role-arena:hover::before {
-    opacity: 1;
-  }
-}
-
-.role-arena-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px 2px;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.header-title::before {
-  content: '';
-  width: 4px;
-  height: 16px;
-  flex: 0 0 auto;
-  border-radius: 1px;
-  background: var(--vis-primary-gradient);
-  transform: skewX(-8deg);
-}
-
-.header-line {
-  flex: 1;
-  height: 1px;
-}
-
-.left-line {
-  display: none;
-}
-
-.right-line {
-  background: linear-gradient(to right, rgba(235, 238, 245, 0.9), rgba(235, 238, 245, 0));
-}
-
-.role-icon-small {
-  width: 18px;
-  height: 18px;
-  opacity: 1;
-  filter: brightness(0);
-}
-
-.role-name {
-  color: #111;
-  font-family: var(--vis-font-display);
-  font-size: 13px;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+.role-filter {
+  padding: 12px 4px 0;
 }
 
 .player-selectors {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 18px 6px;
+  padding: 12px 4px 4px;
 }
 
 .team-selector {
@@ -1915,7 +1677,7 @@ export default {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 14px;
   min-width: 0;
 }
 
@@ -1928,56 +1690,29 @@ export default {
 }
 
 .player-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 12px;
-  background: var(--vis-bg-muted);
-  border: 1px solid rgba(17, 17, 17, 0.06);
-  border-radius: 999px;
-  color: var(--vis-text-secondary);
+  color: #606266;
   font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.2s var(--vis-ease), background-color 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease), color 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.18);
+  text-underline-offset: 3px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .player-chip:hover {
-    transform: translateY(-1px);
-  }
-
-  .t1-selector .player-chip:hover {
-    background: rgba(17, 17, 17, 0.06);
-    border-color: rgba(17, 17, 17, 0.12);
-    color: #111;
-  }
-
-  .t2-selector .player-chip:hover {
-    background: rgba(255, 106, 0, 0.08);
-    border-color: rgba(255, 106, 0, 0.18);
-    color: #ff6a00;
-  }
+.player-chip:active {
+  color: #ff6a00;
 }
 
 .t1-selector .player-chip.active {
-  background: rgba(17, 17, 17, 0.08);
-  border-color: rgba(17, 17, 17, 0.18);
   color: #111;
-  box-shadow: 0 6px 14px rgba(17, 17, 17, 0.08);
+  font-weight: 900;
 }
 
 .t2-selector .player-chip.active {
-  background: rgba(255, 106, 0, 0.12);
-  border-color: rgba(255, 106, 0, 0.24);
   color: #ff6a00;
-  box-shadow: 0 6px 14px rgba(255, 106, 0, 0.12);
-}
-
-.chip-name {
-  font-weight: 800;
-  white-space: nowrap;
+  font-weight: 900;
 }
 
 .selector-vs {
@@ -1985,7 +1720,6 @@ export default {
   align-items: flex-start;
   justify-content: center;
   flex-shrink: 0;
-  padding-top: 5px;
   color: var(--vis-text-disabled);
   font-family: var(--vis-font-numeric);
   font-size: 13px;
@@ -1996,36 +1730,50 @@ export default {
 .team-extra-stats {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
   margin-top: 14px;
-  padding: 4px 14px 14px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.stats-card-header {
-  padding: 10px 4px 2px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .team-analysis-block {
   margin-top: 14px;
 }
 
+.mode-team-group {
+  padding: 6px 4px 0;
+}
+
+.mode-team-group + .mode-team-group {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.mode-team-label {
+  padding: 2px 2px 6px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.team-dark {
+  color: #111;
+}
+
+.team-accent {
+  color: #ff6a00;
+}
+
 .stat-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  background: #fafafa;
-  border: 1px solid #f0f2f5;
-  border-radius: 12px;
-  transition: border-color 0.2s var(--vis-ease);
+  padding: 10px 4px;
+  border-bottom: 1px solid #f7f8fa;
 }
 
-.stat-item:hover {
-  border-color: var(--vis-border-strong);
+.stat-item:last-child {
+  border-bottom: 0;
 }
 
 .stat-header {
@@ -2081,7 +1829,6 @@ export default {
 .bar-fill {
   height: 100%;
   border-radius: 999px;
-  transition: width 0.4s var(--vis-ease);
 }
 
 .t1-bg { background: #111; }
@@ -2089,25 +1836,11 @@ export default {
 
 .player-radar-wrapper {
   position: relative;
-  padding: 0 18px 10px;
-}
-
-.player-radar-wrapper::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 240px;
-  height: 240px;
-  background: radial-gradient(circle, #f0f2f5 0%, rgba(240, 242, 245, 0) 70%);
-  border-radius: 50%;
-  z-index: 0;
-  pointer-events: none;
+  padding: 0 4px 10px;
 }
 
 .player-radar-container {
-  height: 240px;
+  height: 260px;
   width: 100%;
   position: relative;
   z-index: 1;
@@ -2145,21 +1878,6 @@ export default {
     font-size: 26px;
   }
 
-  .match-status-badge {
-    padding: 2px 10px;
-  }
-
-  .custom-tabs-nav {
-    gap: 6px;
-    padding: 8px 12px;
-  }
-
-  .tab-nav-item {
-    min-height: 30px;
-    padding: 0 12px;
-    font-size: 11px;
-  }
-
   .seamless-content {
     padding: 12px;
   }
@@ -2168,14 +1886,12 @@ export default {
     padding: 12px 12px 0;
   }
 
-  .analysis-card-title {
-    font-size: 14px;
+  .stats-card-header {
+    padding: 8px 2px 2px;
   }
 
-  .legend-chip {
-    max-width: 100px;
-    padding: 2px 8px;
-    font-size: 10px;
+  .analysis-card-title {
+    font-size: 14px;
   }
 
   .team-radar-container {
@@ -2183,80 +1899,23 @@ export default {
   }
 
   .team-extra-stats {
-    gap: 8px;
     margin-top: 12px;
-    padding: 4px 12px 12px;
-  }
-
-  .stats-card-header {
-    padding: 8px 2px 2px;
-  }
-
-  .stat-item {
-    padding: 10px;
-    border-radius: 10px;
-  }
-
-  .stat-header {
-    gap: 8px;
-  }
-
-  .stat-val {
-    font-size: 12px;
-  }
-
-  .stat-label {
-    font-size: 11px;
   }
 
   .team-analysis-block {
     margin-top: 12px;
   }
 
-  .interactive-matchups {
-    gap: 12px;
-  }
-
-  .role-arena-header {
-    padding: 12px 12px 2px;
-  }
-
   .player-selectors {
     gap: 8px;
-    padding: 8px 12px 4px;
-  }
-
-  .team-selector {
-    gap: 6px;
   }
 
   .player-chip {
-    min-height: 28px;
-    padding: 0 10px;
     font-size: 11px;
-    gap: 4px;
-  }
-
-  .selector-vs {
-    font-size: 11px;
-    padding-top: 5px;
-  }
-
-  .player-radar-wrapper {
-    padding: 0 12px 8px;
   }
 
   .player-radar-container {
-    height: 220px;
-  }
-
-  .h2h-list {
-    gap: 8px;
-  }
-
-  .h2h-match-row {
-    padding: 10px 12px;
-    gap: 8px;
+    height: 230px;
   }
 
   .h2h-date {
@@ -2286,7 +1945,6 @@ export default {
 
   .h2h-score-box {
     min-width: 56px;
-    padding: 2px 10px;
     font-size: 14px;
   }
 
@@ -2332,31 +1990,8 @@ export default {
     font-size: 22px;
   }
 
-  .match-status-badge {
-    padding: 2px 8px;
-    font-size: 10px;
-  }
-
-  .custom-tabs-nav {
-    padding: 8px 10px;
-  }
-
-  .tab-nav-item {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 10px;
-  }
-
   .seamless-content {
     padding: 10px;
-  }
-
-  .analysis-legend {
-    justify-content: flex-start;
-  }
-
-  .legend-chip {
-    max-width: 88px;
   }
 
   .team-radar-container {
@@ -2364,15 +1999,10 @@ export default {
   }
 
   .player-radar-container {
-    height: 190px;
-  }
-
-  .role-name {
-    font-size: 12px;
+    height: 210px;
   }
 
   .player-chip {
-    padding: 0 8px;
     font-size: 10px;
   }
 
@@ -2386,7 +2016,6 @@ export default {
 
   .h2h-score-box {
     min-width: 48px;
-    padding: 2px 8px;
     font-size: 13px;
   }
 }

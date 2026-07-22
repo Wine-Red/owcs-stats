@@ -6,7 +6,6 @@ const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
-const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 
@@ -138,12 +137,6 @@ const TeamController = {
 
       // Delete any leftover PlayerStats directly tied to the team (just in case)
       await deletePlayerStats({ teamId: id }, t);
-
-      // SeasonStageSnapshotTeamScoreStat
-      await SeasonStageSnapshotTeamScoreStat.destroy({
-        where: { teamId: id },
-        transaction: t
-      });
 
       // SeasonTeamPlayer (must be deleted before SeasonTeam and Player)
       const seasonTeams = await SeasonTeam.findAll({

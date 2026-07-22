@@ -9,8 +9,7 @@ const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
 const MapGame = require('../models/MapGame'); // eslint-disable-line no-unused-vars
 const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-unused-vars
 const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-line no-unused-vars
-const SeasonStageSnapshot = require('../models/SeasonStageSnapshot'); // eslint-disable-line no-unused-vars
-const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat'); // eslint-disable-line no-unused-vars
+const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 
 const lowerTableName = table => {
@@ -63,14 +62,12 @@ const setupAssociations = () => {
   const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
   const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
   const Player = require('../models/Player');
-  const Map = require('../models/Map');
   const Hero = require('../models/Hero');
   const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
   const MapGame = require('../models/MapGame');
   const PlayerStat = require('../models/PlayerStat');
   const PlayerHeroStat = require('../models/PlayerHeroStat');
-  const SeasonStageSnapshot = require('../models/SeasonStageSnapshot');
-  const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
+  const SeasonStage = require('../models/SeasonStage');
 
   // PlayerStat 关联
   PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
@@ -82,12 +79,13 @@ const setupAssociations = () => {
   MapGame.hasMany(PlayerStat, { foreignKey: 'mapGameId', as: 'playerStats' });
   PlayerStat.hasMany(PlayerHeroStat, { foreignKey: 'playerStatId', as: 'heroStats', onDelete: 'CASCADE' });
 
-  SeasonStageSnapshot.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
-  Season.hasMany(SeasonStageSnapshot, { foreignKey: 'seasonId', as: 'stageSnapshots' });
-
-  SeasonStageSnapshot.hasMany(SeasonStageSnapshotTeamScoreStat, { foreignKey: 'snapshotId', as: 'teamScoreStats' });
-  SeasonStageSnapshotTeamScoreStat.belongsTo(SeasonStageSnapshot, { foreignKey: 'snapshotId', as: 'snapshot' });
-  SeasonStageSnapshotTeamScoreStat.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
+  SeasonStage.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });
+  Season.hasMany(SeasonStage, { foreignKey: 'seasonId', as: 'stages' });
+  SeasonStage.belongsTo(Match, {
+    foreignKey: 'startMatchId',
+    as: 'startMatch',
+    onDelete: 'RESTRICT'
+  });
 };
 
 const initBasicData = async () => {

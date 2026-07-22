@@ -135,37 +135,19 @@
 
                 <div v-else-if="teamAnalysis" key="overall-analysis" class="match-analysis-section mode-panel">
                   <div class="analysis-grid">
-                    <div v-if="mapFlow.length" class="analysis-card map-flow-card analysis-grid-span-2">
-                      <div class="analysis-card-header">
-                        <div>
-                          <div class="analysis-card-title">地图走势</div>
-                        </div>
-                      </div>
-
-                      <div class="map-flow-track">
-                        <div
-                          v-for="mapItem in mapFlow"
-                          :key="mapItem.id"
-                          class="map-flow-item"
-                          :class="mapItem.winnerSideClass"
-                          :style="{ backgroundImage: `url(${mapItem.bannerUrl})` }"
-                        >
-                          <div class="map-flow-backdrop"></div>
-                          <div class="map-flow-content">
-                            <div class="map-flow-top">
-                              <span class="map-flow-index">MAP {{ mapItem.index }}</span>
-                            </div>
-                            <div class="map-flow-main">
-                              <div class="map-flow-left">
-                                <span class="map-flow-score">{{ mapItem.scoreText }}</span>
-                                <div class="map-flow-name">{{ mapItem.name }}</div>
-                              </div>
-                              <div class="map-flow-right">
-                                <img v-if="mapItem.winnerLogo" :src="mapItem.winnerLogo" class="map-flow-winner-logo" alt="" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                    <div v-if="mapFlow.length" class="map-flow-strip analysis-grid-span-2">
+                      <div
+                        v-for="mapItem in mapFlow"
+                        :key="mapItem.id"
+                        class="map-flow-node"
+                        :class="mapItem.winnerSideClass"
+                      >
+                        <span class="map-flow-index">M{{ mapItem.index }}</span>
+                        <img v-if="mapItem.modeIcon" :src="mapItem.modeIcon" class="map-flow-mode-icon" alt="" />
+                        <span class="map-flow-name">{{ mapItem.name }}</span>
+                        <img v-if="mapItem.winnerLogo" :src="mapItem.winnerLogo" class="map-flow-winner-logo" alt="" />
+                        <span v-else class="map-flow-winner-placeholder"></span>
+                        <span class="map-flow-score">{{ mapItem.scoreText }}</span>
                       </div>
                     </div>
 
@@ -183,40 +165,6 @@
                     </div>
                   </div>
 
-                  <div class="analysis-card role-analysis-card">
-                    <div class="analysis-card-header">
-                      <div>
-                        <div class="analysis-card-title">职责对位</div>
-                      </div>
-                    </div>
-
-                    <div class="role-analysis-list">
-                      <div v-for="row in roleComparisonRows" :key="row.role" class="role-analysis-row">
-                        <div class="role-analysis-meta">
-                          <div class="role-analysis-name">
-                            <img :src="getRoleIconUrl(row.role)" class="role-icon" alt="" />
-                            <span>{{ row.label }}</span>
-                          </div>
-                          <div class="role-analysis-label">{{ row.metricLabel }}</div>
-                        </div>
-
-                        <div class="role-analysis-values">
-                          <span class="role-team-value team1-text">{{ row.team1Display }}</span>
-                          <span class="role-analysis-edge">{{ row.edgeText }}</span>
-                          <span class="role-team-value team2-text">{{ row.team2Display }}</span>
-                        </div>
-
-                        <div class="role-analysis-bars">
-                          <div class="role-bar-track">
-                            <div class="role-bar-fill team1-fill" :style="{ width: `${row.team1Percent}%` }"></div>
-                          </div>
-                          <div class="role-bar-track">
-                            <div class="role-bar-fill team2-fill" :style="{ width: `${row.team2Percent}%` }"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </transition>
             </div>
@@ -247,6 +195,18 @@
                 </div>
               </div>
 
+              <div v-if="mapBanChips.length" class="map-ban-strip">
+                <div v-for="chip in mapBanChips" :key="chip.side" class="ban-chip">
+                  <img :src="chip.teamLogo" class="ban-team-logo" alt="" />
+                  <span class="ban-label">禁用</span>
+                  <span class="ban-hero-icon">
+                    <img v-if="chip.iconUrl" :src="chip.iconUrl" :alt="chip.heroName" loading="lazy" />
+                    <span v-else class="ban-hero-fallback">{{ chip.heroName.slice(0, 1) }}</span>
+                  </span>
+                  <span class="ban-hero-name">{{ chip.heroName }}</span>
+                </div>
+              </div>
+
               <ContentChoiceGroup
                 class="content-mode-switch"
                 :model-value="contentMode"
@@ -257,83 +217,27 @@
               />
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
-                <div v-if="contentMode === 'analysis' && currentMapOverview" key="map-analysis" class="map-analysis-simple mode-panel">
-                  <div class="map-analysis-overview">
-                    <div class="map-overview-pill">
-                      <img v-if="currentMapOverview.modeIcon" :src="currentMapOverview.modeIcon" class="map-mode-icon" alt="" />
-                      <div class="map-overview-meta">
-                        <span class="map-overview-label">地图模式</span>
-                        <span class="map-overview-value">{{ currentMapOverview.modeLabel }}</span>
-                      </div>
-                    </div>
-                    <div class="map-overview-pill">
-                      <div class="map-overview-meta">
-                        <span class="map-overview-label">图分</span>
-                        <span class="map-overview-value">{{ currentMapOverview.scoreText }}</span>
-                      </div>
-                    </div>
-                    <div class="map-overview-pill">
-                      <div class="map-overview-meta">
-                        <span class="map-overview-label">时长</span>
-                        <span class="map-overview-value">{{ currentMapOverview.duration }}</span>
-                      </div>
-                    </div>
-                    <div class="map-overview-pill">
-                      <div class="map-overview-meta">
-                        <span class="map-overview-label">胜者</span>
-                        <span class="map-overview-value">{{ currentMapOverview.winnerText }}</span>
-                      </div>
-                    </div>
-                  </div>
-
+                <div v-if="contentMode === 'analysis' && activeMapRadarCard" key="map-analysis" class="map-analysis-simple mode-panel">
                   <div class="map-analysis-grid">
-                    <div class="map-analysis-card analysis-grid-span-2">
-                      <div class="map-analysis-title">职责对位</div>
-                      <div class="map-role-list">
-                        <div v-for="row in currentMapRoleRows" :key="row.role" class="map-role-row">
-                          <div class="map-role-top">
-                            <div class="map-role-name">
-                              <img :src="getRoleIconUrl(row.role)" class="role-icon" alt="" />
-                              <span>{{ row.label }}</span>
-                            </div>
-                            <div class="map-role-edge">{{ row.edgeText }}</div>
-                          </div>
-                          <div class="map-role-values">
-                            <span class="team1-text">{{ row.team1Display }}</span>
-                            <span class="map-role-metric">{{ row.metricLabel }}</span>
-                            <span class="team2-text">{{ row.team2Display }}</span>
-                          </div>
-                          <div class="map-role-bars">
-                            <div class="role-bar-track">
-                              <div class="role-bar-fill team1-fill" :style="{ width: `${row.team1Percent}%` }"></div>
-                            </div>
-                            <div class="role-bar-track">
-                              <div class="role-bar-fill team2-fill" :style="{ width: `${row.team2Percent}%` }"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      v-for="card in currentMapPlayerRadarCards"
-                      :key="card.key"
-                      class="map-analysis-card map-player-radar-card"
-                    >
-                      <div class="map-analysis-card-header">
-                        <div>
-                          <div class="map-analysis-title">{{ card.label }} 对位</div>
-                        </div>
-                      </div>
+                    <div class="map-analysis-card map-player-radar-card analysis-grid-span-2">
+                      <ContentChoiceGroup
+                        class="map-role-filter"
+                        :model-value="selectedMapRole"
+                        :items="mapRoleTabs"
+                        hide-label
+                        compact
+                        aria-label="职责筛选"
+                        @update:model-value="selectMapRole"
+                      />
 
                       <div class="map-player-selectors">
                         <div class="map-player-team map-player-team1">
                           <div
-                            v-for="player in card.team1Players"
-                            :key="`t1-${card.key}-${player.playerId}`"
+                            v-for="player in activeMapRadarCard.team1Players"
+                            :key="`t1-${activeMapRadarCard.key}-${player.playerId}`"
                             class="map-player-chip"
-                            :class="{ active: isSelectedMapRadarPlayer(card.role, 'team1', player) }"
-                            @click="selectMapRadarPlayer(card.role, 'team1', player)"
+                            :class="{ active: isSelectedMapRadarPlayer(activeMapRadarCard.role, 'team1', player) }"
+                            @click="selectMapRadarPlayer(activeMapRadarCard.role, 'team1', player)"
                           >
                             {{ player.name }}
                           </div>
@@ -343,18 +247,18 @@
 
                         <div class="map-player-team map-player-team2">
                           <div
-                            v-for="player in card.team2Players"
-                            :key="`t2-${card.key}-${player.playerId}`"
+                            v-for="player in activeMapRadarCard.team2Players"
+                            :key="`t2-${activeMapRadarCard.key}-${player.playerId}`"
                             class="map-player-chip"
-                            :class="{ active: isSelectedMapRadarPlayer(card.role, 'team2', player) }"
-                            @click="selectMapRadarPlayer(card.role, 'team2', player)"
+                            :class="{ active: isSelectedMapRadarPlayer(activeMapRadarCard.role, 'team2', player) }"
+                            @click="selectMapRadarPlayer(activeMapRadarCard.role, 'team2', player)"
                           >
                             {{ player.name }}
                           </div>
                         </div>
                       </div>
 
-                      <div :ref="(el) => setMapPlayerRadarRef(card.key, el)" class="map-player-radar"></div>
+                      <div :key="activeMapRadarCard.key" :ref="(el) => setMapPlayerRadarRef(activeMapRadarCard, el)" class="map-player-radar"></div>
                     </div>
                   </div>
                 </div>
@@ -372,6 +276,32 @@
                             <span class="player-name">{{ row.team1.name }}</span>
                           </div>
                           <span class="player-kda">{{ row.team1.kills }}/{{ row.team1.assists }}/{{ row.team1.deaths }}</span>
+                        </div>
+
+                        <div v-if="row.team1.heroes && row.team1.heroes.length" class="player-heroes">
+                          <div v-for="hero in row.team1.heroes" :key="hero.heroId || hero.heroName" class="player-hero-row">
+                            <div class="ph-main">
+                              <span class="player-hero-icon">
+                                <img
+                                  v-if="hero.iconUrl && !hero.iconFailed"
+                                  :src="hero.iconUrl"
+                                  :alt="hero.heroName"
+                                  loading="lazy"
+                                  @error="hero.iconFailed = true"
+                                />
+                                <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
+                              </span>
+                              <span class="player-hero-name">{{ hero.heroName }}</span>
+                              <span class="ph-pct">{{ hero.usagePct }}%</span>
+                            </div>
+                            <div class="ph-bar-track">
+                              <div class="ph-bar-fill" :style="{ width: `${hero.usagePct}%` }"></div>
+                            </div>
+                            <div v-if="currentMapHasFinalBlows || (currentMapHasUltCharge && hero.avgUltChargeSeconds !== null)" class="ph-metrics">
+                              <span v-if="currentMapHasFinalBlows">最后一击 {{ hero.finalBlows }}</span>
+                              <span v-if="currentMapHasUltCharge && hero.avgUltChargeSeconds !== null">充能 {{ Math.round(hero.avgUltChargeSeconds) }}秒</span>
+                            </div>
+                          </div>
                         </div>
 
                         <div class="player-stats">
@@ -409,6 +339,32 @@
                             <span class="player-name">{{ row.team2.name }}</span>
                           </div>
                           <span class="player-kda">{{ row.team2.kills }}/{{ row.team2.assists }}/{{ row.team2.deaths }}</span>
+                        </div>
+
+                        <div v-if="row.team2.heroes && row.team2.heroes.length" class="player-heroes">
+                          <div v-for="hero in row.team2.heroes" :key="hero.heroId || hero.heroName" class="player-hero-row">
+                            <div class="ph-main">
+                              <span class="player-hero-icon">
+                                <img
+                                  v-if="hero.iconUrl && !hero.iconFailed"
+                                  :src="hero.iconUrl"
+                                  :alt="hero.heroName"
+                                  loading="lazy"
+                                  @error="hero.iconFailed = true"
+                                />
+                                <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
+                              </span>
+                              <span class="player-hero-name">{{ hero.heroName }}</span>
+                              <span class="ph-pct">{{ hero.usagePct }}%</span>
+                            </div>
+                            <div class="ph-bar-track">
+                              <div class="ph-bar-fill" :style="{ width: `${hero.usagePct}%` }"></div>
+                            </div>
+                            <div v-if="currentMapHasFinalBlows || (currentMapHasUltCharge && hero.avgUltChargeSeconds !== null)" class="ph-metrics">
+                              <span v-if="currentMapHasFinalBlows">最后一击 {{ hero.finalBlows }}</span>
+                              <span v-if="currentMapHasUltCharge && hero.avgUltChargeSeconds !== null">充能 {{ Math.round(hero.avgUltChargeSeconds) }}秒</span>
+                            </div>
+                          </div>
                         </div>
 
                         <div class="player-stats">
@@ -458,6 +414,7 @@ import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
+import { getHeroIconUrl } from '@/utils/heroIcons';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import DetailTopbar from './components/DetailTopbar.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
@@ -480,8 +437,8 @@ export default {
       { value: 'data', label: '选手总览' }
     ];
     const mapModeTabs = [
-      { value: 'analysis', label: '地图分析' },
-      { value: 'data', label: '选手数据' }
+      { value: 'data', label: '选手数据' },
+      { value: 'analysis', label: '地图分析' }
     ];
     const matchDetails = ref({ mapGames: [], playerStats: [] });
     const teamAnalysisRadarRef = ref(null);
@@ -658,8 +615,56 @@ export default {
       assists: Number(stat.assists || 0),
       damage: Number(stat.damage || 0),
       healing: Number(stat.healing || 0),
-      mitigation: Number(stat.mitigation || 0)
+      mitigation: Number(stat.mitigation || 0),
+      heroStats: Array.isArray(stat.heroStats) ? stat.heroStats : []
     });
+
+    // 把 player_hero_stats 行累加进「按英雄聚合」的 Map（同一选手可能有多条 stat 行）
+    const accumulateHeroStats = (byHero, rows) => {
+      (rows || []).forEach(r => {
+        const heroName = r.hero?.name || r.heroName || '';
+        if (!heroName) return;
+        const key = r.heroId != null ? `id:${r.heroId}` : `name:${heroName}`;
+        if (!byHero.has(key)) {
+          byHero.set(key, {
+            heroId: r.heroId != null ? Number(r.heroId) : null,
+            heroName,
+            iconUrl: getHeroIconUrl(heroName),
+            iconFailed: false,
+            usageSeconds: 0,
+            finalBlows: 0,
+            deathsByFinalBlow: 0,
+            ultWeightedSum: 0,
+            ultWeight: 0
+          });
+        }
+        const agg = byHero.get(key);
+        const usage = Number(r.usageSeconds) || 0;
+        agg.usageSeconds += usage;
+        agg.finalBlows += Number(r.finalBlows) || 0;
+        agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
+        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
+          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
+          agg.ultWeight += usage;
+        }
+      });
+    };
+
+    // 选手在该图的英雄数据终态：按英雄聚合出使用占比与（按时长加权的）平均大招充能
+    const finalizePlayerHeroes = (player) => {
+      const heroes = Array.from(player.heroAgg.values())
+        .map(h => ({
+          ...h,
+          avgUltChargeSeconds: h.ultWeight > 0 ? h.ultWeightedSum / h.ultWeight : null
+        }))
+        .sort((a, b) => b.usageSeconds - a.usageSeconds);
+      const totalUsage = heroes.reduce((sum, h) => sum + h.usageSeconds, 0);
+      player.heroes = heroes.map(h => ({
+        ...h,
+        usagePct: totalUsage > 0 ? Math.round((h.usageSeconds / totalUsage) * 100) : 0
+      }));
+      delete player.heroAgg;
+    };
 
     const overallStats = computed(() => {
       const playerMap = new Map();
@@ -791,38 +796,6 @@ export default {
       };
     });
 
-    const roleComparisonRows = computed(() => {
-      const configs = [
-        { role: 'tank', label: 'TANK', metric: 'mitigation', metricLabel: '抵挡', formatter: formatNumber },
-        { role: 'damage', label: 'DAMAGE', metric: 'damage', metricLabel: '伤害', formatter: formatNumber },
-        { role: 'support', label: 'SUPPORT', metric: 'healing', metricLabel: '治疗', formatter: formatNumber }
-      ];
-
-      return configs.map(config => {
-        const team1Value = overallStats.value.team1
-          .filter(player => player.role === config.role)
-          .reduce((sum, player) => sum + Number(player[config.metric] || 0), 0);
-        const team2Value = overallStats.value.team2
-          .filter(player => player.role === config.role)
-          .reduce((sum, player) => sum + Number(player[config.metric] || 0), 0);
-        const maxValue = Math.max(team1Value, team2Value, 1);
-        const leadName = team1Value === team2Value
-          ? '均势'
-          : `${team1Value > team2Value ? queryParams.value.team1 : queryParams.value.team2} 占优`;
-
-        return {
-          ...config,
-          team1Value,
-          team2Value,
-          team1Display: config.formatter(team1Value),
-          team2Display: config.formatter(team2Value),
-          team1Percent: (team1Value / maxValue) * 100,
-          team2Percent: (team2Value / maxValue) * 100,
-          edgeText: leadName
-        };
-      });
-    });
-
     const mapFlow = computed(() => {
       return matchDetails.value.mapGames.map((mapGame, index) => {
         let winnerSideClass = 'is-neutral';
@@ -839,7 +812,7 @@ export default {
           id: mapGame.id,
           index: index + 1,
           name: getMapName(mapGame.mapId),
-          bannerUrl: getMapBannerUrl(mapGame.mapId),
+          modeIcon: getMapModeInfo(mapGame.mapId).icon,
           winnerLogo,
           winnerSideClass,
           scoreText: `${displayScore(mapGame.team1Score)}:${displayScore(mapGame.team2Score)}`
@@ -862,7 +835,9 @@ export default {
       filteredStats.forEach(rawStat => {
         const stat = normalizePlayer(rawStat);
         if (!playerMap.has(stat.playerId)) {
-          playerMap.set(stat.playerId, { ...stat });
+          const heroAgg = new Map();
+          accumulateHeroStats(heroAgg, stat.heroStats);
+          playerMap.set(stat.playerId, { ...stat, heroAgg });
           return;
         }
 
@@ -873,9 +848,12 @@ export default {
         player.damage += stat.damage;
         player.healing += stat.healing;
         player.mitigation += stat.mitigation;
+        accumulateHeroStats(player.heroAgg, stat.heroStats);
       });
 
       const allPlayers = Array.from(playerMap.values());
+      allPlayers.forEach(finalizePlayerHeroes);
+
       const maxDamage = Math.max(...allPlayers.map(player => player.damage), 0);
       const maxHealing = Math.max(...allPlayers.map(player => player.healing), 0);
       const maxMitigation = Math.max(...allPlayers.map(player => player.mitigation), 0);
@@ -888,6 +866,38 @@ export default {
       }));
 
       return withPercents;
+    });
+
+    // 新指标门控：该图没有任何对应数据时整块不显示（旧比赛保持原样）
+    const currentMapHasFinalBlows = computed(() =>
+      currentMapPlayers.value.some(p => p.heroes?.some(h => h.finalBlows > 0 || h.deathsByFinalBlow > 0))
+    );
+    const currentMapHasUltCharge = computed(() =>
+      currentMapPlayers.value.some(p => p.heroes?.some(h => h.avgUltChargeSeconds !== null && h.avgUltChargeSeconds !== undefined))
+    );
+
+    // 该图双方的 ban（有才显示）
+    const mapBanChips = computed(() => {
+      const mg = currentMapGame.value;
+      if (!mg) return [];
+      const chips = [];
+      if (mg.team1BanHero) {
+        chips.push({
+          side: 'team1',
+          teamLogo: queryParams.value.team1Logo,
+          heroName: mg.team1BanHero.name,
+          iconUrl: getHeroIconUrl(mg.team1BanHero.name)
+        });
+      }
+      if (mg.team2BanHero) {
+        chips.push({
+          side: 'team2',
+          teamLogo: queryParams.value.team2Logo,
+          heroName: mg.team2BanHero.name,
+          iconUrl: getHeroIconUrl(mg.team2BanHero.name)
+        });
+      }
+      return chips;
     });
 
     const currentStatsRows = computed(() => {
@@ -905,56 +915,6 @@ export default {
         team1: team1[index] || null,
         team2: team2[index] || null
       }));
-    });
-
-    const currentMapOverview = computed(() => {
-      if (!currentMapGame.value) return null;
-      const modeInfo = getMapModeInfo(currentMapGame.value.mapId);
-      let winnerText = '未决出';
-      if (String(currentMapGame.value.winnerId) === String(queryParams.value.team1Id)) {
-        winnerText = queryParams.value.team1;
-      } else if (String(currentMapGame.value.winnerId) === String(queryParams.value.team2Id)) {
-        winnerText = queryParams.value.team2;
-      }
-
-      return {
-        modeLabel: modeInfo.label,
-        modeIcon: modeInfo.icon,
-        duration: formatDuration(currentMapGame.value.duration),
-        scoreText: `${displayScore(currentMapGame.value.team1Score)}:${displayScore(currentMapGame.value.team2Score)}`,
-        winnerText
-      };
-    });
-
-    const currentMapRoleRows = computed(() => {
-      const configs = [
-        { role: 'tank', label: 'TANK', metric: 'mitigation', metricLabel: '抵挡', formatter: formatNumber },
-        { role: 'damage', label: 'DAMAGE', metric: 'damage', metricLabel: '伤害', formatter: formatNumber },
-        { role: 'support', label: 'SUPPORT', metric: 'healing', metricLabel: '治疗', formatter: formatNumber }
-      ];
-
-      return configs.map(config => {
-        const team1Value = currentStatsRows.value.reduce((sum, row) => {
-          const player = row.team1;
-          return player && player.role === config.role ? sum + Number(player[config.metric] || 0) : sum;
-        }, 0);
-        const team2Value = currentStatsRows.value.reduce((sum, row) => {
-          const player = row.team2;
-          return player && player.role === config.role ? sum + Number(player[config.metric] || 0) : sum;
-        }, 0);
-        const maxValue = Math.max(team1Value, team2Value, 1);
-
-        return {
-          ...config,
-          team1Display: config.formatter(team1Value),
-          team2Display: config.formatter(team2Value),
-          team1Percent: (team1Value / maxValue) * 100,
-          team2Percent: (team2Value / maxValue) * 100,
-          edgeText: team1Value === team2Value
-            ? '基本持平'
-            : `${team1Value > team2Value ? queryParams.value.team1 : queryParams.value.team2} 占优`
-        };
-      });
     });
 
     const getPlayerImpactScore = (player) => {
@@ -1141,6 +1101,37 @@ export default {
       }).filter(card => card.team1Player || card.team2Player);
     });
 
+    // 地图分析：单一雷达 + 顶部职责筛选
+    const selectedMapRole = ref('tank');
+
+    const mapRoleTabs = computed(() => {
+      const labels = { tank: '重装', damage: '输出', support: '支援' };
+      return currentMapPlayerRadarCards.value.map(card => ({
+        value: card.role,
+        label: labels[card.role] || card.role
+      }));
+    });
+
+    const activeMapRadarCard = computed(() => {
+      const cards = currentMapPlayerRadarCards.value;
+      if (!cards.length) return null;
+      return cards.find(card => card.role === selectedMapRole.value) || cards[0];
+    });
+
+    const selectMapRole = (role) => {
+      selectedMapRole.value = role;
+      nextTick(() => {
+        if (activeMapRadarCard.value) renderMapPlayerRadar(activeMapRadarCard.value);
+      });
+    };
+
+    // 当前地图没有所选职责的选手时，回退到第一个可用职责
+    watch(mapRoleTabs, (tabs) => {
+      if (tabs.length && !tabs.some(t => t.value === selectedMapRole.value)) {
+        selectedMapRole.value = tabs[0].value;
+      }
+    });
+
     const selectMapRadarPlayer = (role, teamKey, player) => {
       if (!currentMapGame.value) return;
       const mapId = String(currentMapGame.value.id);
@@ -1182,7 +1173,7 @@ export default {
         }, route);
       }
       activeTab.value = tab;
-      contentMode.value = 'analysis';
+      contentMode.value = tab === 'overall' ? 'analysis' : 'data';
       nextTick(() => {
         if (tab === 'overall') {
           renderTeamAnalysisRadar();
@@ -1345,12 +1336,28 @@ export default {
       teamAnalysisRadarInstance.resize();
     };
 
-    const setMapPlayerRadarRef = (key, el) => {
-      if (el) {
-        mapPlayerRadarRefs.value[key] = el;
+    const setMapPlayerRadarRef = (card, el) => {
+      if (el && card) {
+        mapPlayerRadarRefs.value[card.key] = el;
         return;
       }
-      delete mapPlayerRadarRefs.value[key];
+      if (el) return;
+      // 节点卸载时 card 可能已为 null，这里统一清理脱离文档的引用与图表实例
+      Object.keys(mapPlayerRadarRefs.value).forEach(key => {
+        const node = mapPlayerRadarRefs.value[key];
+        if (!node || !document.contains(node)) {
+          delete mapPlayerRadarRefs.value[key];
+        }
+      });
+      Object.keys(mapPlayerRadarInstances).forEach(key => {
+        const instance = mapPlayerRadarInstances[key];
+        if (!instance) return;
+        const dom = instance.getDom ? instance.getDom() : null;
+        if (!dom || !document.contains(dom)) {
+          instance.dispose();
+          delete mapPlayerRadarInstances[key];
+        }
+      });
     };
 
     const renderMapPlayerRadar = (card) => {
@@ -1449,7 +1456,7 @@ export default {
             renderTeamAnalysisRadar();
           }
           if (activeTab.value !== 'overall' && contentMode.value === 'analysis') {
-            currentMapPlayerRadarCards.value.forEach(renderMapPlayerRadar);
+            if (activeMapRadarCard.value) renderMapPlayerRadar(activeMapRadarCard.value);
           }
         });
       });
@@ -1582,14 +1589,18 @@ export default {
       overallTeamSections,
       teamAnalysis,
       teamAnalysisRadarRef,
-      roleComparisonRows,
       mapFlow,
-      currentMapOverview,
-      currentMapRoleRows,
+      selectedMapRole,
+      mapRoleTabs,
+      activeMapRadarCard,
+      selectMapRole,
       currentMapPlayerRadarCards,
       isSelectedMapRadarPlayer,
       selectMapRadarPlayer,
       currentStatsRows,
+      currentMapHasFinalBlows,
+      currentMapHasUltCharge,
+      mapBanChips,
       switchTab,
       switchContentMode,
       handleModePanelAfterEnter,
@@ -2241,262 +2252,84 @@ export default {
   padding: 4px 0 6px;
 }
 
-.role-analysis-card,
-.map-flow-card {
-  margin-top: 16px;
-}
+/* 职责对位模块已移除 */
 
-.map-flow-card {
-  overflow: hidden;
-  touch-action: pan-x;
-}
-
-.role-analysis-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 18px 18px;
-}
-
-.role-analysis-row {
-  padding: 12px;
-  background: #fafafa;
-  border: 1px solid #f0f2f5;
-  border-radius: 12px;
-  transition: border-color 0.2s var(--vis-ease);
-}
-
-.role-analysis-row:hover {
-  border-color: var(--vis-border-strong);
-}
-
-.role-analysis-meta,
-.role-analysis-values {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.role-analysis-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #111;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.role-analysis-label {
-  color: #909399;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.role-analysis-values {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  margin-top: 10px;
-  font-family: var(--vis-font-numeric);
-}
-
-.role-team-value {
-  font-size: 14px;
-  font-weight: 800;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.team1-text {
-  color: #111;
-  text-align: right;
-}
-
-.team2-text {
-  color: #ff6a00;
-  text-align: left;
-}
-
-.role-analysis-edge {
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--vis-bg-muted);
-  color: #606266;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-align: center;
-}
-
-.role-analysis-bars {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.role-bar-track {
-  height: 6px;
-  overflow: hidden;
-  background: #f0f2f5;
-  border-radius: 999px;
-}
-
-.role-analysis-bars .role-bar-track:first-child,
-.map-role-bars .role-bar-track:first-child {
-  direction: rtl;
-}
-
-.role-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-}
-
-.team1-fill {
-  background: #111;
-}
-
-.team2-fill {
-  background: var(--vis-primary-gradient);
-}
-
-.map-flow-track {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 10px;
-  padding: 8px 2px 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
-  scroll-snap-type: x proximity;
-}
-
-.map-flow-item {
-  flex: 0 0 148px;
-  position: relative;
-  min-height: 82px;
-  padding: 6px 7px;
-  overflow: hidden;
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
-  background-color: #f5f7fa;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  box-shadow: 0 4px 12px rgba(17, 17, 17, 0.04);
-  scroll-snap-align: start;
-}
-
-.map-flow-item::before {
-  display: none;
-}
-
-.map-flow-item::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 2;
-  width: 3px;
-  background: transparent;
-}
-
-.map-flow-item.is-team1::after {
-  background: #111;
-}
-
-.map-flow-item.is-team2::after {
-  background: var(--vis-primary-gradient);
-}
-
-.map-flow-backdrop {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(17, 17, 17, 0.08) 0%, rgba(17, 17, 17, 0.14) 28%, rgba(17, 17, 17, 0.52) 100%);
-}
-
-.map-flow-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 68px;
-}
-
-.map-flow-top {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-}
-
-.map-flow-index,
-.map-flow-score {
-  font-family: var(--vis-font-numeric);
-}
-
-.map-flow-index {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-}
-
-.map-flow-main {
-  flex: 1;
+/* 地图走势：模式图标代表地图、队标代表胜者，一排装下不滚动 */
+.map-flow-strip {
   display: flex;
   align-items: stretch;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 44px;
-  margin-top: 2px;
+  width: 100%;
+  margin-top: 4px;
+  border-bottom: 1px solid var(--vis-border, #e3e6eb);
 }
 
-.map-flow-left {
-  flex: 1 1 auto;
+.map-flow-node {
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px 10px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
 }
 
-.map-flow-right {
-  flex: 0 0 42%;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 7px;
+.map-flow-node.is-team1 {
+  border-bottom-color: #111;
+}
+
+.map-flow-node.is-team2 {
+  border-bottom-color: #ff6a00;
+}
+
+.map-flow-index {
+  font-family: var(--vis-font-numeric);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #c0c4cc;
+}
+
+.map-flow-mode-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+  /* 图标源文件为白色镂空字形，浅色背景下反色显示 */
+  filter: invert(1);
+  opacity: 0.72;
 }
 
 .map-flow-name {
-  margin-top: auto;
-  color: #fff;
+  max-width: 100%;
   font-size: 11px;
-  font-weight: 900;
-  font-family: var(--vis-font-display);
-  line-height: 1.1;
-  text-shadow: 0 2px 10px rgba(17, 17, 17, 0.28);
-}
-
-.map-flow-score {
-  color: #fff;
-  font-size: 14px;
   font-weight: 800;
-  text-shadow: 0 2px 10px rgba(17, 17, 17, 0.28);
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .map-flow-winner-logo {
-  width: 34px;
-  height: 34px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   display: block;
-  transform: translateY(-1px);
-  filter: drop-shadow(0 4px 12px rgba(17, 17, 17, 0.28));
+}
+
+.map-flow-winner-placeholder {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.map-flow-score {
+  font-family: var(--vis-font-numeric);
+  font-size: 12px;
+  font-weight: 800;
+  color: #606266;
+  font-variant-numeric: tabular-nums;
 }
 
 .map-analysis-simple {
@@ -2505,62 +2338,7 @@ export default {
   gap: 4px;
 }
 
-.map-analysis-overview {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.map-overview-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .map-overview-pill:hover {
-    transform: translateY(-1px);
-    border-color: var(--vis-border-strong);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-  }
-}
-
-.map-overview-pill .map-mode-icon {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 16px;
-  object-fit: contain;
-  display: block;
-  filter: brightness(0) saturate(100%);
-  opacity: 0.78;
-}
-
-.map-overview-meta {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.map-overview-label {
-  color: #909399;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.map-overview-value {
-  margin-top: 4px;
-  color: #111;
-  font-size: 14px;
-  font-weight: 900;
-  font-family: var(--vis-font-numeric);
-}
+/* 四个地图信息卡已移除 */
 
 .map-analysis-grid {
   display: grid;
@@ -2613,76 +2391,12 @@ export default {
   line-height: 1.5;
 }
 
-.map-role-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.map-role-row {
-  padding: 10px;
-  background: #fafafa;
-  border: 1px solid #f0f2f5;
-  border-radius: 10px;
-  transition: border-color 0.2s var(--vis-ease);
-}
-
-.map-role-row:hover {
-  border-color: var(--vis-border-strong);
-}
-
-.map-role-top,
-.map-role-values {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.map-role-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #111;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.map-role-edge,
-.map-role-metric {
-  color: #909399;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.map-role-edge {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--vis-bg-muted);
-  color: #606266;
-  white-space: nowrap;
-}
-
-.map-role-values {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  margin-top: 8px;
-  font-family: var(--vis-font-numeric);
-  font-size: 12px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.map-role-bars {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
-  margin-top: 8px;
-}
-
 .map-player-radar-card {
   min-width: 0;
+}
+
+.map-role-filter {
+  margin-bottom: 4px;
 }
 
 .map-player-selectors {
@@ -2994,7 +2708,7 @@ export default {
 }
 
 .stat-label {
-  width: 28px;
+  width: 52px;
   flex-shrink: 0;
   color: #909399;
 }
@@ -3022,6 +2736,155 @@ export default {
 
 .mitigation-color {
   background: #111;
+}
+
+/* 地图 ban 展示 */
+.map-ban-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+
+.ban-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid #eceef2;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ban-team-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.ban-label {
+  font-size: 11px;
+  color: #909399;
+  font-weight: 600;
+}
+
+.ban-hero-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ban-hero-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ban-hero-fallback {
+  font-size: 11px;
+  font-weight: 800;
+  color: #909399;
+}
+
+.ban-hero-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #303133;
+}
+
+/* 选手卡：分英雄数据（时长 / 最后一击 / 充能） */
+.player-heroes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 9px 9px;
+  margin: 2px 0 8px;
+  background: #f7f8fa;
+  border-radius: 10px;
+}
+
+.player-hero-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ph-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ph-pct {
+  margin-left: auto;
+  font-family: var(--vis-font-numeric);
+  font-size: 11px;
+  font-weight: 800;
+  color: #111;
+  font-variant-numeric: tabular-nums;
+}
+
+.ph-bar-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(17, 17, 17, 0.08);
+  overflow: hidden;
+}
+
+.ph-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #111;
+}
+
+.ph-metrics {
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.player-hero-icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(16, 21, 28, 0.12);
+}
+
+.player-hero-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player-hero-fallback {
+  font-size: 10px;
+  font-weight: 800;
+  color: #909399;
+}
+
+.player-hero-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-value {
@@ -3190,34 +3053,6 @@ export default {
     height: 260px;
   }
 
-  .role-analysis-list,
-  .map-flow-track {
-    padding: 12px;
-  }
-
-  .role-analysis-row,
-  .map-flow-item {
-    padding: 10px;
-    border-radius: 10px;
-  }
-
-  .map-flow-track {
-    gap: 8px;
-    padding: 8px 2px 4px;
-  }
-
-  .map-flow-item {
-    flex-basis: 124px;
-    min-height: 74px;
-  }
-
-  .role-analysis-name,
-  .role-team-value {
-    font-size: 12px;
-  }
-
-  .role-analysis-label,
-  .role-analysis-edge,
   .map-flow-index,
   .map-flow-score {
     font-size: 10px;
@@ -3225,28 +3060,6 @@ export default {
 
   .map-flow-name {
     font-size: 11px;
-  }
-
-  .map-flow-winner-logo {
-    width: 30px;
-    height: 30px;
-  }
-
-  .map-analysis-overview {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .map-overview-pill {
-    padding: 10px;
-  }
-
-  .map-overview-label {
-    font-size: 10px;
-  }
-
-  .map-overview-value {
-    font-size: 12px;
   }
 
   .map-analysis-grid {
@@ -3261,15 +3074,7 @@ export default {
     font-size: 13px;
   }
 
-  .map-role-row {
-    padding: 8px;
-  }
-
-  .map-analysis-card-subtitle,
-  .map-role-name,
-  .map-role-edge,
-  .map-role-metric,
-  .map-role-values {
+  .map-analysis-card-subtitle {
     font-size: 10px;
   }
 
@@ -3500,10 +3305,6 @@ export default {
 
   .col-stat {
     width: 38px;
-  }
-
-  .role-team-value {
-    font-size: 12px;
   }
 
   .stat-value {

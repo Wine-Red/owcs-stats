@@ -96,14 +96,7 @@ export default {
         items: [
           { to: '/dashboard', label: '全局总控' },
           { to: '/visualize', label: '数据可视化' },
-          { to: '/analytics', label: '访问统计' },
-          { to: '/data-manage/ai-reports', label: '赛事数据助手' }
-        ]
-      },
-      {
-        title: '数据采集',
-        items: [
-          { to: '/data-entry', label: '数据录入' }
+          { to: '/analytics', label: '访问统计' }
         ]
       },
       {

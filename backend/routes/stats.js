@@ -19,6 +19,15 @@ router.get('/hero', StatsController.getHeroStats);
 // 获取英雄禁用统计数据
 router.get('/hero/ban', StatsController.getHeroBanStats);
 
+// 赛季英雄总览（选用/禁用/胜率/最后一击/大招充能聚合）
+router.get('/hero/overview', StatsController.getHeroOverview);
+
+// 某英雄的使用选手数据排名
+router.get('/hero/players', StatsController.getHeroPlayers);
+
+// 某选手的赛季英雄数据（按英雄聚合使用时长/最后一击/大招充能）
+router.get('/player/heroes', StatsController.getPlayerHeroes);
+
 // 获取选手对比数据
 router.get('/player/compare', StatsController.comparePlayers);
 

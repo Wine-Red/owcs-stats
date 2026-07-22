@@ -17,9 +17,6 @@ router.get('/', MapGameController.getAll);
 // 获取单个地图局
 router.get('/:id', MapGameController.getById);
 
-// 创建地图局
-router.post('/', MapGameController.create);
-
 // 更新地图局
 router.put('/:id', MapGameController.update);
 

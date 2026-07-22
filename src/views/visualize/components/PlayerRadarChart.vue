@@ -1,25 +1,7 @@
 <template>
   <div class="radar-section">
-    <SlantedTitle title="选手能力雷达">
-      <template #title-suffix>
-        <el-tooltip content="展示选手五维能力图（默认显示该职责平均水平，可对比两名选手）" placement="top">
-          <el-icon class="info-icon"><InfoFilled /></el-icon>
-        </el-tooltip>
-        <el-dropdown trigger="click" popper-class="vis-export-dropdown" @command="handleExportCommand">
-          <el-button link class="export-btn">
-            <el-icon><Download /></el-icon>
-            <span class="export-text">导出</span>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="poster">导出海报</el-dropdown-item>
-              <el-dropdown-item command="transparent">导出透明图表</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </template>
-      <template #extra>
-        <div class="header-controls">
+    <div class="panel-header">
+      <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
             <el-radio-button label="tank">
               <div class="role-btn-content">
@@ -87,9 +69,20 @@
               </el-option>
             </el-select>
           </div>
-        </div>
-      </template>
-    </SlantedTitle>
+      </div>
+      <el-dropdown trigger="click" popper-class="vis-export-dropdown" @command="handleExportCommand">
+        <el-button link class="export-btn">
+          <el-icon><Download /></el-icon>
+          <span class="export-text">导出</span>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="poster">导出海报</el-dropdown-item>
+            <el-dropdown-item command="transparent">导出透明图表</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
     
     <div class="radar-body">
       <div ref="radarChart" class="chart-container"></div>
@@ -103,16 +96,13 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled, Download } from '@element-plus/icons-vue';
-import SlantedTitle from './SlantedTitle.vue';
+import { Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
 
 export default {
   name: 'PlayerRadarChart',
   components: {
-    InfoFilled,
-    SlantedTitle,
     Download,
     ChartExportPreview
   },
@@ -552,6 +542,15 @@ export default {
 .chart-container {
   width: 100%;
   height: 360px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .header-controls {

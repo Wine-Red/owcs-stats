@@ -5,13 +5,13 @@ const Season = require('../models/Season');
 const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
+const Hero = require('../models/Hero');
 const sequelize = require('../config/database');
 const { createIncrementalMatchSyncService } = require('../services/IncrementalMatchSyncService');
 const { createExternalMatchSyncClient } = require('../services/ExternalMatchSyncClient');
-const https = require('https');
-const zlib = require('zlib');
-const { URL } = require('url');
 const cheerio = require('cheerio');
+const { fetchParsedHtml } = require('../services/LiquipediaClient');
+const { createCachedResource } = require('../services/CachedResource');
 
 const EXTERNAL_MATCH_API_HEADERS = {
   Accept: 'application/json, text/plain, */*',
@@ -30,68 +30,15 @@ const EXTERNAL_MATCH_API_HEADERS = {
 };
 
 let syncInProgress = false;
-const LIQUIPEDIA_API_BASE = 'https://liquipedia.net/overwatch/api.php';
 const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
 const LIQUIPEDIA_UPCOMING_WIKITEXT = '{{#invoke:Lua|invoke|module=MatchTicker/Custom|fn=mainPage|type=upcoming|limit=50|filterbuttons-liquipediatier=1,2}}';
 const LIQUIPEDIA_CACHE_TTL = 5 * 60 * 1000;
 
-const liquipediaUpcomingCache = {
-  data: null,
-  timestamp: 0,
-  isFetching: false
-};
-
 const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
-const parseLiquipediaResponse = async (apiUrl) => {
-  return await new Promise((resolve, reject) => {
-    const urlObj = new URL(apiUrl);
-    const request = https.get({
-      hostname: urlObj.hostname,
-      path: urlObj.pathname + urlObj.search,
-      family: 4,
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'OWCSStats/1.0 (Server-Side Proxy; admin@owmini.xyz)',
-        'Accept-Encoding': 'gzip'
-      }
-    }, (response) => {
-      const chunks = [];
-      const encoding = response.headers['content-encoding'];
-      let stream = response;
-
-      if (encoding === 'gzip') {
-        stream = response.pipe(zlib.createGunzip());
-      }
-
-      stream.on('data', chunk => chunks.push(chunk));
-      stream.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          return reject(new Error('Liquipedia API returned status ' + response.statusCode));
-        }
-
-        try {
-          resolve(JSON.parse(body));
-        } catch (error) {
-          reject(new Error('Failed to parse Liquipedia API response'));
-        }
-      });
-      stream.on('error', reject);
-    });
-
-    request.on('error', reject);
-    request.on('timeout', () => {
-      request.destroy();
-      reject(new Error('Request timeout'));
-    });
-  });
-};
-
 const fetchLiquipediaUpcomingHtml = async () => {
-  const apiUrl = `${LIQUIPEDIA_API_BASE}?action=parse&format=json&contentmodel=wikitext&prop=text&text=${encodeURIComponent(LIQUIPEDIA_UPCOMING_WIKITEXT)}&origin=*`;
-  const data = await parseLiquipediaResponse(apiUrl);
-  return data?.parse?.text?.['*'] || '';
+  const result = await fetchParsedHtml({ text: LIQUIPEDIA_UPCOMING_WIKITEXT });
+  return result.html;
 };
 
 const extractUpcomingMatchesFromMatchesPage = (pageHtml) => {
@@ -128,6 +75,11 @@ const extractUpcomingMatchesFromMatchesPage = (pageHtml) => {
   });
 };
 
+const upcomingMatchesResource = createCachedResource({
+  ttlMs: LIQUIPEDIA_CACHE_TTL,
+  loader: async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml())
+});
+
 
 const incrementalMatchSyncService = createIncrementalMatchSyncService({
   client: createExternalMatchSyncClient({ headers: EXTERNAL_MATCH_API_HEADERS })
@@ -152,34 +104,10 @@ const MatchController = {
   // 从 Liquipedia 获取 Upcoming 的 S/A 级赛事（带服务器级缓存）
   getUpcomingMatches: async (req, res) => {
     try {
-      const now = Date.now();
-
-      if (liquipediaUpcomingCache.data && (now - liquipediaUpcomingCache.timestamp < LIQUIPEDIA_CACHE_TTL)) {
-        return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true });
-      }
-
-      if (liquipediaUpcomingCache.isFetching) {
-        for (let i = 0; i < 30; i++) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          if (!liquipediaUpcomingCache.isFetching && liquipediaUpcomingCache.data) {
-            return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true });
-          }
-        }
-      }
-
-      liquipediaUpcomingCache.isFetching = true;
-      const pageHtml = await fetchLiquipediaUpcomingHtml();
-
-      liquipediaUpcomingCache.data = extractUpcomingMatchesFromMatchesPage(pageHtml);
-      liquipediaUpcomingCache.timestamp = now;
-      liquipediaUpcomingCache.isFetching = false;
-      res.status(200).json({ data: liquipediaUpcomingCache.data, cached: false });
+      const result = await upcomingMatchesResource.get('upcoming');
+      res.status(200).json(result);
     } catch (error) {
-      liquipediaUpcomingCache.isFetching = false;
       console.error('Failed to fetch upcoming matches from Liquipedia:Matches:', error);
-      if (liquipediaUpcomingCache.data) {
-        return res.status(200).json({ data: liquipediaUpcomingCache.data, cached: true, error: error.message });
-      }
       res.status(500).json({ error: error.message });
     }
   },
@@ -393,11 +321,13 @@ const MatchController = {
       if (!match) {
         return res.status(404).json({ error: 'Match not found' });
       }
-      const mapGames = await MapGame.findAll({ 
+      const mapGames = await MapGame.findAll({
         where: { matchId: id },
         include: [
           { model: Team, as: 'winner' },
-          { model: Map }
+          { model: Map },
+          { model: Hero, as: 'team1BanHero' },
+          { model: Hero, as: 'team2BanHero' }
         ]
       });
       res.status(200).json(mapGames);

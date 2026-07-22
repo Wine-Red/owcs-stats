@@ -84,21 +84,45 @@
           </div>
 
           <div v-if="peerRanks.length" class="benchmark-list">
-            <div v-for="metric in peerRanks" :key="metric.key" class="benchmark-row">
-              <div class="benchmark-copy">
-                <span>{{ metric.label }}</span>
-                <strong>{{ metric.displayValue }}</strong>
+            <div v-for="metric in peerRanks" :key="metric.key" class="benchmark-item" :class="{ 'is-open': expandedMetric === metric.key }">
+              <div class="benchmark-row">
+                <div class="benchmark-copy">
+                  <span>{{ metric.label }}</span>
+                  <strong>{{ metric.displayValue }}</strong>
+                </div>
+                <div class="benchmark-track" aria-hidden="true">
+                  <span :style="{ width: `${metric.percentile}%` }"></span>
+                  <i :style="{ left: `${metric.percentile}%` }"></i>
+                </div>
+                <button
+                  type="button"
+                  class="benchmark-rank"
+                  :aria-expanded="expandedMetric === metric.key"
+                  @click="toggleMetricRank(metric.key)"
+                >
+                  第 {{ metric.rank }} / {{ metric.total }}
+                  <svg class="chev" :class="{ 'is-open': expandedMetric === metric.key }" viewBox="0 0 10 6" aria-hidden="true">
+                    <path d="M1 1.2 5 5 9 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
               </div>
-              <div class="benchmark-track" aria-hidden="true">
-                <span :style="{ width: `${metric.percentile}%` }"></span>
-                <i :style="{ left: `${metric.percentile}%` }"></i>
+              <div v-if="expandedMetric === metric.key" class="metric-leaderboard">
+                <div
+                  v-for="row in metricLeaderboard(metric)"
+                  :key="row.rank"
+                  class="lb-row"
+                  :class="{ 'is-self': row.isSelf, 'is-link': !row.isSelf && !!row.playerId }"
+                  @click="goToPeerDetail(row)"
+                >
+                  <span class="lb-rank">{{ row.rank }}</span>
+                  <span class="lb-name">{{ row.name }}</span>
+                  <span class="lb-team">{{ row.teamName }}</span>
+                  <span class="lb-value">{{ row.value }}</span>
+                </div>
               </div>
-              <span class="benchmark-rank">第 {{ metric.rank }} / {{ metric.total }}</span>
             </div>
           </div>
           <div v-else class="inline-empty">当前赛季暂无足够的同位置数据用于比较</div>
-
-          <p class="method-note">排名基于当前赛季同位置选手的公开数据；死亡/10m 采用数值越低排名越高。</p>
         </section>
 
         <section class="content-section trajectory-section" aria-labelledby="trajectory-title">
@@ -133,6 +157,77 @@
           </div>
         </section>
         </div>
+      </div>
+
+      <div v-if="hasHeroData" v-show="activeTab === 'heroes'" class="player-tab-panel">
+        <section class="content-section heroes-section" aria-label="英雄数据">
+          <div class="ph-strip" role="tablist" aria-label="本赛季使用过的英雄">
+            <button
+              v-for="h in playerHeroes"
+              :key="h.heroId"
+              type="button"
+              class="ph-hero"
+              :class="{ 'is-active': selectedHeroId === h.heroId }"
+              role="tab"
+              :aria-selected="selectedHeroId === h.heroId"
+              :title="getHeroName(h.heroId)"
+              @click="selectedHeroId = h.heroId"
+            >
+              <span class="ph-hero-icon">
+                <img
+                  v-if="getHeroIcon(h.heroId) && !failedHeroIcons.has(h.heroId)"
+                  :src="getHeroIcon(h.heroId)"
+                  :alt="getHeroName(h.heroId)"
+                  loading="lazy"
+                  @error="markHeroIconFailed(h.heroId)"
+                />
+                <span v-else class="ph-hero-fallback">{{ getHeroName(h.heroId).slice(0, 1) }}</span>
+              </span>
+            </button>
+          </div>
+
+          <div v-if="selectedHero" class="ph-detail">
+            <div class="ph-detail-head">
+              <span class="ph-detail-name">{{ getHeroName(selectedHero.heroId) }}</span>
+              <span class="ph-detail-meta">{{ selectedHero.mapsPlayed }} 图 · {{ Math.round(selectedHero.usageSeconds / 60) }} 分钟</span>
+            </div>
+            <div class="ph-usage-track" aria-hidden="true">
+              <span :style="{ width: `${heroUsagePct(selectedHero)}%` }"></span>
+            </div>
+            <div class="ph-stats">
+              <div v-for="m in heroMetrics" :key="m.key" class="ph-stat">
+                <span class="ph-stat-label">{{ m.label }}</span>
+                <strong class="ph-stat-value">{{ m.display }}</strong>
+                <button
+                  v-if="m.rank"
+                  type="button"
+                  class="ph-stat-rank"
+                  :aria-expanded="expandedHeroMetric === m.key"
+                  @click="toggleHeroMetric(m.key)"
+                >
+                  第 {{ m.rank }} / {{ m.total }}
+                  <svg class="chev" :class="{ 'is-open': expandedHeroMetric === m.key }" viewBox="0 0 10 6" aria-hidden="true">
+                    <path d="M1 1.2 5 5 9 1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div v-if="expandedHeroMetric && expandedHeroLeaderboard.length" class="metric-leaderboard">
+              <div
+                v-for="row in expandedHeroLeaderboard"
+                :key="row.rank"
+                class="lb-row"
+                :class="{ 'is-self': row.isSelf, 'is-link': !row.isSelf && !!row.playerId }"
+                @click="goToPeerDetail(row)"
+              >
+                <span class="lb-rank">{{ row.rank }}</span>
+                <span class="lb-name">{{ row.name }}</span>
+                <span class="lb-team">{{ row.teamName }}</span>
+                <span class="lb-value">{{ row.value }}</span>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div v-show="activeTab === 'maps'" class="player-tab-panel">
@@ -176,6 +271,7 @@ import { useStore } from 'vuex';
 import { ArrowDown, ArrowRight } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import { getHeroIconUrl } from '@/utils/heroIcons';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
 
@@ -197,11 +293,17 @@ export default {
     const store = useStore();
 
     const isLoading = ref(true);
-    const activeTab = ref(['overview', 'maps'].includes(String(route.query.tab)) ? String(route.query.tab) : 'overview');
-    const detailTabs = [
-      { value: 'overview', label: '表现概览' },
-      { value: 'maps', label: '近期出场' }
-    ];
+    const activeTab = ref(['overview', 'heroes', 'maps'].includes(String(route.query.tab)) ? String(route.query.tab) : 'overview');
+    const playerHeroes = ref([]);
+    const selectedHeroId = ref(null);
+    const failedHeroIcons = ref(new Set());
+    const hasHeroData = computed(() => playerHeroes.value.length > 0);
+    const detailTabs = computed(() => {
+      const tabs = [{ value: 'overview', label: '表现概览' }];
+      if (hasHeroData.value) tabs.push({ value: 'heroes', label: '英雄数据' });
+      tabs.push({ value: 'maps', label: '近期出场' });
+      return tabs;
+    });
     const errorMessage = ref('');
     const player = ref(null);
     const profile = ref(null);
@@ -309,7 +411,7 @@ export default {
       let rank = sorted.findIndex(item => Math.abs(item - value) < 0.0001) + 1;
       if (rank === 0) rank = sorted.filter(item => lowerIsBetter ? item < value : item > value).length + 1;
       const percentile = sorted.length <= 1 ? 100 : Math.max(4, ((sorted.length - rank) / (sorted.length - 1)) * 96 + 4);
-      return { key, label, rank, total: sorted.length, percentile, displayValue: formatNumber(value) };
+      return { key, label, rank, total: sorted.length, percentile, lowerIsBetter, displayValue: formatNumber(value) };
     };
 
     const peerRanks = computed(() => [
@@ -320,6 +422,109 @@ export default {
     ].filter(Boolean));
 
     const peerSampleLabel = computed(() => normalizedPeers.value.length ? `${roleLabel.value} ${normalizedPeers.value.length} 人` : '暂无同位置数据');
+
+    // 同位置表现：点击最右侧排名可展开该指标的同位置完整榜单
+    const expandedMetric = ref(null);
+    const toggleMetricRank = (key) => {
+      expandedMetric.value = expandedMetric.value === key ? null : key;
+    };
+    const metricLeaderboard = (metric) => {
+      const lower = metric.lowerIsBetter;
+      return [...normalizedPeers.value]
+        .sort((a, b) => lower ? number(a[metric.key]) - number(b[metric.key]) : number(b[metric.key]) - number(a[metric.key]))
+        .map((item, index) => ({
+          rank: index + 1,
+          playerId: item.playerId || item.player?.id || null,
+          name: item.player?.name || `选手#${item.playerId || ''}`,
+          teamName: item.team?.name || '',
+          value: formatNumber(item[metric.key]),
+          isSelf: String(item.playerId || item.player?.id) === playerId.value
+        }));
+    };
+
+    // 英雄数据 tab：该选手本赛季使用过的英雄（按使用时长降序）
+    const getHero = heroId => store.state.heroes.find(hero => String(hero.id) === String(heroId)) || null;
+    const getHeroName = heroId => getHero(heroId)?.name || '未知英雄';
+    const getHeroIcon = heroId => {
+      const name = getHero(heroId)?.name;
+      return name ? getHeroIconUrl(name) : '';
+    };
+    const markHeroIconFailed = heroId => {
+      const next = new Set(failedHeroIcons.value);
+      next.add(heroId);
+      failedHeroIcons.value = next;
+    };
+    const selectedHero = computed(() => playerHeroes.value.find(h => h.heroId === selectedHeroId.value) || null);
+    // 使用占比条：以使用时长最高的英雄为 100%
+    const heroUsagePct = hero => {
+      const max = Math.max(...playerHeroes.value.map(h => h.usageSeconds), 0);
+      return max ? Math.round((hero.usageSeconds / max) * 100) : 0;
+    };
+
+    // 英雄数据 tab：该英雄全部使用选手的数据（用于排名与展开榜单），按英雄缓存
+    const heroPlayersByHero = ref({});
+    const expandedHeroMetric = ref(null);
+    const ensureHeroPlayers = async (heroId) => {
+      if (!heroId || !currentSeasonId.value || heroPlayersByHero.value[heroId]) return;
+      try {
+        const res = await apiService.getHeroPlayersData({ seasonId: currentSeasonId.value, heroId });
+        heroPlayersByHero.value = { ...heroPlayersByHero.value, [heroId]: toArray(res) };
+      } catch {
+        heroPlayersByHero.value = { ...heroPlayersByHero.value, [heroId]: [] };
+      }
+    };
+    watch(selectedHeroId, (id) => {
+      expandedHeroMetric.value = null;
+      ensureHeroPlayers(id);
+    });
+
+    const HERO_METRIC_DEFS = [
+      { key: 'fb', label: '最后一击 / 10min', field: 'finalBlowsPer10', lower: false, fmt: v => formatNumber(v) },
+      { key: 'ult', label: '大招充能时间', field: 'avgUltChargeSeconds', lower: true, fmt: v => `${Math.round(v)} 秒` },
+      { key: 'fbd', label: '最后一击 / 死亡', field: 'fbPerDeath', lower: false, fmt: v => formatNumber(v) }
+    ];
+
+    // 三项英雄指标：横向展示，右侧排名基于本赛季所有使用该英雄的选手
+    const heroMetrics = computed(() => {
+      const hero = selectedHero.value;
+      if (!hero) return [];
+      const players = heroPlayersByHero.value[hero.heroId] || [];
+      return HERO_METRIC_DEFS
+        .filter(def => hero[def.field] !== null && hero[def.field] !== undefined)
+        .map(def => {
+          const myValue = Number(hero[def.field]);
+          const ranked = players.filter(p => p[def.field] !== null && p[def.field] !== undefined);
+          const better = ranked.filter(p => def.lower ? Number(p[def.field]) < myValue : Number(p[def.field]) > myValue).length;
+          return {
+            ...def,
+            display: def.fmt(myValue),
+            rank: ranked.length ? better + 1 : null,
+            total: ranked.length
+          };
+        });
+    });
+
+    const toggleHeroMetric = (key) => {
+      expandedHeroMetric.value = expandedHeroMetric.value === key ? null : key;
+    };
+
+    const expandedHeroLeaderboard = computed(() => {
+      const hero = selectedHero.value;
+      const def = HERO_METRIC_DEFS.find(d => d.key === expandedHeroMetric.value);
+      if (!hero || !def) return [];
+      const players = heroPlayersByHero.value[hero.heroId] || [];
+      return players
+        .filter(p => p[def.field] !== null && p[def.field] !== undefined)
+        .sort((a, b) => def.lower ? Number(a[def.field]) - Number(b[def.field]) : Number(b[def.field]) - Number(a[def.field]))
+        .map((p, index) => ({
+          rank: index + 1,
+          playerId: p.playerId || null,
+          name: p.playerName || `选手#${p.playerId}`,
+          teamName: getTeamName(p.teamId),
+          value: def.fmt(Number(p[def.field])),
+          isSelf: String(p.playerId) === playerId.value
+        }));
+    });
     const seasonStandings = ref({});
 
     // 赛季轨迹：所属队伍在该赛季积分榜的最终名次（排序规则与积分榜一致：大场胜场 → 小分净胜）
@@ -380,15 +585,26 @@ export default {
     const getResultClass = map => !map.winnerId ? 'is-unknown' : String(map.winnerId) === String(map.teamId) ? 'is-win' : 'is-loss';
 
     const loadSeason = async seasonId => {
-      const [profileResponse, seasonResponse] = await Promise.all([
+      const [profileResponse, seasonResponse, heroesResponse] = await Promise.all([
         apiService.getPlayerProfile(playerId.value, seasonId ? { seasonId } : undefined),
-        seasonId ? apiService.getSeasonPlayerStats(seasonId) : Promise.resolve([])
+        seasonId ? apiService.getSeasonPlayerStats(seasonId) : Promise.resolve([]),
+        seasonId
+          ? apiService.getPlayerHeroesData({ seasonId, playerId: playerId.value }).catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] })
       ]);
       profile.value = profileResponse;
       player.value = profileResponse.player || player.value;
       seasonHistory.value = toArray(profileResponse.seasonHistory);
       seasonPeers.value = toArray(seasonResponse);
       currentStat.value = seasonPeers.value.find(item => String(item.playerId || item.player?.id) === playerId.value) || null;
+
+      playerHeroes.value = toArray(heroesResponse);
+      heroPlayersByHero.value = {};
+      expandedHeroMetric.value = null;
+      selectedHeroId.value = playerHeroes.value.length ? playerHeroes.value[0].heroId : null;
+      if (activeTab.value === 'heroes' && !playerHeroes.value.length) {
+        activeTab.value = 'overview';
+      }
 
       const historySeasonIds = [...new Set(seasonHistory.value.map(item => item.seasonId).filter(Boolean))];
       const standingsEntries = await Promise.all(historySeasonIds.map(async id => {
@@ -474,6 +690,19 @@ export default {
       });
     };
 
+    // 榜单里其他选手的名字 → 该选手的详情页（同赛季）；本人行不跳
+    const goToPeerDetail = row => {
+      if (!row?.playerId || row.isSelf) return;
+      router.push({
+        path: '/visualize/player-detail',
+        query: {
+          playerId: String(row.playerId),
+          seasonId: currentSeasonId.value,
+          from: 'player-detail'
+        }
+      });
+    };
+
     const fitPlayerName = async () => {
       await nextTick();
       const element = playerNameElement.value;
@@ -539,6 +768,22 @@ export default {
       currentSeasonName,
       peerRanks,
       peerSampleLabel,
+      expandedMetric,
+      toggleMetricRank,
+      metricLeaderboard,
+      playerHeroes,
+      selectedHeroId,
+      hasHeroData,
+      selectedHero,
+      failedHeroIcons,
+      getHeroName,
+      getHeroIcon,
+      markHeroIconFailed,
+      heroUsagePct,
+      heroMetrics,
+      expandedHeroMetric,
+      toggleHeroMetric,
+      expandedHeroLeaderboard,
       historyBars,
       seasonHistory,
       careerMinutes,
@@ -551,6 +796,7 @@ export default {
       goBack,
       goToTeamDetail,
       goToMatchDetail,
+      goToPeerDetail,
       getTeamName,
       getTeamLogo,
       formatDate,
@@ -803,7 +1049,6 @@ button {
 }
 
 .sample-note,
-.method-note,
 .trajectory-summary span {
   color: var(--vis-text-tertiary);
   font-size: 11px;
@@ -832,10 +1077,10 @@ button {
 }
 
 .content-section {
-  padding: 26px 28px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 10px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-shadow: none;
 }
 
@@ -960,16 +1205,264 @@ button {
   transform: translate(-50%, -50%);
 }
 
+.benchmark-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .benchmark-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   text-align: right;
+  white-space: nowrap;
+  transition: color 0.18s var(--vis-ease);
+}
+
+.benchmark-rank:hover {
+  color: var(--vis-accent);
+}
+
+.chev {
+  width: 9px;
+  height: 6px;
+  flex: 0 0 auto;
+  color: var(--vis-text-tertiary);
+  transition: transform 0.2s var(--vis-ease), color 0.18s var(--vis-ease);
+}
+
+.benchmark-rank:hover .chev,
+.ph-stat-rank:hover .chev {
+  color: var(--vis-accent);
+}
+
+.chev.is-open {
+  transform: rotate(180deg);
+}
+
+.metric-leaderboard {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 6px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.lb-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.lb-rank {
+  color: var(--vis-text-tertiary);
+  font-family: var(--vis-font-numeric);
+  font-weight: 700;
+  text-align: center;
+}
+
+.lb-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #1a1a1a;
+  font-weight: 700;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.method-note {
-  margin: 22px 0 0;
-  padding-top: 15px;
-  border-top: 1px solid var(--vis-border);
-  line-height: 1.55;
+.lb-team {
+  color: var(--vis-text-tertiary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.lb-value {
+  color: #606266;
+  font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lb-row.is-self .lb-rank,
+.lb-row.is-self .lb-name,
+.lb-row.is-self .lb-value {
+  color: var(--vis-accent);
+}
+
+/* 可跳转的选手行：整行可点，但下划线只落在名字上；本人行保持高亮、不加下划线 */
+.lb-row.is-link {
+  cursor: pointer;
+}
+
+.lb-row.is-link .lb-name {
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.18);
+  text-underline-offset: 3px;
+}
+
+.lb-row.is-link:active .lb-name {
+  color: var(--vis-accent);
+  text-decoration-color: var(--vis-accent);
+}
+
+/* 英雄数据 tab */
+.ph-strip {
+  display: flex;
+  gap: 8px;
+  margin: -4px -2px 0;
+  padding: 4px 2px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ph-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.ph-hero {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 2px 2px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ph-hero-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  background: #eceff3;
+  border-radius: 10px;
+  opacity: 0.5;
+  transition: opacity 0.18s var(--vis-ease), transform 0.18s var(--vis-ease);
+}
+
+.ph-hero-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ph-hero:hover .ph-hero-icon {
+  opacity: 0.85;
+}
+
+.ph-hero.is-active {
+  border-bottom-color: var(--vis-accent);
+}
+
+.ph-hero.is-active .ph-hero-icon {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.ph-hero-fallback {
+  color: #909399;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ph-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ph-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ph-detail-name {
+  color: #111;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ph-detail-meta {
+  color: var(--vis-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ph-usage-track {
+  height: 3px;
+  overflow: hidden;
+  background: rgba(17, 17, 17, 0.07);
+  border-radius: 2px;
+}
+
+.ph-usage-track span {
+  display: block;
+  height: 100%;
+  background: var(--vis-primary-gradient, #111);
+  border-radius: 2px;
+}
+
+.ph-stats {
+  display: flex;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.ph-stat {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ph-stat-label {
+  color: var(--vis-text-tertiary);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.ph-stat-value {
+  color: #111;
+  font-family: var(--vis-font-numeric);
+  font-size: 17px;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}
+
+.ph-stat-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0;
+  border: 0;
+  background: transparent;
+  color: var(--vis-text-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.18s var(--vis-ease);
+}
+
+.ph-stat-rank:hover {
+  color: var(--vis-accent);
 }
 
 .history-chart {
@@ -1372,9 +1865,7 @@ button {
   }
 
   .content-section {
-    padding: 18px 16px;
-    border-radius: 9px;
-    box-shadow: none;
+    padding: 0;
   }
 
   .section-heading {
@@ -1415,11 +1906,6 @@ button {
 
   .benchmark-track {
     height: 4px;
-  }
-
-  .method-note {
-    margin-top: 18px;
-    font-size: 10px;
   }
 
   .history-chart {
@@ -1475,8 +1961,7 @@ button {
   }
 
   .content-section {
-    padding-right: 14px;
-    padding-left: 14px;
+    padding: 0;
   }
 
   .benchmark-row {

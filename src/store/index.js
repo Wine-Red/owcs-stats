@@ -530,20 +530,6 @@ const store = createStore({
       } finally {
         commit('setLoading', false);
       }
-    },
-
-    // 创建地图局
-    async createMapGame({ commit }, mapGameData) {
-      commit('setLoading', true);
-      try {
-        const mapGame = await apiService.createMapGame(mapGameData);
-        return mapGame;
-      } catch (error) {
-        commit('setError', error.message);
-        throw error;
-      } finally {
-        commit('setLoading', false);
-      }
     }
   },
   getters: {
