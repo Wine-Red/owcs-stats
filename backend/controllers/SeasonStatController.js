@@ -1,11 +1,6 @@
-const Player = require('../models/Player');
-const Team = require('../models/Team');
-const Season = require('../models/Season');
-const SeasonStageSnapshot = require('../models/SeasonStageSnapshot');
-const SeasonStageSnapshotTeamScoreStat = require('../models/SeasonStageSnapshotTeamScoreStat');
 const sequelize = require('../config/database');
-const { Op } = require('sequelize');
 const SeasonStatsCalculator = require('../services/SeasonStatsCalculator');
+const SeasonStageService = require('../services/SeasonStageService');
 
 const parseOptionalInt = (value) => {
   if (value === undefined || value === null || value === '') return null;
@@ -14,123 +9,21 @@ const parseOptionalInt = (value) => {
   return Math.trunc(n);
 };
 
-const calcNonNegativeDiff = (toVal, fromVal) => {
-  const a = Number(toVal ?? 0) || 0;
-  const b = Number(fromVal ?? 0) || 0;
-  const diff = a - b;
-  return diff < 0 ? 0 : diff;
+const resolveStageCalculationOptions = async (seasonId, stageIdValue) => {
+  const stageId = parseOptionalInt(stageIdValue);
+  if (!stageId) return {};
+  const stageRange = await SeasonStageService.resolveStageRange(Number(seasonId), stageId);
+  return stageRange ? { matchIds: stageRange.matchIds } : null;
 };
 
 const SeasonStatController = {
-  listStageSnapshots: async (req, res) => {
-    try {
-      const { seasonId } = req.params;
-      const seasonIdNum = Number(seasonId);
-      if (!Number.isFinite(seasonIdNum)) {
-        return res.status(400).json({ error: 'seasonId 不合法' });
-      }
-
-      const snapshots = await SeasonStageSnapshot.findAll({
-        where: { seasonId: seasonIdNum },
-        order: [['createdAt', 'ASC']]
-      });
-      return res.json(snapshots);
-    } catch (error) {
-      console.error('获取阶段快照列表失败:', error);
-      return res.status(500).json({ error: '获取数据失败' });
-    }
-  },
-
-  createStageSnapshot: async (req, res) => {
-    let t;
-    try {
-      const { seasonId } = req.params;
-      const seasonIdNum = Number(seasonId);
-      if (!Number.isFinite(seasonIdNum)) {
-        return res.status(400).json({ error: 'seasonId 不合法' });
-      }
-
-      const name = String(req.body?.name || '').trim();
-      if (!name) {
-        return res.status(400).json({ error: 'name 不能为空' });
-      }
-
-      const season = await Season.findByPk(seasonIdNum);
-      if (!season) {
-        return res.status(404).json({ error: '赛季不存在' });
-      }
-
-      // 快照定格当前真实值：从原始比赛表实时计算，不再读预聚合表
-      const currentStats = await SeasonStatsCalculator.calculateSeasonTeamScoreStats(seasonIdNum);
-
-      t = await sequelize.transaction();
-
-      const snapshot = await SeasonStageSnapshot.create({
-        seasonId: seasonIdNum,
-        name
-      }, { transaction: t });
-
-      if (currentStats.length > 0) {
-        const rows = currentStats.map(s => ({
-          snapshotId: snapshot.id,
-          teamId: s.teamId,
-          teamName: s.teamName,
-          teamShortName: s.teamShortName ?? null,
-          matchWin: s.matchWin ?? 0,
-          matchLoss: s.matchLoss ?? 0,
-          matchDiff: s.matchDiff ?? 0,
-          mapWin: s.mapWin ?? 0,
-          mapLoss: s.mapLoss ?? 0,
-          mapDiff: s.mapDiff ?? 0
-        }));
-        await SeasonStageSnapshotTeamScoreStat.bulkCreate(rows, { transaction: t });
-      }
-
-      await t.commit();
-      return res.json(snapshot);
-    } catch (error) {
-      if (t) await t.rollback();
-      console.error('创建阶段快照失败:', error);
-      return res.status(500).json({ error: '创建快照失败' });
-    }
-  },
-
-  deleteStageSnapshot: async (req, res) => {
-    let t;
-    try {
-      const snapshotId = Number(req.params.snapshotId);
-      if (!Number.isFinite(snapshotId)) {
-        return res.status(400).json({ error: 'snapshotId 不合法' });
-      }
-
-      const snapshot = await SeasonStageSnapshot.findByPk(snapshotId);
-      if (!snapshot) {
-        return res.status(404).json({ error: '快照不存在' });
-      }
-
-      t = await sequelize.transaction();
-      await SeasonStageSnapshotTeamScoreStat.destroy({
-        where: { snapshotId },
-        transaction: t
-      });
-      await SeasonStageSnapshot.destroy({
-        where: { id: snapshotId },
-        transaction: t
-      });
-      await t.commit();
-      return res.json({ message: '删除成功' });
-    } catch (error) {
-      if (t) await t.rollback();
-      console.error('删除阶段快照失败:', error);
-      return res.status(500).json({ error: '删除失败' });
-    }
-  },
-
   // Get aggregated season stats（从原始比赛表实时计算，不再读取预聚合表）
   getSeasonStats: async (req, res) => {
     try {
       const { seasonId } = req.params;
-      const stats = await SeasonStatsCalculator.calculateSeasonPlayerStats(seasonId);
+      const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
+      if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
+      const stats = await SeasonStatsCalculator.calculateSeasonPlayerStats(seasonId, options);
       res.json(stats);
     } catch (error) {
       console.error('获取赛季数据失败:', error);
@@ -141,83 +34,10 @@ const SeasonStatController = {
   getSeasonTeamScoreStats: async (req, res) => {
     try {
       const { seasonId } = req.params;
-      const fromSnapshotId = parseOptionalInt(req.query.fromSnapshotId);
-      const toSnapshotId = parseOptionalInt(req.query.toSnapshotId);
-
-      if (!fromSnapshotId && !toSnapshotId) {
-        // 无快照参数：从原始比赛表实时计算战队大场/小局战绩
-        const stats = await SeasonStatsCalculator.calculateSeasonTeamScoreStats(seasonId);
-        return res.json(stats);
-      }
-
-      const seasonIdNum = Number(seasonId);
-      if (!Number.isFinite(seasonIdNum)) {
-        return res.status(400).json({ error: 'seasonId 不合法' });
-      }
-
-      let toStats = [];
-      if (toSnapshotId) {
-        const snapshot = await SeasonStageSnapshot.findByPk(toSnapshotId);
-        if (!snapshot || Number(snapshot.seasonId) !== seasonIdNum) {
-          return res.status(400).json({ error: 'toSnapshotId 不属于该赛季' });
-        }
-        toStats = await SeasonStageSnapshotTeamScoreStat.findAll({
-          where: { snapshotId: toSnapshotId }
-        });
-      } else {
-        // to 侧为当前值：从原始比赛表实时计算，不再读预聚合表
-        toStats = await SeasonStatsCalculator.calculateSeasonTeamScoreStats(seasonIdNum);
-      }
-
-      const fromMap = new Map();
-      const fromNameMap = new Map();
-      if (fromSnapshotId) {
-        const snapshot = await SeasonStageSnapshot.findByPk(fromSnapshotId);
-        if (!snapshot || Number(snapshot.seasonId) !== seasonIdNum) {
-          return res.status(400).json({ error: 'fromSnapshotId 不属于该赛季' });
-        }
-        const fromStats = await SeasonStageSnapshotTeamScoreStat.findAll({
-          where: { snapshotId: fromSnapshotId }
-        });
-        fromStats.forEach(s => {
-          fromMap.set(Number(s.teamId), s);
-          const key = String(s.teamName || '').trim().toLowerCase();
-          if (key) fromNameMap.set(key, s);
-        });
-      }
-
-      const teamIds = [];
-      const diffStats = toStats.map(s => {
-        const teamId = Number(s.teamId);
-        if (Number.isFinite(teamId)) teamIds.push(teamId);
-        const prev = fromMap.get(teamId) || fromNameMap.get(String(s.teamName || '').trim().toLowerCase());
-        const matchWin = calcNonNegativeDiff(s.matchWin, prev?.matchWin);
-        const matchLoss = calcNonNegativeDiff(s.matchLoss, prev?.matchLoss);
-        const mapWin = calcNonNegativeDiff(s.mapWin, prev?.mapWin);
-        const mapLoss = calcNonNegativeDiff(s.mapLoss, prev?.mapLoss);
-        return {
-          teamId,
-          teamName: s.teamName,
-          teamShortName: s.teamShortName ?? null,
-          matchWin,
-          matchLoss,
-          matchDiff: matchWin - matchLoss,
-          mapWin,
-          mapLoss,
-          mapDiff: mapWin - mapLoss
-        };
-      });
-
-      const teams = await Team.findAll({
-        where: { id: { [Op.in]: teamIds } }
-      });
-      const teamMap = new Map(teams.map(t => [Number(t.id), t]));
-
-      diffStats.forEach(s => {
-        s.team = teamMap.get(Number(s.teamId)) || null;
-      });
-
-      return res.json(diffStats);
+      const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
+      if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
+      const stats = await SeasonStatsCalculator.calculateSeasonTeamScoreStats(seasonId, options);
+      return res.json(stats);
     } catch (error) {
       console.error('获取赛季战队比分统计失败:', error);
       res.status(500).json({ error: '获取数据失败' });
@@ -227,11 +47,77 @@ const SeasonStatController = {
   getSeasonMapPickStats: async (req, res) => {
     try {
       const { seasonId } = req.params;
-      const stats = await SeasonStatsCalculator.calculateSeasonMapPickStats(seasonId);
+      const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
+      if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
+      const stats = await SeasonStatsCalculator.calculateSeasonMapPickStats(seasonId, options);
       res.json(stats);
     } catch (error) {
       console.error('获取赛季地图选取统计失败:', error);
       res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  // 赛季数据维度探测：判断该赛季是否写入了 ban / 英雄明细 / 最后一击 / 大招充能等新指标，
+  // 供前端按“数据存在性”动态展示对应板块（旧赛季无数据时不展示空板块）。
+  getSeasonFeatures: async (req, res) => {
+    try {
+      const seasonIdNum = Number(req.params.seasonId);
+      if (!Number.isFinite(seasonIdNum)) {
+        return res.status(400).json({ error: 'seasonId 不合法' });
+      }
+      const [rows] = await sequelize.query(`
+        SELECT
+          COUNT(DISTINCT mg.id) AS totalMapGames,
+          COUNT(DISTINCT CASE WHEN mg.team1BanHeroId IS NOT NULL OR mg.team2BanHeroId IS NOT NULL THEN mg.id END) AS mapsWithBans,
+          COUNT(DISTINCT phs.id) AS heroStatRows,
+          SUM(CASE WHEN ps.finalBlows > 0 THEN 1 ELSE 0 END) AS finalBlowRows,
+          SUM(CASE WHEN phs.avgUltChargeSeconds IS NOT NULL OR phs.ultReady > 0 OR phs.ultUsed > 0 THEN 1 ELSE 0 END) AS ultRows
+        FROM map_games mg
+        LEFT JOIN player_stats ps ON ps.mapGameId = mg.id
+        LEFT JOIN player_hero_stats phs ON phs.playerStatId = ps.id
+        WHERE mg.seasonId = :seasonId
+      `, { replacements: { seasonId: seasonIdNum } });
+      const r = rows[0] || {};
+      const num = v => Number(v) || 0;
+      return res.json({
+        seasonId: seasonIdNum,
+        totalMapGames: num(r.totalMapGames),
+        hasBans: num(r.mapsWithBans) > 0,
+        hasHeroStats: num(r.heroStatRows) > 0,
+        hasFinalBlows: num(r.finalBlowRows) > 0,
+        hasUltCharge: num(r.ultRows) > 0
+      });
+    } catch (error) {
+      console.error('获取赛季数据维度探测失败:', error);
+      return res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  // 队伍常用阵容：该队伍在本赛季的五人稳定英雄阵容（按累计在场时长排序，至多三套）
+  getSeasonTeamCompositions: async (req, res) => {
+    try {
+      const { seasonId, teamId } = req.params;
+      const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
+      if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
+      const compositions = await SeasonStatsCalculator.calculateSeasonTeamCompositions(seasonId, teamId, options);
+      return res.json(compositions);
+    } catch (error) {
+      console.error('获取队伍常用阵容失败:', error);
+      return res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  // 队伍英雄数据：英雄使用情况 + ban 倾向（我方 ban / 对手 ban）
+  getSeasonTeamHeroStats: async (req, res) => {
+    try {
+      const { seasonId, teamId } = req.params;
+      const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
+      if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
+      const stats = await SeasonStatsCalculator.calculateSeasonTeamHeroStats(seasonId, teamId, options);
+      return res.json(stats);
+    } catch (error) {
+      console.error('获取队伍英雄数据失败:', error);
+      return res.status(500).json({ error: '获取数据失败' });
     }
   }
 };

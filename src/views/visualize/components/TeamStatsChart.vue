@@ -1,52 +1,37 @@
 <template>
   <div class="vis-card">
-    <SlantedTitle title="队伍数据对比">
-      <template #title-suffix>
-        <el-tooltip content="对比各队伍的输出与生存能力（默认显示综合数据Top5队伍）" placement="top">
-          <el-icon class="info-icon"><InfoFilled /></el-icon>
-        </el-tooltip>
-        <el-button 
-          link 
-          class="export-btn" 
-          @click="handleExport"
-        >
-          <el-icon><Download /></el-icon>
-          <span class="export-text">导出</span>
-        </el-button>
-      </template>
-      <template #extra>
-        <div class="header-controls">
-          <div class="select-wrapper">
-            <el-select 
-              v-model="teamFilter" 
-              placeholder="" 
-              :disabled="!seasonId" 
-              class="team-select-input"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              popper-class="vis-dropdown vis-dropdown-long"
-              size="small"
+    <div class="panel-header">
+      <div class="header-controls">
+        <div class="select-wrapper">
+          <el-select 
+            v-model="teamFilter" 
+            placeholder="" 
+            :disabled="!seasonId" 
+            class="team-select-input"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            popper-class="vis-dropdown vis-dropdown-long"
+            size="small"
+          >
+            <template #prefix>
+              <span class="custom-select-label">队伍筛选列表</span>
+            </template>
+            <el-option
+              v-for="team in teams"
+              :key="team.id"
+              :label="team.name"
+              :value="team.id"
             >
-              <template #prefix>
-                <span class="custom-select-label">队伍筛选列表</span>
-              </template>
-              <el-option
-                v-for="team in teams"
-                :key="team.id"
-                :label="team.name"
-                :value="team.id"
-              >
-                <div class="option-with-logo">
-                  <img v-if="team.logo" :src="team.logo" class="option-logo" alt="" />
-                  <span>{{ team.name }}</span>
-                </div>
-              </el-option>
-            </el-select>
-          </div>
+              <div class="option-with-logo">
+                <img v-if="team.logo" :src="team.logo" class="option-logo" alt="" />
+                <span>{{ team.name }}</span>
+              </div>
+            </el-option>
+          </el-select>
         </div>
-      </template>
-    </SlantedTitle>
+      </div>
+    </div>
     <div class="card-content">
       <div ref="teamComparisonChart" class="chart-container"></div>
       
@@ -118,8 +103,7 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
-import { InfoFilled, ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
-import SlantedTitle from './SlantedTitle.vue';
+import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
 import { trackPublicEvent } from '@/utils/analytics';
@@ -128,8 +112,6 @@ import { escapeHtml } from '@/utils/security';
 export default {
   name: 'TeamStatsChart',
   components: {
-    InfoFilled,
-    SlantedTitle,
     ArrowDown,
     ArrowUp,
     Download,
@@ -341,23 +323,7 @@ export default {
             if (kd < globalMinKD) globalMinKD = kd;
         });
         
-        // 如果没有数据，重置为默认值
-        if (globalMaxDamage === -Infinity) { globalMaxDamage = 1000; globalMinDamage = 0; }
-        if (globalMaxKD === -Infinity) { globalMaxKD = 5; globalMinKD = 0; }
-
-        // 计算 padding，使散点不贴边
-        const damagePadding = (globalMaxDamage - globalMinDamage) * 0.1 || 100;
-        const kdPadding = (globalMaxKD - globalMinKD) * 0.1 || 0.5;
-
-        // 设置坐标轴范围
-        // 确保 min 不小于 0 (除非有负数数据，这里假设没有)
-        const xMin = Math.max(0, Math.floor((globalMinDamage - damagePadding) / 100) * 100); 
-        const xMax = Math.ceil((globalMaxDamage + damagePadding) / 100) * 100;
-        
-        const yMin = Math.max(0, Math.floor((globalMinKD - kdPadding) * 10) / 10);
-        const yMax = Math.ceil((globalMaxKD + kdPadding) * 10) / 10;
-
-        // 2. 处理当前筛选出的数据 for Scatter Plot
+        // 处理当前筛选出的数据 for Scatter Plot
         const seriesData = filteredStats.map(item => {
             const teamName = item.team ? item.team.name : (item.teamName || '未知队伍');
             const durationMinutes = item.totalDuration || 0;
@@ -389,6 +355,28 @@ export default {
                 symbolSize: symbolSize
             };
         });
+
+        // 坐标轴范围按“当前展示的点”计算（此前按全部队伍算，Top 筛选后大片留白、点挤成一团）
+        let minDamage = Infinity, maxDamage = -Infinity, minKD = Infinity, maxKD = -Infinity;
+        seriesData.forEach(d => {
+            const dx = d.value[0];
+            const dy = d.value[1];
+            if (dx < minDamage) minDamage = dx;
+            if (dx > maxDamage) maxDamage = dx;
+            if (dy < minKD) minKD = dy;
+            if (dy > maxKD) maxKD = dy;
+        });
+        if (maxDamage === -Infinity) { minDamage = 0; maxDamage = 1000; }
+        if (maxKD === -Infinity) { minKD = 0; maxKD = 5; }
+
+        // 15% padding 给顶部标签留位；全点重合时给最小跨度避免坐标轴退化
+        const damagePadding = (maxDamage - minDamage) * 0.15 || Math.max(maxDamage * 0.05, 100);
+        const kdPadding = (maxKD - minKD) * 0.15 || 0.5;
+
+        const xMin = Math.max(0, Math.floor((minDamage - damagePadding) / 100) * 100);
+        const xMax = Math.ceil((maxDamage + damagePadding) / 100) * 100;
+        const yMin = Math.max(0, Math.floor((minKD - kdPadding) * 10) / 10);
+        const yMax = Math.ceil((maxKD + kdPadding) * 10) / 10;
 
         const option = {
           title: {
@@ -493,6 +481,9 @@ export default {
               type: 'scatter',
               symbolSize: 20,
               data: seriesData,
+              labelLayout: {
+                  moveOverlap: 'shiftY'
+              },
               label: {
                   show: true,
                   formatter: '{b}',
@@ -820,14 +811,14 @@ export default {
 .team-cell-clickable .team-name {
   color: #111;
   text-decoration: underline;
-  text-decoration-color: rgba(255, 158, 15, 0.42);
+  text-decoration-color: rgba(0, 0, 0, 0.18);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
-.team-cell-clickable:hover .team-name {
+.team-cell-clickable:active .team-name {
   color: #ff6a00;
-  text-decoration-color: #ff6a00;
+  text-decoration-color: rgba(255, 106, 0, 0.55);
 }
 
 .team-roster-cue {
@@ -896,6 +887,15 @@ export default {
 
 .card-content {
   padding: 24px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
 .header-controls {

@@ -1,0 +1,389 @@
+[dotenv@17.2.3] injecting env (15) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+Executing (default): SELECT 1+1 AS result
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'localstats';
+Executing (default): SHOW FULL COLUMNS FROM `map_games`;
+数据库连接成功
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'seasons' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `seasons`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'teams' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `teams`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'matches' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `matches`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'maps' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `maps`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'heroes' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `heroes`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'map_games' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `map_games`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'players' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `players`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'player_stats' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `player_stats`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'player_hero_stats' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `player_hero_stats`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'configs' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `configs`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'season_teams' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `season_teams`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'season_team_players' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `season_team_players`
+Executing (default): SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME = 'season_stages' AND TABLE_SCHEMA = 'localstats'
+Executing (default): SHOW INDEX FROM `season_stages`
+数据库模型同步成功
+Executing (476fb75d-f170-4704-805e-3e7c3779ba15): START TRANSACTION;
+Executing (476fb75d-f170-4704-805e-3e7c3779ba15): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '艾兴瓦尔德';
+Executing (476fb75d-f170-4704-805e-3e7c3779ba15): COMMIT;
+Executing (3424865c-5104-437f-b332-2a2924b09b68): START TRANSACTION;
+Executing (3424865c-5104-437f-b332-2a2924b09b68): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '暴雪世界';
+Executing (3424865c-5104-437f-b332-2a2924b09b68): COMMIT;
+Executing (3fcb865b-5864-4d06-abc6-0c27cfe3757e): START TRANSACTION;
+Executing (3fcb865b-5864-4d06-abc6-0c27cfe3757e): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '好莱坞';
+Executing (3fcb865b-5864-4d06-abc6-0c27cfe3757e): COMMIT;
+Executing (3b2959fc-c053-45f9-8563-48350a0460dc): START TRANSACTION;
+Executing (3b2959fc-c053-45f9-8563-48350a0460dc): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '国王大道';
+Executing (3b2959fc-c053-45f9-8563-48350a0460dc): COMMIT;
+Executing (57c599e9-35ca-4940-8af9-bc10ed68a727): START TRANSACTION;
+Executing (57c599e9-35ca-4940-8af9-bc10ed68a727): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '努巴尼';
+Executing (57c599e9-35ca-4940-8af9-bc10ed68a727): COMMIT;
+Executing (88a23385-dd09-4ddc-9e98-86d787d404f1): START TRANSACTION;
+Executing (88a23385-dd09-4ddc-9e98-86d787d404f1): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '帕拉伊苏';
+Executing (88a23385-dd09-4ddc-9e98-86d787d404f1): COMMIT;
+Executing (b8858c34-b7b6-4a7d-a6cd-564d46c01e0f): START TRANSACTION;
+Executing (b8858c34-b7b6-4a7d-a6cd-564d46c01e0f): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '中城';
+Executing (b8858c34-b7b6-4a7d-a6cd-564d46c01e0f): COMMIT;
+Executing (7a37e9b7-c39d-477e-bf33-fd74613e117f): START TRANSACTION;
+Executing (7a37e9b7-c39d-477e-bf33-fd74613e117f): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '霓虹枢纽';
+Executing (7a37e9b7-c39d-477e-bf33-fd74613e117f): COMMIT;
+Executing (97675d79-36f5-4527-80ca-243e0be67ace): START TRANSACTION;
+Executing (97675d79-36f5-4527-80ca-243e0be67ace): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '监测站：直布罗陀';
+Executing (97675d79-36f5-4527-80ca-243e0be67ace): COMMIT;
+Executing (5a101509-329c-4e58-b23c-bcc919eb96fa): START TRANSACTION;
+Executing (5a101509-329c-4e58-b23c-bcc919eb96fa): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '多拉多';
+Executing (5a101509-329c-4e58-b23c-bcc919eb96fa): COMMIT;
+Executing (11a30fda-eeb1-4080-ace4-fdf85cafcb13): START TRANSACTION;
+Executing (11a30fda-eeb1-4080-ace4-fdf85cafcb13): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '哈瓦那';
+Executing (11a30fda-eeb1-4080-ace4-fdf85cafcb13): COMMIT;
+Executing (56152932-f96a-4ede-9d7e-4899f3917736): START TRANSACTION;
+Executing (56152932-f96a-4ede-9d7e-4899f3917736): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '里阿尔托';
+Executing (56152932-f96a-4ede-9d7e-4899f3917736): COMMIT;
+Executing (81156e13-7e9a-4a96-9b32-3e9834a5ca79): START TRANSACTION;
+Executing (81156e13-7e9a-4a96-9b32-3e9834a5ca79): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '66号公路';
+Executing (81156e13-7e9a-4a96-9b32-3e9834a5ca79): COMMIT;
+Executing (78345001-094e-4bde-b09e-752701e04915): START TRANSACTION;
+Executing (78345001-094e-4bde-b09e-752701e04915): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '皇家赛道';
+Executing (78345001-094e-4bde-b09e-752701e04915): COMMIT;
+Executing (4fa63ca3-cde0-4456-a98d-fda3a1cdac97): START TRANSACTION;
+Executing (4fa63ca3-cde0-4456-a98d-fda3a1cdac97): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '渣客镇';
+Executing (4fa63ca3-cde0-4456-a98d-fda3a1cdac97): COMMIT;
+Executing (38bd5285-93bd-4ef5-b478-131c3cd6f4d9): START TRANSACTION;
+Executing (38bd5285-93bd-4ef5-b478-131c3cd6f4d9): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '香巴里寺院';
+Executing (38bd5285-93bd-4ef5-b478-131c3cd6f4d9): COMMIT;
+Executing (705446a5-a21a-471e-9921-72d1e33a47eb): START TRANSACTION;
+Executing (705446a5-a21a-471e-9921-72d1e33a47eb): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '绿洲城';
+Executing (705446a5-a21a-471e-9921-72d1e33a47eb): COMMIT;
+Executing (e8db9cfc-0b43-4f2e-a269-8fb1ff44ea1c): START TRANSACTION;
+Executing (e8db9cfc-0b43-4f2e-a269-8fb1ff44ea1c): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '南极半岛';
+Executing (e8db9cfc-0b43-4f2e-a269-8fb1ff44ea1c): COMMIT;
+Executing (cd80f0b4-9cfc-4c27-be39-152f6a8b96fe): START TRANSACTION;
+Executing (cd80f0b4-9cfc-4c27-be39-152f6a8b96fe): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '伊利奥斯';
+Executing (cd80f0b4-9cfc-4c27-be39-152f6a8b96fe): COMMIT;
+Executing (732bba66-827c-4d4c-af0e-97d2cd30e485): START TRANSACTION;
+Executing (732bba66-827c-4d4c-af0e-97d2cd30e485): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '漓江塔';
+Executing (732bba66-827c-4d4c-af0e-97d2cd30e485): COMMIT;
+Executing (70fa96f4-c6d9-4065-bae8-43b147472765): START TRANSACTION;
+Executing (70fa96f4-c6d9-4065-bae8-43b147472765): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '尼泊尔';
+Executing (70fa96f4-c6d9-4065-bae8-43b147472765): COMMIT;
+Executing (ed3d7578-d220-45a0-a5f5-d93d8027ea42): START TRANSACTION;
+Executing (ed3d7578-d220-45a0-a5f5-d93d8027ea42): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '釜山';
+Executing (ed3d7578-d220-45a0-a5f5-d93d8027ea42): COMMIT;
+Executing (0b808649-e3b7-47ed-aa3c-21f40eaa83af): START TRANSACTION;
+Executing (0b808649-e3b7-47ed-aa3c-21f40eaa83af): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '萨摩亚';
+Executing (0b808649-e3b7-47ed-aa3c-21f40eaa83af): COMMIT;
+Executing (4d48da2d-f3ea-4389-afa0-46de1944c08e): START TRANSACTION;
+Executing (4d48da2d-f3ea-4389-afa0-46de1944c08e): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '阿特利斯';
+Executing (4d48da2d-f3ea-4389-afa0-46de1944c08e): COMMIT;
+Executing (c1aba9d7-2970-4e7b-95d4-03df7207cedd): START TRANSACTION;
+Executing (c1aba9d7-2970-4e7b-95d4-03df7207cedd): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '新渣客城';
+Executing (c1aba9d7-2970-4e7b-95d4-03df7207cedd): COMMIT;
+Executing (18b9c154-8e3c-4b8b-b776-be5cce208df0): START TRANSACTION;
+Executing (18b9c154-8e3c-4b8b-b776-be5cce208df0): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '苏拉瓦萨';
+Executing (18b9c154-8e3c-4b8b-b776-be5cce208df0): COMMIT;
+Executing (b363c2ba-28fc-40ef-8c6d-edf3569b2d1b): START TRANSACTION;
+Executing (b363c2ba-28fc-40ef-8c6d-edf3569b2d1b): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '新皇后街';
+Executing (b363c2ba-28fc-40ef-8c6d-edf3569b2d1b): COMMIT;
+Executing (25e1068e-2794-4e6c-91cb-29aa20794201): START TRANSACTION;
+Executing (25e1068e-2794-4e6c-91cb-29aa20794201): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '鲁纳塞彼';
+Executing (25e1068e-2794-4e6c-91cb-29aa20794201): COMMIT;
+Executing (615873d4-36a7-4f49-93a5-251158b9b09f): START TRANSACTION;
+Executing (615873d4-36a7-4f49-93a5-251158b9b09f): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '斗兽场';
+Executing (615873d4-36a7-4f49-93a5-251158b9b09f): COMMIT;
+Executing (a4a2bbd2-629f-4806-8fa7-1cf0c3cb74a0): START TRANSACTION;
+Executing (a4a2bbd2-629f-4806-8fa7-1cf0c3cb74a0): SELECT `id`, `name`, `type` FROM `maps` AS `Map` WHERE `Map`.`name` = '埃斯佩兰萨';
+Executing (a4a2bbd2-629f-4806-8fa7-1cf0c3cb74a0): COMMIT;
+Executing (eab614fd-ae57-4751-a05f-5c2ec7768064): START TRANSACTION;
+Executing (eab614fd-ae57-4751-a05f-5c2ec7768064): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '毛加';
+Executing (eab614fd-ae57-4751-a05f-5c2ec7768064): COMMIT;
+Executing (3699a447-ce1d-4988-9777-f03ac0764d7f): START TRANSACTION;
+Executing (3699a447-ce1d-4988-9777-f03ac0764d7f): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '奥丽莎';
+Executing (3699a447-ce1d-4988-9777-f03ac0764d7f): COMMIT;
+Executing (a049811f-9207-4353-9934-585116468e4a): START TRANSACTION;
+Executing (a049811f-9207-4353-9934-585116468e4a): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '路霸';
+Executing (a049811f-9207-4353-9934-585116468e4a): COMMIT;
+Executing (162a648a-0739-4b7c-9950-bdb8a39a1399): START TRANSACTION;
+Executing (162a648a-0739-4b7c-9950-bdb8a39a1399): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '查莉娅';
+Executing (162a648a-0739-4b7c-9950-bdb8a39a1399): COMMIT;
+Executing (f347fa61-31b4-467f-8244-3077b0ca476e): START TRANSACTION;
+Executing (f347fa61-31b4-467f-8244-3077b0ca476e): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = 'D.Va';
+Executing (f347fa61-31b4-467f-8244-3077b0ca476e): COMMIT;
+Executing (7ec063cc-bc97-4b62-81cb-3d211fc8e0a7): START TRANSACTION;
+Executing (7ec063cc-bc97-4b62-81cb-3d211fc8e0a7): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '末日铁拳';
+Executing (7ec063cc-bc97-4b62-81cb-3d211fc8e0a7): COMMIT;
+Executing (f86c37c2-bd2c-4921-a7d3-9393b35d0dc8): START TRANSACTION;
+Executing (f86c37c2-bd2c-4921-a7d3-9393b35d0dc8): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '温斯顿';
+Executing (f86c37c2-bd2c-4921-a7d3-9393b35d0dc8): COMMIT;
+Executing (5e3f2e05-e01e-40ac-b3c2-5b69823ec040): START TRANSACTION;
+Executing (5e3f2e05-e01e-40ac-b3c2-5b69823ec040): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '破坏球';
+Executing (5e3f2e05-e01e-40ac-b3c2-5b69823ec040): COMMIT;
+Executing (f5958b85-e59b-43aa-8c79-c6bf8a3ea729): START TRANSACTION;
+Executing (f5958b85-e59b-43aa-8c79-c6bf8a3ea729): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '金驭';
+Executing (f5958b85-e59b-43aa-8c79-c6bf8a3ea729): COMMIT;
+Executing (910a71b8-5511-4f4a-bf79-eed34e1969a7): START TRANSACTION;
+Executing (910a71b8-5511-4f4a-bf79-eed34e1969a7): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '骇灾';
+Executing (910a71b8-5511-4f4a-bf79-eed34e1969a7): COMMIT;
+Executing (2534669a-5a4f-4c03-8ee4-b8aec3f6f786): START TRANSACTION;
+Executing (2534669a-5a4f-4c03-8ee4-b8aec3f6f786): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '渣客女王';
+Executing (2534669a-5a4f-4c03-8ee4-b8aec3f6f786): COMMIT;
+Executing (abcfc711-e1aa-4e43-b12d-69015a19fb8c): START TRANSACTION;
+Executing (abcfc711-e1aa-4e43-b12d-69015a19fb8c): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '拉玛刹';
+Executing (abcfc711-e1aa-4e43-b12d-69015a19fb8c): COMMIT;
+Executing (1fc86689-d054-4e35-90c8-52fc634e16d0): START TRANSACTION;
+Executing (1fc86689-d054-4e35-90c8-52fc634e16d0): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '莱因哈特';
+Executing (1fc86689-d054-4e35-90c8-52fc634e16d0): COMMIT;
+Executing (55eceeae-1076-4049-9e60-a027e3b7f5df): START TRANSACTION;
+Executing (55eceeae-1076-4049-9e60-a027e3b7f5df): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '西格玛';
+Executing (55eceeae-1076-4049-9e60-a027e3b7f5df): COMMIT;
+Executing (55adb271-590e-4b3e-b7c7-07edc65df2d8): START TRANSACTION;
+Executing (55adb271-590e-4b3e-b7c7-07edc65df2d8): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '艾什';
+Executing (55adb271-590e-4b3e-b7c7-07edc65df2d8): COMMIT;
+Executing (a098436c-2db7-4e87-a1f4-875e9266033b): START TRANSACTION;
+Executing (a098436c-2db7-4e87-a1f4-875e9266033b): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '卡西迪';
+Executing (a098436c-2db7-4e87-a1f4-875e9266033b): COMMIT;
+Executing (471d660c-975e-46e7-ba9c-d5306b7e62d3): START TRANSACTION;
+Executing (471d660c-975e-46e7-ba9c-d5306b7e62d3): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '半藏';
+Executing (471d660c-975e-46e7-ba9c-d5306b7e62d3): COMMIT;
+Executing (b651bcd3-e365-4192-b26f-427b2e386326): START TRANSACTION;
+Executing (b651bcd3-e365-4192-b26f-427b2e386326): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '索杰恩';
+Executing (b651bcd3-e365-4192-b26f-427b2e386326): COMMIT;
+Executing (950af6b3-7013-4250-ba23-ef89ee3c5e81): START TRANSACTION;
+Executing (950af6b3-7013-4250-ba23-ef89ee3c5e81): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '黑百合';
+Executing (950af6b3-7013-4250-ba23-ef89ee3c5e81): COMMIT;
+Executing (8120dedd-34fc-482c-92d8-e6cc1b8a9d9a): START TRANSACTION;
+Executing (8120dedd-34fc-482c-92d8-e6cc1b8a9d9a): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '安燃';
+Executing (8120dedd-34fc-482c-92d8-e6cc1b8a9d9a): COMMIT;
+Executing (d8f934b7-b93e-45a5-ac21-4c0ad507397b): START TRANSACTION;
+Executing (d8f934b7-b93e-45a5-ac21-4c0ad507397b): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '死怨';
+Executing (d8f934b7-b93e-45a5-ac21-4c0ad507397b): COMMIT;
+Executing (7630672f-ba3f-477a-9efc-81e0e492f48f): START TRANSACTION;
+Executing (7630672f-ba3f-477a-9efc-81e0e492f48f): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '源氏';
+Executing (7630672f-ba3f-477a-9efc-81e0e492f48f): COMMIT;
+Executing (aedf1e27-ee99-4e32-9f44-7ce5ba3fd5a0): START TRANSACTION;
+Executing (aedf1e27-ee99-4e32-9f44-7ce5ba3fd5a0): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '死神';
+Executing (aedf1e27-ee99-4e32-9f44-7ce5ba3fd5a0): COMMIT;
+Executing (54d905e0-360d-41a9-8285-b2e516e2549c): START TRANSACTION;
+Executing (54d905e0-360d-41a9-8285-b2e516e2549c): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '猎空';
+Executing (54d905e0-360d-41a9-8285-b2e516e2549c): COMMIT;
+Executing (efbb8f50-5c98-4746-be11-d394dae39dc9): START TRANSACTION;
+Executing (efbb8f50-5c98-4746-be11-d394dae39dc9): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '斩仇';
+Executing (efbb8f50-5c98-4746-be11-d394dae39dc9): COMMIT;
+Executing (7ec2bd54-1d55-46e5-8f23-58fbd1ec2c4e): START TRANSACTION;
+Executing (7ec2bd54-1d55-46e5-8f23-58fbd1ec2c4e): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '探奇';
+Executing (7ec2bd54-1d55-46e5-8f23-58fbd1ec2c4e): COMMIT;
+Executing (d40a6d72-217f-4b87-9dc4-f12953d08416): START TRANSACTION;
+Executing (d40a6d72-217f-4b87-9dc4-f12953d08416): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '堡垒';
+Executing (d40a6d72-217f-4b87-9dc4-f12953d08416): COMMIT;
+Executing (6c2dc484-b2f4-4e1a-a7e4-303a41ef1407): START TRANSACTION;
+Executing (6c2dc484-b2f4-4e1a-a7e4-303a41ef1407): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '埃姆雷';
+Executing (6c2dc484-b2f4-4e1a-a7e4-303a41ef1407): COMMIT;
+Executing (b34ae772-c1ce-4a3c-8fcb-ed90d56ed6a5): START TRANSACTION;
+Executing (b34ae772-c1ce-4a3c-8fcb-ed90d56ed6a5): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '狂鼠';
+Executing (b34ae772-c1ce-4a3c-8fcb-ed90d56ed6a5): COMMIT;
+Executing (09f5aec2-732f-4e34-ba22-1be443f75de9): START TRANSACTION;
+Executing (09f5aec2-732f-4e34-ba22-1be443f75de9): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '美';
+Executing (09f5aec2-732f-4e34-ba22-1be443f75de9): COMMIT;
+Executing (d1b52226-aff5-4049-818c-3ec376c2c69e): START TRANSACTION;
+Executing (d1b52226-aff5-4049-818c-3ec376c2c69e): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '士兵：76';
+Executing (d1b52226-aff5-4049-818c-3ec376c2c69e): COMMIT;
+Executing (130c718a-941d-4747-b85f-4b7df8150f17): START TRANSACTION;
+Executing (130c718a-941d-4747-b85f-4b7df8150f17): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '秩序之光';
+Executing (130c718a-941d-4747-b85f-4b7df8150f17): COMMIT;
+Executing (f4094347-4c49-4cde-86b0-29b09f519564): START TRANSACTION;
+Executing (f4094347-4c49-4cde-86b0-29b09f519564): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '托比昂';
+Executing (f4094347-4c49-4cde-86b0-29b09f519564): COMMIT;
+Executing (5562c879-95a0-4d28-931c-a5931e969f31): START TRANSACTION;
+Executing (5562c879-95a0-4d28-931c-a5931e969f31): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '回声';
+Executing (5562c879-95a0-4d28-931c-a5931e969f31): COMMIT;
+Executing (5accd03b-8b2d-4aad-8551-b7ded2b32895): START TRANSACTION;
+Executing (5accd03b-8b2d-4aad-8551-b7ded2b32895): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '弗雷娅';
+Executing (5accd03b-8b2d-4aad-8551-b7ded2b32895): COMMIT;
+Executing (25044e30-6ef9-4401-aa7d-5aebc7d5359a): START TRANSACTION;
+Executing (25044e30-6ef9-4401-aa7d-5aebc7d5359a): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '法老之鹰';
+Executing (25044e30-6ef9-4401-aa7d-5aebc7d5359a): COMMIT;
+Executing (076a3599-5d4f-4c04-9024-cbcdad32b098): START TRANSACTION;
+Executing (076a3599-5d4f-4c04-9024-cbcdad32b098): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '西拉';
+Executing (076a3599-5d4f-4c04-9024-cbcdad32b098): COMMIT;
+Executing (15642f22-eeae-4fa5-aec8-005ed88ba18f): START TRANSACTION;
+Executing (15642f22-eeae-4fa5-aec8-005ed88ba18f): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '黑影';
+Executing (15642f22-eeae-4fa5-aec8-005ed88ba18f): COMMIT;
+Executing (d0184531-e840-4ca0-b254-c6ceeb5267d5): START TRANSACTION;
+Executing (d0184531-e840-4ca0-b254-c6ceeb5267d5): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '安娜';
+Executing (d0184531-e840-4ca0-b254-c6ceeb5267d5): COMMIT;
+Executing (c1e6c695-7bb1-4afa-9abd-f2f8ed11cc95): START TRANSACTION;
+Executing (c1e6c695-7bb1-4afa-9abd-f2f8ed11cc95): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '巴蒂斯特';
+Executing (c1e6c695-7bb1-4afa-9abd-f2f8ed11cc95): COMMIT;
+Executing (a78b44cd-a43d-475d-8920-991421d364b7): START TRANSACTION;
+Executing (a78b44cd-a43d-475d-8920-991421d364b7): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '飞天猫';
+Executing (a78b44cd-a43d-475d-8920-991421d364b7): COMMIT;
+Executing (462c1a2c-93d8-426d-90c1-2ea38ebc1d38): START TRANSACTION;
+Executing (462c1a2c-93d8-426d-90c1-2ea38ebc1d38): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '卢西奥';
+Executing (462c1a2c-93d8-426d-90c1-2ea38ebc1d38): COMMIT;
+Executing (0adc39e2-433c-4c49-8bc2-38fd908b5d3f): START TRANSACTION;
+Executing (0adc39e2-433c-4c49-8bc2-38fd908b5d3f): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '禅雅塔';
+Executing (0adc39e2-433c-4c49-8bc2-38fd908b5d3f): COMMIT;
+Executing (32de8c33-c135-4e67-bc91-5983c28b4c8c): START TRANSACTION;
+Executing (32de8c33-c135-4e67-bc91-5983c28b4c8c): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '雾子';
+Executing (32de8c33-c135-4e67-bc91-5983c28b4c8c): COMMIT;
+Executing (939821f1-d272-464b-83d5-0c07c95c6578): START TRANSACTION;
+Executing (939821f1-d272-464b-83d5-0c07c95c6578): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '生命之梭';
+Executing (939821f1-d272-464b-83d5-0c07c95c6578): COMMIT;
+Executing (68085d31-7b2c-4934-b8ff-5a57345dfb11): START TRANSACTION;
+Executing (68085d31-7b2c-4934-b8ff-5a57345dfb11): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '天使';
+Executing (68085d31-7b2c-4934-b8ff-5a57345dfb11): COMMIT;
+Executing (a167188a-fbb9-461f-8a79-72bedc766cef): START TRANSACTION;
+Executing (a167188a-fbb9-461f-8a79-72bedc766cef): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '莫伊拉';
+Executing (a167188a-fbb9-461f-8a79-72bedc766cef): COMMIT;
+Executing (827bedf6-8476-48b2-84c0-01495067ae87): START TRANSACTION;
+Executing (827bedf6-8476-48b2-84c0-01495067ae87): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '布里吉塔';
+Executing (827bedf6-8476-48b2-84c0-01495067ae87): COMMIT;
+Executing (33a617bb-b2a3-4f24-90c4-9b043b681902): START TRANSACTION;
+Executing (33a617bb-b2a3-4f24-90c4-9b043b681902): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '伊拉锐';
+Executing (33a617bb-b2a3-4f24-90c4-9b043b681902): COMMIT;
+Executing (f82a3c7b-8814-487a-a3a2-f45c0fc6e5db): START TRANSACTION;
+Executing (f82a3c7b-8814-487a-a3a2-f45c0fc6e5db): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '朱诺';
+Executing (f82a3c7b-8814-487a-a3a2-f45c0fc6e5db): COMMIT;
+Executing (ae199844-b7e2-4385-9e56-14e46d29207c): START TRANSACTION;
+Executing (ae199844-b7e2-4385-9e56-14e46d29207c): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '瑞稀';
+Executing (ae199844-b7e2-4385-9e56-14e46d29207c): COMMIT;
+Executing (d40d3ae5-7608-4d1a-8a40-882d946cb2af): START TRANSACTION;
+Executing (d40d3ae5-7608-4d1a-8a40-882d946cb2af): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero` WHERE `Hero`.`name` = '无漾';
+Executing (d40d3ae5-7608-4d1a-8a40-882d946cb2af): COMMIT;
+基础数据初始化成功
+服务器运行在 http://localhost:3398
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): START TRANSACTION;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SAVEPOINT `e2d9b12c-ca4e-487f-96b0-fa408fcce254-sp-1`;
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (e2d9b12c-ca4e-487f-96b0-fa408fcce254): COMMIT;
+Executing (7d460279-0913-4594-980c-69c6144357cc): START TRANSACTION;
+Executing (7d460279-0913-4594-980c-69c6144357cc): SAVEPOINT `7d460279-0913-4594-980c-69c6144357cc-sp-1`;
+Executing (7d460279-0913-4594-980c-69c6144357cc): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (7d460279-0913-4594-980c-69c6144357cc): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (7d460279-0913-4594-980c-69c6144357cc): COMMIT;
+[match-sync] Incremental match sync completed
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (66f54612-f523-46fd-956f-59188c763dd8): START TRANSACTION;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SAVEPOINT `66f54612-f523-46fd-956f-59188c763dd8-sp-1`;
+Executing (66f54612-f523-46fd-956f-59188c763dd8): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (66f54612-f523-46fd-956f-59188c763dd8): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (66f54612-f523-46fd-956f-59188c763dd8): COMMIT;
+Executing (c58055cd-a3ed-4ca4-8718-24392a93b346): START TRANSACTION;
+Executing (c58055cd-a3ed-4ca4-8718-24392a93b346): SAVEPOINT `c58055cd-a3ed-4ca4-8718-24392a93b346-sp-1`;
+Executing (c58055cd-a3ed-4ca4-8718-24392a93b346): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (c58055cd-a3ed-4ca4-8718-24392a93b346): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (c58055cd-a3ed-4ca4-8718-24392a93b346): COMMIT;
+[match-sync] Incremental match sync completed
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): START TRANSACTION;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SAVEPOINT `82b97871-5135-4a36-8c05-cf12829b7cd3-sp-1`;
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (82b97871-5135-4a36-8c05-cf12829b7cd3): COMMIT;
+Executing (c3a2a970-d64a-400c-a144-84f56b23afc9): START TRANSACTION;
+Executing (c3a2a970-d64a-400c-a144-84f56b23afc9): SAVEPOINT `c3a2a970-d64a-400c-a144-84f56b23afc9-sp-1`;
+Executing (c3a2a970-d64a-400c-a144-84f56b23afc9): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (c3a2a970-d64a-400c-a144-84f56b23afc9): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (c3a2a970-d64a-400c-a144-84f56b23afc9): COMMIT;
+[match-sync] Incremental match sync completed
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): START TRANSACTION;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SAVEPOINT `9d0a8a9a-7b29-42bd-aaca-51a08030c65b-sp-1`;
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (9d0a8a9a-7b29-42bd-aaca-51a08030c65b): COMMIT;
+Executing (20e2b7da-fc89-4cff-8209-2d3bffd14942): START TRANSACTION;
+Executing (20e2b7da-fc89-4cff-8209-2d3bffd14942): SAVEPOINT `20e2b7da-fc89-4cff-8209-2d3bffd14942-sp-1`;
+Executing (20e2b7da-fc89-4cff-8209-2d3bffd14942): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (20e2b7da-fc89-4cff-8209-2d3bffd14942): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (20e2b7da-fc89-4cff-8209-2d3bffd14942): COMMIT;
+[match-sync] Incremental match sync completed
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): START TRANSACTION;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SAVEPOINT `4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3-sp-1`;
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (4ae89d34-2771-4f8e-9007-a8e9d8bbc6b3): COMMIT;
+Executing (1b4e4531-ec61-48ca-b330-8653ac32f613): START TRANSACTION;
+Executing (1b4e4531-ec61-48ca-b330-8653ac32f613): SAVEPOINT `1b4e4531-ec61-48ca-b330-8653ac32f613-sp-1`;
+Executing (1b4e4531-ec61-48ca-b330-8653ac32f613): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (1b4e4531-ec61-48ca-b330-8653ac32f613): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (1b4e4531-ec61-48ca-b330-8653ac32f613): COMMIT;
+[match-sync] Incremental match sync completed
+Executing (default): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): START TRANSACTION;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'team_name_mapping';
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `id`, `name`, `stage`, `status`, `externalEventName` FROM `seasons` AS `Season`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `id`, `name`, `logo`, `region` FROM `teams` AS `Team`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `id`, `name`, `type` FROM `maps` AS `Map`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `id`, `name`, `role` FROM `players` AS `Player`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `id`, `name`, `role`, `subRole` FROM `heroes` AS `Hero`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SAVEPOINT `e17dbb0a-0b69-4db2-94b1-9b93cb43fa07-sp-1`;
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'external_match_sync_cursor_v2';
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (e17dbb0a-0b69-4db2-94b1-9b93cb43fa07): COMMIT;
+Executing (01f407d6-d0df-406f-bbb7-2d6d01a2c667): START TRANSACTION;
+Executing (01f407d6-d0df-406f-bbb7-2d6d01a2c667): SAVEPOINT `01f407d6-d0df-406f-bbb7-2d6d01a2c667-sp-1`;
+Executing (01f407d6-d0df-406f-bbb7-2d6d01a2c667): SELECT `key`, `value`, `description`, `createdAt`, `updatedAt` FROM `configs` AS `Config` WHERE `Config`.`key` = 'latest_match_sync_updates';
+Executing (01f407d6-d0df-406f-bbb7-2d6d01a2c667): UPDATE `configs` SET `value`=?,`updatedAt`=? WHERE `key` = ?
+Executing (01f407d6-d0df-406f-bbb7-2d6d01a2c667): COMMIT;
+[match-sync] Incremental match sync completed

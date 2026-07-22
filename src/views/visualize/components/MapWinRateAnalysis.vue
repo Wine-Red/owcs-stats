@@ -6,16 +6,16 @@
 
     <template v-else>
       <section class="analysis-section">
-        <div class="analysis-heading">
+        <div v-if="!hideHeading" class="analysis-heading">
           <h3 class="heading-title">模式胜率</h3>
         </div>
 
-        <div class="mode-accordion-list">
+        <div class="mode-accordion-list" :class="{ 'is-single-list': !isCompare }">
           <article
             v-for="section in modeMapSections"
             :key="section.type"
             class="mode-accordion-item"
-            :class="{ expanded: isModeExpanded(section.type) }"
+            :class="{ expanded: isModeExpanded(section.type), 'single-mode-item': !isCompare }"
           >
             <button
               class="mode-accordion-header"
@@ -79,8 +79,7 @@
               </template>
             </button>
 
-            <transition name="accordion-collapse">
-              <div v-show="isModeExpanded(section.type)" class="mode-accordion-body">
+            <div v-show="isModeExpanded(section.type)" class="mode-accordion-body">
               <div class="map-card-grid">
                 <article
                   v-for="entry in section.maps"
@@ -118,26 +117,27 @@
                       </div>
                     </div>
 
-                    <div v-else class="single-map-record compact-record">{{ formatRecord(entry) }}</div>
-
-                    <div v-if="!isCompare && showSingleOpponents && entry.opponents?.length" class="map-opponents-row">
-                      <span class="opponents-label">对手</span>
-                      <div class="opponents-list">
-                        <span
-                          v-for="opponent in entry.opponents"
-                          :key="`${entry.mapId}-${opponent.name}`"
-                          class="opponent-chip"
-                          :class="{
-                            'is-win': opponent.won > 0 && opponent.lost === 0,
-                            'is-loss': opponent.lost > 0 && opponent.won === 0,
-                            'is-mixed': opponent.won > 0 && opponent.lost > 0
-                          }"
-                        >
-                          <span class="opponent-name">{{ opponent.name }}</span>
-                          <span class="opponent-result">
-                            {{ opponent.won > 0 && opponent.lost > 0 ? `${opponent.won}胜${opponent.lost}负` : (opponent.won > 0 ? '胜' : '负') }}
+                    <div v-if="!isCompare" class="map-sub-line">
+                      <span class="single-map-record compact-record">{{ formatRecord(entry) }}</span>
+                      <div v-if="showSingleOpponents && entry.opponents?.length" class="map-opponents-row">
+                        <span class="opponents-label">对手</span>
+                        <div class="opponents-list">
+                          <span
+                            v-for="opponent in entry.opponents"
+                            :key="`${entry.mapId}-${opponent.name}`"
+                            class="opponent-chip"
+                            :class="{
+                              'is-win': opponent.won > 0 && opponent.lost === 0,
+                              'is-loss': opponent.lost > 0 && opponent.won === 0,
+                              'is-mixed': opponent.won > 0 && opponent.lost > 0
+                            }"
+                          >
+                            <span class="opponent-name">{{ opponent.name }}</span>
+                            <span class="opponent-result">
+                              {{ opponent.won > 0 && opponent.lost > 0 ? `${opponent.won}胜${opponent.lost}负` : (opponent.won > 0 ? '胜' : '负') }}
+                            </span>
                           </span>
-                        </span>
+                        </div>
                       </div>
                     </div>
 
@@ -152,8 +152,7 @@
                   </div>
                 </article>
               </div>
-              </div>
-            </transition>
+            </div>
           </article>
         </div>
       </section>
@@ -215,6 +214,10 @@ export default {
       default: true
     },
     showSingleOpponents: {
+      type: Boolean,
+      default: false
+    },
+    hideHeading: {
       type: Boolean,
       default: false
     }
@@ -527,11 +530,7 @@ export default {
 
     watch(modeMapSections, (sections) => {
       const validTypes = sections.map((section) => section.type);
-      const nextExpanded = expandedModes.value.filter((type) => validTypes.includes(type));
-      if (!nextExpanded.length && validTypes.length) {
-        nextExpanded.push(validTypes[0]);
-      }
-      expandedModes.value = nextExpanded;
+      expandedModes.value = expandedModes.value.filter((type) => validTypes.includes(type));
     }, { immediate: true });
 
     const formatPercent = (value) => `${Math.round(Number(value || 0))}%`;
@@ -690,6 +689,28 @@ export default {
 
 .mode-accordion-header.is-single-header {
   grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 9px 2px;
+  border: 0;
+  border-bottom: 1px solid #f0f2f5;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 8px;
+}
+
+.mode-accordion-header.is-single-header::before {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode-accordion-header.is-single-header:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.mode-accordion-item.expanded .mode-accordion-header.is-single-header {
+  border-bottom-color: rgba(255, 106, 0, 0.36);
 }
 
 .header-side {
@@ -697,7 +718,9 @@ export default {
 }
 
 .is-single-header .header-side {
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
   text-align: right;
 }
 
@@ -714,19 +737,19 @@ export default {
 
 .is-single-header .mode-badge {
   justify-content: flex-start;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 900;
-  gap: 8px;
+  gap: 7px;
 }
 
 .is-single-header .mode-icon-mask {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .is-single-header .mode-side-value {
-  font-size: 24px;
+  font-size: 16px;
 }
 
 .single-header-meta {
@@ -758,26 +781,6 @@ export default {
 
 .mode-accordion-body {
   padding: 0;
-}
-
-.accordion-collapse-enter-active,
-.accordion-collapse-leave-active {
-  transition: max-height 0.28s ease, opacity 0.22s ease, transform 0.28s ease;
-  overflow: hidden;
-}
-
-.accordion-collapse-enter-from,
-.accordion-collapse-leave-to {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-.accordion-collapse-enter-to,
-.accordion-collapse-leave-from {
-  max-height: 1200px;
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .analysis-heading {
@@ -915,6 +918,120 @@ export default {
   gap: 8px;
 }
 
+/* 单队模式：整体更紧凑 */
+.is-single-list {
+  gap: 0;
+}
+
+.is-single-list .mode-accordion-body {
+  padding: 4px 0 10px;
+}
+
+.is-single-list .map-card-grid {
+  gap: 6px;
+}
+
+.is-single-list .single-map-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+  padding: 9px 2px;
+  border: 0;
+  border-bottom: 1px solid #f0f2f5;
+  border-radius: 0;
+  background: transparent;
+}
+
+.is-single-list .single-map-card:last-child {
+  border-bottom: 0;
+}
+
+.is-single-list .single-map-card::before {
+  display: none;
+}
+
+.is-single-list .map-thumb {
+  width: 64px;
+  height: 40px;
+  min-height: 0;
+  flex: 0 0 64px;
+  border-radius: 6px;
+  background-color: #f0f2f5;
+  box-shadow: 0 1px 3px rgba(16, 21, 28, 0.12);
+}
+
+.is-single-list .map-thumb::after {
+  display: none;
+}
+
+.is-single-list .map-compact-content {
+  flex: 1 1 auto;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.is-single-list .compact-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.is-single-list .compact-rate {
+  font-size: 17px;
+}
+
+.is-single-list .compact-record {
+  font-size: 10px;
+}
+
+.map-sub-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.is-single-list .opponents-label {
+  font-size: 10px;
+}
+
+.is-single-list .opponent-chip,
+.is-single-list .opponent-chip.is-win,
+.is-single-list .opponent-chip.is-loss,
+.is-single-list .opponent-chip.is-mixed {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: 10px;
+}
+
+.is-single-list .opponent-chip.is-win {
+  color: #28a745;
+}
+
+.is-single-list .opponent-chip.is-loss {
+  color: #dc3545;
+}
+
+.is-single-list .opponent-chip.is-mixed {
+  color: #ff6a00;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .is-single-list .single-map-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.is-single-list .single-map-card.is-cover-card {
+  grid-template-columns: 1fr;
+  min-height: 96px;
+}
+
 .single-map-card {
   position: relative;
   display: grid;
@@ -1027,6 +1144,10 @@ export default {
   width: 28px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.34) 58%, #fff 100%);
   pointer-events: none;
+}
+
+.is-single-list .map-compact-content::before {
+  display: none;
 }
 
 .single-map-card.is-cover-card .map-compact-content {

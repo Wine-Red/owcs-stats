@@ -91,7 +91,6 @@ const apiService = {
   getMapGames: (filters) => api.get('/map-games', { params: filters }),
   getMapGameById: (id) => api.get(`/map-games/${id}`),
   getMapGameEditContext: (id) => api.get(`/map-games/${id}/edit-context`),
-  createMapGame: (data) => api.post('/map-games', data),
   updateMapGame: (id, data) => api.put(`/map-games/${id}`, data),
   deleteMapGame: (id) => api.delete(`/map-games/${id}`),
   getMapGamePlayerStats: (mapGameId) => api.get(`/map-games/${mapGameId}/player-stats`),
@@ -113,6 +112,9 @@ const apiService = {
   getHeroStatsData: (params) => api.get('/stats/hero', { params }),
   getHeroBanStatsData: (params) => api.get('/stats/hero/ban', { params }),
   getMapPickStatsData: (params) => api.get('/stats/map/pick', { params }),
+  getHeroOverviewData: (params) => api.get('/stats/hero/overview', { params }),
+  getHeroPlayersData: (params) => api.get('/stats/hero/players', { params }),
+  getPlayerHeroesData: (params) => api.get('/stats/player/heroes', { params }),
   comparePlayers: (playerIds) => api.get('/stats/player/compare', { params: { playerIds } }),
   compareTeams: (teamIds) => api.get('/stats/team/compare', { params: { teamIds } }),
   
@@ -132,20 +134,21 @@ const apiService = {
   deleteSeasonTeamPlayer: (id) => api.delete(`/season-team-players/${id}`),
 
   // Season Stats (New)
-  getSeasonPlayerStats: (seasonId) => api.get(`/season-stats/${seasonId}`),
+  getSeasonPlayerStats: (seasonId, params) => api.get(`/season-stats/${seasonId}`, params ? { params } : undefined),
   getSeasonTeamScoreStats: (seasonId, params) => api.get(`/season-stats/${seasonId}/team-score`, params ? { params } : undefined),
-  getSeasonMapPickStats: (seasonId) => api.get(`/season-stats/${seasonId}/map-picks`),
-  getSeasonStageSnapshots: (seasonId) => api.get(`/season-stats/${seasonId}/stage-snapshots`),
-  createSeasonStageSnapshot: (seasonId, data) => api.post(`/season-stats/${seasonId}/stage-snapshots`, data),
-  deleteSeasonStageSnapshot: (snapshotId) => api.delete(`/season-stats/stage-snapshots/${snapshotId}`),
-
+  getSeasonMapPickStats: (seasonId, params) => api.get(`/season-stats/${seasonId}/map-picks`, params ? { params } : undefined),
+  getSeasonTeamCompositions: (seasonId, teamId, params) => api.get(`/season-stats/${seasonId}/teams/${teamId}/compositions`, params ? { params } : undefined),
+  getSeasonTeamHeroStats: (seasonId, teamId, params) => api.get(`/season-stats/${seasonId}/teams/${teamId}/hero-stats`, params ? { params } : undefined),
+  getSeasonFeatures: (seasonId) => api.get(`/season-stats/${seasonId}/features`),
+  getSeasonStages: (seasonId) => api.get(`/season-stats/${seasonId}/stages`),
+  createSeasonStage: (seasonId, data) => api.post(`/season-stats/${seasonId}/stages`, data),
+  updateSeasonStage: (stageId, data) => api.put(`/season-stats/stages/${stageId}`, data),
+  deleteSeasonStage: (stageId) => api.delete(`/season-stats/stages/${stageId}`),
   // Config (New)
   getAllConfigs: () => api.get('/config'),
   getConfig: (key) => api.get(`/config/${key}`),
   updateConfig: (data) => api.post('/config', data),
 
-  // AI Report (LangChain Agent)
-  chatWithAI: (messages, config = {}) => api.post('/ai-reports/chat', { messages }, { timeout: 120000, ...config })
 };
 
 export default apiService;

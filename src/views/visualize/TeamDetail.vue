@@ -63,40 +63,47 @@
               暂无选手数据
             </div>
             <div v-else class="minimal-roster">
-              <div v-for="role in ['tank', 'damage', 'support']" :key="role" class="m-role-section" v-show="rosterGroups[role].length > 0">
-                <div class="m-role-title">
-                  <img :src="getRoleIconUrl(role)" class="m-role-icon" alt="" />
-                  <span>{{ role.toUpperCase() }}</span>
+              <!-- 常用阵容：本赛季有英雄使用统计时展示，至多三套 -->
+              <div v-if="teamCompositions.length" class="comp-section">
+                <div class="comp-title">常用阵容</div>
+                <div class="comp-list">
+                  <div v-for="(comp, index) in teamCompositions" :key="index" class="comp-row">
+                    <div class="comp-heroes">
+                      <span v-for="heroId in comp.heroIds" :key="heroId" class="comp-hero" :title="getCompHeroName(heroId)">
+                        <img
+                          v-if="getCompHeroIcon(heroId) && !failedCompHeroIcons.has(heroId)"
+                          :src="getCompHeroIcon(heroId)"
+                          :alt="getCompHeroName(heroId)"
+                          loading="lazy"
+                          @error="markCompHeroIconFailed(heroId)"
+                        />
+                        <span v-else class="comp-hero-fallback">{{ getCompHeroName(heroId).slice(0, 1) }}</span>
+                      </span>
+                    </div>
+                    <div class="comp-meta">{{ comp.games }} 场 · 胜率 {{ comp.winRate }}%</div>
+                  </div>
                 </div>
-                
-                <div class="m-grid-header">
-                  <div class="m-col text-left">选手</div>
-                  <div class="m-col text-right">K/D</div>
-                  <div class="m-col text-right">伤害/10m</div>
-                  <div class="m-col text-right" v-if="role==='support'">治疗/10m</div>
-                  <div class="m-col text-right" v-if="role==='tank'">抵挡/10m</div>
-                  <div class="m-col text-right" v-if="role==='damage'">消灭/10m</div>
-                  <div class="m-col text-right">时长(m)</div>
-                </div>
+              </div>
 
+              <div class="roster-flat">
                 <button
-                  class="m-grid-row"
-                  v-for="p in rosterGroups[role]"
-                  :key="p.id || p.name"
+                  class="m-time-row"
+                  :class="{ 'role-break': index > 0 && p.role !== rosterList[index - 1].role }"
+                  v-for="(p, index) in rosterList"
+                  :key="`${p.role}-${p.id || p.name}`"
                   type="button"
                   :aria-label="`打开 ${p.name} 的个人页面`"
                   @click="goToPlayerDetail(p)"
                 >
-                  <div class="m-col text-left font-bold player-entry">
-                    <span class="player-entry__name">{{ p.name }}</span>
-                    <span class="player-entry__indicator" aria-hidden="true">›</span>
-                  </div>
-                  <div class="m-col text-right" :class="{'highlight-text': p.kd === roleMaxStats[role].kd && p.kd > 0}">{{ p.kd }}</div>
-                  <div class="m-col text-right" :class="{'highlight-text': p.damagePer10 === roleMaxStats[role].damage && p.damagePer10 > 0}">{{ p.damagePer10 }}</div>
-                  <div class="m-col text-right" v-if="role==='support'" :class="{'highlight-text': p.healingPer10 === roleMaxStats[role].healing && p.healingPer10 > 0}">{{ p.healingPer10 }}</div>
-                  <div class="m-col text-right" v-if="role==='tank'" :class="{'highlight-text': p.mitigationPer10 === roleMaxStats[role].mitigation && p.mitigationPer10 > 0}">{{ p.mitigationPer10 }}</div>
-                  <div class="m-col text-right" v-if="role==='damage'" :class="{'highlight-text': p.elimsPer10 === roleMaxStats[role].elims && p.elimsPer10 > 0}">{{ p.elimsPer10 }}</div>
-                  <div class="m-col text-right text-muted">{{ Math.round(p.gameTime) }}</div>
+                  <span class="m-time-main">
+                    <img :src="getRoleIconUrl(p.role)" class="m-time-role-icon" :alt="p.role" />
+                    <span class="m-time-name">{{ p.name }}</span>
+                    <span class="m-time-value">{{ formatPlayTime(p.gameTime) }}</span>
+                    <span class="m-time-chevron" aria-hidden="true">›</span>
+                  </span>
+                  <span class="m-time-track">
+                    <span class="m-time-fill" :style="{ width: `${roleTimePct(p.role, p)}%` }"></span>
+                  </span>
                 </button>
               </div>
             </div>
@@ -138,6 +145,53 @@
           </div>
 
           <div v-show="activeTab === 'analysis'" class="seamless-content analysis-content">
+            <!-- 禁用倾向：我方/对手并列，各自按职责分 T/D/S 三列 -->
+            <div v-if="teamHeroStats.bans.length || teamHeroStats.bannedAgainst.length" class="ban-section">
+              <div class="comp-title">禁用倾向</div>
+              <div class="ban-grid">
+                <div v-if="teamHeroStats.bans.length" class="ban-group">
+                  <div class="ban-group-label">我方禁用</div>
+                  <div class="ban-role-grid">
+                    <div v-for="rg in banRoleGroups(teamHeroStats.bans)" :key="rg.role" class="ban-role-col">
+                      <span v-for="ban in rg.items" :key="ban.heroId" class="ha-ban-chip" :title="getCompHeroName(ban.heroId)">
+                        <span class="comp-hero ha-ban-icon">
+                          <img
+                            v-if="getCompHeroIcon(ban.heroId) && !failedCompHeroIcons.has(ban.heroId)"
+                            :src="getCompHeroIcon(ban.heroId)"
+                            :alt="getCompHeroName(ban.heroId)"
+                            loading="lazy"
+                            @error="markCompHeroIconFailed(ban.heroId)"
+                          />
+                          <span v-else class="comp-hero-fallback">{{ getCompHeroName(ban.heroId).slice(0, 1) }}</span>
+                        </span>
+                        <span class="ha-ban-count">×{{ ban.count }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="teamHeroStats.bannedAgainst.length" class="ban-group">
+                  <div class="ban-group-label">对手禁用</div>
+                  <div class="ban-role-grid">
+                    <div v-for="rg in banRoleGroups(teamHeroStats.bannedAgainst)" :key="rg.role" class="ban-role-col">
+                      <span v-for="ban in rg.items" :key="ban.heroId" class="ha-ban-chip" :title="getCompHeroName(ban.heroId)">
+                        <span class="comp-hero ha-ban-icon">
+                          <img
+                            v-if="getCompHeroIcon(ban.heroId) && !failedCompHeroIcons.has(ban.heroId)"
+                            :src="getCompHeroIcon(ban.heroId)"
+                            :alt="getCompHeroName(ban.heroId)"
+                            loading="lazy"
+                            @error="markCompHeroIconFailed(ban.heroId)"
+                          />
+                          <span v-else class="comp-hero-fallback">{{ getCompHeroName(ban.heroId).slice(0, 1) }}</span>
+                        </span>
+                        <span class="ha-ban-count">×{{ ban.count }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <MapWinRateAnalysis
               :map-games="seasonMapGames"
               :primary-team-id="queryParams.teamId"
@@ -162,6 +216,7 @@ import { useStore } from 'vuex';
 import { ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import { getHeroIconUrl } from '@/utils/heroIcons';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
@@ -202,11 +257,11 @@ export default {
       support: []
     });
 
-      const roleMaxStats = ref({
-      tank: { kd: 0, damage: 0, mitigation: 0, healing: 0, elims: 0 },
-      damage: { kd: 0, damage: 0, mitigation: 0, healing: 0, elims: 0 },
-      support: { kd: 0, damage: 0, mitigation: 0, healing: 0, elims: 0 }
-    });
+    // 本赛季队伍常用阵容（有英雄使用统计时才有数据，至多三套）
+    const teamCompositions = ref([]);
+    // 本赛季队伍英雄数据（英雄使用 + ban 倾向）
+    const teamHeroStats = ref({ bans: [], bannedAgainst: [] });
+    const failedCompHeroIcons = ref(new Set());
 
     const activeTab = ref('roster');
     const detailTabs = [
@@ -217,6 +272,12 @@ export default {
 
     const hasAnyPlayers = computed(() => {
       return ['tank', 'damage', 'support'].some(r => rosterGroups.value[r].length > 0);
+    });
+
+    // 三职责合一的扁平选手列表：tank → damage → support，组内按上场时间降序
+    const rosterList = computed(() => {
+      return ['tank', 'damage', 'support']
+        .flatMap(role => rosterGroups.value[role].map(p => ({ ...p, role })));
     });
     
     const switchTab = async (tab) => {
@@ -338,6 +399,51 @@ export default {
       return `${baseUrl}icons/role/DPS.png`;
     };
 
+    // 常用阵容：英雄 id → 主数据/图标
+    const getCompHero = (heroId) => {
+      return store.state.heroes.find(hero => String(hero.id) === String(heroId)) || null;
+    };
+
+    const getCompHeroName = (heroId) => {
+      return getCompHero(heroId)?.name || '未知英雄';
+    };
+
+    const getCompHeroIcon = (heroId) => {
+      const name = getCompHero(heroId)?.name;
+      return name ? getHeroIconUrl(name) : '';
+    };
+
+    const getCompHeroRole = (heroId) => getCompHero(heroId)?.role || '';
+
+    // 禁用列表按职责分组（T → D → S），无该职责禁用时整列不显示
+    const BAN_ROLE_ORDER = ['tank', 'damage', 'support'];
+    const banRoleGroups = (bans) => {
+      const byRole = { tank: [], damage: [], support: [] };
+      (bans || []).forEach(ban => {
+        const role = getCompHeroRole(ban.heroId);
+        if (byRole[role]) byRole[role].push(ban);
+      });
+      return BAN_ROLE_ORDER.filter(role => byRole[role].length)
+        .map(role => ({ role, items: byRole[role] }));
+    };
+
+    const markCompHeroIconFailed = (heroId) => {
+      failedCompHeroIcons.value = new Set([...failedCompHeroIcons.value, heroId]);
+    };
+
+    // 上场时间：gameTime 单位为分钟，直接显示分钟
+    const formatPlayTime = (minutes) => {
+      const m = Math.round(Number(minutes) || 0);
+      return `${m} 分钟`;
+    };
+
+    // 上场时间占比条：以该职责最多上场时间为 100%
+    const roleTimePct = (role, player) => {
+      const max = Math.max(...rosterGroups.value[role].map(item => item.gameTime), 0);
+      if (!max) return 0;
+      return Math.round((player.gameTime / max) * 100);
+    };
+
     const getTeamName = (teamId) => {
       const t = store.state.teams.find(t => String(t.id) === String(teamId));
       return t ? t.name : 'Unknown';
@@ -418,14 +524,22 @@ export default {
         let allPlayerStats = [];
         let scoreStats = [];
 
-        const [statsRes, scoreStatsRes, mapGamesRes] = await Promise.all([
+        const [statsRes, scoreStatsRes, mapGamesRes, compsRes, heroStatsRes] = await Promise.all([
           apiService.getSeasonPlayerStats(seasonId),
           apiService.getSeasonTeamScoreStats(seasonId),
-          apiService.getMapGames({ seasonId, teamId, pageSize: 2000 })
+          apiService.getMapGames({ seasonId, teamId, pageSize: 2000 }),
+          apiService.getSeasonTeamCompositions(seasonId, teamId).catch(() => []),
+          apiService.getSeasonTeamHeroStats(seasonId, teamId).catch(() => ({ picks: [], bans: [], bannedAgainst: [] }))
         ]);
         allPlayerStats = Array.isArray(statsRes) ? statsRes : statsRes.data || statsRes.list || [];
         scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
         seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || mapGamesRes.list || [];
+        teamCompositions.value = (Array.isArray(compsRes) ? compsRes : compsRes?.data || [])
+          .filter(comp => Array.isArray(comp.heroIds) && comp.heroIds.length === 5);
+        teamHeroStats.value = {
+          bans: heroStatsRes?.bans || [],
+          bannedAgainst: heroStatsRes?.bannedAgainst || []
+        };
 
         recentMatches.value = allMatches.value
           .filter(m => String(m.seasonId) === String(seasonId))
@@ -468,27 +582,12 @@ export default {
           const duration = p.gameTime || p.totalDuration || 0;
           if (duration === 0) return;
 
-          const p10 = (val) => parseFloat(((val || 0) / duration * 10).toFixed(2));
-          const kills = Number(p.elims || p.totalKills) || 0;
-          const deaths = Number(p.deaths || p.totalDeaths) || 0;
-          const damage = Number(p.damage || p.totalDamage) || 0;
-          const healing = Number(p.healing || p.totalHealing) || 0;
-          const mitigation = Number(p.mitigation || p.totalMitigation) || 0;
-          
-          let kd = kills;
-          if (deaths > 0) kd = parseFloat((kills / deaths).toFixed(2));
-
           const playerObj = {
             name: p.player?.name || p.playerName || '未知',
             id: p.playerId || p.player?.id,
             teamId: p.teamId || p.team?.id || teamId,
             role: p.player?.role || p.role || 'damage',
-            gameTime: duration,
-            damagePer10: p10(damage),
-            healingPer10: p10(healing),
-            mitigationPer10: p10(mitigation),
-            elimsPer10: p10(kills),
-            kd: kd
+            gameTime: duration
           };
 
           const role = ['tank', 'damage', 'support'].includes(playerObj.role) ? playerObj.role : 'damage';
@@ -497,14 +596,6 @@ export default {
 
         ['tank', 'damage', 'support'].forEach(r => {
            rosterGroups.value[r].sort((a,b) => b.gameTime - a.gameTime);
-           
-           roleMaxStats.value[r] = {
-             kd: Math.max(...rosterGroups.value[r].map(p => p.kd), 1),
-             damage: Math.max(...rosterGroups.value[r].map(p => p.damagePer10), 1),
-             healing: Math.max(...rosterGroups.value[r].map(p => p.healingPer10), 1),
-             mitigation: Math.max(...rosterGroups.value[r].map(p => p.mitigationPer10), 1),
-             elims: Math.max(...rosterGroups.value[r].map(p => p.elimsPer10), 1)
-           };
         });
 
       } catch (err) {
@@ -531,7 +622,16 @@ export default {
       currentSeasonId,
       selectSeason,
       rosterGroups,
-      roleMaxStats,
+      rosterList,
+      teamCompositions,
+      failedCompHeroIcons,
+      getCompHeroName,
+      getCompHeroIcon,
+      markCompHeroIconFailed,
+      formatPlayTime,
+      roleTimePct,
+      teamHeroStats,
+      banRoleGroups,
       hasAnyPlayers,
       activeTab,
       detailTabs,
@@ -819,26 +919,37 @@ export default {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  overflow-x: auto;
 }
 
-/* 数据卡：白底细边框轻阴影 */
-.m-role-section {
+/* 选手列表：裸列表无卡片，职责仅靠行内图标区分 */
+.roster-flat {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-/* M1 · 斜切标题条：渐变斜块锚点 + 斜体展示字 */
-.m-role-title {
+.m-time-role-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  filter: brightness(0);
+  opacity: 0.85;
+}
+
+.m-time-row.role-break {
+  margin-top: 10px;
+}
+
+/* 常用阵容（无卡片，与选手列表同风格的扁平行） */
+.comp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comp-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px 10px;
   font-weight: 900;
   font-size: 14px;
   font-style: italic;
@@ -847,7 +958,7 @@ export default {
   letter-spacing: 0.04em;
 }
 
-.m-role-title::before {
+.comp-title::before {
   content: '';
   width: 4px;
   height: 14px;
@@ -857,128 +968,223 @@ export default {
   transform: skewX(var(--vis-slant));
 }
 
-.m-role-icon {
-  width: 15px;
-  height: 15px;
-  filter: brightness(0);
+.comp-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.m-grid-header, .m-grid-row {
-  display: grid;
-  grid-template-columns: 2.5fr 1fr 1.5fr 1.5fr 1fr;
+.comp-row {
+  display: flex;
   align-items: center;
-  column-gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid #f0f2f5;
 }
 
-.m-grid-header {
-  padding: 7px 14px;
-  font-size: 11px;
-  color: #909399;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  background: var(--vis-bg-subtle);
-  border-top: 1px solid var(--vis-border);
-  border-bottom: 1px solid var(--vis-border);
+.comp-row:last-child {
+  border-bottom: none;
 }
 
-.m-grid-row {
+.comp-heroes {
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.comp-hero {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eceff3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(16, 21, 28, 0.1);
+}
+
+.comp-hero img {
   width: 100%;
-  padding: 10px 14px;
-  border-top: 0;
-  border-right: 0;
-  border-left: 0;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comp-hero-fallback {
+  font-size: 12px;
+  font-weight: 800;
+  color: #909399;
+}
+
+.comp-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 数据分析：禁用倾向（无卡片，我方/对手并列，各自按职责排序） */
+.ban-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ban-grid {
+  display: flex;
+  gap: 16px;
+}
+
+.ban-group {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ban-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #606266;
+}
+
+.ban-role-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.ban-role-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ha-ban-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ha-ban-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  flex: 0 0 auto;
+}
+
+.ha-ban-icon .comp-hero-fallback {
+  font-size: 11px;
+}
+
+.ha-ban-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #606266;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 选手上场时间行 */
+.m-time-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  padding: 9px 14px 11px;
+  border: 0;
+  border-bottom: 1px solid #f0f2f5;
   background: transparent;
   color: inherit;
   font-family: inherit;
-  font-size: 13px;
-  border-bottom: 1px solid #f0f2f5;
   text-align: inherit;
   cursor: pointer;
   transition: background-color 0.2s var(--vis-ease);
 }
 
-.m-grid-row:hover {
+.m-time-row:hover {
   background-color: #f8f9fa;
 }
 
-.m-grid-row:hover .player-entry__name,
-.m-grid-row:focus-visible .player-entry__name {
-  color: var(--vis-accent);
-  text-decoration-color: var(--vis-accent);
-}
-
-.m-grid-row:hover .player-entry__indicator,
-.m-grid-row:focus-visible .player-entry__indicator {
-  color: var(--vis-accent);
-  opacity: 1;
-}
-
-.m-grid-row:focus-visible {
+.m-time-row:focus-visible {
   position: relative;
   z-index: 1;
   outline: 2px solid var(--vis-accent);
   outline-offset: -2px;
 }
 
-.m-grid-row:last-child {
+.m-time-row:last-child {
   border-bottom: none;
 }
 
-.m-col {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.text-left { text-align: left; }
-.text-right {
-  text-align: right;
-  font-family: var(--vis-font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.font-bold {
-  font-weight: 800;
-  color: #111;
-  font-family: var(--vis-font-body);
-}
-
-.player-entry {
+.m-time-main {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.player-entry__name {
+.m-time-name {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 106, 0, 0.35);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 800;
+  color: #111;
   transition: color 0.2s var(--vis-ease);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.18);
+  text-underline-offset: 3px;
 }
 
-.player-entry__indicator {
-  flex: 0 0 auto;
+.m-time-row:active .m-time-name {
   color: var(--vis-accent);
-  font-size: 16px;
-  font-weight: 800;
+  text-decoration-color: var(--vis-accent);
+}
+
+.m-time-value {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #606266;
+  font-family: var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.m-time-chevron {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1;
-  opacity: 0.72;
-  transform: translateY(-1px);
-  transition: color 0.2s var(--vis-ease), opacity 0.2s var(--vis-ease);
+  color: #c8ccd4;
+  transition: color 0.2s var(--vis-ease), transform 0.2s var(--vis-ease);
 }
 
-.text-muted {
-  color: #909399;
-  font-weight: 600;
+.m-time-row:hover .m-time-chevron {
+  color: var(--vis-accent);
+  transform: translateX(2px);
 }
 
-.highlight-text {
-  color: #ff6a00;
-  font-weight: 800;
+.m-time-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(17, 17, 17, 0.07);
+  overflow: hidden;
+}
+
+.m-time-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--vis-primary-gradient, #111);
 }
 
 .h2h-list {
@@ -1202,21 +1408,8 @@ export default {
   .minimal-roster {
     gap: 12px;
   }
-  .m-role-title {
-    padding: 10px 12px 8px;
-    font-size: 13px;
-  }
-  .m-grid-header, .m-grid-row {
-    grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1fr;
-    column-gap: 6px;
-  }
-  .m-grid-header {
-    font-size: 10px;
-    padding: 6px 10px;
-  }
-  .m-grid-row {
-    font-size: 12px;
-    padding: 9px 10px;
+  .m-time-row {
+    padding: 8px 12px 10px;
   }
   .h2h-list {
     gap: 8px;
@@ -1290,14 +1483,12 @@ export default {
     padding-right: 20px;
     padding-left: 20px;
   }
-  .m-grid-header, .m-grid-row {
-    grid-template-columns: 1.8fr 0.9fr 1.1fr 1.1fr 0.9fr;
+  .m-time-row {
+    padding: 8px 10px 10px;
   }
-  .m-grid-header {
-    padding: 6px 8px;
-  }
-  .m-grid-row {
-    padding: 8px;
+  .comp-hero {
+    width: 26px;
+    height: 26px;
   }
   .h2h-matchup {
     gap: 6px;

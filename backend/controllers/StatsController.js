@@ -6,6 +6,7 @@ const MapGame = require('../models/MapGame');
 const Match = require('../models/Match');
 const Map = require('../models/Map');
 const Hero = require('../models/Hero');
+const sequelize = require('../config/database');
 const SeasonStatsCalculator = require('../services/SeasonStatsCalculator');
 
 const StatsController = {
@@ -417,6 +418,256 @@ const StatsController = {
       res.status(200).json(stats);
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+
+  // 赛季英雄总览：按英雄聚合选用 / 禁用 / 胜率 / 最后一击 / 大招充能。
+  // 数据来自 player_hero_stats（v2 外部同步明细），旧赛季无明细时返回空数组，由前端门控隐藏。
+  getHeroOverview: async (req, res) => {
+    try {
+      const seasonIdNum = Number(req.query.seasonId);
+      if (!Number.isFinite(seasonIdNum)) {
+        return res.status(400).json({ error: 'seasonId 不合法' });
+      }
+
+      const [pickRows] = await sequelize.query(`
+        SELECT
+          phs.heroId AS heroId,
+          MAX(phs.heroName) AS heroName,
+          COUNT(DISTINCT ps.mapGameId) AS mapsAppeared,
+          COUNT(DISTINCT ps.id) AS pickCount,
+          SUM(phs.usageSeconds) AS usageSeconds,
+          SUM(phs.finalBlows) AS finalBlows,
+          SUM(phs.deathsByFinalBlow) AS deathsByFinalBlow,
+          SUM(phs.ultReady) AS ultReady,
+          SUM(phs.ultUsed) AS ultUsed,
+          AVG(phs.avgUltChargeSeconds) AS avgUltChargeSeconds,
+          SUM(CASE WHEN mg.winnerId = ps.teamId THEN 1 ELSE 0 END) AS winPicks
+        FROM player_hero_stats phs
+        JOIN player_stats ps ON ps.id = phs.playerStatId
+        JOIN map_games mg ON mg.id = ps.mapGameId
+        WHERE mg.seasonId = :seasonId AND phs.heroId IS NOT NULL
+        GROUP BY phs.heroId
+      `, { replacements: { seasonId: seasonIdNum } });
+
+      const [banRows] = await sequelize.query(`
+        SELECT heroId, COUNT(*) AS banCount FROM (
+          SELECT team1BanHeroId AS heroId FROM map_games WHERE seasonId = :seasonId AND team1BanHeroId IS NOT NULL
+          UNION ALL
+          SELECT team2BanHeroId AS heroId FROM map_games WHERE seasonId = :seasonId AND team2BanHeroId IS NOT NULL
+        ) bans GROUP BY heroId
+      `, { replacements: { seasonId: seasonIdNum } });
+
+      const [totalRows] = await sequelize.query(
+        'SELECT COUNT(*) AS total FROM map_games WHERE seasonId = :seasonId',
+        { replacements: { seasonId: seasonIdNum } }
+      );
+      const totalMapGames = Number(totalRows[0] && totalRows[0].total) || 0;
+
+      const heroes = await Hero.findAll({ raw: true });
+      // 注意：本文件顶部 Map 被 Sequelize 地图模型遮蔽，这里用普通对象做映射
+      const heroById = {};
+      heroes.forEach(h => { heroById[Number(h.id)] = h; });
+      const banById = {};
+      banRows.forEach(b => { banById[Number(b.heroId)] = Number(b.banCount) || 0; });
+
+      const num = v => Number(v) || 0;
+      const buildRow = (heroId, heroNameFallback, row, banCount) => {
+        const hero = heroById[heroId] || null;
+        const pickCount = num(row && row.pickCount);
+        const mapsAppeared = num(row && row.mapsAppeared);
+        const usageSeconds = num(row && row.usageSeconds);
+        const minutes = usageSeconds / 60;
+        const finalBlows = num(row && row.finalBlows);
+        const avgUlt = row ? row.avgUltChargeSeconds : null;
+        return {
+          heroId,
+          heroName: (hero && hero.name) || heroNameFallback || '未知英雄',
+          role: (hero && hero.role) || null,
+          subRole: (hero && hero.subRole) || null,
+          pickCount,
+          mapsAppeared,
+          pickRate: totalMapGames ? mapsAppeared / totalMapGames : 0,
+          banCount,
+          banRate: totalMapGames ? banCount / totalMapGames : 0,
+          winRate: pickCount ? num(row && row.winPicks) / pickCount : 0,
+          usageSeconds,
+          finalBlows,
+          finalBlowsPer10: minutes ? finalBlows / minutes * 10 : 0,
+          deathsByFinalBlow: num(row && row.deathsByFinalBlow),
+          ultReady: num(row && row.ultReady),
+          ultUsed: num(row && row.ultUsed),
+          avgUltChargeSeconds: avgUlt === null || avgUlt === undefined ? null : Number(avgUlt)
+        };
+      };
+
+      const data = pickRows.map(row =>
+        buildRow(Number(row.heroId), row.heroName, row, banById[Number(row.heroId)] || 0)
+      );
+      // 只有 ban、没有选用明细的英雄也列出来（选用指标全 0）
+      for (const [heroIdKey, banCount] of Object.entries(banById)) {
+        const heroId = Number(heroIdKey);
+        if (data.some(d => d.heroId === heroId)) continue;
+        data.push(buildRow(heroId, null, null, banCount));
+      }
+
+      res.json({ data, totalMapGames });
+    } catch (error) {
+      console.error('获取英雄总览数据失败:', error);
+      res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  // 某英雄在某赛季的使用选手数据：最后一击/10min、最后一击/死亡、按使用时长加权的大招充能秒数。
+  // 数据来自 player_hero_stats；无对应指标的字段返回 null，由前端整列隐藏。
+  getHeroPlayers: async (req, res) => {
+    try {
+      const seasonIdNum = Number(req.query.seasonId);
+      const heroIdNum = Number(req.query.heroId);
+      if (!Number.isFinite(seasonIdNum) || !Number.isFinite(heroIdNum)) {
+        return res.status(400).json({ error: 'seasonId / heroId 不合法' });
+      }
+
+      const [rows] = await sequelize.query(`
+        SELECT
+          ps.playerId AS playerId,
+          ps.teamId AS teamId,
+          ps.mapGameId AS mapGameId,
+          phs.usageSeconds AS usageSeconds,
+          phs.finalBlows AS finalBlows,
+          phs.deathsByFinalBlow AS deathsByFinalBlow,
+          phs.avgUltChargeSeconds AS avgUltChargeSeconds
+        FROM player_hero_stats phs
+        JOIN player_stats ps ON ps.id = phs.playerStatId
+        JOIN map_games mg ON mg.id = ps.mapGameId
+        WHERE mg.seasonId = :seasonId AND phs.heroId = :heroId
+        ORDER BY ps.id ASC
+      `, { replacements: { seasonId: seasonIdNum, heroId: heroIdNum } });
+
+      // 按选手聚合（跨该赛季所有使用该英雄的地图局）
+      const byPlayer = {};
+      for (const r of rows) {
+        const pid = Number(r.playerId);
+        if (!byPlayer[pid]) {
+          byPlayer[pid] = {
+            playerId: pid,
+            teamId: Number(r.teamId),
+            usageSeconds: 0,
+            finalBlows: 0,
+            deathsByFinalBlow: 0,
+            ultWeightedSum: 0,
+            ultWeight: 0,
+            mapIds: new Set()
+          };
+        }
+        const agg = byPlayer[pid];
+        const usage = Number(r.usageSeconds) || 0;
+        agg.usageSeconds += usage;
+        agg.finalBlows += Number(r.finalBlows) || 0;
+        agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
+        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
+          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
+          agg.ultWeight += usage;
+        }
+        agg.mapIds.add(Number(r.mapGameId));
+        // 选手换队时归属最新一条记录的队伍
+        agg.teamId = Number(r.teamId);
+      }
+
+      const players = await Player.findAll({ raw: true });
+      const nameById = {};
+      players.forEach(pl => { nameById[Number(pl.id)] = pl.name; });
+
+      const data = Object.values(byPlayer).map(agg => {
+        const minutes = agg.usageSeconds / 60;
+        return {
+          playerId: agg.playerId,
+          playerName: nameById[agg.playerId] || `选手#${agg.playerId}`,
+          teamId: agg.teamId,
+          usageSeconds: agg.usageSeconds,
+          mapsPlayed: agg.mapIds.size,
+          finalBlows: agg.finalBlows,
+          finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
+          fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
+          avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
+        };
+      }).sort((a, b) => (b.finalBlowsPer10 - a.finalBlowsPer10) || (b.usageSeconds - a.usageSeconds));
+
+      res.json({ data });
+    } catch (error) {
+      console.error('获取英雄选手数据失败:', error);
+      res.status(500).json({ error: '获取数据失败' });
+    }
+  },
+
+  // 选手赛季英雄数据：该选手在该赛季使用过的所有英雄，按英雄聚合使用时长 / 最后一击 / 大招充能
+  getPlayerHeroes: async (req, res) => {
+    try {
+      const seasonIdNum = Number(req.query.seasonId);
+      const playerIdNum = Number(req.query.playerId);
+      if (!Number.isFinite(seasonIdNum) || !Number.isFinite(playerIdNum)) {
+        return res.status(400).json({ error: 'seasonId / playerId 不合法' });
+      }
+
+      const [rows] = await sequelize.query(`
+        SELECT
+          phs.heroId AS heroId,
+          ps.mapGameId AS mapGameId,
+          phs.usageSeconds AS usageSeconds,
+          phs.finalBlows AS finalBlows,
+          phs.deathsByFinalBlow AS deathsByFinalBlow,
+          phs.avgUltChargeSeconds AS avgUltChargeSeconds
+        FROM player_hero_stats phs
+        JOIN player_stats ps ON ps.id = phs.playerStatId
+        JOIN map_games mg ON mg.id = ps.mapGameId
+        WHERE mg.seasonId = :seasonId AND ps.playerId = :playerId
+        ORDER BY phs.heroId ASC, ps.id ASC
+      `, { replacements: { seasonId: seasonIdNum, playerId: playerIdNum } });
+
+      // 按英雄聚合（跨该赛季该选手所有地图局）
+      const byHero = {};
+      for (const r of rows) {
+        const hid = Number(r.heroId);
+        if (!byHero[hid]) {
+          byHero[hid] = {
+            heroId: hid,
+            usageSeconds: 0,
+            finalBlows: 0,
+            deathsByFinalBlow: 0,
+            ultWeightedSum: 0,
+            ultWeight: 0,
+            mapIds: new Set()
+          };
+        }
+        const agg = byHero[hid];
+        const usage = Number(r.usageSeconds) || 0;
+        agg.usageSeconds += usage;
+        agg.finalBlows += Number(r.finalBlows) || 0;
+        agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
+        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
+          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
+          agg.ultWeight += usage;
+        }
+        agg.mapIds.add(Number(r.mapGameId));
+      }
+
+      const data = Object.values(byHero).map(agg => {
+        const minutes = agg.usageSeconds / 60;
+        return {
+          heroId: agg.heroId,
+          usageSeconds: agg.usageSeconds,
+          mapsPlayed: agg.mapIds.size,
+          finalBlows: agg.finalBlows,
+          finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
+          fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
+          avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
+        };
+      }).sort((a, b) => b.usageSeconds - a.usageSeconds);
+
+      res.json({ data });
+    } catch (error) {
+      console.error('获取选手英雄数据失败:', error);
+      res.status(500).json({ error: '获取数据失败' });
     }
   },
 

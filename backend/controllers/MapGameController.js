@@ -440,28 +440,6 @@ const MapGameController = {
   },
 
   // 创建地图局
-  create: async (req, res) => {
-    const t = await sequelize.transaction();
-    try {
-      const { playerStats, ...mapGameData } = req.body;
-      const mapGame = await MapGame.create(mapGameData, { transaction: t });
-
-      if (playerStats && Array.isArray(playerStats) && playerStats.length > 0) {
-        const statsWithMapGameId = playerStats.map(stat => ({
-          ...stat,
-          mapGameId: mapGame.id
-        }));
-        await PlayerStat.bulkCreate(statsWithMapGameId, { transaction: t });
-      }
-
-      await t.commit();
-      res.status(201).json(mapGame);
-    } catch (error) {
-      await t.rollback();
-      res.status(400).json({ error: error.message });
-    }
-  },
-
   // 更新地图局
   update: async (req, res) => {
     const t = await sequelize.transaction();
@@ -576,12 +554,17 @@ const MapGameController = {
       console.log('开始查询选手统计数据');
       let playerStats = [];
       try {
-        playerStats = await PlayerStat.findAll({ 
+        playerStats = await PlayerStat.findAll({
           where: { mapGameId: id },
           include: [
             { model: Player, as: 'player' },
             { model: Hero, as: 'hero' },
-            { model: Team, as: 'team' }
+            { model: Team, as: 'team' },
+            {
+              model: PlayerHeroStat,
+              as: 'heroStats',
+              include: [{ model: Hero, as: 'hero' }]
+            }
           ]
         });
         console.log('查询到选手统计数据:', playerStats.length, '条');

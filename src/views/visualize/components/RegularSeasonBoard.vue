@@ -114,10 +114,6 @@ export default {
       type: Object,
       default: () => ({})
     },
-    currentStageLabel: {
-      type: String,
-      default: '当前阶段'
-    },
     qualificationCount: {
       type: Number,
       default: 0
@@ -127,7 +123,7 @@ export default {
     const store = useStore();
     const route = useRoute();
     const router = useRouter();
-    const snapshots = ref([]);
+    const stages = ref([]);
     const selectedSegmentKey = ref('cumulative');
     const activeScoreStats = ref([]);
     const isInitializing = ref(true);
@@ -136,35 +132,13 @@ export default {
       return props.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
     });
 
-    const buildSegments = (snapshotList) => {
-      const list = Array.isArray(snapshotList) ? snapshotList : [];
-      const segments = [];
-      for (let i = 0; i < list.length; i++) {
-        const to = list[i];
-        const from = i > 0 ? list[i - 1] : null;
-        segments.push({
-          key: `snap:${from ? from.id : 0}->${to.id}`,
-          label: String(to.name || `阶段${i + 1}`),
-          title: String(to.name || `阶段${i + 1}`),
-          fromSnapshotId: from ? from.id : null,
-          toSnapshotId: to.id
-        });
-      }
-      if (list.length > 0) {
-        const last = list[list.length - 1];
-        const currentLabel = String(props.currentStageLabel || '当前阶段');
-        segments.push({
-          key: `snap:${last.id}->current`,
-          label: currentLabel,
-          title: currentLabel,
-          fromSnapshotId: last.id,
-          toSnapshotId: null
-        });
-      }
-      return segments;
-    };
-
-    const segments = computed(() => buildSegments(snapshots.value));
+    const segments = computed(() => stages.value.map((stage, index) => ({
+      key: `stage:${stage.id}`,
+      stageId: stage.id,
+      label: String(stage.name || `阶段${index + 1}`),
+      title: `${stage.name || `阶段${index + 1}`} · ${stage.matchCount || 0} 场比赛`,
+      isCurrent: !!stage.isCurrent
+    })));
     const segmentSelectKey = computed(() => segments.value.map(s => s.key).join('|'));
 
     const applyStageOverrides = (rows) => {
@@ -312,16 +286,16 @@ export default {
       return applyStageOverrides(standingsArray);
     });
 
-    const loadSnapshots = async () => {
+    const loadStages = async () => {
       if (!props.seasonId) {
-        snapshots.value = [];
+        stages.value = [];
         return;
       }
       try {
-        const res = await apiService.getSeasonStageSnapshots(props.seasonId);
-        snapshots.value = Array.isArray(res) ? res : res?.data || [];
+        const res = await apiService.getSeasonStages(props.seasonId);
+        stages.value = Array.isArray(res) ? res : res?.data || [];
       } catch (e) {
-        snapshots.value = [];
+        stages.value = [];
       }
     };
 
@@ -333,9 +307,7 @@ export default {
         return Array.isArray(props.scoreStats) ? props.scoreStats : [];
       }
       
-      const params = {};
-      if (seg.fromSnapshotId) params.fromSnapshotId = seg.fromSnapshotId;
-      if (seg.toSnapshotId) params.toSnapshotId = seg.toSnapshotId;
+      const params = { stageId: seg.stageId };
       
       try {
         const res = await apiService.getSeasonTeamScoreStats(props.seasonId, params);
@@ -348,7 +320,7 @@ export default {
     const pickDefaultSegmentKey = () => {
       const segs = segments.value;
       if (segs.length === 0) return 'cumulative';
-      const current = segs.find(s => s.key.endsWith('->current'));
+      const current = segs.find(s => s.isCurrent);
       return current ? current.key : segs[segs.length - 1].key;
     };
 
@@ -369,13 +341,13 @@ export default {
     watch(() => props.seasonId, async (newVal, oldVal) => {
       if (newVal !== oldVal) {
         isInitializing.value = true;
-        // Optimistically set cumulative as default before fetching snapshots
+        // 阶段尚未加载时先使用赛季累计值，避免界面闪空。
         // This avoids the initial flicker where it renders without overrides
         displaySegmentKey.value = 'cumulative';
         selectedSegmentKey.value = 'cumulative';
         activeScoreStats.value = Array.isArray(props.scoreStats) ? props.scoreStats : [];
         
-        await loadSnapshots();
+        await loadStages();
         const segs = segments.value;
         if (segs.length === 0) {
           isInitializing.value = false;
@@ -412,7 +384,8 @@ export default {
     });
 
     const isCurrentStage = computed(() => {
-      return displaySegmentKey.value === 'cumulative' || displaySegmentKey.value.endsWith('->current');
+      const selected = segments.value.find(segment => segment.key === displaySegmentKey.value);
+      return displaySegmentKey.value === 'cumulative' || !!selected?.isCurrent;
     });
 
     const getDiffClass = (diff) => {
@@ -605,13 +578,12 @@ export default {
 .team-cell-clickable .team-name {
   color: var(--vis-text-strong);
   text-decoration: underline;
-  text-decoration-color: rgba(255, 106, 0, 0.35);
+  text-decoration-color: rgba(0, 0, 0, 0.18);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
-.team-cell-clickable:hover .team-name,
-.team-cell-clickable:focus-visible .team-name {
+.team-cell-clickable:active .team-name {
   color: var(--vis-accent);
   text-decoration-color: var(--vis-accent);
 }

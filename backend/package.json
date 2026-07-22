@@ -11,9 +11,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@langchain/core": "^0.3.80",
-    "@langchain/langgraph": "^0.2.74",
-    "@langchain/openai": "^0.3.17",
     "bcrypt": "^6.0.0",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
@@ -22,12 +19,10 @@
     "helmet": "^8.1.0",
     "https-proxy-agent": "^9.0.0",
     "jsonwebtoken": "^9.0.3",
-    "langchain": "^0.3.37",
     "lodash": "^4.17.23",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "mysql2": "^3.16.2",
-    "openai": "^6.27.0",
     "sequelize": "^6.37.7",
     "winston": "^3.19.0",
     "xlsx": "^0.18.5"

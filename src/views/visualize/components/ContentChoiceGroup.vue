@@ -1,6 +1,7 @@
 <template>
   <div
     class="content-choice-group"
+    :class="{ 'content-choice-group--compact': compact }"
     role="radiogroup"
     :aria-label="ariaLabel || label"
     :style="{ '--choice-count': items.length }"
@@ -18,7 +19,8 @@
         @click="$emit('update:modelValue', item.value)"
       >
         <span aria-hidden="true"></span>
-        {{ item.label }}
+        <img v-if="item.icon" :src="item.icon" :alt="item.label" class="content-choice-group__icon" />
+        <template v-else>{{ item.label }}</template>
       </button>
     </div>
   </div>
@@ -32,7 +34,8 @@ export default {
     items: { type: Array, required: true },
     label: { type: String, default: '显示内容' },
     ariaLabel: { type: String, default: '' },
-    hideLabel: { type: Boolean, default: false }
+    hideLabel: { type: Boolean, default: false },
+    compact: { type: Boolean, default: false }
   },
   emits: ['update:modelValue']
 };
@@ -99,6 +102,25 @@ export default {
   transition: background-color 0.18s var(--vis-ease, ease), transform 0.18s var(--vis-ease, ease);
 }
 
+.content-choice-group__icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  display: block;
+}
+
+/* 紧凑形态：用于面板内部的二级筛选栏 */
+.content-choice-group--compact .content-choice-group__option {
+  min-height: 26px;
+  font-size: 11px;
+  gap: 5px;
+}
+
+.content-choice-group--compact .content-choice-group__option > span {
+  width: 4px;
+  height: 4px;
+}
+
 .content-choice-group__option:hover:not(.is-active) {
   color: #111;
   background: rgba(17, 17, 17, 0.025);
@@ -140,6 +162,10 @@ export default {
   .content-choice-group__option {
     min-height: 34px;
     padding: 0 8px;
+  }
+
+  .content-choice-group--compact .content-choice-group__option {
+    min-height: 26px;
   }
 }
 

@@ -118,13 +118,10 @@
                       :template="seasonVisualConfig.standings.template" 
                       :score-stats="seasonTeamScoreStats" 
                       :stage-overrides="seasonVisualConfig.standings.stageOverrides" 
-                      :current-stage-label="seasonVisualConfig.standings.currentStageLabel"
                       :qualification-count="seasonVisualConfig.standings.qualificationCount"
                     />
                   </div>
                 </div>
-
-                <MapPool :seasonId="filterForm.seasonId" :map-ids="seasonVisualConfig.mapPool.mapIds" :map-pick-stats="seasonMapPickStats" :map-games="seasonMapGames" />
               </template>
               <template v-else-if="currentTab === 'recent'">
                 <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
@@ -148,11 +145,15 @@
                       </section>
 
                       <section v-else-if="activeStatsCategory === 'player'" class="stats-data-section">
-                        <PlayerStatsChart :seasonId="filterForm.seasonId" />
+                        <PlayerStatsChart :seasonId="filterForm.seasonId" :show-final-blows="!!(seasonFeatures && seasonFeatures.hasFinalBlows)" />
+                      </section>
+
+                      <section v-else-if="activeStatsCategory === 'map'" class="stats-data-section">
+                        <MapStatsOverview :map-pick-stats="seasonMapPickStats" :map-games="seasonMapGames" :map-ids="seasonVisualConfig.mapPool.mapIds" :season-id="filterForm.seasonId" />
                       </section>
 
                       <section v-else-if="activeStatsCategory === 'hero'" class="stats-data-section">
-                        <HeroBanChart :seasonId="filterForm.seasonId" />
+                        <HeroOverviewChart :seasonId="filterForm.seasonId" />
                       </section>
 
                       <section v-else-if="activeStatsCategory === 'radar'" class="stats-data-section">
@@ -177,14 +178,14 @@ import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
-const HeroBanChart = defineAsyncComponent(() => import('./components/HeroBanChart.vue'));
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
 const PlayerRadarChart = defineAsyncComponent(() => import('./components/PlayerRadarChart.vue'));
+const MapStatsOverview = defineAsyncComponent(() => import('./components/MapStatsOverview.vue'));
+const HeroOverviewChart = defineAsyncComponent(() => import('./components/HeroOverviewChart.vue'));
 
 import TournamentBanner from './components/TournamentBanner.vue';
 import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
-import MapPool from './components/MapPool.vue';
 import RecentMatches from './components/RecentMatches.vue';
 import UpcomingMatches from './components/UpcomingMatches.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
@@ -194,13 +195,13 @@ import apiService from '@/services/api';
 export default {
   name: 'VisualizeView',
   components: {
-    HeroBanChart,
     TeamStatsChart,
     PlayerStatsChart,
     PlayerRadarChart,
+    MapStatsOverview,
+    HeroOverviewChart,
     TournamentBanner,
     RegularSeasonBoard,
-    MapPool,
     RecentMatches,
     UpcomingMatches,
     ContentChoiceGroup
@@ -231,6 +232,8 @@ export default {
     const seasonMapGames = ref([]);
     const seasonTeamScoreStats = ref([]);
     const seasonMapPickStats = ref([]);
+    // 赛季数据维度探测结果（ban / 英雄明细 / 最后一击 / 大招充能），null = 尚未加载
+    const seasonFeatures = ref(null);
     const isPageLoading = ref(true);
 
     const handleTabAfterEnter = async () => {
@@ -280,10 +283,19 @@ export default {
         ]);
         seasonTeamScoreStats.value = Array.isArray(teamScoreRes) ? teamScoreRes : teamScoreRes?.data || [];
         seasonMapPickStats.value = Array.isArray(mapPickRes) ? mapPickRes : mapPickRes?.data || [];
+        // features 独立拉取、独立容错：接口失败（如后端尚未更新）不影响战队/地图数据展示
+        try {
+          const featuresRes = await apiService.getSeasonFeatures(seasonId);
+          seasonFeatures.value = featuresRes && typeof featuresRes === 'object' ? featuresRes : null;
+        } catch (featuresError) {
+          console.warn('Failed to load season features', featuresError);
+          seasonFeatures.value = null;
+        }
       } catch (error) {
         console.error('Failed to load season overview stats', error);
         seasonTeamScoreStats.value = [];
         seasonMapPickStats.value = [];
+        seasonFeatures.value = null;
       }
     };
 
@@ -321,8 +333,7 @@ export default {
           standings: {
             template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
             qualificationCount: Number(config?.standings?.qualificationCount) || 0,
-            stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {},
-            currentStageLabel: String(config?.standings?.currentStageLabel || '当前阶段')
+            stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {}
           },
           liquipediaTournamentName: config?.liquipediaTournamentName || ''
         };
@@ -331,27 +342,41 @@ export default {
           tags: [],
           dateRange: '',
           mapPool: { mapIds: [] },
-          standings: { template: 'wl_maps', stageOverrides: {}, currentStageLabel: '当前阶段', qualificationCount: 0 },
+          standings: { template: 'wl_maps', stageOverrides: {}, qualificationCount: 0 },
           liquipediaTournamentName: ''
         };
       }
     };
 
-    const chartConfig = ref({
-      overviewTab: true,
-      recentTab: true,
-      statsTab: true,
-      heroBan: true,
-      teamStats: true,
-      playerStats: true,
-      playerRadar: true
+    // 后台 visualize_chart_config 的人工开关（可隐藏某类数据区）
+    const chartConfigOverrides = ref({});
+
+    // 门控：英雄 tab 是数据硬门控——只在有 ban 或英雄明细数据的赛季展示（且未被人工关闭）；
+    // 地图 tab 全赛季开放。seasonFeatures 为 null（未加载/加载失败）时英雄 tab 隐藏，其余保持原路径。
+    const chartConfig = computed(() => {
+      const f = seasonFeatures.value;
+      const merged = {
+        overviewTab: true,
+        recentTab: true,
+        statsTab: true,
+        teamStats: true,
+        playerStats: true,
+        mapStats: true,
+        playerRadar: true,
+        ...chartConfigOverrides.value
+      };
+      // 英雄 tab 纯数据门控：后台旧的 heroBan 人工开关已废弃（历史上仅用于隐藏空 ban 图表），
+      // 有 ban 或英雄明细数据即展示，没有即隐藏。
+      merged.heroBan = !!(f && (f.hasBans || f.hasHeroStats));
+      return merged;
     });
 
     const statsCategoryTabs = computed(() => [
-      chartConfig.value.teamStats && { value: 'team', label: '战队数据' },
-      chartConfig.value.playerStats && { value: 'player', label: '选手数据' },
-      chartConfig.value.heroBan && { value: 'hero', label: '英雄禁用' },
-      chartConfig.value.playerRadar && { value: 'radar', label: '选手对比' }
+      chartConfig.value.teamStats && { value: 'team', label: '战队' },
+      chartConfig.value.playerStats && { value: 'player', label: '选手' },
+      chartConfig.value.mapStats && { value: 'map', label: '地图' },
+      chartConfig.value.heroBan && { value: 'hero', label: '英雄' },
+      chartConfig.value.playerRadar && { value: 'radar', label: '对比' }
     ].filter(Boolean));
 
     watch(statsCategoryTabs, (items) => {
@@ -509,8 +534,8 @@ export default {
       // 优先从后端加载配置
       try {
         const config = await apiService.getConfig('visualize_chart_config');
-        if (config) {
-          chartConfig.value = { ...chartConfig.value, ...config };
+        if (config && typeof config === 'object') {
+          chartConfigOverrides.value = { ...config };
         }
       } catch (error) {
         console.error('加载图表配置失败，尝试使用本地缓存:', error);
@@ -518,7 +543,9 @@ export default {
         if (savedConfig) {
           try {
             const parsed = JSON.parse(savedConfig);
-            chartConfig.value = { ...chartConfig.value, ...parsed };
+            if (parsed && typeof parsed === 'object') {
+              chartConfigOverrides.value = { ...parsed };
+            }
           } catch (e) { /* ignore */ }
         }
       }
@@ -594,6 +621,7 @@ export default {
       seasonMapGames,
       seasonTeamScoreStats,
       seasonMapPickStats,
+      seasonFeatures,
       seasonVisualConfig,
       seasons,
       groupedSeasons,
