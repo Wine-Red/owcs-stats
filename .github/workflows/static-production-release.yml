@@ -70,6 +70,9 @@ jobs:
           console.log(JSON.stringify(manifest, null, 2));
           NODE
 
+      - name: Verify portable static bundle
+        run: npm run verify:static-bundle
+
       - name: Smoke test static pages
         run: |
           npx vite preview --mode static --host 127.0.0.1 --port 4174 --strictPort > /tmp/owcs-static-preview.log 2>&1 &
