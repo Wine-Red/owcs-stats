@@ -2,10 +2,18 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
-export default defineConfig({
-  base: '/stats/',
+export default defineConfig(({ mode }) => ({
+  base: mode === 'static' ? './' : '/stats/',
   
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    mode === 'static' && {
+      name: 'owcs-static-html',
+      transformIndexHtml(html) {
+        return html.replace(/\s*<!-- external-analytics:start -->[\s\S]*?<!-- external-analytics:end -->/, '')
+      }
+    }
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
@@ -22,4 +30,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

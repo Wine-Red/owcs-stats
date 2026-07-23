@@ -114,10 +114,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { Calendar, ArrowUp } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPublicEvent } from '@/utils/analytics';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
-const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 // 声明一个模块级别的 Promise，用于防止多个组件实例或并发请求导致重复调用 API
@@ -183,6 +184,13 @@ export default {
         .filter(m => {
           if (!m.tournamentName.toLowerCase().includes(targetName)) return false;
 
+          // 静态快照不会像 Liquipedia 实时接口一样移除已结束比赛。
+          // 静态版在预计开赛 8 小时后自动隐藏，避免旧比赛长期显示为 LIVE。
+          if (import.meta.env.MODE === 'static' && Number.isFinite(m.timestamp)) {
+            const staticLiveWindowMs = 8 * 60 * 60 * 1000;
+            if (m.timestamp < Date.now() - staticLiveWindowMs) return false;
+          }
+
           // 只过滤双方都还是 TBD 的占位对局，单边 TBD 仍然展示
           const t1Name = String(m.teamA?.name || m.team1?.name || m.team1 || '').toLowerCase();
           const t2Name = String(m.teamB?.name || m.team2?.name || m.team2 || '').toLowerCase();
@@ -206,7 +214,8 @@ export default {
 
     const isOngoing = (timestamp) => {
       if (!timestamp) return false;
-      return timestamp < Date.now();
+      const now = Date.now();
+      return timestamp <= now && timestamp > now - 8 * 60 * 60 * 1000;
     };
 
     // 卡片内只显示当天时刻，日期由分组标题承担

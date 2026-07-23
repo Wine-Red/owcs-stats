@@ -92,8 +92,9 @@ import { useStore } from 'vuex';
 import { ArrowUp, ArrowDown, VideoCamera, DocumentCopy } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { trackPublicEvent } from '@/utils/analytics';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 
-const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 
 export default {
   name: 'RecentMatches',

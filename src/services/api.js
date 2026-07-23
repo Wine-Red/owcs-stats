@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { trackError } from '@/utils/analytics';
+import createStaticApi from './staticApi';
 
 // 创建axios实例
-const api = axios.create({
+const isStaticExport = import.meta.env.MODE === 'static';
+const api = isStaticExport ? createStaticApi() : axios.create({
   baseURL: '/api',
   timeout: 60000, // 增加到 60 秒以支持耗时的同步和 AI 操作
   headers: {
@@ -11,7 +13,7 @@ const api = axios.create({
 });
 
 // 请求拦截器
-api.interceptors.request.use(
+if (!isStaticExport) api.interceptors.request.use(
   config => {
     // 可以在这里添加认证token
     return config;
@@ -22,7 +24,7 @@ api.interceptors.request.use(
 );
 
 // 响应拦截器
-api.interceptors.response.use(
+if (!isStaticExport) api.interceptors.response.use(
   response => {
     return response.data;
   },
@@ -148,6 +150,10 @@ const apiService = {
   getAllConfigs: () => api.get('/config'),
   getConfig: (key) => api.get(`/config/${key}`),
   updateConfig: (data) => api.post('/config', data),
+
+  // 赛事数据助手
+  getAgentStatus: () => api.get('/agent/status'),
+  askAgent: (data) => api.post('/agent/chat', data),
 
 };
 

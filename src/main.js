@@ -45,7 +45,7 @@ document.addEventListener('wheel', function (e) {
 
 // 创建Vue应用
 const app = createApp(App)
-initAnalytics()
+if (import.meta.env.MODE !== 'static') initAnalytics()
 
 // 使用插件
 app.use(router)

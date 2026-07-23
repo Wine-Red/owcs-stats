@@ -84,8 +84,9 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import apiService from '@/services/api';
 import { trackPublicEvent } from '@/utils/analytics';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 
-const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 
 export default {
   name: 'RegularSeasonBoard',

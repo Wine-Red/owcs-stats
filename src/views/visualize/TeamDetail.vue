@@ -217,6 +217,7 @@ import { ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { getHeroIconUrl } from '@/utils/heroIcons';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
@@ -450,9 +451,9 @@ export default {
     };
 
     const getTeamLogo = (teamId) => {
-      if (!teamId) return 'https://owmini.xyz/images/tbd.png';
+      if (!teamId) return TBD_TEAM_LOGO_URL;
       const t = store.state.teams.find(t => String(t.id) === String(teamId));
-      return t?.logo || 'https://owmini.xyz/images/tbd.png';
+      return t?.logo || TBD_TEAM_LOGO_URL;
     };
 
     const getSeasonName = (seasonId) => {
