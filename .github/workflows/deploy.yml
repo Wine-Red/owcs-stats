@@ -5,6 +5,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: production-deploy-and-static-release
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -69,3 +73,18 @@ jobs:
             cd /www/wwwroot/owcs-stats-backend
             npm ci --omit=dev
             /www/server/panel/pyenv/bin/supervisorctl restart owcs-stats-backend:owcs-stats-backend_00
+
+      - name: Wait for production API
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error --max-time 10 \
+              https://owmini.xyz/api/seasons \
+              | node -e "let body=''; process.stdin.on('data', chunk => body += chunk); process.stdin.on('end', () => { const data = JSON.parse(body); if (!Array.isArray(data)) process.exit(1); });"; then
+              echo "Production API is ready."
+              exit 0
+            fi
+            echo "Production API is not ready yet (attempt $attempt/60)."
+            sleep 5
+          done
+          echo "Production API did not recover within five minutes."
+          exit 1
