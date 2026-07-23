@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { fetchJsonWithRetry } from './lib/fetch-json-with-retry.mjs';
 
 const projectRoot = process.cwd();
 const exportConfigPath = path.join(projectRoot, 'static-export.config.json');
@@ -27,7 +28,11 @@ const outputRoot = path.resolve(publicRoot, 'static-data');
 const logoRoot = path.join(outputRoot, 'team-logos');
 const STATIC_ASSET_TOKEN = '__OWCS_STATIC_BASE__/';
 const TBD_TEAM_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
-const CONCURRENCY = Math.max(1, Number(process.env.OWCS_EXPORT_CONCURRENCY) || 6);
+const CONCURRENCY = Math.max(
+  1,
+  Number(process.env.OWCS_EXPORT_CONCURRENCY) || (productionMode ? 4 : 6)
+);
+const REQUEST_ATTEMPTS = Math.max(1, Number(process.env.OWCS_EXPORT_REQUEST_ATTEMPTS) || 5);
 
 if (!outputRoot.startsWith(`${publicRoot}${path.sep}`)) {
   throw new Error(`拒绝清理 public 目录以外的路径: ${outputRoot}`);
@@ -54,18 +59,15 @@ const capture = async (requestPath, { optional = false } = {}) => {
   const key = canonicalPath(requestPath);
   if (Object.prototype.hasOwnProperty.call(responses, key)) return responses[key];
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
   try {
-    const response = await fetch(`${API_BASE}${key}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal
+    const data = await fetchJsonWithRetry(`${API_BASE}${key}`, {
+      attempts: REQUEST_ATTEMPTS,
+      onRetry: ({ nextAttempt, maxAttempts, delayMs, error }) => {
+        console.warn(
+          `[static-export] 请求失败，${delayMs}ms 后重试 (${nextAttempt}/${maxAttempts})：GET ${key} - ${error.message}`
+        );
+      }
     });
-    if (!response.ok) {
-      const body = (await response.text()).slice(0, 300);
-      throw new Error(`${response.status} ${response.statusText}${body ? ` - ${body}` : ''}`);
-    }
-    const data = await response.json();
     responses[key] = data;
     completedRequests += 1;
     if (completedRequests % 50 === 0) {
@@ -80,8 +82,6 @@ const capture = async (requestPath, { optional = false } = {}) => {
       return null;
     }
     throw new Error(`[static-export] 数据导出失败：${message}`, { cause: error });
-  } finally {
-    clearTimeout(timeout);
   }
 };
 

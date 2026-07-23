@@ -10,6 +10,7 @@
     "build:static": "vite build --mode static",
     "export:static": "node scripts/export-static.mjs && vite build --mode static",
     "export:static:production": "node scripts/export-static.mjs --production && vite build --mode static",
+    "test:static-export": "node --test scripts/tests/fetch-json-with-retry.test.mjs",
     "smoke:static": "node scripts/smoke-static.mjs",
     "preview": "vite preview",
     "lint": "vue-cli-service lint"

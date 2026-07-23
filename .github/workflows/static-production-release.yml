@@ -1,7 +1,11 @@
 name: Build Production Static Release
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Deploy To BT
+    types:
+      - completed
     branches:
       - master
   schedule:
@@ -13,12 +17,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: static-production-release
+  group: production-deploy-and-static-release
   cancel-in-progress: false
 
 jobs:
   build-and-release:
     name: Export, verify, and publish
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -36,6 +41,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Test static exporter resilience
+        run: npm run test:static-export
 
       - name: Export production static site
         run: npm run export:static:production
