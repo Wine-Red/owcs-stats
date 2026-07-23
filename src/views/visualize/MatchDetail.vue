@@ -416,10 +416,11 @@ import apiService from '@/services/api';
 import { getMapImageUrl } from '@/utils/mapImages';
 import { getHeroIconUrl } from '@/utils/heroIcons';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import DetailTopbar from './components/DetailTopbar.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
-const TBD_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
+const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 
 export default {
   name: 'MatchDetail',

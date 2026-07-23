@@ -1,0 +1,135 @@
+name: Build Production Static Release
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    # GitHub cron uses UTC. 16:00 UTC is 00:00 the next day in Asia/Shanghai.
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: static-production-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Export, verify, and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export production static site
+        run: npm run export:static:production
+
+      - name: Verify production manifest
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+
+          const config = JSON.parse(await readFile('static-export.config.json', 'utf8'));
+          const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
+          if (manifest.exportMode !== 'production') {
+            throw new Error(`Expected production export, received ${manifest.exportMode}`);
+          }
+          if (manifest.sourceApi !== config.productionApiBase) {
+            throw new Error(`Unexpected source API: ${manifest.sourceApi}`);
+          }
+          if (manifest.warnings?.length) {
+            throw new Error(`Export completed with ${manifest.warnings.length} warning(s)`);
+          }
+          if (!manifest.responses || !manifest.seasons || !manifest.teams) {
+            throw new Error('Production snapshot is unexpectedly empty');
+          }
+          console.log(JSON.stringify(manifest, null, 2));
+          NODE
+
+      - name: Smoke test static pages
+        run: |
+          npx vite preview --mode static --host 127.0.0.1 --port 4174 --strictPort > /tmp/owcs-static-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4174/ > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/owcs-static-preview.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npm run smoke:static
+
+      - name: Package release
+        id: release
+        env:
+          TZ: Asia/Shanghai
+        run: |
+          release_tag="static-production-$(date +'%Y%m%d-%H%M%S')"
+          release_name="OWCS Stats 生产静态站 $(date +'%Y-%m-%d %H:%M:%S')"
+          target_sha="$(git rev-parse HEAD)"
+          archive_name="owcs-stats-static-production.zip"
+          (
+            cd dist
+            zip -q -r "../$archive_name" .
+          )
+          sha256sum "$archive_name" > "$archive_name.sha256"
+          node --input-type=module <<'NODE' > release-notes.md
+          import { readFile } from 'node:fs/promises';
+          const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
+          console.log(`生产静态展示站自动构建。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 接口快照：${manifest.responses}\n- 队伍图标：${manifest.localizedTeamLogos}\n\n解压后将全部文件上传到纯静态网站平台。`);
+          NODE
+          {
+            echo "tag=$release_tag"
+            echo "name=$release_name"
+            echo "target_sha=$target_sha"
+            echo "archive=$archive_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.release.outputs.tag }}" \
+            "${{ steps.release.outputs.archive }}" \
+            "${{ steps.release.outputs.archive }}.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "${{ steps.release.outputs.target_sha }}" \
+            --title "${{ steps.release.outputs.name }}" \
+            --notes-file release-notes.md \
+            --latest
+
+      - name: Keep only the latest three static releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name | startswith("static-production-")) | [.created_at, .tag_name] | @tsv' \
+            | sort -r \
+            | tail -n +4 \
+            | cut -f2 \
+            | while IFS= read -r old_tag; do
+                if [ -n "$old_tag" ]; then
+                  echo "Deleting old static release: $old_tag"
+                  gh release delete "$old_tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+                fi
+              done

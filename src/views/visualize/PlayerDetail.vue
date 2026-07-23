@@ -272,6 +272,7 @@ import { ArrowDown, ArrowRight } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { getHeroIconUrl } from '@/utils/heroIcons';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
 
@@ -349,7 +350,7 @@ export default {
       || store.state.teams.find(item => String(item.id) === String(route.query.teamId))
       || null);
 
-    const teamLogo = computed(() => currentTeam.value?.logo || 'https://owmini.xyz/images/tbd.png');
+    const teamLogo = computed(() => currentTeam.value?.logo || TBD_TEAM_LOGO_URL);
 
     const normalizeStat = stat => {
       if (!stat) return null;
@@ -574,7 +575,7 @@ export default {
     const getMatchResultClass = match => !match.matchWinnerId ? 'is-unknown' : String(match.matchWinnerId) === String(match.teamId) ? 'is-win' : 'is-loss';
 
     const getTeamName = teamId => store.state.teams.find(item => String(item.id) === String(teamId))?.name || '未知对手';
-    const getTeamLogo = teamId => store.state.teams.find(item => String(item.id) === String(teamId))?.logo || 'https://owmini.xyz/images/tbd.png';
+    const getTeamLogo = teamId => store.state.teams.find(item => String(item.id) === String(teamId))?.logo || TBD_TEAM_LOGO_URL;
     const formatDate = value => {
       if (!value) return '--';
       const date = new Date(value);

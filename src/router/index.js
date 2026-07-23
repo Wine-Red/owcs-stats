@@ -1,4 +1,6 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
+
+const isStaticExport = import.meta.env.MODE === 'static';
 
 const routes = [
   {
@@ -62,8 +64,19 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: isStaticExport
+    ? createWebHashHistory(import.meta.env.BASE_URL)
+    : createWebHistory(import.meta.env.BASE_URL),
   routes
 });
+
+if (isStaticExport) {
+  router.beforeEach(to => {
+    if (!to.path.startsWith('/visualize')) {
+      return { path: '/visualize', replace: true };
+    }
+    return true;
+  });
+}
 
 export default router;

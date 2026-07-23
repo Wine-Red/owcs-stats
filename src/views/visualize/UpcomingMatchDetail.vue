@@ -237,6 +237,7 @@ import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
@@ -650,7 +651,7 @@ export default {
 
     const getTeamLogo = (teamId) => {
       const team = store.state.teams.find(t => t.id === teamId);
-      return team?.logo || 'https://owmini.xyz/images/tbd.png';
+      return team?.logo || TBD_TEAM_LOGO_URL;
     };
 
     const getSeasonName = (seasonId) => {
@@ -1201,7 +1202,8 @@ export default {
 
     const isOngoing = computed(() => {
       if (!queryParams.value.time) return false;
-      return queryParams.value.time < Date.now();
+      const now = Date.now();
+      return queryParams.value.time <= now && queryParams.value.time > now - 8 * 60 * 60 * 1000;
     });
 
     watch(activeTab, (tab) => {
