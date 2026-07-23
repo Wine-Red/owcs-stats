@@ -19,6 +19,18 @@ export default defineConfig(({ mode }) => ({
       '@': path.resolve(__dirname, './src')
     }
   },
+  build: mode === 'static' ? {
+    // Some third-party static hosts move secondary assets to a CDN without
+    // enabling CORS for ES modules. Keep the downloadable release portable by
+    // avoiding runtime chunk imports and cross-origin font requests.
+    cssCodeSplit: false,
+    assetsInlineLimit: 100_000_000,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true
+      }
+    }
+  } : undefined,
   server: {
     port: 8080,
     proxy: {
