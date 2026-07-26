@@ -7,7 +7,10 @@
             <span
               v-if="group.iconUrl"
               class="mode-icon"
-              :style="{ '--mode-icon-url': `url(${group.iconUrl})` }"
+              :style="{
+                WebkitMaskImage: `url(${group.iconUrl})`,
+                maskImage: `url(${group.iconUrl})`
+              }"
             ></span>
             <span>{{ group.label }}</span>
           </span>
@@ -89,24 +92,16 @@ import { ref, computed } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { ArrowDown } from '@element-plus/icons-vue';
-import { getMapImageUrl } from '@/utils/mapImages';
+import { getMapImageUrl, getMapModeIconUrl } from '@/utils/mapImages';
 import { getHeroIconUrl } from '@/utils/heroIcons';
 
 const TYPE_ORDER = [
-  { type: '占领要点', cssClass: 'bg-control', iconKey: 'control' },
-  { type: '运载目标', cssClass: 'bg-escort', iconKey: 'escort' },
-  { type: '攻击/护送', cssClass: 'bg-hybrid', iconKey: 'hybrid' },
-  { type: '机动推进', cssClass: 'bg-push', iconKey: 'push' },
-  { type: '闪点作战', cssClass: 'bg-flashpoint', iconKey: 'flashpoint' }
+  { type: '占领要点', cssClass: 'bg-control' },
+  { type: '运载目标', cssClass: 'bg-escort' },
+  { type: '攻击/护送', cssClass: 'bg-hybrid' },
+  { type: '机动推进', cssClass: 'bg-push' },
+  { type: '闪点作战', cssClass: 'bg-flashpoint' }
 ];
-
-// 模式图标资源与比赛详情页「地图走势」同源：public/maps/logo/<key>.png（白色镂空字形，用 mask 着色）
-const getModeIconUrl = (iconKey) => {
-  if (!iconKey) return '';
-  const baseUrl = import.meta.env.BASE_URL || '/';
-  const normalized = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  return `${normalized}maps/logo/${iconKey}.png`;
-};
 
 export default {
   name: 'MapStatsOverview',
@@ -263,7 +258,7 @@ export default {
       });
 
       const result = [];
-      TYPE_ORDER.forEach(({ type, cssClass, iconKey }) => {
+      TYPE_ORDER.forEach(({ type, cssClass }) => {
         const typeRows = baseEntries
           .filter(entry => typeOf(entry) === type)
           .map(entry => {
@@ -301,7 +296,7 @@ export default {
             type,
             label: type,
             cssClass,
-            iconUrl: getModeIconUrl(iconKey),
+            iconUrl: getMapModeIconUrl(type),
             rows: typeRows,
             totalCount: typeRows.reduce((sum, r) => sum + r.pickCount, 0)
           });
@@ -378,8 +373,6 @@ export default {
   width: 15px;
   height: 15px;
   background-color: currentColor;
-  -webkit-mask-image: var(--mode-icon-url);
-  mask-image: var(--mode-icon-url);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
