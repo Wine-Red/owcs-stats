@@ -16,10 +16,27 @@ const Season = require('../models/Season');
 
 const integer = value => Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
 
+const filterLoadedRawData = (rawData, requestedMatchIds) => {
+  if (!requestedMatchIds) return rawData;
+  const matchIdSet = new Set(requestedMatchIds.map(Number));
+  const matches = rawData.matches.filter(match => matchIdSet.has(Number(match.id)));
+  const mapGames = rawData.mapGames.filter(game => matchIdSet.has(Number(game.matchId)));
+  const mapGameIdSet = new Set(mapGames.map(game => Number(game.id)));
+  const playerStats = rawData.playerStats.filter(stat => mapGameIdSet.has(Number(stat.mapGameId)));
+  return {
+    ...rawData,
+    matches,
+    mapGames,
+    playerStats,
+    gameById: new Map(mapGames.map(game => [Number(game.id), game]))
+  };
+};
+
 const loadSeasonRawData = async (seasonId, options = {}) => {
   const requestedMatchIds = Array.isArray(options.matchIds)
     ? options.matchIds.map(Number).filter(Number.isFinite)
     : null;
+  if (options.rawData) return filterLoadedRawData(options.rawData, requestedMatchIds);
   // 传入 matchIds 时仍叠加 seasonId 过滤（赛季内阶段流程的 matchIds 本就属于同一赛季）。
   const matchWhere = requestedMatchIds
     ? { seasonId, id: { [Op.in]: requestedMatchIds } }
@@ -236,10 +253,12 @@ const calculateSeasonMapPickStats = async (seasonId, options = {}) => {
   // 每张地图取时长最长的至多两套。旧赛季没有英雄明细数据时 compositions 为空数组。
   const playerStatIds = playerStats.map(s => s.id);
   const heroStatRows = playerStatIds.length
-    ? await PlayerHeroStat.findAll({
+    ? (options.playerHeroStats
+      ? options.playerHeroStats.filter(row => playerStatIds.includes(Number(row.playerStatId)))
+      : await PlayerHeroStat.findAll({
       where: { playerStatId: { [Op.in]: playerStatIds } },
       raw: true
-    })
+      }))
     : [];
 
   if (heroStatRows.length) {
@@ -260,8 +279,10 @@ const calculateSeasonMapPickStats = async (seasonId, options = {}) => {
     }
 
     // 英雄职责表：用于校验 TDDSS（1 重装 + 2 输出 + 2 支援）合法阵容
-    const allHeroes = await Hero.findAll({ attributes: ['id', 'role'], raw: true });
-    const heroRoleById = new Map(allHeroes.map(h => [Number(h.id), h.role]));
+    const heroRoleById = options.heroRoleById || new Map(
+      (await Hero.findAll({ attributes: ['id', 'role'], raw: true }))
+        .map(h => [Number(h.id), h.role])
+    );
 
     // mapId -> Map(compKey -> agg)，compKey 仅为英雄组合，不分队伍
     const compAggByMapId = new Map();
@@ -414,15 +435,20 @@ const calculateSeasonTeamCompositions = async (seasonId, teamId, options = {}) =
   if (!teamPlayerStats.length) return [];
 
   const playerStatIds = teamPlayerStats.map(s => s.id);
-  const heroStatRows = await PlayerHeroStat.findAll({
-    where: { playerStatId: { [Op.in]: playerStatIds } },
-    raw: true
-  });
+  const playerStatIdSet = new Set(playerStatIds.map(Number));
+  const heroStatRows = options.playerHeroStats
+    ? options.playerHeroStats.filter(row => playerStatIdSet.has(Number(row.playerStatId)))
+    : await PlayerHeroStat.findAll({
+      where: { playerStatId: { [Op.in]: playerStatIds } },
+      raw: true
+    });
   if (!heroStatRows.length) return [];
 
   // 英雄职责表：用于阵容内按 T → D → S 排序
-  const allHeroes = await Hero.findAll({ attributes: ['id', 'role'], raw: true });
-  const heroRoleById = new Map(allHeroes.map(h => [Number(h.id), h.role]));
+  const heroRoleById = options.heroRoleById || new Map(
+    (await Hero.findAll({ attributes: ['id', 'role'], raw: true }))
+      .map(h => [Number(h.id), h.role])
+  );
   const roleRank = { tank: 0, damage: 1, support: 2 };
 
   const usageByPlayerStatId = new Map();
@@ -494,10 +520,13 @@ const calculateSeasonTeamHeroStats = async (seasonId, teamId, options = {}) => {
   const teamPlayerStats = playerStats.filter(ps => Number(ps.teamId) === targetTeamId);
   let picks = [];
   if (teamPlayerStats.length) {
-    const heroStatRows = await PlayerHeroStat.findAll({
-      where: { playerStatId: { [Op.in]: teamPlayerStats.map(s => s.id) } },
-      raw: true
-    });
+    const playerStatIdSet = new Set(teamPlayerStats.map(stat => Number(stat.id)));
+    const heroStatRows = options.playerHeroStats
+      ? options.playerHeroStats.filter(row => playerStatIdSet.has(Number(row.playerStatId)))
+      : await PlayerHeroStat.findAll({
+        where: { playerStatId: { [Op.in]: teamPlayerStats.map(s => s.id) } },
+        raw: true
+      });
     const agg = new Map();
     for (const row of heroStatRows) {
       const heroId = Number(row.heroId);
