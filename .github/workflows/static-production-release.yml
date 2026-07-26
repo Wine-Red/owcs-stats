@@ -9,8 +9,8 @@ on:
     branches:
       - master
   schedule:
-    # GitHub cron uses UTC. 16:00 UTC is 00:00 the next day in Asia/Shanghai.
-    - cron: '0 16 * * *'
+    - cron: '0 6 * * *'
+      timezone: 'Asia/Shanghai'
   workflow_dispatch:
 
 permissions:

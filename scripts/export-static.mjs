@@ -33,6 +33,7 @@ const CONCURRENCY = Math.max(
   Number(process.env.OWCS_EXPORT_CONCURRENCY) || (productionMode ? 4 : 6)
 );
 const REQUEST_ATTEMPTS = Math.max(1, Number(process.env.OWCS_EXPORT_REQUEST_ATTEMPTS) || 5);
+const FORCE_LEGACY_EXPORT = process.env.OWCS_STATIC_EXPORT_LEGACY === '1';
 
 if (!outputRoot.startsWith(`${publicRoot}${path.sep}`)) {
   throw new Error(`拒绝清理 public 目录以外的路径: ${outputRoot}`);
@@ -187,16 +188,59 @@ const main = async () => {
   await rm(outputRoot, { recursive: true, force: true });
   await mkdir(logoRoot, { recursive: true });
 
-  const [seasonsData, teamsData, playersData, mapsData, heroesData, seasonTeamsData, matchesData, mapGamesData] = await Promise.all([
-    capture('/seasons'),
-    capture('/teams'),
-    capture('/players'),
-    capture('/maps'),
-    capture('/heroes'),
-    capture('/season-teams'),
-    capture(queryPath('/matches', { pageSize: 2000 })),
-    capture(queryPath('/map-games', { pageSize: 2000 }))
-  ]);
+  let serverSnapshot = null;
+  if (!FORCE_LEGACY_EXPORT) {
+    try {
+      serverSnapshot = await fetchJsonWithRetry(`${API_BASE}/static-export/snapshot`, {
+        attempts: 2,
+        timeoutMs: 180_000,
+        onRetry: ({ delayMs, error }) => {
+          console.warn(`[static-export] Batch snapshot failed; retrying in ${delayMs}ms: ${error.message}`);
+        }
+      });
+      if (serverSnapshot?.schemaVersion !== 1 || !serverSnapshot?.responses) {
+        throw new Error('Unsupported batch snapshot format');
+      }
+      Object.assign(responses, serverSnapshot.responses);
+      warnings.push(...(Array.isArray(serverSnapshot.warnings) ? serverSnapshot.warnings : []));
+      completedRequests = 1;
+      console.log(`[static-export] Batch snapshot loaded: ${Object.keys(responses).length} compatible responses in 1 HTTP request`);
+    } catch (error) {
+      serverSnapshot = null;
+      console.warn(`[static-export] Batch snapshot unavailable; falling back to legacy requests: ${error.message}`);
+    }
+  }
+
+  let seasonsData;
+  let teamsData;
+  let playersData;
+  let mapsData;
+  let heroesData;
+  let seasonTeamsData;
+  let matchesData;
+  let mapGamesData;
+
+  if (serverSnapshot) {
+    seasonsData = responses['/seasons'];
+    teamsData = responses['/teams'];
+    playersData = responses['/players'];
+    mapsData = responses['/maps'];
+    heroesData = responses['/heroes'];
+    seasonTeamsData = responses['/season-teams'];
+    matchesData = responses[queryPath('/matches', { pageSize: 2000 })];
+    mapGamesData = responses[queryPath('/map-games', { pageSize: 2000 })];
+  } else {
+    [seasonsData, teamsData, playersData, mapsData, heroesData, seasonTeamsData, matchesData, mapGamesData] = await Promise.all([
+      capture('/seasons'),
+      capture('/teams'),
+      capture('/players'),
+      capture('/maps'),
+      capture('/heroes'),
+      capture('/season-teams'),
+      capture(queryPath('/matches', { pageSize: 2000 })),
+      capture(queryPath('/map-games', { pageSize: 2000 }))
+    ]);
+  }
 
   await capture('/matches/upcoming', { optional: true });
 
@@ -217,101 +261,103 @@ const main = async () => {
     'visualize_stage_season_order',
     ...seasons.map(season => `visualize_season_${season.id}`)
   ];
-  await runPool(configKeys.map(key => () => capture(`/config/${encodeURIComponent(key)}`, { optional: true })));
+  if (!serverSnapshot) {
+    await runPool(configKeys.map(key => () => capture(`/config/${encodeURIComponent(key)}`, { optional: true })));
 
-  const seasonStageIds = new Map();
-  const seasonTasks = [];
-  seasons.forEach(season => {
-    const seasonId = season.id;
-    seasonTasks.push(
-      () => capture(queryPath('/matches', { pageSize: 1000, seasonId })),
-      () => capture(queryPath('/map-games', { pageSize: 1000, seasonId })),
-      () => capture(queryPath('/map-games', { pageSize: 2000, seasonId })),
-      () => capture(`/season-stats/${seasonId}`),
-      () => capture(`/season-stats/${seasonId}/team-score`),
-      () => capture(`/season-stats/${seasonId}/map-picks`),
-      () => capture(`/season-stats/${seasonId}/features`),
-      async () => {
-        const stagesData = await capture(`/season-stats/${seasonId}/stages`);
-        seasonStageIds.set(String(seasonId), asArray(stagesData).map(stage => stage.id));
-      },
-      () => capture(queryPath('/stats/hero/overview', { seasonId }))
-    );
-  });
-  await runPool(seasonTasks);
-
-  const stageTasks = [];
-  seasonStageIds.forEach((stageIds, seasonId) => {
-    stageIds.forEach(stageId => {
-      stageTasks.push(() => capture(queryPath(`/season-stats/${seasonId}/team-score`, { stageId })));
-    });
-  });
-  await runPool(stageTasks);
-
-  const seasonTeamPlayers = new Map();
-  await runPool(seasonTeams.map(seasonTeam => async () => {
-    const relationData = await capture(`/season-teams/${seasonTeam.id}/players`);
-    seasonTeamPlayers.set(String(seasonTeam.id), asArray(relationData));
-  }));
-
-  const seasonTeamsBySeason = new Map();
-  seasonTeams.forEach(item => {
-    const key = String(item.seasonId);
-    if (!seasonTeamsBySeason.has(key)) seasonTeamsBySeason.set(key, []);
-    seasonTeamsBySeason.get(key).push(item);
-  });
-
-  const teamTasks = [];
-  seasons.forEach(season => {
-    const seasonId = season.id;
-    teamTasks.push(() => capture(`/seasons/${seasonId}/teams`));
-    (seasonTeamsBySeason.get(String(seasonId)) || []).forEach(seasonTeam => {
-      const teamId = seasonTeam.teamId;
-      teamTasks.push(
-        () => capture(queryPath('/map-games', { pageSize: 2000, seasonId, teamId })),
-        () => capture(`/season-stats/${seasonId}/teams/${teamId}/compositions`),
-        () => capture(`/season-stats/${seasonId}/teams/${teamId}/hero-stats`)
+    const seasonStageIds = new Map();
+    const seasonTasks = [];
+    seasons.forEach(season => {
+      const seasonId = season.id;
+      seasonTasks.push(
+        () => capture(queryPath('/matches', { pageSize: 1000, seasonId })),
+        () => capture(queryPath('/map-games', { pageSize: 1000, seasonId })),
+        () => capture(queryPath('/map-games', { pageSize: 2000, seasonId })),
+        () => capture(`/season-stats/${seasonId}`),
+        () => capture(`/season-stats/${seasonId}/team-score`),
+        () => capture(`/season-stats/${seasonId}/map-picks`),
+        () => capture(`/season-stats/${seasonId}/features`),
+        async () => {
+          const stagesData = await capture(`/season-stats/${seasonId}/stages`);
+          seasonStageIds.set(String(seasonId), asArray(stagesData).map(stage => stage.id));
+        },
+        () => capture(queryPath('/stats/hero/overview', { seasonId }))
       );
     });
-  });
-  await runPool(teamTasks);
+    await runPool(seasonTasks);
 
-  const playerSeasonPairs = new Set();
-  seasonTeams.forEach(seasonTeam => {
-    (seasonTeamPlayers.get(String(seasonTeam.id)) || []).forEach(relation => {
-      if (relation.playerId != null) playerSeasonPairs.add(`${relation.playerId}:${seasonTeam.seasonId}`);
+    const stageTasks = [];
+    seasonStageIds.forEach((stageIds, seasonId) => {
+      stageIds.forEach(stageId => {
+        stageTasks.push(() => capture(queryPath(`/season-stats/${seasonId}/team-score`, { stageId })));
+      });
     });
-  });
+    await runPool(stageTasks);
 
-  const playerTasks = players.map(player => () => capture(`/stats/player/${player.id}/profile`));
-  playerSeasonPairs.forEach(pair => {
-    const [playerId, seasonId] = pair.split(':');
-    playerTasks.push(
-      () => capture(queryPath(`/stats/player/${playerId}/profile`, { seasonId })),
-      () => capture(queryPath('/stats/player/heroes', { playerId, seasonId }))
-    );
-  });
-  await runPool(playerTasks);
+    const seasonTeamPlayers = new Map();
+    await runPool(seasonTeams.map(seasonTeam => async () => {
+      const relationData = await capture(`/season-teams/${seasonTeam.id}/players`);
+      seasonTeamPlayers.set(String(seasonTeam.id), asArray(relationData));
+    }));
 
-  const heroTasks = [];
-  seasons.forEach(season => {
-    heroes.forEach(hero => {
-      heroTasks.push(() => capture(queryPath('/stats/hero/players', { heroId: hero.id, seasonId: season.id })));
+    const seasonTeamsBySeason = new Map();
+    seasonTeams.forEach(item => {
+      const key = String(item.seasonId);
+      if (!seasonTeamsBySeason.has(key)) seasonTeamsBySeason.set(key, []);
+      seasonTeamsBySeason.get(key).push(item);
     });
-  });
-  await runPool(heroTasks);
 
-  const matchTasks = [];
-  matches.forEach(match => {
-    matchTasks.push(
-      () => capture(`/matches/${match.id}`),
-      () => capture(`/matches/${match.id}/map-games`)
-    );
-  });
-  mapGames.forEach(mapGame => {
-    matchTasks.push(() => capture(`/map-games/${mapGame.id}/player-stats`));
-  });
-  await runPool(matchTasks);
+    const teamTasks = [];
+    seasons.forEach(season => {
+      const seasonId = season.id;
+      teamTasks.push(() => capture(`/seasons/${seasonId}/teams`));
+      (seasonTeamsBySeason.get(String(seasonId)) || []).forEach(seasonTeam => {
+        const teamId = seasonTeam.teamId;
+        teamTasks.push(
+          () => capture(queryPath('/map-games', { pageSize: 2000, seasonId, teamId })),
+          () => capture(`/season-stats/${seasonId}/teams/${teamId}/compositions`),
+          () => capture(`/season-stats/${seasonId}/teams/${teamId}/hero-stats`)
+        );
+      });
+    });
+    await runPool(teamTasks);
+
+    const playerSeasonPairs = new Set();
+    seasonTeams.forEach(seasonTeam => {
+      (seasonTeamPlayers.get(String(seasonTeam.id)) || []).forEach(relation => {
+        if (relation.playerId != null) playerSeasonPairs.add(`${relation.playerId}:${seasonTeam.seasonId}`);
+      });
+    });
+
+    const playerTasks = players.map(player => () => capture(`/stats/player/${player.id}/profile`));
+    playerSeasonPairs.forEach(pair => {
+      const [playerId, seasonId] = pair.split(':');
+      playerTasks.push(
+        () => capture(queryPath(`/stats/player/${playerId}/profile`, { seasonId })),
+        () => capture(queryPath('/stats/player/heroes', { playerId, seasonId }))
+      );
+    });
+    await runPool(playerTasks);
+
+    const heroTasks = [];
+    seasons.forEach(season => {
+      heroes.forEach(hero => {
+        heroTasks.push(() => capture(queryPath('/stats/hero/players', { heroId: hero.id, seasonId: season.id })));
+      });
+    });
+    await runPool(heroTasks);
+
+    const matchTasks = [];
+    matches.forEach(match => {
+      matchTasks.push(
+        () => capture(`/matches/${match.id}`),
+        () => capture(`/matches/${match.id}/map-games`)
+      );
+    });
+    mapGames.forEach(mapGame => {
+      matchTasks.push(() => capture(`/map-games/${mapGame.id}/player-stats`));
+    });
+    await runPool(matchTasks);
+  }
 
   const { replacements, manifest: logoManifest } = await downloadTeamLogos([
     ...teams,
