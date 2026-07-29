@@ -18,8 +18,12 @@ const SYNC_CURSOR_CONFIG_KEY = 'external_match_sync_cursor_v2';
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const DEFAULT_PAGE_SIZE = 50;
 const DETAIL_CONCURRENCY = 5;
+const HERO_NAME_ALIASES = {
+  dva: 'd.va'
+};
 
 const lower = value => String(value || '').toLowerCase();
+const heroNameKey = value => HERO_NAME_ALIASES[lower(value)] || lower(value);
 const integer = value => Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
 const numberOrNull = value => Number.isFinite(Number(value)) ? Number(value) : null;
 const normalizeRole = role => role === 'T' ? 'tank' : role === 'D' ? 'damage' : role === 'S' ? 'support' : lower(role);
@@ -66,7 +70,7 @@ const buildCaches = async (transaction) => {
     seasonByName: new Map(seasons.flatMap(s => [s.name, s.externalEventName].filter(Boolean).map(name => [lower(name), s]))),
     teamByName: new Map(teams.filter(t => t.name).map(t => [lower(t.name), t])),
     mapByName: new Map(maps.filter(m => m.name).map(m => [lower(m.name), m])),
-    heroByName: new Map(heroes.filter(h => h.name).map(h => [lower(h.name), h]))
+    heroByName: new Map(heroes.filter(h => h.name).map(h => [heroNameKey(h.name), h]))
   };
 };
 
@@ -96,11 +100,11 @@ const ensurePlayer = async (source, team, caches, transaction) => {
 
 const ensureHero = async (name, role, caches, transaction) => {
   if (!name) return null;
-  let hero = caches.heroByName.get(lower(name));
+  let hero = caches.heroByName.get(heroNameKey(name));
   if (!hero && ['tank', 'damage', 'support'].includes(role)) {
     hero = await Hero.create({ name, role, subRole: null }, { transaction });
     caches.heroes.push(hero);
-    caches.heroByName.set(lower(name), hero);
+    caches.heroByName.set(heroNameKey(name), hero);
   }
   return hero || null;
 };
@@ -256,8 +260,8 @@ const upsertMatchDetail = async (source, teamNameMapping, caches, transaction) =
   for (const round of source.rounds || []) {
     const map = resolveMap(round.mapName, caches);
     if (!map) throw new Error(`Map not found: ${round.mapName}`);
-    const banA = caches.heroByName.get(lower(round.bans?.teamA)) || null;
-    const banB = caches.heroByName.get(lower(round.bans?.teamB)) || null;
+    const banA = caches.heroByName.get(heroNameKey(round.bans?.teamA)) || null;
+    const banB = caches.heroByName.get(heroNameKey(round.bans?.teamB)) || null;
     const roundWinnerId = round.winner === 'A' ? team1.id : round.winner === 'B' ? team2.id : team2.id;
     const mapPayload = {
       seasonId: season.id,
@@ -439,6 +443,8 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
 
 module.exports = {
   SYNC_CURSOR_CONFIG_KEY,
+  HERO_NAME_ALIASES,
+  heroNameKey,
   createIncrementalMatchSyncService,
   parseDuration,
   parseKad,
