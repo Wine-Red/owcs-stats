@@ -11,7 +11,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
@@ -46,58 +45,69 @@ jobs:
           test -s frontend-dist.tar.gz
           test -s backend-code.tar.gz
 
-      - name: Publish Deployment Artifact
-        id: deployment-artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-${{ github.sha }}
-          path: |
-            frontend-dist.tar.gz
-            backend-code.tar.gz
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
-      - name: Download Deployment Bundles On Server
-        uses: appleboy/ssh-action@v1.2.0
-        timeout-minutes: 8
+      - name: Upload Deployment Bundles With Rsync
+        timeout-minutes: 12
         env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          envs: GH_TOKEN
-          command_timeout: 7m
-          script: |
-            set -eu
-            deploy_dir="/www/wwwroot/.owcs-stats-deploy/${{ github.sha }}"
-            artifact_zip="$deploy_dir/deployment-artifact.zip"
-            artifact_url="https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.deployment-artifact.outputs.artifact-id }}/zip"
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          DEPLOY_ID: ${{ github.sha }}
+        run: |
+          set -euo pipefail
 
-            rm -rf -- "$deploy_dir"
-            mkdir -p "$deploy_dir"
-            df -h /www/wwwroot
-            df -i /www/wwwroot
-            curl \
-              --fail \
-              --location \
-              --silent \
-              --show-error \
-              --retry 4 \
-              --retry-delay 5 \
-              --connect-timeout 20 \
-              --max-time 420 \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$artifact_url" \
-              -o "$artifact_zip"
-            unzip -q "$artifact_zip" -d "$deploy_dir"
-            rm -f -- "$artifact_zip"
-            test -s "$deploy_dir/frontend-dist.tar.gz"
-            test -s "$deploy_dir/backend-code.tar.gz"
+          ssh_dir="$RUNNER_TEMP/owcs-stats-ssh"
+          deploy_key="$ssh_dir/deploy_key"
+          known_hosts="$ssh_dir/known_hosts"
+          remote_dir="/www/wwwroot/.owcs-stats-deploy/$DEPLOY_ID"
+
+          rm -rf -- "$ssh_dir"
+          install -d -m 700 "$ssh_dir"
+          printf '%s\n' "$DEPLOY_KEY" > "$deploy_key"
+          chmod 600 "$deploy_key"
+          trap 'rm -rf -- "$ssh_dir"' EXIT
+
+          ssh-keyscan -T 20 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > "$known_hosts"
+          ssh_args=(
+            -i "$deploy_key"
+            -p "$DEPLOY_PORT"
+            -o "UserKnownHostsFile=$known_hosts"
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=20
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=4
+          )
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+
+          ssh "${ssh_args[@]}" "$remote" \
+            "mkdir -p '$remote_dir' && df -h /www/wwwroot && df -i /www/wwwroot && command -v rsync"
+
+          export RSYNC_RSH="ssh -i $deploy_key -p $DEPLOY_PORT -o UserKnownHostsFile=$known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+          uploaded=false
+          for attempt in 1 2 3; do
+            if rsync \
+              --archive \
+              --partial \
+              --append-verify \
+              --timeout=120 \
+              --info=progress2 \
+              frontend-dist.tar.gz \
+              backend-code.tar.gz \
+              "$remote:$remote_dir/"; then
+              uploaded=true
+              break
+            fi
+            echo "Rsync upload failed (attempt $attempt/3); retrying with the partial file."
+            sleep 10
+          done
+
+          if [ "$uploaded" != true ]; then
+            echo "Rsync upload failed after three attempts."
+            exit 1
+          fi
+
+          ssh "${ssh_args[@]}" "$remote" \
+            "test -s '$remote_dir/frontend-dist.tar.gz' && test -s '$remote_dir/backend-code.tar.gz'"
 
       - name: Validate And Activate Deployment
         uses: appleboy/ssh-action@v1.2.0
