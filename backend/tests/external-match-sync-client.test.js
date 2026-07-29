@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createExternalMatchSyncClient, validateSummary, validateDetail } = require('../services/ExternalMatchSyncClient');
-const { parseDuration, parseKad, mapWithConcurrency } = require('../services/IncrementalMatchSyncService');
+const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency } = require('../services/IncrementalMatchSyncService');
 
 test('fetchChanges preserves the opaque cursor and validates schema v2', async () => {
   let requestedUrl = '';
@@ -55,4 +55,9 @@ test('sync helpers parse API values and preserve concurrent result order', async
   assert.deepEqual(parseKad('7/8/9'), { kills: 7, assists: 8, deaths: 9 });
   const result = await mapWithConcurrency([3, 1, 2], 2, async value => value * 2);
   assert.deepEqual(result, [6, 2, 4]);
+});
+
+test('hero aliases map external DVA to the database D.Va key', () => {
+  assert.equal(HERO_NAME_ALIASES.dva, 'd.va');
+  assert.equal(heroNameKey('DVA'), heroNameKey('D.Va'));
 });
