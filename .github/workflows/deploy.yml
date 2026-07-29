@@ -10,6 +10,10 @@ concurrency:
   group: production-deploy-and-static-release
   cancel-in-progress: false
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -42,35 +46,58 @@ jobs:
           test -s frontend-dist.tar.gz
           test -s backend-code.tar.gz
 
-      - name: Prepare Remote Deployment Directory
+      - name: Publish Deployment Artifact
+        id: deployment-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ github.sha }}
+          path: |
+            frontend-dist.tar.gz
+            backend-code.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+      - name: Download Deployment Bundles On Server
         uses: appleboy/ssh-action@v1.2.0
-        timeout-minutes: 2
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          command_timeout: 1m
+          envs: GH_TOKEN
+          command_timeout: 7m
           script: |
             set -eu
             deploy_dir="/www/wwwroot/.owcs-stats-deploy/${{ github.sha }}"
+            artifact_zip="$deploy_dir/deployment-artifact.zip"
+            artifact_url="https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.deployment-artifact.outputs.artifact-id }}/zip"
+
             rm -rf -- "$deploy_dir"
             mkdir -p "$deploy_dir"
             df -h /www/wwwroot
             df -i /www/wwwroot
-
-      - name: Upload Deployment Bundles
-        uses: appleboy/scp-action@v0.1.7
-        timeout-minutes: 8
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          source: "frontend-dist.tar.gz,backend-code.tar.gz"
-          target: "/www/wwwroot/.owcs-stats-deploy/${{ github.sha }}"
-          timeout: 2m
-          command_timeout: 7m
+            curl \
+              --fail \
+              --location \
+              --silent \
+              --show-error \
+              --retry 4 \
+              --retry-delay 5 \
+              --connect-timeout 20 \
+              --max-time 420 \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$artifact_url" \
+              -o "$artifact_zip"
+            unzip -q "$artifact_zip" -d "$deploy_dir"
+            rm -f -- "$artifact_zip"
+            test -s "$deploy_dir/frontend-dist.tar.gz"
+            test -s "$deploy_dir/backend-code.tar.gz"
 
       - name: Validate And Activate Deployment
         uses: appleboy/ssh-action@v1.2.0
