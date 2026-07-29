@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency:
   group: production-deploy-and-static-release
@@ -12,6 +13,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -29,50 +31,118 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
-      - name: Clean Frontend Dist
+      - name: Package Deployment Bundles
+        run: |
+          tar -czf frontend-dist.tar.gz -C dist .
+          tar \
+            --exclude='./node_modules' \
+            --exclude='./.env' \
+            -czf backend-code.tar.gz \
+            -C backend .
+          test -s frontend-dist.tar.gz
+          test -s backend-code.tar.gz
+
+      - name: Prepare Remote Deployment Directory
         uses: appleboy/ssh-action@v1.2.0
+        timeout-minutes: 2
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          command_timeout: 1m
           script: |
-            mkdir -p /www/wwwroot/owcs-stats
-            rm -rf /www/wwwroot/owcs-stats/*
+            set -eu
+            deploy_dir="/www/wwwroot/.owcs-stats-deploy/${{ github.sha }}"
+            rm -rf -- "$deploy_dir"
+            mkdir -p "$deploy_dir"
+            df -h /www/wwwroot
+            df -i /www/wwwroot
 
-      - name: Upload Frontend Dist
+      - name: Upload Deployment Bundles
         uses: appleboy/scp-action@v0.1.7
+        timeout-minutes: 8
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: "dist/*"
-          target: "/www/wwwroot/owcs-stats"
-          strip_components: 1
+          source: "frontend-dist.tar.gz,backend-code.tar.gz"
+          target: "/www/wwwroot/.owcs-stats-deploy/${{ github.sha }}"
+          timeout: 2m
+          command_timeout: 7m
 
-      - name: Upload Backend Code
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          source: "backend/*"
-          target: "/www/wwwroot/owcs-stats-backend"
-          strip_components: 1
-
-      - name: Install Backend Dependencies And Restart
+      - name: Validate And Activate Deployment
         uses: appleboy/ssh-action@v1.2.0
+        timeout-minutes: 10
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          command_timeout: 9m
           script: |
-            cd /www/wwwroot/owcs-stats-backend
+            set -eu
+
+            deploy_root="/www/wwwroot"
+            deploy_id="${{ github.sha }}"
+            bundle_dir="$deploy_root/.owcs-stats-deploy/$deploy_id"
+            frontend_live="$deploy_root/owcs-stats"
+            frontend_stage="$deploy_root/.owcs-stats-frontend-$deploy_id"
+            frontend_previous="$deploy_root/.owcs-stats-frontend-previous"
+            backend_live="$deploy_root/owcs-stats-backend"
+            backend_stage="$deploy_root/.owcs-stats-backend-$deploy_id"
+            backend_previous="$deploy_root/.owcs-stats-backend-previous"
+            supervisorctl="/www/server/panel/pyenv/bin/supervisorctl"
+
+            rm -rf -- "$frontend_stage" "$backend_stage"
+            mkdir -p "$frontend_stage" "$backend_stage"
+            tar -xzf "$bundle_dir/frontend-dist.tar.gz" -C "$frontend_stage"
+            tar -xzf "$bundle_dir/backend-code.tar.gz" -C "$backend_stage"
+
+            test -s "$frontend_stage/index.html"
+            test -s "$backend_stage/package.json"
+            test -s "$backend_stage/app.js"
+
+            if [ ! -f "$backend_live/.env" ]; then
+              echo "Backend environment file is missing: $backend_live/.env"
+              exit 1
+            fi
+            cp -p "$backend_live/.env" "$backend_stage/.env"
+
+            cd "$backend_stage"
             npm ci --omit=dev
-            /www/server/panel/pyenv/bin/supervisorctl restart owcs-stats-backend:owcs-stats-backend_00
+            node --check app.js
+
+            rm -rf -- "$backend_previous"
+            if [ -d "$backend_live" ]; then
+              mv "$backend_live" "$backend_previous"
+            fi
+            mv "$backend_stage" "$backend_live"
+
+            if ! "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00; then
+              rm -rf -- "$backend_live"
+              if [ -d "$backend_previous" ]; then
+                mv "$backend_previous" "$backend_live"
+                "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00 || true
+              fi
+              echo "Backend restart failed; restored the previous deployment."
+              exit 1
+            fi
+
+            rm -rf -- "$frontend_previous"
+            if [ -d "$frontend_live" ]; then
+              mv "$frontend_live" "$frontend_previous"
+            fi
+            if ! mv "$frontend_stage" "$frontend_live"; then
+              if [ -d "$frontend_previous" ]; then
+                mv "$frontend_previous" "$frontend_live"
+              fi
+              echo "Frontend activation failed; restored the previous deployment."
+              exit 1
+            fi
+
+            rm -rf -- "$bundle_dir"
 
       - name: Wait for production API
         run: |
