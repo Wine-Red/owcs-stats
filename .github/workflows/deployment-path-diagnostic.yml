@@ -1,0 +1,30 @@
+name: Diagnose Deployment Path
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy-and-static-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Test SSH and upload throughput
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Probe deployment path without touching production
+        env:
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          MIN_DEPLOY_BPS: 131072
+        run: bash .github/scripts/deployment-path-probe.sh

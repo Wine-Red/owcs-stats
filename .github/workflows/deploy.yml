@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - .github/workflows/deploy.yml
+      - .github/workflows/deployment-path-diagnostic.yml
+      - .github/scripts/deployment-path-probe.sh
   workflow_dispatch:
 
 concurrency:
@@ -14,9 +18,29 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  preflight:
+    name: Test deployment path
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Probe SSH and upload throughput
+        env:
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          MIN_DEPLOY_BPS: 131072
+        run: bash .github/scripts/deployment-path-probe.sh
+
+  deploy:
+    name: Stage, verify, and activate
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -34,19 +58,8 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
-      - name: Package Deployment Bundles
-        run: |
-          tar -czf frontend-dist.tar.gz -C dist .
-          tar \
-            --exclude='./node_modules' \
-            --exclude='./.env' \
-            -czf backend-code.tar.gz \
-            -C backend .
-          test -s frontend-dist.tar.gz
-          test -s backend-code.tar.gz
-
-      - name: Upload Deployment Bundles With Rsync
-        timeout-minutes: 12
+      - name: Sync staging directories and activate
+        timeout-minutes: 18
         env:
           DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
           DEPLOY_USER: ${{ secrets.SERVER_USER }}
@@ -56,10 +69,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          ssh_dir="$RUNNER_TEMP/owcs-stats-ssh"
+          ssh_dir="$RUNNER_TEMP/owcs-stats-deploy-ssh"
           deploy_key="$ssh_dir/deploy_key"
           known_hosts="$ssh_dir/known_hosts"
-          remote_dir="/www/wwwroot/.owcs-stats-deploy/$DEPLOY_ID"
+          frontend_stage="/www/wwwroot/.owcs-stats-frontend-$DEPLOY_ID"
+          backend_stage="/www/wwwroot/.owcs-stats-backend-$DEPLOY_ID"
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
 
           rm -rf -- "$ssh_dir"
           install -d -m 700 "$ssh_dir"
@@ -67,7 +82,7 @@ jobs:
           chmod 600 "$deploy_key"
           trap 'rm -rf -- "$ssh_dir"' EXIT
 
-          ssh-keyscan -T 20 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > "$known_hosts"
+          ssh-keyscan -T 20 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > "$known_hosts" 2>/dev/null
           ssh_args=(
             -i "$deploy_key"
             -p "$DEPLOY_PORT"
@@ -77,121 +92,137 @@ jobs:
             -o ServerAliveInterval=15
             -o ServerAliveCountMax=4
           )
-          remote="$DEPLOY_USER@$DEPLOY_HOST"
-
-          ssh "${ssh_args[@]}" "$remote" \
-            "mkdir -p '$remote_dir' && df -h /www/wwwroot && df -i /www/wwwroot && command -v rsync"
-
           export RSYNC_RSH="ssh -i $deploy_key -p $DEPLOY_PORT -o UserKnownHostsFile=$known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
-          uploaded=false
-          for attempt in 1 2 3; do
-            if rsync \
-              --archive \
-              --partial \
-              --append-verify \
-              --timeout=120 \
-              --info=progress2 \
-              frontend-dist.tar.gz \
-              backend-code.tar.gz \
-              "$remote:$remote_dir/"; then
-              uploaded=true
-              break
-            fi
-            echo "Rsync upload failed (attempt $attempt/3); retrying with the partial file."
-            sleep 10
-          done
 
-          if [ "$uploaded" != true ]; then
-            echo "Rsync upload failed after three attempts."
+          ssh "${ssh_args[@]}" "$remote" "DEPLOY_ID='$DEPLOY_ID' bash -s" <<'PREPARE_REMOTE'
+          set -euo pipefail
+          deploy_root="/www/wwwroot"
+          frontend_live="$deploy_root/owcs-stats"
+          frontend_stage="$deploy_root/.owcs-stats-frontend-$DEPLOY_ID"
+          backend_live="$deploy_root/owcs-stats-backend"
+          backend_stage="$deploy_root/.owcs-stats-backend-$DEPLOY_ID"
+
+          rm -rf -- "$frontend_stage" "$backend_stage"
+          if [ -d "$frontend_live" ]; then
+            cp -a "$frontend_live" "$frontend_stage"
+          else
+            mkdir -p "$frontend_stage"
+          fi
+          mkdir -p "$backend_stage"
+          if [ ! -f "$backend_live/.env" ]; then
+            echo "Backend environment file is missing: $backend_live/.env"
+            exit 1
+          fi
+          cp -p "$backend_live/.env" "$backend_stage/.env"
+          PREPARE_REMOTE
+
+          rsync \
+            --archive \
+            --checksum \
+            --delete-delay \
+            --partial \
+            --timeout=120 \
+            --info=stats2,progress2 \
+            dist/ \
+            "$remote:$frontend_stage/"
+
+          rsync \
+            --archive \
+            --checksum \
+            --delete-delay \
+            --partial \
+            --timeout=120 \
+            --exclude='.env' \
+            --exclude='node_modules/' \
+            --info=stats2,progress2 \
+            backend/ \
+            "$remote:$backend_stage/"
+
+          ssh "${ssh_args[@]}" "$remote" "DEPLOY_ID='$DEPLOY_ID' bash -s" <<'ACTIVATE_REMOTE'
+          set -euo pipefail
+          deploy_root="/www/wwwroot"
+          frontend_live="$deploy_root/owcs-stats"
+          frontend_stage="$deploy_root/.owcs-stats-frontend-$DEPLOY_ID"
+          frontend_previous="$deploy_root/.owcs-stats-frontend-previous"
+          backend_live="$deploy_root/owcs-stats-backend"
+          backend_stage="$deploy_root/.owcs-stats-backend-$DEPLOY_ID"
+          backend_previous="$deploy_root/.owcs-stats-backend-previous"
+          supervisorctl="/www/server/panel/pyenv/bin/supervisorctl"
+
+          test -s "$frontend_stage/index.html"
+          test -n "$(find "$frontend_stage/assets" -maxdepth 1 -type f -print -quit)"
+          test -s "$backend_stage/package.json"
+          test -s "$backend_stage/app.js"
+          test -s "$backend_stage/.env"
+
+          cd "$backend_stage"
+          npm ci --omit=dev
+          node --check app.js
+
+          rm -rf -- "$backend_previous"
+          if [ -d "$backend_live" ]; then
+            mv "$backend_live" "$backend_previous"
+          fi
+          mv "$backend_stage" "$backend_live"
+
+          rollback_backend() {
+            rm -rf -- "$backend_live"
+            if [ -d "$backend_previous" ]; then
+              mv "$backend_previous" "$backend_live"
+              "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00 || true
+            fi
+          }
+
+          if ! "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00; then
+            rollback_backend
+            echo "Backend restart failed; restored the previous deployment."
             exit 1
           fi
 
-          ssh "${ssh_args[@]}" "$remote" \
-            "test -s '$remote_dir/frontend-dist.tar.gz' && test -s '$remote_dir/backend-code.tar.gz'"
-
-      - name: Validate And Activate Deployment
-        uses: appleboy/ssh-action@v1.2.0
-        timeout-minutes: 10
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT }}
-          command_timeout: 9m
-          script: |
-            set -eu
-
-            deploy_root="/www/wwwroot"
-            deploy_id="${{ github.sha }}"
-            bundle_dir="$deploy_root/.owcs-stats-deploy/$deploy_id"
-            frontend_live="$deploy_root/owcs-stats"
-            frontend_stage="$deploy_root/.owcs-stats-frontend-$deploy_id"
-            frontend_previous="$deploy_root/.owcs-stats-frontend-previous"
-            backend_live="$deploy_root/owcs-stats-backend"
-            backend_stage="$deploy_root/.owcs-stats-backend-$deploy_id"
-            backend_previous="$deploy_root/.owcs-stats-backend-previous"
-            supervisorctl="/www/server/panel/pyenv/bin/supervisorctl"
-
-            rm -rf -- "$frontend_stage" "$backend_stage"
-            mkdir -p "$frontend_stage" "$backend_stage"
-            tar -xzf "$bundle_dir/frontend-dist.tar.gz" -C "$frontend_stage"
-            tar -xzf "$bundle_dir/backend-code.tar.gz" -C "$backend_stage"
-
-            test -s "$frontend_stage/index.html"
-            test -s "$backend_stage/package.json"
-            test -s "$backend_stage/app.js"
-
-            if [ ! -f "$backend_live/.env" ]; then
-              echo "Backend environment file is missing: $backend_live/.env"
-              exit 1
+          backend_port=$(sed -n 's/^PORT=//p' "$backend_live/.env" | tail -n 1 | tr -d '\r"' | xargs)
+          if ! printf '%s' "$backend_port" | grep -Eq '^[0-9]+$'; then
+            backend_port=3000
+          fi
+          backend_healthy=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 5 \
+              "http://127.0.0.1:$backend_port/api/seasons" \
+              | node -e "let body=''; process.stdin.on('data', chunk => body += chunk); process.stdin.on('end', () => { const data = JSON.parse(body); if (!Array.isArray(data)) process.exit(1); });"; then
+              backend_healthy=true
+              break
             fi
-            cp -p "$backend_live/.env" "$backend_stage/.env"
+            sleep 2
+          done
+          if [ "$backend_healthy" != true ]; then
+            rollback_backend
+            echo "Backend health check failed; restored the previous deployment."
+            exit 1
+          fi
 
-            cd "$backend_stage"
-            npm ci --omit=dev
-            node --check app.js
-
-            rm -rf -- "$backend_previous"
-            if [ -d "$backend_live" ]; then
-              mv "$backend_live" "$backend_previous"
+          rm -rf -- "$frontend_previous"
+          if [ -d "$frontend_live" ]; then
+            mv "$frontend_live" "$frontend_previous"
+          fi
+          if ! mv "$frontend_stage" "$frontend_live"; then
+            if [ -d "$frontend_previous" ]; then
+              mv "$frontend_previous" "$frontend_live"
             fi
-            mv "$backend_stage" "$backend_live"
+            rollback_backend
+            echo "Frontend activation failed; restored the previous deployment."
+            exit 1
+          fi
+          ACTIVATE_REMOTE
 
-            if ! "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00; then
-              rm -rf -- "$backend_live"
-              if [ -d "$backend_previous" ]; then
-                mv "$backend_previous" "$backend_live"
-                "$supervisorctl" restart owcs-stats-backend:owcs-stats-backend_00 || true
-              fi
-              echo "Backend restart failed; restored the previous deployment."
-              exit 1
-            fi
-
-            rm -rf -- "$frontend_previous"
-            if [ -d "$frontend_live" ]; then
-              mv "$frontend_live" "$frontend_previous"
-            fi
-            if ! mv "$frontend_stage" "$frontend_live"; then
-              if [ -d "$frontend_previous" ]; then
-                mv "$frontend_previous" "$frontend_live"
-              fi
-              echo "Frontend activation failed; restored the previous deployment."
-              exit 1
-            fi
-
-            rm -rf -- "$bundle_dir"
-
-      - name: Wait for production API
+      - name: Verify production API
         run: |
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error --max-time 10 \
               https://owmini.xyz/api/seasons \
               | node -e "let body=''; process.stdin.on('data', chunk => body += chunk); process.stdin.on('end', () => { const data = JSON.parse(body); if (!Array.isArray(data)) process.exit(1); });"; then
               echo "Production API is ready."
               exit 0
             fi
-            echo "Production API is not ready yet (attempt $attempt/60)."
             sleep 5
           done
-          echo "Production API did not recover within five minutes."
+          echo "Production API did not recover within 150 seconds."
           exit 1
