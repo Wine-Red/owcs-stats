@@ -151,10 +151,6 @@ const apiService = {
   getConfig: (key) => api.get(`/config/${key}`),
   updateConfig: (data) => api.post('/config', data),
 
-  // 赛事数据助手
-  getAgentStatus: () => api.get('/agent/status'),
-  askAgent: (data) => api.post('/agent/chat', data),
-
 };
 
 export default apiService;
