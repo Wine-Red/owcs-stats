@@ -199,6 +199,9 @@ jobs:
             exit 1
           fi
 
+          if [ -e "$frontend_previous/.user.ini" ] && command -v chattr >/dev/null 2>&1; then
+            chattr -i -- "$frontend_previous/.user.ini" 2>/dev/null || true
+          fi
           rm -rf -- "$frontend_previous"
           if [ -d "$frontend_live" ]; then
             mv "$frontend_live" "$frontend_previous"
