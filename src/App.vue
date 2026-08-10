@@ -68,7 +68,6 @@
         </div>
       </footer>
     </div>
-    <AgentChatWidget v-if="showSidebar" />
   </div>
 </template>
 
@@ -77,13 +76,11 @@ import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
 import { Menu } from '@element-plus/icons-vue';
-import AgentChatWidget from '@/components/AgentChatWidget.vue';
 
 export default {
   name: 'App',
   components: {
-    Menu,
-    AgentChatWidget
+    Menu
   },
   setup() {
     const route = useRoute();
