@@ -11,6 +11,7 @@ const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-un
 const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-line no-unused-vars
 const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
+const { ensureAgentViews } = require('./agentViews');
 
 const lowerTableName = table => {
   if (typeof table === 'string') return table.toLowerCase();
@@ -46,6 +47,15 @@ const initDatabase = async () => {
     // 避免 MySQL 在长期运行中反复 alter 表结构，导致索引数量失控
     await sequelize.sync();
     console.log('数据库模型同步成功');
+
+    // Keep the assistant-facing views aligned with the deployed backend while
+    // allowing the website to start if this account lacks CREATE VIEW rights.
+    try {
+      const viewCount = await ensureAgentViews(sequelize);
+      console.log(`[agent-views] ${viewCount} views are ready`);
+    } catch (error) {
+      console.error(`[agent-views] initialization failed; website startup will continue: ${error.message}`);
+    }
 
     // 初始化基础数据
     await initBasicData();
