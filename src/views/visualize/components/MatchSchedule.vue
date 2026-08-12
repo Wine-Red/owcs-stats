@@ -776,6 +776,7 @@ export default {
   box-sizing: border-box;
   background: #fff;
   color: var(--vis-text-primary);
+  font-family: var(--vis-font-body);
 }
 
 .visually-hidden {
@@ -855,6 +856,7 @@ export default {
   background: transparent;
   color: var(--vis-text-secondary);
   cursor: pointer;
+  font: inherit;
   transition: color var(--vis-dur-fast) var(--vis-ease), background-color var(--vis-dur-fast) var(--vis-ease);
 }
 
@@ -1041,6 +1043,7 @@ export default {
   background: transparent;
   color: inherit;
   cursor: pointer;
+  font: inherit;
   text-align: left;
   transition: background-color var(--vis-dur-fast) var(--vis-ease);
 }
@@ -1348,6 +1351,7 @@ export default {
   background: #fff;
   color: var(--vis-text-strong);
   cursor: pointer;
+  font: inherit;
   font-weight: 700;
 }
 
@@ -1481,6 +1485,10 @@ export default {
     flex-direction: column;
     gap: 4px;
     text-align: center;
+  }
+
+  .team-side.winner .team-name {
+    font-weight: 800;
   }
 
   .team-side--left,
@@ -2290,6 +2298,7 @@ export default {
     border-radius: 16px 16px 0 0;
     background: #f6f7f9;
     box-shadow: 0 -14px 36px rgba(15, 23, 42, 0.18);
+    font-family: var(--vis-font-body);
   }
 
   .schedule-date-drawer .el-drawer__header {
@@ -2326,7 +2335,7 @@ export default {
 
   .date-picker-heading strong {
     font-size: 15px;
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: 0.01em;
   }
 
@@ -2346,6 +2355,7 @@ export default {
     background: #fff;
     color: #24272b;
     cursor: pointer;
+    font: inherit;
     touch-action: manipulation;
     transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
   }
@@ -2363,7 +2373,7 @@ export default {
     padding: 0 4px 6px;
     color: #747b85;
     font-size: 11px;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 18px;
   }
 
@@ -2401,9 +2411,9 @@ export default {
   }
 
   .date-picker-option strong {
-    font-family: var(--vis-font-numeric, inherit);
+    font-family: var(--vis-font-body);
     font-size: 14px;
-    font-weight: 720;
+    font-weight: 700;
     line-height: 20px;
     font-variant-numeric: tabular-nums;
   }

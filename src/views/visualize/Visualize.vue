@@ -1148,6 +1148,7 @@ export default {
     background: transparent;
     color: inherit;
     cursor: pointer;
+    font: inherit;
     text-align: left;
     touch-action: manipulation;
     transition: background-color 120ms ease;
@@ -1257,6 +1258,10 @@ export default {
     touch-action: manipulation;
   }
 
+  .vis-tab-item.active {
+    font-weight: 700;
+  }
+
   .vis-tab-item::after {
     bottom: 0;
     width: 30px;
@@ -1311,6 +1316,7 @@ export default {
     border-radius: 16px 16px 0 0;
     background: #f6f7f9;
     box-shadow: 0 -12px 40px rgba(17, 17, 17, 0.18);
+    font-family: var(--vis-font-body);
   }
 
   .mobile-season-drawer .el-drawer__header {
@@ -1346,6 +1352,7 @@ export default {
   .mobile-drawer-heading strong {
     color: #15171a;
     font-size: 17px;
+    font-weight: 700;
     line-height: 22px;
   }
 
@@ -1362,7 +1369,7 @@ export default {
     padding: 8px 4px 6px;
     color: #7a818b;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .mobile-season-option {
@@ -1377,6 +1384,7 @@ export default {
     background: #fff;
     color: #1c1f23;
     cursor: pointer;
+    font: inherit;
     text-align: left;
     touch-action: manipulation;
   }
@@ -1413,7 +1421,7 @@ export default {
   .mobile-season-option-copy strong {
     overflow: hidden;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 700;
     line-height: 19px;
     text-overflow: ellipsis;
     white-space: nowrap;

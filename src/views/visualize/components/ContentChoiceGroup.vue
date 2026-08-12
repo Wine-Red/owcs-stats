@@ -49,13 +49,14 @@ export default {
   gap: 12px;
   width: 100%;
   min-width: 0;
+  font-family: var(--vis-font-body);
 }
 
 .content-choice-group__label {
   flex: 0 0 auto;
   color: var(--vis-text-tertiary, #909399);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
 
