@@ -1,6 +1,6 @@
 <template>
   <section class="schedule-shell" aria-labelledby="schedule-title">
-    <h2 id="schedule-title" class="visually-hidden">赛程与赛果</h2>
+    <h2 id="schedule-title" class="visually-hidden">赛程列表</h2>
 
     <div v-if="hasScheduleData" class="date-rail-wrap">
       <div ref="dateRailRef" class="date-rail" role="group" aria-label="选择比赛日期">

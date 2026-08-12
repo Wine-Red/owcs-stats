@@ -49,7 +49,7 @@ const selectedSeason = seasons.find(season => String(season.id) === String(selec
 const pages = [
   { name: '可视化首页', hash: '#/visualize', ready: '.vis-body' },
   {
-    name: '赛程与赛果',
+    name: '赛程列表',
     hash: '#/visualize',
     ready: '.vis-body',
     verifySchedule: true
@@ -109,7 +109,7 @@ try {
     await page.goto(`${baseUrl}${target.hash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.locator(target.ready).waitFor({ state: 'visible', timeout: 60_000 });
     if (target.verifySchedule) {
-      await page.getByRole('tab', { name: '赛程与赛果' }).click();
+      await page.getByRole('tab', { name: '赛程列表' }).click();
       await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 });
       await page.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 });
       await page.waitForFunction(() => {
@@ -132,7 +132,7 @@ try {
         throw new Error('赛程比赛行的左右队伍区域不对称');
       }
       const scheduleTitle = await page.locator('#schedule-title').textContent();
-      if (scheduleTitle?.trim() !== '赛程与赛果') {
+      if (scheduleTitle?.trim() !== '赛程列表') {
         throw new Error(`赛程标题异常: ${scheduleTitle || '(empty)'}`);
       }
       if (await page.locator('.upcoming-fab-root').count()) {
