@@ -71,9 +71,19 @@
 
               <div class="match-center">
                 <div v-if="match.state === 'completed'" class="score-line" aria-label="比赛比分">
-                  <span>{{ displayScore(match.team1Score) }}</span>
+                  <span
+                    class="winner-indicator winner-indicator--left"
+                    :class="{ visible: getTeamStateClass(match, 'left') === 'winner' }"
+                    aria-hidden="true"
+                  >◀</span>
+                  <span class="score-number score-number--left vis-score-num">{{ displayScore(match.team1Score) }}</span>
                   <span class="score-divider">:</span>
-                  <span>{{ displayScore(match.team2Score) }}</span>
+                  <span class="score-number score-number--right vis-score-num">{{ displayScore(match.team2Score) }}</span>
+                  <span
+                    class="winner-indicator winner-indicator--right"
+                    :class="{ visible: getTeamStateClass(match, 'right') === 'winner' }"
+                    aria-hidden="true"
+                  >▶</span>
                 </div>
                 <div v-else class="versus">VS</div>
                 <span class="match-summary">
@@ -85,6 +95,7 @@
                     <span v-if="match.state === 'ongoing'" class="vis-live-dot" aria-hidden="true"></span>
                     {{ match.stateLabel }}
                   </span>
+                  <span class="match-enter-indicator" aria-hidden="true">↗</span>
                 </span>
               </div>
 
@@ -1677,8 +1688,18 @@ export default {
 
 .team-name {
   color: #3f454d;
+  font-family: var(--vis-font-display);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.team-side--left .team-name {
+  color: var(--vis-team-left);
+}
+
+.team-side--right .team-name {
+  color: var(--vis-team-right);
 }
 
 .team-side.loser {
@@ -1690,8 +1711,7 @@ export default {
 }
 
 .team-side.winner .team-name {
-  color: #111;
-  font-weight: 650;
+  font-weight: 900;
 }
 
 .match-center {
@@ -1706,7 +1726,7 @@ export default {
 .versus {
   min-width: 58px;
   padding: 0 4px;
-  font-family: var(--vis-font-body);
+  font-family: var(--vis-font-numeric);
   font-size: 20px;
   font-weight: 700;
   line-height: 24px;
@@ -1714,8 +1734,45 @@ export default {
 }
 
 .score-line {
-  gap: 5px;
+  min-width: 102px;
+  align-items: center;
+  gap: 4px;
   background: transparent;
+}
+
+.score-number {
+  min-width: 18px;
+  text-align: center;
+}
+
+.score-number--left {
+  color: var(--vis-team-left);
+}
+
+.score-number--right {
+  color: var(--vis-team-right);
+}
+
+.winner-indicator {
+  width: 9px;
+  flex: 0 0 9px;
+  font-family: var(--vis-font-body);
+  font-size: 8px;
+  line-height: 1;
+  text-align: center;
+  opacity: 0;
+}
+
+.winner-indicator--left {
+  color: var(--vis-team-left);
+}
+
+.winner-indicator--right {
+  color: var(--vis-team-right);
+}
+
+.winner-indicator.visible {
+  opacity: 1;
 }
 
 .score-divider {
@@ -1757,6 +1814,17 @@ export default {
 
 .summary-separator {
   color: #b0b5bc;
+}
+
+.match-enter-indicator {
+  color: #a0a6af;
+  font-family: var(--vis-font-display);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.78;
+  transform: translateY(-1px);
+  transition: color var(--vis-dur-fast) var(--vis-ease), opacity var(--vis-dur-fast) var(--vis-ease);
 }
 
 .center-state.state-upcoming,
@@ -1826,6 +1894,11 @@ export default {
   .match-main:hover {
     background: #f8f9fa;
     box-shadow: none;
+  }
+
+  .match-main:hover .match-enter-indicator {
+    color: var(--vis-accent);
+    opacity: 1;
   }
 
   .replay-toggle:hover {
@@ -1962,6 +2035,21 @@ export default {
     padding: 0 2px;
     font-size: 19px;
     line-height: 23px;
+  }
+
+  .score-line {
+    min-width: 82px;
+    gap: 3px;
+  }
+
+  .score-number {
+    min-width: 16px;
+  }
+
+  .winner-indicator {
+    width: 7px;
+    flex-basis: 7px;
+    font-size: 7px;
   }
 
   .versus {

@@ -135,6 +135,24 @@ try {
       if (scheduleTitle?.trim() !== '赛程列表') {
         throw new Error(`赛程标题异常: ${scheduleTitle || '(empty)'}`);
       }
+      const teamFontFamily = await firstMatch.locator('.team-name').first().evaluate(element => getComputedStyle(element).fontFamily);
+      if (!teamFontFamily.toLowerCase().includes('oxanium')) {
+        throw new Error(`比赛队名字体未使用展示字体: ${teamFontFamily}`);
+      }
+      if (!await firstMatch.locator('.match-enter-indicator').count()) {
+        throw new Error('比赛主体缺少进入详情指示');
+      }
+      await page.locator('.date-chip--all').click();
+      const completedMatch = page.locator('.schedule-match.is-completed').first();
+      if (await completedMatch.count()) {
+        const scoreFontFamily = await completedMatch.locator('.score-number').first().evaluate(element => getComputedStyle(element).fontFamily);
+        if (!scoreFontFamily.toLowerCase().includes('oxanium')) {
+          throw new Error(`比赛比分未使用数字字体: ${scoreFontFamily}`);
+        }
+        if (await completedMatch.locator('.winner-indicator.visible').count() !== 1) {
+          throw new Error('已结束比赛缺少唯一胜方指示');
+        }
+      }
       if (await page.locator('.upcoming-fab-root').count()) {
         throw new Error('统一赛程启用后仍显示旧悬浮赛程入口');
       }
