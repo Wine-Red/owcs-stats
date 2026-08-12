@@ -63,15 +63,11 @@
             :dateRange="seasonVisualConfig.dateRange"
           />
 
-          <!-- 即将到来的比赛 -->
-          <UpcomingMatches 
-            v-if="currentSeasonStatus !== 'completed'"
-            :seasonId="filterForm.seasonId"
-            :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName" 
-          />
-
           <!-- 标签页导航 -->
-          <div class="vis-tabs-container">
+          <div
+            class="vis-tabs-container"
+            :class="{ 'is-schedule-active': currentTab === 'recent' }"
+          >
             <div class="vis-tabs" role="tablist">
               <button 
                 v-if="chartConfig.overviewTab"
@@ -91,7 +87,7 @@
                 role="tab"
                 :aria-selected="currentTab === 'recent'"
               >
-                比赛列表
+                赛程与赛果
               </button>
               <button 
                 v-if="chartConfig.statsTab"
@@ -124,7 +120,13 @@
                 </div>
               </template>
               <template v-else-if="currentTab === 'recent'">
-                <RecentMatches :matches="seasonMatches" :mapGames="seasonMapGames" />
+                <MatchSchedule
+                  :matches="seasonMatches"
+                  :mapGames="seasonMapGames"
+                  :seasonId="filterForm.seasonId"
+                  :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName"
+                  :showUpcoming="currentSeasonStatus !== 'completed'"
+                />
               </template>
               <template v-else>
                 <ContentChoiceGroup
@@ -186,8 +188,7 @@ const HeroOverviewChart = defineAsyncComponent(() => import('./components/HeroOv
 
 import TournamentBanner from './components/TournamentBanner.vue';
 import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
-import RecentMatches from './components/RecentMatches.vue';
-import UpcomingMatches from './components/UpcomingMatches.vue';
+import MatchSchedule from './components/MatchSchedule.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
 import apiService from '@/services/api';
@@ -202,8 +203,7 @@ export default {
     HeroOverviewChart,
     TournamentBanner,
     RegularSeasonBoard,
-    RecentMatches,
-    UpcomingMatches,
+    MatchSchedule,
     ContentChoiceGroup
   },
   setup() {
@@ -664,6 +664,10 @@ export default {
   margin-left: -32px;
   margin-right: -32px;
   border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.vis-tabs-container.is-schedule-active {
+  margin-bottom: 0;
 }
 
 .vis-tabs {

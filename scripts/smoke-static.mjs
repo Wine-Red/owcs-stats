@@ -1,8 +1,10 @@
 import { access, readFile } from 'node:fs/promises';
 import process from 'node:process';
 import { chromium } from 'playwright-core';
+import path from 'node:path';
 
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/';
+const screenshotDirectory = process.env.OWCS_STATIC_SCREENSHOT_DIR || '';
 const snapshot = JSON.parse(await readFile('dist/static-data/api-cache.json', 'utf8'));
 const responses = snapshot.responses;
 const list = value => Array.isArray(value) ? value : value?.data || value?.list || [];
@@ -46,6 +48,12 @@ const selectedSeason = seasons.find(season => String(season.id) === String(selec
 
 const pages = [
   { name: '可视化首页', hash: '#/visualize', ready: '.vis-body' },
+  {
+    name: '赛程与赛果',
+    hash: '#/visualize',
+    ready: '.vis-body',
+    verifySchedule: true
+  },
   {
     name: '战队详情',
     hash: `#/visualize/team-detail?seasonId=${selectedSeasonTeam.seasonId}&teamId=${selectedSeasonTeam.teamId}`,
@@ -100,6 +108,65 @@ try {
   for (const target of pages) {
     await page.goto(`${baseUrl}${target.hash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.locator(target.ready).waitFor({ state: 'visible', timeout: 60_000 });
+    if (target.verifySchedule) {
+      await page.getByRole('tab', { name: '赛程与赛果' }).click();
+      await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 });
+      await page.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 });
+      await page.waitForFunction(() => {
+        const tabContent = document.querySelector('.tab-content');
+        return tabContent && getComputedStyle(tabContent).transform === 'none';
+      });
+      const tabsBox = await page.locator('.vis-tabs-container').boundingBox();
+      const dateRailBox = await page.locator('.date-rail-wrap').boundingBox();
+      if (!tabsBox || !dateRailBox) {
+        throw new Error('无法测量赛程 Tab 栏和日期栏的位置');
+      }
+      const scheduleTopGap = Math.round(dateRailBox.y - (tabsBox.y + tabsBox.height));
+      if (scheduleTopGap > 1) {
+        throw new Error(`赛程日期栏与 Tab 栏之间仍有 ${scheduleTopGap}px 空白`);
+      }
+      const firstMatch = page.locator('.schedule-match').first();
+      const leftTeamBox = await firstMatch.locator('.team-side--left').boundingBox();
+      const rightTeamBox = await firstMatch.locator('.team-side--right').boundingBox();
+      if (!leftTeamBox || !rightTeamBox || Math.abs(leftTeamBox.width - rightTeamBox.width) > 1) {
+        throw new Error('赛程比赛行的左右队伍区域不对称');
+      }
+      const scheduleTitle = await page.locator('#schedule-title').textContent();
+      if (scheduleTitle?.trim() !== '赛程与赛果') {
+        throw new Error(`赛程标题异常: ${scheduleTitle || '(empty)'}`);
+      }
+      if (await page.locator('.upcoming-fab-root').count()) {
+        throw new Error('统一赛程启用后仍显示旧悬浮赛程入口');
+      }
+      if (screenshotDirectory) {
+        await page.screenshot({
+          path: path.join(screenshotDirectory, 'schedule-desktop.png'),
+          fullPage: true
+        });
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+      const viewportMetrics = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth
+      }));
+      if (viewportMetrics.scrollWidth > viewportMetrics.clientWidth + 1) {
+        throw new Error(`赛程移动端出现横向滚动: ${viewportMetrics.scrollWidth}px > ${viewportMetrics.clientWidth}px`);
+      }
+      if (screenshotDirectory) {
+        await page.screenshot({
+          path: path.join(screenshotDirectory, 'schedule-mobile.png'),
+          fullPage: true
+        });
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      const replayToggle = page.locator('.replay-toggle').first();
+      if (await replayToggle.count()) {
+        await replayToggle.click();
+        await page.locator('.replay-list').first().waitFor({ state: 'visible', timeout: 10_000 });
+      }
+      await page.locator('.match-main').first().click();
+      await page.waitForURL(/\/visualize\/(?:match-detail|upcoming-match)/, { timeout: 10_000 });
+    }
     if (target.localLogo) {
       const src = await page.locator(target.localLogo).first().getAttribute('src');
       if (!src?.includes('static-data/team-logos/')) {
