@@ -1,6 +1,6 @@
 <template>
   <div class="visualize-container vis-container">
-    <!-- 顶部导航栏 (Header) -->
+    <!-- 桌面端产品栏；移动端由紧凑赛事上下文栏承担导航 -->
     <header class="vis-header">
       <div class="header-left">
         <div class="logo-placeholder">
@@ -55,7 +55,70 @@
 
       <Transition name="page-fade" mode="out-in">
         <div v-if="!isPageLoading" class="vis-body">
-          <!-- 赛事概览横幅（全宽贴边） -->
+          <section class="mobile-event-context" aria-label="当前赛事">
+            <div class="mobile-event-mark" aria-hidden="true">
+              <img :src="currentSeasonLogoUrl" alt="" width="36" height="36" />
+            </div>
+            <button
+              type="button"
+              class="mobile-season-select-trigger"
+              aria-label="切换赛事"
+              @click="openMobileSeasonPicker"
+            >
+              <span class="mobile-event-copy">
+                <strong class="mobile-event-name">{{ currentSeasonName }}</strong>
+                <span class="mobile-event-meta">
+                  <span class="mobile-status-dot" :class="`is-${currentSeasonStatus}`" aria-hidden="true"></span>
+                  {{ currentSeasonStatusLabel }}
+                  <span class="mobile-meta-separator" aria-hidden="true"></span>
+                  {{ seasonVisualConfig.dateRange || currentSeasonStage }}
+                </span>
+              </span>
+              <el-icon class="mobile-season-chevron" aria-hidden="true"><ArrowDown /></el-icon>
+            </button>
+          </section>
+
+          <el-drawer
+            v-model="mobileSeasonPickerOpen"
+            class="mobile-season-drawer"
+            direction="btt"
+            size="min(72dvh, 560px)"
+            :show-close="false"
+            :append-to-body="true"
+          >
+            <template #header>
+              <div class="mobile-drawer-heading">
+                <span class="mobile-drawer-handle" aria-hidden="true"></span>
+                <strong>选择赛事</strong>
+              </div>
+            </template>
+            <div class="mobile-season-groups">
+              <section
+                v-for="group in mobileSeasonGroups"
+                :key="group.label"
+                class="mobile-season-group"
+              >
+                <h2>{{ group.label }}</h2>
+                <button
+                  v-for="season in group.options"
+                  :key="season.id"
+                  type="button"
+                  class="mobile-season-option"
+                  :class="{ active: String(season.id) === String(filterForm.seasonId) }"
+                  :aria-current="String(season.id) === String(filterForm.seasonId) ? 'true' : undefined"
+                  @click="selectMobileSeason(season.id)"
+                >
+                  <span class="mobile-season-option-copy">
+                    <strong>{{ season.name }}</strong>
+                    <span>{{ getSeasonStatusLabel(season.status) }}</span>
+                  </span>
+                  <span class="mobile-option-check" aria-hidden="true"></span>
+                </button>
+              </section>
+            </div>
+          </el-drawer>
+
+          <!-- 桌面端赛事概览横幅 -->
           <TournamentBanner 
             class="banner-fullbleed"
             :seasonId="filterForm.seasonId"
@@ -178,6 +241,7 @@
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
+import { ArrowDown } from '@element-plus/icons-vue';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
@@ -204,14 +268,20 @@ export default {
     TournamentBanner,
     RegularSeasonBoard,
     MatchSchedule,
-    ContentChoiceGroup
+    ContentChoiceGroup,
+    ArrowDown
   },
   setup() {
     const store = useStore();
     const route = useRoute();
     
-    const currentTab = ref('overview');
+    const currentTab = ref(
+      typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+        ? 'recent'
+        : 'overview'
+    );
     const activeStatsCategory = ref('team');
+    const mobileSeasonPickerOpen = ref(false);
 
     watch(currentTab, (newTab) => {
       trackPublicEvent('首页-切换标签', {
@@ -451,9 +521,57 @@ export default {
     };
 
     const currentSeasonStatus = computed(() => {
-      const selectedSeason = seasons.value.find(s => s.id === filterForm.value.seasonId);
+      const selectedSeason = seasons.value.find(s => String(s.id) === String(filterForm.value.seasonId));
       return selectedSeason ? selectedSeason.status : 'in_progress';
     });
+
+    const currentSeason = computed(() => seasons.value.find(
+      season => String(season.id) === String(filterForm.value.seasonId)
+    ) || null);
+
+    const currentSeasonName = computed(() => currentSeason.value?.name || '选择赛事');
+    const currentSeasonStage = computed(() => normalizeStageLabel(currentSeason.value?.stage));
+    const getSeasonStatusLabel = status => {
+      if (status === 'completed') return '已结束';
+      if (status === 'upcoming') return '即将开始';
+      return '进行中';
+    };
+    const currentSeasonStatusLabel = computed(() => getSeasonStatusLabel(currentSeasonStatus.value));
+
+    const mobileSeasonGroups = computed(() => [...groupedSeasons.value].sort((left, right) => (
+      String(right.label).localeCompare(String(left.label), 'zh-CN', {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    )));
+
+    const currentSeasonLogoUrl = computed(() => {
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+        ? import.meta.env.BASE_URL
+        : `${import.meta.env.BASE_URL}/`;
+      const tagsUpper = seasonVisualConfig.value.tags.map(tag => String(tag).toUpperCase());
+      const regionTag = ['KR', 'NA', 'CN', 'EMEA'].find(tag => tagsUpper.includes(tag));
+      return regionTag
+        ? `${baseUrl}icons/areas/${regionTag}_light.png`
+        : `${baseUrl}icons/OWCS_Dark.png`;
+    });
+
+    const openMobileSeasonPicker = () => {
+      handleDropdownVisible(true);
+      mobileSeasonPickerOpen.value = true;
+    };
+
+    const selectMobileSeason = async seasonId => {
+      if (String(seasonId) === String(filterForm.value.seasonId)) {
+        mobileSeasonPickerOpen.value = false;
+        return;
+      }
+      filterForm.value.seasonId = seasonId;
+      const selectedSeason = seasons.value.find(season => String(season.id) === String(seasonId));
+      activeStage.value = normalizeStageLabel(selectedSeason?.stage);
+      mobileSeasonPickerOpen.value = false;
+      await handleSeasonChange();
+    };
 
     const groupedSeasons = computed(() => {
       const groups = new Map();
@@ -625,7 +743,16 @@ export default {
       seasonVisualConfig,
       seasons,
       groupedSeasons,
+      mobileSeasonGroups,
       currentSeasonStatus,
+      currentSeasonName,
+      currentSeasonStage,
+      currentSeasonStatusLabel,
+      currentSeasonLogoUrl,
+      getSeasonStatusLabel,
+      mobileSeasonPickerOpen,
+      openMobileSeasonPicker,
+      selectMobileSeason,
       activeStage,
       handleDropdownVisible,
       handleSeasonChange,
@@ -648,6 +775,10 @@ export default {
   background-color: #fafafa;
   position: relative;
   overflow-x: hidden;
+}
+
+.mobile-event-context {
+  display: none;
 }
 
 /* 深色赛事横幅全宽贴边：抵消 vis-content 留白，直达页面左/右/顶部边缘 */
@@ -935,29 +1066,201 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .vis-container {
+    min-height: 100dvh;
+    background: #fff;
+  }
+
   .vis-content {
-    padding: 12px 10px 24px;
+    padding: 0 10px calc(24px + env(safe-area-inset-bottom));
   }
 
   .vis-body > .banner-fullbleed {
-    margin: -12px -10px 0;
+    display: none;
+  }
+
+  .vis-header {
+    display: none;
+  }
+
+  .tab-fade-enter-active,
+  .tab-fade-leave-active {
+    transition: opacity 160ms ease;
+  }
+
+  .tab-fade-enter-from,
+  .tab-fade-leave-to {
+    transform: none;
+  }
+
+  .mobile-event-context {
+    position: relative;
+    z-index: 42;
+    display: flex;
+    min-height: 66px;
+    align-items: center;
+    gap: 10px;
+    margin: 0 -10px;
+    padding: calc(7px + env(safe-area-inset-top)) 10px 7px 12px;
+    border-bottom: 1px solid rgba(17, 17, 17, 0.09);
+    background:
+      linear-gradient(105deg, rgba(255, 106, 0, 0.08), rgba(255, 255, 255, 0) 38%),
+      rgba(255, 255, 255, 0.96);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.78) inset;
+  }
+
+  .mobile-event-context::before {
+    content: '';
+    position: absolute;
+    top: calc(12px + env(safe-area-inset-top));
+    bottom: 12px;
+    left: 0;
+    width: 3px;
+    background: var(--vis-primary-gradient);
+  }
+
+  .mobile-event-mark {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    background: transparent;
+  }
+
+  .mobile-event-mark img {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+  }
+
+  .mobile-season-select-trigger {
+    min-width: 0;
+    min-height: 48px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0 2px 2px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    touch-action: manipulation;
+    transition: background-color 120ms ease;
+  }
+
+  .mobile-season-select-trigger:active {
+    background: rgba(17, 17, 17, 0.045);
+  }
+
+  .mobile-season-select-trigger:focus-visible {
+    outline: 2px solid var(--vis-accent);
+    outline-offset: 2px;
+  }
+
+  .mobile-event-copy {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .mobile-event-name {
+    overflow: hidden;
+    color: var(--vis-text-strong);
+    font-family: var(--vis-font-display);
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 20px;
+    letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-event-meta {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    color: #6f7680;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-status-dot {
+    width: 5px;
+    height: 5px;
+    flex: 0 0 5px;
+    border-radius: 50%;
+    background: #20a366;
+    box-shadow: 0 0 0 3px rgba(32, 163, 102, 0.1);
+  }
+
+  .mobile-status-dot.is-completed {
+    background: #949ba5;
+    box-shadow: none;
+  }
+
+  .mobile-status-dot.is-upcoming {
+    background: #ff7900;
+    box-shadow: 0 0 0 3px rgba(255, 121, 0, 0.1);
+  }
+
+  .mobile-meta-separator {
+    width: 1px;
+    height: 9px;
+    flex: 0 0 1px;
+    background: #d8dce1;
+  }
+
+  .mobile-season-chevron {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    color: #8b919a;
+    font-size: 13px;
+    transition: color 120ms ease;
   }
 
   .vis-tabs-container {
+    position: sticky;
+    top: 0;
+    z-index: 40;
     margin-top: 0;
     margin-bottom: 16px;
     margin-left: -10px;
     margin-right: -10px;
+    border-bottom-color: #e1e4e8;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 2px 8px rgba(17, 17, 17, 0.035);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .vis-tab-item {
-    min-height: 44px;
-    padding: 8px 6px;
+    min-height: 46px;
+    padding: 8px 6px 7px;
+    font-family: var(--vis-font-body);
+    font-style: normal;
     font-size: 13px;
+    font-weight: 600;
+    touch-action: manipulation;
   }
 
   .vis-tab-item::after {
-    width: 28px;
+    bottom: 0;
+    width: 30px;
+    height: 2px;
   }
 
   .overview-section {
@@ -969,66 +1272,15 @@ export default {
     margin: -16px -10px 14px;
   }
 
-  .vis-header {
-    padding: 0 10px; /* 减小内边距 */
-    flex-direction: row;
-    align-items: center;
-    height: 64px;
-    gap: 8px; /* 减小间隙 */
-  }
-  
-  .header-left {
-    justify-content: flex-start;
-    flex: 0 0 auto;
-    gap: 8px; /* 减小 Logo 和标题的间隙 */
-  }
-
-  .logo-placeholder {
-    width: 32px; /* 稍微缩小 Logo */
-    height: 32px;
-  }
-  
-  .logo-placeholder .el-icon {
-    font-size: 18px;
-  }
-
-  .vis-title {
-    font-size: 14px; /* 减小标题字体 */
-    white-space: nowrap;
-    display: flex;
-    flex-direction: column; /* 将标题改为上下排列，节省横向空间 */
-    line-height: 1.1;
-    align-items: flex-start;
-  }
-  
-  .vis-title .subtitle {
-    font-size: 12px;
-  }
-
-  .header-right {
-    width: auto;
-    flex: 1 1 auto; /* 占据剩余空间 */
-    min-width: 0; /* 允许缩小 */
-  }
-  
-  .vis-season-select {
-    width: 100%;
-    max-width: none;
-  }
-
-  /* 解决移动端 Select 下拉框宽度问题 */
-  :deep(.el-select-dropdown) {
-    max-width: 90vw;
-  }
 }
 
 @media (max-width: 420px) {
   .vis-content {
-    padding: 10px 10px 20px;
+    padding: 0 10px calc(20px + env(safe-area-inset-bottom));
   }
 
   .vis-body > .banner-fullbleed {
-    margin: -10px -10px 0;
+    display: none;
   }
 
   .vis-tab-item {
@@ -1042,6 +1294,7 @@ export default {
   .stats-panel-fade-leave-active {
     transition: none;
   }
+
 }
 
 /* 全局覆盖 Select 下拉框样式以确保内容显示完整 */
@@ -1052,6 +1305,143 @@ export default {
 </style>
 
 <style>
+@media (max-width: 768px) {
+  .mobile-season-drawer.el-drawer {
+    overflow: hidden;
+    border-radius: 16px 16px 0 0;
+    background: #f6f7f9;
+    box-shadow: 0 -12px 40px rgba(17, 17, 17, 0.18);
+  }
+
+  .mobile-season-drawer .el-drawer__header {
+    min-height: 58px;
+    margin: 0;
+    padding: 8px 16px 10px;
+    border-bottom: 1px solid #e4e7eb;
+    background: #fff;
+  }
+
+  .mobile-season-drawer .el-drawer__body {
+    padding: 0 12px calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+
+  .mobile-drawer-heading {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 12px 24px;
+    align-items: end;
+  }
+
+  .mobile-drawer-handle {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    background: #d7dbe0;
+  }
+
+  .mobile-drawer-heading strong {
+    color: #15171a;
+    font-size: 17px;
+    line-height: 22px;
+  }
+
+  .mobile-season-groups {
+    padding: 8px 0 4px;
+  }
+
+  .mobile-season-group + .mobile-season-group {
+    margin-top: 12px;
+  }
+
+  .mobile-season-group h2 {
+    margin: 0;
+    padding: 8px 4px 6px;
+    color: #7a818b;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .mobile-season-option {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid #eceef1;
+    background: #fff;
+    color: #1c1f23;
+    cursor: pointer;
+    text-align: left;
+    touch-action: manipulation;
+  }
+
+  .mobile-season-option:first-of-type {
+    border-radius: 10px 10px 0 0;
+  }
+
+  .mobile-season-option:last-of-type {
+    border-bottom: 0;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .mobile-season-option:first-of-type:last-of-type {
+    border-radius: 10px;
+  }
+
+  .mobile-season-option:active {
+    background: #f7f8f9;
+  }
+
+  .mobile-season-option.active {
+    background: linear-gradient(90deg, rgba(255, 106, 0, 0.075), #fff 46%);
+  }
+
+  .mobile-season-option-copy {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .mobile-season-option-copy strong {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 19px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-season-option-copy span {
+    color: #8a919b;
+    font-size: 10px;
+    line-height: 14px;
+  }
+
+  .mobile-option-check {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border: 1px solid #d9dde2;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  .mobile-season-option.active .mobile-option-check {
+    border: 4px solid #fff;
+    background: var(--vis-accent);
+    box-shadow: 0 0 0 1px var(--vis-accent);
+  }
+
+}
+
 /* 赛段切换标签下拉框样式 */
 .vis-dropdown-tabs .el-select-dropdown__list {
   padding: 0 !important;

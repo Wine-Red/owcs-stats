@@ -439,10 +439,7 @@ html.dark .divider {
 
 @media (max-width: 768px) {
   .app-footer {
-    padding: 24px 16px 32px;
-    gap: 8px;
-    background: linear-gradient(180deg, #f5f7fa 0%, #ebeef5 100%);
-    border-top: 1px solid rgba(0,0,0,0.05);
+    display: none;
   }
   
   html.dark .app-footer {

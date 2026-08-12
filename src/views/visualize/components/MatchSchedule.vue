@@ -3,35 +3,85 @@
     <h2 id="schedule-title" class="visually-hidden">赛程列表</h2>
 
     <div v-if="hasScheduleData" class="date-rail-wrap">
-      <div ref="dateRailRef" class="date-rail" role="group" aria-label="选择比赛日期">
-        <button
-          type="button"
-          class="date-chip date-chip--all"
-          :class="{ active: selectedDate === ALL_DATE }"
-          :aria-pressed="selectedDate === ALL_DATE"
-          @click="selectDate(ALL_DATE)"
-        >
-          <span class="date-chip-main">全部</span>
-          <span class="date-chip-sub">{{ scheduleCount }} 场</span>
-        </button>
+      <div class="date-rail-scroll">
+        <div ref="dateRailRef" class="date-rail" role="group" aria-label="选择比赛日期">
+          <button
+            type="button"
+            class="date-chip date-chip--all"
+            :class="{ active: selectedDate === ALL_DATE }"
+            :aria-pressed="selectedDate === ALL_DATE"
+            @click="selectDate(ALL_DATE)"
+          >
+            <span class="date-chip-main">全部</span>
+            <span class="date-chip-sub">{{ scheduleCount }} 场</span>
+          </button>
 
-        <button
-          v-for="date in dateOptions"
-          :key="date.key"
-          :ref="element => setDateChipRef(date.key, element)"
-          type="button"
-          class="date-chip"
-          :class="{ active: selectedDate === date.key, today: date.isToday }"
-          :aria-pressed="selectedDate === date.key"
-          @click="selectDate(date.key)"
-        >
-          <span class="date-chip-main">{{ date.monthLabel }}/{{ date.dayLabel }}</span>
-          <span class="date-chip-sub">
-            {{ date.isToday ? '今天' : date.weekLabel }} · {{ date.count }}
-          </span>
-        </button>
+          <button
+            v-for="date in dateOptions"
+            :key="date.key"
+            :ref="element => setDateChipRef(date.key, element)"
+            type="button"
+            class="date-chip"
+            :class="{ active: selectedDate === date.key, today: date.isToday }"
+            :aria-pressed="selectedDate === date.key"
+            @click="selectDate(date.key)"
+          >
+            <span class="date-chip-main">{{ date.monthLabel }}/{{ date.dayLabel }}</span>
+            <span class="date-chip-sub">
+              {{ date.isToday ? '今天' : date.weekLabel }} · {{ date.count }}
+            </span>
+          </button>
+        </div>
       </div>
+
+      <button
+        type="button"
+        class="date-picker-trigger"
+        :class="{ active: datePickerOpen }"
+        aria-label="查看全部比赛日"
+        :aria-expanded="datePickerOpen"
+        @click="datePickerOpen = true"
+      >
+        <el-icon aria-hidden="true"><Calendar /></el-icon>
+      </button>
     </div>
+
+    <el-drawer
+      v-model="datePickerOpen"
+      class="schedule-date-drawer"
+      direction="btt"
+      size="min(68dvh, 520px)"
+      :show-close="false"
+      :append-to-body="true"
+    >
+      <template #header>
+        <div class="date-picker-heading">
+          <span class="date-picker-handle" aria-hidden="true"></span>
+          <strong>选择比赛日</strong>
+          <span>{{ dateOptions.length }} 个比赛日</span>
+        </div>
+      </template>
+
+      <div class="date-picker-content">
+        <section v-for="group in datePickerGroups" :key="group.key" class="date-picker-group">
+          <h3>{{ group.label }}</h3>
+          <div class="date-picker-grid">
+            <button
+              v-for="date in group.options"
+              :key="date.key"
+              type="button"
+              class="date-picker-option"
+              :class="{ active: selectedDate === date.key, today: date.isToday }"
+              :aria-pressed="selectedDate === date.key"
+              @click="selectDateFromPicker(date.key)"
+            >
+              <strong>{{ date.dayLabel }}日</strong>
+              <span>{{ date.isToday ? '今天' : date.weekLabel }} · {{ date.count }} 场</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </el-drawer>
 
     <div v-if="isUpcomingLoading && completedMatches.length" class="schedule-sync" role="status">
       <span class="sync-spinner" aria-hidden="true"></span>
@@ -47,6 +97,7 @@
             <span v-if="group.isToday" class="today-label">今天</span>
             <span class="day-week">{{ group.weekLabel }}</span>
           </div>
+          <span class="day-count">{{ group.matches.length }} 场</span>
         </header>
 
         <div class="day-matches">
@@ -176,7 +227,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { ArrowDown, DocumentCopy, VideoCamera } from '@element-plus/icons-vue';
+import { ArrowDown, Calendar, DocumentCopy, VideoCamera } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
 import { trackPublicEvent } from '@/utils/analytics';
@@ -213,6 +264,7 @@ export default {
   name: 'MatchSchedule',
   components: {
     ArrowDown,
+    Calendar,
     DocumentCopy,
     VideoCamera
   },
@@ -247,6 +299,7 @@ export default {
     const upcomingUnavailable = ref(false);
     const selectedDate = ref(ALL_DATE);
     const hasInitializedDate = ref(false);
+    const datePickerOpen = ref(false);
     const expandedReplays = ref(new Set());
     const dateRailRef = ref(null);
     const dateChipRefs = new Map();
@@ -406,6 +459,23 @@ export default {
       };
     }));
 
+    const datePickerGroups = computed(() => {
+      const groups = new Map();
+      dateOptions.value.forEach(option => {
+        const date = dateFromKey(option.key);
+        const key = date ? `${date.getFullYear()}-${pad2(date.getMonth() + 1)}` : TBD_DATE;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            key,
+            label: date ? `${date.getFullYear()}年${date.getMonth() + 1}月` : '时间待定',
+            options: []
+          });
+        }
+        groups.get(key).options.push(option);
+      });
+      return [...groups.values()];
+    });
+
     const visibleGroups = computed(() => groupedStatusMatches.value
       .filter(group => selectedDate.value === ALL_DATE || group.key === selectedDate.value)
       .map(group => {
@@ -453,6 +523,12 @@ export default {
 
     const selectDate = key => {
       selectedDate.value = key;
+      nextTick(scrollSelectedDateIntoView);
+    };
+
+    const selectDateFromPicker = key => {
+      selectedDate.value = key;
+      datePickerOpen.value = false;
       nextTick(scrollSelectedDateIntoView);
     };
 
@@ -666,7 +742,9 @@ export default {
       scheduleCount: computed(() => allScheduleMatches.value.length),
       completedMatches,
       selectedDate,
+      datePickerOpen,
       dateOptions,
+      datePickerGroups,
       visibleGroups,
       hasScheduleData,
       isUpcomingLoading,
@@ -675,6 +753,7 @@ export default {
       dateRailRef,
       setDateChipRef,
       selectDate,
+      selectDateFromPicker,
       getTeamStateClass,
       displayScore,
       getMatchAriaLabel,
@@ -712,6 +791,7 @@ export default {
 }
 
 .date-chip:focus-visible,
+.date-picker-trigger:focus-visible,
 .match-main:focus-visible,
 .replay-toggle:focus-visible,
 .replay-tag:focus-visible,
@@ -736,6 +816,14 @@ export default {
   width: 34px;
   background: linear-gradient(90deg, transparent, #fff);
   pointer-events: none;
+}
+
+.date-rail-scroll {
+  min-width: 0;
+}
+
+.date-picker-trigger {
+  display: none;
 }
 
 .date-rail {
@@ -1920,32 +2008,131 @@ export default {
   .schedule-shell {
     width: calc(100% + 20px);
     margin: 0 -10px 10px;
-    padding: 0;
+    padding: 0 0 52px;
+    background: #fff;
   }
 
   .date-rail-wrap {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px;
     margin: 0;
+    border-top: 1px solid #dfe3e7;
+    border-bottom: 0;
+    background: rgba(248, 249, 250, 0.97);
+    box-shadow: 0 -4px 14px rgba(17, 17, 17, 0.07);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .date-rail-wrap::after {
+    display: none;
+  }
+
+  .date-rail-scroll {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .date-rail-scroll::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    background: linear-gradient(90deg, rgba(248, 249, 250, 0), #f8f9fa 78%);
+    pointer-events: none;
   }
 
   .date-rail {
-    min-height: 46px;
-    padding: 0 20px 0 4px;
+    width: 100%;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 16px 0 4px;
+    box-sizing: border-box;
+  }
+
+  .date-picker-trigger {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-left: 1px solid #dfe3e7;
+    background: rgba(248, 249, 250, 0.98);
+    color: #747b85;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: color 160ms ease, background-color 160ms ease;
+  }
+
+  .date-picker-trigger::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    bottom: 0;
+    left: 12px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--vis-primary-gradient);
+    transform: scaleX(0);
+    transition: transform 160ms ease;
+  }
+
+  .date-picker-trigger.active {
+    background: #fff;
+    color: var(--vis-accent);
+  }
+
+  .date-picker-trigger.active::after {
+    transform: scaleX(1);
+  }
+
+  .date-picker-trigger .el-icon {
+    font-size: 19px;
   }
 
   .date-chip {
-    min-width: 68px;
-    min-height: 46px;
+    min-width: 66px;
+    height: 48px;
+    min-height: 48px;
     grid-template-rows: 19px 14px;
-    padding-top: 5px;
-    padding-bottom: 3px;
+    align-content: center;
+    padding: 4px 6px 3px;
+    box-sizing: border-box;
+    touch-action: manipulation;
   }
 
   .date-chip-main {
     font-size: 15px;
+    line-height: 19px;
+  }
+
+  .date-chip-sub {
+    line-height: 14px;
   }
 
   .date-chip--all {
-    min-width: 56px;
+    display: grid;
+    min-width: 54px;
+    grid-template-columns: 1fr;
+    grid-template-rows: 19px 14px;
+    align-content: center;
+    gap: 0;
+  }
+
+  .date-chip--all .date-chip-main {
+    font-size: 15px;
+    line-height: 19px;
   }
 
   .schedule-days {
@@ -1953,8 +2140,12 @@ export default {
   }
 
   .day-header {
-    min-height: 31px;
+    min-height: 30px;
     padding: 0 10px;
+  }
+
+  .day-count {
+    display: inline;
   }
 
   .day-matches {
@@ -1962,11 +2153,12 @@ export default {
   }
 
   .match-main {
-    min-height: 82px;
+    min-height: 76px;
     grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr);
     grid-template-rows: 1fr;
     gap: 4px;
-    padding: 9px 4px;
+    padding: 7px 4px;
+    touch-action: manipulation;
   }
 
   .match-time {
@@ -2012,14 +2204,14 @@ export default {
   }
 
   .team-logo-box {
-    width: 34px;
-    height: 34px;
-    flex-basis: 34px;
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
   }
 
   .team-logo {
-    max-width: 32px;
-    max-height: 32px;
+    max-width: 30px;
+    max-height: 30px;
   }
 
   .team-name {
@@ -2073,7 +2265,8 @@ export default {
   }
 
   .replay-toggle {
-    min-height: 32px;
+    min-height: 34px;
+    touch-action: manipulation;
   }
 
   .replay-list {
@@ -2086,6 +2279,162 @@ export default {
   .match-main {
     grid-template-columns: minmax(0, 1fr) 82px minmax(0, 1fr);
     gap: 4px;
+  }
+}
+</style>
+
+<style>
+@media (max-width: 768px) {
+  .schedule-date-drawer.el-drawer {
+    overflow: hidden;
+    border-radius: 16px 16px 0 0;
+    background: #f6f7f9;
+    box-shadow: 0 -14px 36px rgba(15, 23, 42, 0.18);
+  }
+
+  .schedule-date-drawer .el-drawer__header {
+    min-height: 58px;
+    margin: 0;
+    padding: 7px 16px 9px;
+    border-bottom: 1px solid #e4e7eb;
+    background: rgba(255, 255, 255, 0.94);
+    box-sizing: border-box;
+  }
+
+  .schedule-date-drawer .el-drawer__body {
+    padding: 0 12px 14px;
+    overscroll-behavior: contain;
+  }
+
+  .date-picker-heading {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: 12px 24px;
+    align-items: center;
+    color: #17191c;
+  }
+
+  .date-picker-handle {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    background: #d6d9de;
+  }
+
+  .date-picker-heading strong {
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: 0.01em;
+  }
+
+  .date-picker-heading > span:last-child {
+    color: #858b94;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .date-picker-content {
+    padding: 9px 0 4px;
+  }
+
+  .date-picker-option {
+    min-height: 48px;
+    border: 1px solid #e1e4e8;
+    background: #fff;
+    color: #24272b;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  }
+
+  .date-picker-group {
+    margin-top: 8px;
+  }
+
+  .date-picker-group + .date-picker-group {
+    margin-top: 12px;
+  }
+
+  .date-picker-group h3 {
+    margin: 0;
+    padding: 0 4px 6px;
+    color: #747b85;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 18px;
+  }
+
+  .date-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .date-picker-option {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 56px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 5px 3px 6px;
+    overflow: hidden;
+    border-radius: 9px;
+  }
+
+  .date-picker-option::after {
+    content: '';
+    position: absolute;
+    right: 18px;
+    bottom: 0;
+    left: 18px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(90deg, #ff3d00, #ff8a00);
+    transform: scaleX(0);
+    transition: transform 160ms ease;
+  }
+
+  .date-picker-option strong {
+    font-family: var(--vis-font-numeric, inherit);
+    font-size: 14px;
+    font-weight: 720;
+    line-height: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .date-picker-option span {
+    overflow: hidden;
+    max-width: 100%;
+    color: #7c838d;
+    font-size: 10px;
+    line-height: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .date-picker-option.active {
+    border-color: rgba(255, 98, 0, 0.42);
+    background: #fff8f3;
+    color: #e95300;
+  }
+
+  .date-picker-option.active::after {
+    transform: scaleX(1);
+  }
+
+  .date-picker-option.today:not(.active) span {
+    color: #e75b0b;
+  }
+
+  .date-picker-option:focus-visible {
+    outline: 2px solid #ff6a00;
+    outline-offset: 2px;
   }
 }
 </style>
