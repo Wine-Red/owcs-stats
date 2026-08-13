@@ -23,6 +23,15 @@ pnpm-debug.log*
 **/.env
 **/.env.*
 .qoder/
+/.local/
+
+# One-off local database maintenance tools
+/backend/scripts/cleanup-duplicate-indexes.js
+/backend/scripts/database-data-snapshot.js
+/backend/scripts/database-schema-inventory.js
+/backend/scripts/drop-legacy-stat-tables.js
+/backend/scripts/verify-database-integrity.js
+/backend/tests/cleanup-duplicate-indexes.test.js
 *.suo
 *.ntvs*
 *.njsproj
