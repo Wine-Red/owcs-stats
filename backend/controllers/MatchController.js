@@ -9,9 +9,7 @@ const Hero = require('../models/Hero');
 const sequelize = require('../config/database');
 const { createIncrementalMatchSyncService } = require('../services/IncrementalMatchSyncService');
 const { createExternalMatchSyncClient } = require('../services/ExternalMatchSyncClient');
-const cheerio = require('cheerio');
-const { fetchParsedHtml } = require('../services/LiquipediaClient');
-const { createCachedResource } = require('../services/CachedResource');
+const { getUpcomingMatches } = require('../services/UpcomingMatchesService');
 
 const EXTERNAL_MATCH_API_HEADERS = {
   Accept: 'application/json, text/plain, */*',
@@ -30,57 +28,6 @@ const EXTERNAL_MATCH_API_HEADERS = {
 };
 
 let syncInProgress = false;
-const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
-const LIQUIPEDIA_UPCOMING_WIKITEXT = '{{#invoke:Lua|invoke|module=MatchTicker/Custom|fn=mainPage|type=upcoming|limit=50|filterbuttons-liquipediatier=1,2}}';
-const LIQUIPEDIA_CACHE_TTL = 5 * 60 * 1000;
-
-const normalizeWhitespace = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-
-const fetchLiquipediaUpcomingHtml = async () => {
-  const result = await fetchParsedHtml({ text: LIQUIPEDIA_UPCOMING_WIKITEXT });
-  return result.html;
-};
-
-const extractUpcomingMatchesFromMatchesPage = (pageHtml) => {
-  const $ = cheerio.load(pageHtml);
-  const upcomingMatches = [];
-  const matchElements = $('.match-info');
-
-  matchElements.each((_, element) => {
-    const matchNode = $(element);
-    const tournamentLinkEl = matchNode.find('.match-info-tournament-name a').first();
-    const tournamentHref = tournamentLinkEl.attr('href') || '';
-
-    const timestampAttr = matchNode.find('.timer-object').first().attr('data-timestamp');
-    const timestampRaw = Number(timestampAttr);
-    const timestamp = Number.isFinite(timestampRaw) ? timestampRaw * 1000 : null;
-
-    const leftName = normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD';
-    const rightName = normalizeWhitespace(matchNode.find('.match-info-header-opponent').last().find('.name').first().text()) || 'TBD';
-    const tournamentName = normalizeWhitespace(tournamentLinkEl.text());
-
-    upcomingMatches.push({
-      tournamentName,
-      timestamp,
-      link: tournamentHref ? `${LIQUIPEDIA_SITE_BASE}${tournamentHref}` : '',
-      team1: { name: leftName },
-      team2: { name: rightName }
-    });
-  });
-
-  return upcomingMatches.sort((a, b) => {
-    const left = Number.isFinite(a.timestamp) ? a.timestamp : Number.MAX_SAFE_INTEGER;
-    const right = Number.isFinite(b.timestamp) ? b.timestamp : Number.MAX_SAFE_INTEGER;
-    return left - right;
-  });
-};
-
-const upcomingMatchesResource = createCachedResource({
-  ttlMs: LIQUIPEDIA_CACHE_TTL,
-  loader: async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml())
-});
-
-
 const incrementalMatchSyncService = createIncrementalMatchSyncService({
   client: createExternalMatchSyncClient({ headers: EXTERNAL_MATCH_API_HEADERS })
 });
@@ -104,7 +51,7 @@ const MatchController = {
   // 从 Liquipedia 获取 Upcoming 的 S/A 级赛事（带服务器级缓存）
   getUpcomingMatches: async (req, res) => {
     try {
-      const result = await upcomingMatchesResource.get('upcoming');
+      const result = await getUpcomingMatches();
       res.status(200).json(result);
     } catch (error) {
       console.error('Failed to fetch upcoming matches from Liquipedia:Matches:', error);

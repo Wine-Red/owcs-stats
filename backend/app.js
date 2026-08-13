@@ -23,7 +23,9 @@ const { initDatabase } = require('./database');
 
 // 路由配置
 const apiRoutes = require('./routes/api');
+const agentApiRoutes = require('./routes/agent-v1');
 app.use('/api', apiRoutes);
+app.use('/agent/v1', agentApiRoutes);
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -77,7 +79,7 @@ const startServer = async () => {
   }
 };
 
-// 启动服务器
-startServer();
+// 启动服务器；测试或其他模块引用 app 时不自动监听端口。
+if (require.main === module) startServer();
 
 module.exports = app;
