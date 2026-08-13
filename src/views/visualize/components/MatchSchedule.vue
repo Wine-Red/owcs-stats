@@ -2020,8 +2020,8 @@ export default {
 
 @media (max-width: 768px) {
   .schedule-shell {
-    width: calc(100% + 20px);
-    margin: 0 -10px 10px;
+    width: 100%;
+    margin: 0 0 10px;
     padding: 0 0 52px;
     background: #fff;
   }
