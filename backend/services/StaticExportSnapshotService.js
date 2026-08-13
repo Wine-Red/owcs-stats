@@ -642,6 +642,9 @@ const buildStaticExportSnapshot = async () => {
       matches: seasonMatches,
       mapGames: seasonMapGames,
       playerStats: seasonPlayerStats,
+      seasonTeamIds: seasonTeams
+        .filter(item => Number(item.seasonId) === seasonId)
+        .map(item => Number(item.teamId)),
       teamById,
       mapById,
       playerById,

@@ -8,6 +8,7 @@ const Team = require('../models/Team');
 const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Season = require('../models/Season');
+const SeasonTeam = require('../models/SeasonTeam');
 
 // 从原始比赛表（Match / MapGame / PlayerStat）实时计算赛季统计。
 // 计算口径与已删除的旧预聚合实现（rebuildSeasonAggregates）保持一致，
@@ -135,7 +136,15 @@ const calculateSeasonPlayerStats = async (seasonId, options = {}) => {
 
 // 战队大场/小局战绩：每战队每赛季一行，结构对齐 SeasonTeamScoreStat（含嵌套 team）
 const calculateSeasonTeamScoreStats = async (seasonId, options = {}) => {
-  const { matches, teamById } = await loadSeasonRawData(seasonId, options);
+  const rawData = await loadSeasonRawData(seasonId, options);
+  const { matches, teamById } = rawData;
+  const seasonTeamIds = Array.isArray(rawData.seasonTeamIds)
+    ? rawData.seasonTeamIds
+    : (await SeasonTeam.findAll({
+        where: { seasonId },
+        attributes: ['teamId'],
+        raw: true
+      })).map(seasonTeam => Number(seasonTeam.teamId));
 
   const teamScoreMap = new Map();
   const ensureTeamScore = id => {
@@ -159,6 +168,7 @@ const calculateSeasonTeamScoreStats = async (seasonId, options = {}) => {
     }
     return teamScoreMap.get(Number(id));
   };
+  for (const teamId of seasonTeamIds) ensureTeamScore(teamId);
   for (const match of matches) {
     const a = ensureTeamScore(match.team1Id);
     const b = ensureTeamScore(match.team2Id);
