@@ -1,7 +1,7 @@
 <template>
   <div class="regular-season-container">
     <div class="section-header">
-      <h3 class="section-title">积分榜</h3>
+      <h3 class="section-title">{{ title }}</h3>
       <div v-if="segments.length > 0" class="stage-tabs" :key="segmentSelectKey">
         <div
           v-for="seg in segments"
@@ -91,6 +91,10 @@ const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 export default {
   name: 'RegularSeasonBoard',
   props: {
+    title: {
+      type: String,
+      default: '积分榜'
+    },
     seasonId: {
       type: [Number, String],
       required: true

@@ -62,6 +62,10 @@ test('upcoming endpoint requests S/A tiers before applying the 50-match limit', 
   assert.match(decodeURIComponent(requestedPath), /filterbuttons-liquipediatier=1,2/);
   assert.equal(responseBody.data.length, 1);
   assert.equal(responseBody.data[0].tournamentName, 'OWCS Midseason Championship Group Stage - Group A');
+  assert.equal(
+    responseBody.data[0].link,
+    'https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Midseason_Championship/Group_Stage#Group_A'
+  );
   assert.equal(responseBody.data[0].team1.name, 'VP');
   assert.equal(responseBody.data[0].team2.name, '9Z');
 });

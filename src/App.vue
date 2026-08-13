@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-visualize': isVisualizeRoute }">
+  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-visualize': isVisualizeRoute, 'is-visualize-home': isVisualizeHome }">
     <!-- 移动端顶部导航 -->
     <div class="mobile-top-header" v-if="showSidebar">
       <el-icon class="menu-toggle-btn" @click="mobileSidebarOpen = true"><Menu /></el-icon>
@@ -128,6 +128,8 @@ export default {
       return route.path === '/visualize' || route.path.startsWith('/visualize/');
     });
 
+    const isVisualizeHome = computed(() => route.path === '/visualize');
+
     const isAnalyticsRoute = computed(() => {
       return route.path === '/analytics';
     });
@@ -193,7 +195,8 @@ export default {
       latestSyncTime,
       mobileSidebarOpen,
       isAnalyticsRoute,
-      isVisualizeRoute
+      isVisualizeRoute,
+      isVisualizeHome
     };
   }
 }
@@ -350,6 +353,22 @@ html.dark body {
 .app-content-wrapper.full-width {
   width: 100vw;
   background-color: #fafafa; /* Visualize fallback */
+}
+
+/* 赛事首页采用应用式滚动：外层固定，滚动责任交给 Tab 下方的内容区。 */
+.app-layout.is-visualize-home .app-content-wrapper {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-layout.is-visualize-home .app-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-layout.is-visualize-home .app-footer {
+  display: none;
 }
 
 /* 主内容区 */

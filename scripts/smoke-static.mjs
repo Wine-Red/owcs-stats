@@ -47,7 +47,7 @@ const selectedUpcoming = upcoming[0];
 const selectedSeason = seasons.find(season => String(season.id) === String(selectedSeasonTeam.seasonId)) || seasons[0];
 
 const pages = [
-  { name: '可视化首页', hash: '#/visualize', ready: '.vis-body' },
+  { name: '可视化首页', hash: '#/visualize', ready: '.vis-body', verifyHeroTabs: true },
   {
     name: '赛程列表',
     hash: '#/visualize',
@@ -108,6 +108,71 @@ try {
   for (const target of pages) {
     await page.goto(`${baseUrl}${target.hash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.locator(target.ready).waitFor({ state: 'visible', timeout: 60_000 });
+    if (target.verifyHeroTabs) {
+      await page.locator('.regular-season-container').waitFor({ state: 'visible', timeout: 60_000 });
+      if (await page.locator('.overview-dashboard').count()) {
+        throw new Error('赛事概览仍渲染已移除的赛事速览区域');
+      }
+      await page.locator('.vis-tab-item').nth(2).click();
+      await page.locator('.stats-category-choices').waitFor({ state: 'visible', timeout: 10_000 });
+      await page.locator('.stats-category-choices button').nth(3).click();
+      await page.locator('.hero-overview-chart').waitFor({ state: 'visible', timeout: 60_000 });
+      await page.locator('.hero-item').first().waitFor({ state: 'visible', timeout: 60_000 });
+      await page.waitForFunction(() => {
+        const panel = document.querySelector('.stats-category-panel');
+        return panel && getComputedStyle(panel).transform === 'none';
+      });
+
+      const verifyHeroScrollLayers = async (mobile = false) => {
+        const metrics = await page.evaluate(() => {
+          const rect = selector => {
+            const box = document.querySelector(selector)?.getBoundingClientRect();
+            return box ? { top: box.top, bottom: box.bottom } : null;
+          };
+          const tabContent = document.querySelector('.tab-content');
+          const scrollArea = document.querySelector('.hero-scroll-area');
+          scrollArea.scrollTop = 0;
+          const before = {
+            category: rect('.stats-category-choices'),
+            filters: rect('.hero-filters'),
+            firstHero: rect('.hero-item'),
+            tabScrollTop: tabContent?.scrollTop || 0
+          };
+          scrollArea.scrollTop = Math.min(240, Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight));
+          const style = getComputedStyle(scrollArea);
+          const after = {
+            category: rect('.stats-category-choices'),
+            filters: rect('.hero-filters'),
+            firstHero: rect('.hero-item'),
+            tabScrollTop: tabContent?.scrollTop || 0
+          };
+          return {
+            before,
+            after,
+            scrollable: scrollArea.scrollHeight > scrollArea.clientHeight,
+            scrollbarWidth: scrollArea.offsetWidth - scrollArea.clientWidth,
+            firefoxScrollbarWidth: style.scrollbarWidth
+          };
+        });
+
+        const filterGap = metrics.before.filters.top - metrics.before.category.bottom;
+        const fixed = Math.abs(metrics.after.category.top - metrics.before.category.top) < 1
+          && Math.abs(metrics.after.filters.top - metrics.before.filters.top) < 1
+          && metrics.after.tabScrollTop === 0;
+        const contentMoved = metrics.after.firstHero.top < metrics.before.firstHero.top;
+        if (filterGap < -1 || !fixed || (metrics.scrollable && !contentMoved)) {
+          throw new Error(`英雄细化 Tab 与内容滚动层级异常: ${JSON.stringify(metrics)}`);
+        }
+        if (mobile && (metrics.scrollbarWidth > 0 || metrics.firefoxScrollbarWidth !== 'none')) {
+          throw new Error(`英雄列表移动端仍显示滚动条: ${JSON.stringify(metrics)}`);
+        }
+      };
+
+      await verifyHeroScrollLayers();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await verifyHeroScrollLayers(true);
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
     if (target.verifySchedule) {
       await page.getByRole('tab', { name: '赛程列表' }).click();
       await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 });
@@ -169,6 +234,25 @@ try {
       }));
       if (viewportMetrics.scrollWidth > viewportMetrics.clientWidth + 1) {
         throw new Error(`赛程移动端出现横向滚动: ${viewportMetrics.scrollWidth}px > ${viewportMetrics.clientWidth}px`);
+      }
+      const mobileScrollMetrics = await page.locator('.tab-content').evaluate(element => {
+        const before = element.scrollTop;
+        element.scrollTop = Math.min(180, Math.max(0, element.scrollHeight - element.clientHeight));
+        const style = getComputedStyle(element);
+        const after = element.scrollTop;
+        return {
+          before,
+          after,
+          canScroll: element.scrollHeight > element.clientHeight,
+          scrollbarWidth: element.offsetWidth - element.clientWidth,
+          firefoxScrollbarWidth: style.scrollbarWidth
+        };
+      });
+      if (mobileScrollMetrics.canScroll && mobileScrollMetrics.after <= mobileScrollMetrics.before) {
+        throw new Error('赛程移动端内容区无法纵向滚动');
+      }
+      if (mobileScrollMetrics.scrollbarWidth > 0 || mobileScrollMetrics.firefoxScrollbarWidth !== 'none') {
+        throw new Error(`赛程移动端仍显示滚动条: ${JSON.stringify(mobileScrollMetrics)}`);
       }
       if (screenshotDirectory) {
         await page.screenshot({

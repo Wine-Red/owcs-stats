@@ -232,6 +232,10 @@ import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
 import { trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
+import {
+  isLiquipediaTournamentMatch,
+  isValidLiquipediaTournamentUrl
+} from '@/utils/liquipediaTournament.mjs';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000;
@@ -281,7 +285,7 @@ export default {
       type: [String, Number],
       default: ''
     },
-    liquipediaTournamentName: {
+    liquipediaTournamentUrl: {
       type: String,
       default: ''
     },
@@ -303,6 +307,9 @@ export default {
     const expandedReplays = ref(new Set());
     const dateRailRef = ref(null);
     const dateChipRefs = new Map();
+    const hasLiquipediaTournamentUrl = computed(() => (
+      isValidLiquipediaTournamentUrl(props.liquipediaTournamentUrl)
+    ));
 
     const getTeamByName = name => {
       const normalizedName = String(name || '').trim();
@@ -361,11 +368,10 @@ export default {
     };
 
     const upcomingMatches = computed(() => {
-      if (!props.showUpcoming || !props.liquipediaTournamentName) return [];
-      const targetName = props.liquipediaTournamentName.toLowerCase();
+      if (!props.showUpcoming || !hasLiquipediaTournamentUrl.value) return [];
 
       return rawUpcomingMatches.value
-        .filter(match => String(match?.tournamentName || '').toLowerCase().includes(targetName))
+        .filter(match => isLiquipediaTournamentMatch(match?.link, props.liquipediaTournamentUrl))
         .filter(match => {
           const team1Name = String(match?.team1?.name || match?.teamA?.name || match?.team1 || '').toLowerCase();
           const team2Name = String(match?.team2?.name || match?.teamB?.name || match?.team2 || '').toLowerCase();
@@ -549,7 +555,7 @@ export default {
       upcomingUnavailable.value = false;
       hasInitializedDate.value = false;
 
-      if (!props.showUpcoming || !props.liquipediaTournamentName) {
+      if (!props.showUpcoming || !hasLiquipediaTournamentUrl.value) {
         isUpcomingLoading.value = false;
         initializeDate({ force: true });
         return;
@@ -729,7 +735,7 @@ export default {
     onMounted(fetchUpcomingMatches);
 
     watch(
-      () => [props.seasonId, props.liquipediaTournamentName, props.showUpcoming],
+      () => [props.seasonId, props.liquipediaTournamentUrl, props.showUpcoming],
       fetchUpcomingMatches
     );
 

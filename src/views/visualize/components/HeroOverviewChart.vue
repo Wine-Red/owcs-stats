@@ -20,12 +20,13 @@
       />
     </div>
 
-    <div v-if="loading" class="status-text">数据加载中…</div>
-    <div v-else-if="!rows.length" class="status-text">本赛季暂无英雄明细数据</div>
+    <div class="hero-scroll-area">
+      <div v-if="loading" class="status-text">数据加载中…</div>
+      <div v-else-if="!rows.length" class="status-text">本赛季暂无英雄明细数据</div>
 
-    <template v-else>
-      <div class="hero-rows">
-        <div v-for="row in displayedRows" :key="row.heroId" class="hero-item">
+      <template v-else>
+        <div class="hero-rows">
+          <div v-for="row in displayedRows" :key="row.heroId" class="hero-item">
           <button
             type="button"
             class="hero-row"
@@ -102,15 +103,16 @@
               </div>
             </div>
           </div>
+          </div>
         </div>
-      </div>
-      <div v-if="!expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = true">
-        展开全部 {{ filteredSortedRows.length }} 位英雄
-      </div>
-      <div v-else-if="expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = false">
-        收起
-      </div>
-    </template>
+        <div v-if="!expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = true">
+          展开全部 {{ filteredSortedRows.length }} 位英雄
+        </div>
+        <div v-else-if="expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = false">
+          收起
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -391,14 +393,33 @@ export default {
 <style scoped>
 .hero-overview-chart {
   position: relative;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 筛选区与主分类 tab 一样贴页面左右边（抵消父级 32px 内边距），两组 tab 之间无缝相贴 */
 .hero-filters {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin: -20px -32px 10px;
+  margin: 0 -32px;
+  background: #fff;
+}
+
+.hero-scroll-area {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-top: 10px;
+  padding-bottom: 32px;
+  scrollbar-gutter: stable;
 }
 
 .status-text {
@@ -714,7 +735,20 @@ export default {
 
 @media (max-width: 768px) {
   .hero-filters {
-    margin: -14px -10px 10px;
+    margin: 0 -10px;
+  }
+
+  .hero-scroll-area {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    scrollbar-gutter: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hero-scroll-area::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .hero-detail {

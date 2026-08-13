@@ -129,7 +129,6 @@
           <!-- 标签页导航 -->
           <div
             class="vis-tabs-container"
-            :class="{ 'is-schedule-active': currentTab === 'recent' }"
           >
             <div class="vis-tabs" role="tablist">
               <button 
@@ -165,21 +164,39 @@
             </div>
           </div>
 
+          <ContentChoiceGroup
+            v-if="currentTab === 'stats' && statsCategoryTabs.length"
+            class="stats-category-choices"
+            :model-value="activeStatsCategory"
+            :items="statsCategoryTabs"
+            hide-label
+            aria-label="赛事数据分类"
+            @update:model-value="switchStatsCategory"
+          />
+
           <Transition name="tab-fade" mode="out-in" @after-enter="handleTabAfterEnter">
-            <div :key="currentTab" class="tab-content" style="width: 100%;">
+            <div
+              :key="currentTab"
+              ref="tabContentRef"
+              class="tab-content"
+              :class="[
+                `is-${currentTab}`,
+                { 'is-stats-hero': currentTab === 'stats' && activeStatsCategory === 'hero' }
+              ]"
+              style="width: 100%;"
+            >
               <template v-if="currentTab === 'overview'">
-                <div class="vis-grid overview-section">
-                  <div class="vis-col span-12">
-                    <RegularSeasonBoard 
-                      :seasonId="filterForm.seasonId" 
-                      :matches="seasonMatches" 
-                      :mapGames="seasonMapGames" 
-                      :template="seasonVisualConfig.standings.template" 
-                      :score-stats="seasonTeamScoreStats" 
-                      :stage-overrides="seasonVisualConfig.standings.stageOverrides" 
-                      :qualification-count="seasonVisualConfig.standings.qualificationCount"
-                    />
-                  </div>
+                <div class="overview-section">
+                  <RegularSeasonBoard
+                    title="阶段排名"
+                    :seasonId="filterForm.seasonId"
+                    :matches="seasonMatches"
+                    :mapGames="seasonMapGames"
+                    :template="seasonVisualConfig.standings.template"
+                    :score-stats="seasonTeamScoreStats"
+                    :stage-overrides="seasonVisualConfig.standings.stageOverrides"
+                    :qualification-count="seasonVisualConfig.standings.qualificationCount"
+                  />
                 </div>
               </template>
               <template v-else-if="currentTab === 'recent'">
@@ -187,21 +204,11 @@
                   :matches="seasonMatches"
                   :mapGames="seasonMapGames"
                   :seasonId="filterForm.seasonId"
-                  :liquipediaTournamentName="seasonVisualConfig.liquipediaTournamentName"
+                  :liquipedia-tournament-url="seasonVisualConfig.liquipediaTournamentUrl"
                   :showUpcoming="currentSeasonStatus !== 'completed'"
                 />
               </template>
               <template v-else>
-                <ContentChoiceGroup
-                  v-if="statsCategoryTabs.length"
-                  class="stats-category-choices"
-                  :model-value="activeStatsCategory"
-                  :items="statsCategoryTabs"
-                  hide-label
-                  aria-label="赛事数据分类"
-                  @update:model-value="switchStatsCategory"
-                />
-
                 <div class="stats-workspace">
                   <Transition name="stats-panel-fade" mode="out-in" @after-enter="handleStatsPanelAfterEnter">
                     <div v-if="activeStatsCategory" :key="activeStatsCategory" class="stats-category-panel">
@@ -282,6 +289,7 @@ export default {
     );
     const activeStatsCategory = ref('team');
     const mobileSeasonPickerOpen = ref(false);
+    const tabContentRef = ref(null);
 
     watch(currentTab, (newTab) => {
       trackPublicEvent('首页-切换标签', {
@@ -379,7 +387,7 @@ export default {
         template: 'wl_maps',
         qualificationCount: 0
       },
-      liquipediaTournamentName: ''
+      liquipediaTournamentUrl: ''
     });
 
     const normalizeStringArray = (arr) => {
@@ -405,7 +413,7 @@ export default {
             qualificationCount: Number(config?.standings?.qualificationCount) || 0,
             stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {}
           },
-          liquipediaTournamentName: config?.liquipediaTournamentName || ''
+          liquipediaTournamentUrl: config?.liquipediaTournamentUrl || ''
         };
       } catch (error) {
         seasonVisualConfig.value = {
@@ -413,7 +421,7 @@ export default {
           dateRange: '',
           mapPool: { mapIds: [] },
           standings: { template: 'wl_maps', stageOverrides: {}, qualificationCount: 0 },
-          liquipediaTournamentName: ''
+          liquipediaTournamentUrl: ''
         };
       }
     };
@@ -463,6 +471,7 @@ export default {
         seasonId: filterForm.value.seasonId,
         stage: activeStage.value
       }, route);
+      if (tabContentRef.value) tabContentRef.value.scrollTop = 0;
       await handleStatsPanelAfterEnter();
     };
     
@@ -731,6 +740,7 @@ export default {
     
     return {
       currentTab,
+      tabContentRef,
       activeStatsCategory,
       statsCategoryTabs,
       switchStatsCategory,
@@ -768,13 +778,21 @@ export default {
 
 <style scoped>
 .vis-container {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   font-family: var(--vis-font-body);
   background-color: #fafafa;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.vis-body {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-event-context {
@@ -783,22 +801,20 @@ export default {
 
 /* 深色赛事横幅全宽贴边：抵消 vis-content 留白，直达页面左/右/顶部边缘 */
 .vis-body > .banner-fullbleed {
+  flex: 0 0 auto;
   margin: -24px -32px 0;
 }
 
 /* 标签页导航样式：标签型按钮（激活 = 深色字 + 渐变斜切下划线） */
 .vis-tabs-container {
+  flex: 0 0 auto;
   display: flex;
   margin-top: 0;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   /* 全宽贴边：下划线/背景延伸至页面边缘，文字 padding 不变 */
   margin-left: -32px;
   margin-right: -32px;
   border-bottom: 1px solid rgba(17, 17, 17, 0.08);
-}
-
-.vis-tabs-container.is-schedule-active {
-  margin-bottom: 0;
 }
 
 .vis-tabs {
@@ -892,12 +908,12 @@ export default {
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   height: 64px;
+  flex: 0 0 64px;
   padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
   width: 100%;
   box-sizing: border-box;
@@ -947,12 +963,28 @@ export default {
 }
 
 .vis-content {
-  padding: 24px 32px 32px;
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px 32px 0;
   width: 100%;
   flex: 1;
   box-sizing: border-box;
   position: relative;
   z-index: 1;
+}
+
+.tab-content {
+  min-height: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-top: 0;
+  padding-bottom: 32px;
+  scrollbar-gutter: stable;
 }
 
 .page-loading {
@@ -1007,7 +1039,8 @@ export default {
 }
 
 .overview-section {
-  margin-bottom: 16px;
+  width: min(1180px, 100%);
+  margin: 0 auto 16px;
 }
 
 .stats-workspace {
@@ -1016,8 +1049,10 @@ export default {
 }
 
 .stats-category-choices {
+  flex: 0 0 auto;
   width: calc(100% + 64px);
-  margin: -24px -32px 20px;
+  margin: 0 -32px;
+  background: #fff;
 }
 
 .stats-category-panel {
@@ -1049,6 +1084,21 @@ export default {
   min-width: 0;
 }
 
+/* 英雄分类还有一层筛选栏：外层停止滚动，由英雄列表接管滚动。 */
+.tab-content.is-stats-hero {
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+}
+
+.tab-content.is-stats-hero .stats-workspace,
+.tab-content.is-stats-hero .stats-category-panel,
+.tab-content.is-stats-hero .stats-data-section {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
 .span-6 {
   grid-column: span 6;
 }
@@ -1067,12 +1117,13 @@ export default {
 
 @media (max-width: 768px) {
   .vis-container {
-    min-height: 100dvh;
+    height: 100%;
+    min-height: 0;
     background: #fff;
   }
 
   .vis-content {
-    padding: 0 10px calc(24px + env(safe-area-inset-bottom));
+    padding: 0 10px;
   }
 
   .vis-body > .banner-fullbleed {
@@ -1097,6 +1148,7 @@ export default {
     position: relative;
     z-index: 42;
     display: flex;
+    flex: 0 0 auto;
     min-height: 66px;
     align-items: center;
     gap: 10px;
@@ -1234,11 +1286,10 @@ export default {
   }
 
   .vis-tabs-container {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 40;
     margin-top: 0;
-    margin-bottom: 16px;
+    margin-bottom: 0;
     margin-left: -10px;
     margin-right: -10px;
     border-bottom-color: #e1e4e8;
@@ -1246,6 +1297,20 @@ export default {
     box-shadow: 0 2px 8px rgba(17, 17, 17, 0.035);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+  }
+
+  .tab-content {
+    padding-top: 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    scrollbar-gutter: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .tab-content::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   .vis-tab-item {
@@ -1274,14 +1339,18 @@ export default {
 
   .stats-category-choices {
     width: calc(100% + 20px);
-    margin: -16px -10px 14px;
+    margin: 0 -10px;
   }
 
 }
 
 @media (max-width: 420px) {
   .vis-content {
-    padding: 0 10px calc(20px + env(safe-area-inset-bottom));
+    padding: 0 10px;
+  }
+
+  .tab-content {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 
   .vis-body > .banner-fullbleed {

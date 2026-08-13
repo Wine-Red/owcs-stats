@@ -115,6 +115,10 @@ import { Calendar, ArrowUp } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import { trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
+import {
+  isLiquipediaTournamentMatch,
+  isValidLiquipediaTournamentUrl
+} from '@/utils/liquipediaTournament.mjs';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000; // 1 minute client-side cache
@@ -138,7 +142,7 @@ export default {
     ArrowUp
   },
   props: {
-    liquipediaTournamentName: {
+    liquipediaTournamentUrl: {
       type: String,
       default: ''
     },
@@ -156,6 +160,9 @@ export default {
     const isOpen = ref(false);
     const panelRef = ref(null);
     const fabRef = ref(null);
+    const hasLiquipediaTournamentUrl = computed(() => (
+      isValidLiquipediaTournamentUrl(props.liquipediaTournamentUrl)
+    ));
 
     const togglePanel = () => {
       isOpen.value = !isOpen.value;
@@ -177,12 +184,11 @@ export default {
     };
 
     const displayMatches = computed(() => {
-      if (!props.liquipediaTournamentName) return [];
+      if (!hasLiquipediaTournamentUrl.value) return [];
 
-      const targetName = props.liquipediaTournamentName.toLowerCase();
       return allMatches.value
         .filter(m => {
-          if (!m.tournamentName.toLowerCase().includes(targetName)) return false;
+          if (!isLiquipediaTournamentMatch(m.link, props.liquipediaTournamentUrl)) return false;
 
           // 静态快照不会像 Liquipedia 实时接口一样移除已结束比赛。
           // 静态版在预计开赛 8 小时后自动隐藏，避免旧比赛长期显示为 LIVE。
@@ -327,7 +333,7 @@ export default {
 
     const fetchLiquipediaMatches = async () => {
       // 只有在没有配置时才会快速跳过，配置存在则正常展示 loading
-      if (!props.liquipediaTournamentName) {
+      if (!hasLiquipediaTournamentUrl.value) {
         isLoading.value = false;
         return;
       }
@@ -387,7 +393,7 @@ export default {
       document.removeEventListener('keydown', onDocKeydown);
     });
 
-    watch(() => props.liquipediaTournamentName, () => {
+    watch(() => props.liquipediaTournamentUrl, () => {
       fetchLiquipediaMatches();
     });
 

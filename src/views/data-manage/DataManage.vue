@@ -130,13 +130,26 @@
                 复制标签和地图池
               </el-button>
             </div>
-            <div class="form-hint">只复制标签和地图池，不覆盖日期、Liquipedia 名称或积分榜配置</div>
+            <div class="form-hint">只复制标签和地图池，不覆盖日期、Liquipedia 赛事页面或积分榜配置</div>
           </el-form-item>
           <el-form-item label="比赛日期">
             <el-input v-model="seasonVisualForm.dateRange" placeholder="如：2026.03.05 - 2026.04.12" style="width: 100%" />
           </el-form-item>
-          <el-form-item label="Liquipedia赛事名称" title="用于关联 Upcoming 比赛">
-            <el-input v-model="seasonVisualForm.liquipediaTournamentName" placeholder="如：OWCS Korea (用于精确匹配Liquipedia Upcoming API)" style="width: 100%" />
+          <el-form-item
+            label="Liquipedia赛事页面"
+            title="仅使用赛事页面 URL 关联后续赛程"
+            :error="liquipediaTournamentUrlError"
+          >
+            <el-input
+              v-model.trim="seasonVisualForm.liquipediaTournamentUrl"
+              type="url"
+              inputmode="url"
+              placeholder="https://liquipedia.net/overwatch/..."
+              style="width: 100%"
+              @input="liquipediaTournamentUrlError = ''"
+              @blur="validateLiquipediaTournamentUrl"
+            />
+            <div class="form-hint">用于精确关联该赛事页面的 Upcoming 比赛，不再按赛事名称模糊匹配。</div>
           </el-form-item>
           <el-form-item label="地图池">
             <el-select
@@ -1210,6 +1223,10 @@ import {
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
 import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
+import {
+  isValidLiquipediaTournamentUrl,
+  normalizeLiquipediaTournamentUrl
+} from '@/utils/liquipediaTournament.mjs';
 
 export default {
   name: 'DataManage',
@@ -1432,7 +1449,7 @@ export default {
       seasonId: '',
       tags: [],
       dateRange: '',
-      liquipediaTournamentName: '',
+      liquipediaTournamentUrl: '',
       mapIds: [],
       standingsTemplate: 'wl_maps',
       stageOverrides: {}
@@ -1444,6 +1461,15 @@ export default {
     const MAP_TYPE_ORDER = ['占领要点', '运载目标', '攻击/护送', '机动推进', '闪点作战'];
 
     const buildSeasonVisualKey = (seasonId) => `visualize_season_${seasonId}`;
+    const liquipediaTournamentUrlError = ref('');
+
+    const validateLiquipediaTournamentUrl = () => {
+      const value = String(seasonVisualForm.value.liquipediaTournamentUrl || '').trim();
+      liquipediaTournamentUrlError.value = value && !isValidLiquipediaTournamentUrl(value)
+        ? '请输入有效的 Liquipedia Overwatch 赛事页面 URL'
+        : '';
+      return !liquipediaTournamentUrlError.value;
+    };
 
     const normalizeStringArray = (arr) => {
       if (!Array.isArray(arr)) return [];
@@ -1634,7 +1660,7 @@ export default {
         const config = await apiService.getConfig(buildSeasonVisualKey(id));
         const tags = normalizeStringArray(config?.tags);
         const dateRange = config?.dateRange || '';
-        const liquipediaTournamentName = config?.liquipediaTournamentName || '';
+        const liquipediaTournamentUrl = config?.liquipediaTournamentUrl || '';
         const mapIds = normalizeIdArray(config?.mapPool?.mapIds);
         const standingsTemplate = config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
         const stageOverrides = (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object')
@@ -1644,7 +1670,8 @@ export default {
 
         seasonVisualForm.value.tags = tags;
         seasonVisualForm.value.dateRange = dateRange;
-        seasonVisualForm.value.liquipediaTournamentName = liquipediaTournamentName;
+        seasonVisualForm.value.liquipediaTournamentUrl = liquipediaTournamentUrl;
+        liquipediaTournamentUrlError.value = '';
         seasonVisualForm.value.mapIds = mapIds;
         seasonVisualForm.value.standingsTemplate = standingsTemplate;
         seasonVisualForm.value.qualificationCount = qualificationCount;
@@ -1654,7 +1681,8 @@ export default {
       } catch (error) {
         seasonVisualForm.value.tags = [];
         seasonVisualForm.value.dateRange = '';
-        seasonVisualForm.value.liquipediaTournamentName = '';
+        seasonVisualForm.value.liquipediaTournamentUrl = '';
+        liquipediaTournamentUrlError.value = '';
         seasonVisualForm.value.mapIds = [];
         seasonVisualForm.value.standingsTemplate = 'wl_maps';
         seasonVisualForm.value.qualificationCount = 0;
@@ -1666,11 +1694,19 @@ export default {
 
     const saveSeasonVisualConfig = async () => {
       if (!seasonVisualForm.value.seasonId) return;
+      if (!validateLiquipediaTournamentUrl()) {
+        ElMessage.error('请检查 Liquipedia 赛事页面 URL');
+        return;
+      }
       try {
+        const liquipediaTournamentUrl = normalizeLiquipediaTournamentUrl(
+          seasonVisualForm.value.liquipediaTournamentUrl
+        );
+        seasonVisualForm.value.liquipediaTournamentUrl = liquipediaTournamentUrl;
         const value = {
           tags: normalizeStringArray(seasonVisualForm.value.tags),
           dateRange: seasonVisualForm.value.dateRange,
-          liquipediaTournamentName: seasonVisualForm.value.liquipediaTournamentName,
+          liquipediaTournamentUrl,
           mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) },
           standings: {
             template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps',
@@ -1681,7 +1717,7 @@ export default {
         await apiService.updateConfig({
           key: buildSeasonVisualKey(seasonVisualForm.value.seasonId),
           value,
-          description: '赛季可视化配置（标签/地图池/积分榜模板）'
+          description: '赛季可视化配置（Liquipedia赛事页面/标签/地图池/积分榜模板）'
         });
         ElMessage.success('赛季可视化配置已保存');
       } catch (error) {
@@ -3192,6 +3228,8 @@ export default {
       chartConfig,
       saveChartConfig,
       seasonVisualForm,
+      liquipediaTournamentUrlError,
+      validateLiquipediaTournamentUrl,
       seasonVisualCopySourceId,
       activeMapType,
       availableVisualCopySeasons,
