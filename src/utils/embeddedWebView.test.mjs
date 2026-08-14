@@ -17,6 +17,14 @@ test('does not classify mobile Chrome as an embedded WebView', () => {
   }), false)
 })
 
+test('detects an Android shell that exposes a Chrome UA but reports a host safe area', () => {
+  assert.equal(isEmbeddedWebView({
+    userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36',
+    location: {},
+    safeAreaInsetTop: 48
+  }), true)
+})
+
 test('supports an explicit embedded flag before or after the hash route', () => {
   assert.equal(isEmbeddedWebView({
     userAgent: '',

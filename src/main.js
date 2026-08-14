@@ -26,10 +26,14 @@ import '@fontsource/oxanium/latin-700.css'
 import '@fontsource/oxanium/latin-800.css'
 import '@/styles/visualize-theme.css'
 import { initAnalytics } from '@/utils/analytics'
-import { isEmbeddedWebView } from '@/utils/embeddedWebView.mjs'
+import { isEmbeddedWebView, readSafeAreaInsetTop } from '@/utils/embeddedWebView.mjs'
 
-if (isEmbeddedWebView()) {
+if (isEmbeddedWebView({ safeAreaInsetTop: readSafeAreaInsetTop() })) {
   document.documentElement.classList.add('is-embedded-webview')
+}
+
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual'
 }
 
 // 禁用双指缩放和 Ctrl+滚轮缩放

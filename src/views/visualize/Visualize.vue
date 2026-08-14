@@ -45,7 +45,7 @@
     </header>
 
     <!-- 主内容网格 (Main Grid) -->
-    <main class="vis-content">
+    <main class="vis-content" :class="{ 'is-loading': isPageLoading }">
       <div v-if="isPageLoading" class="page-loading">
         <div class="loading-panel">
           <div class="loading-spinner"></div>
@@ -313,6 +313,23 @@ export default {
     // 赛季数据维度探测结果（ban / 英雄明细 / 最后一击 / 大招充能），null = 尚未加载
     const seasonFeatures = ref(null);
     const isPageLoading = ref(true);
+
+    const setScrollPositionToTop = () => {
+      window.scrollTo({ left: 0, top: 0, behavior: 'auto' });
+      if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+      const outerScroller = document.querySelector('.app-content-wrapper');
+      if (outerScroller) outerScroller.scrollTop = 0;
+      if (tabContentRef.value) tabContentRef.value.scrollTop = 0;
+    };
+
+    const resetInitialScroll = async () => {
+      await nextTick();
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      setScrollPositionToTop();
+      // WebView shells may restore their saved scroll after the Vue enter
+      // transition. Re-assert once after that transition without delaying UI.
+      window.setTimeout(setScrollPositionToTop, 260);
+    };
 
     const handleTabAfterEnter = async () => {
       if (currentTab.value === 'stats') {
@@ -654,6 +671,7 @@ export default {
     
     onMounted(async () => {
       isPageLoading.value = true;
+      await resetInitialScroll();
       const startTime = performance.now();
       // 等待 Vue DOM 更新
       await nextTick();
@@ -720,6 +738,7 @@ export default {
         } finally {
           await nextTick();
           isPageLoading.value = false;
+          await resetInitialScroll();
           const duration = performance.now() - startTime;
           trackPerformance('首页首次加载', duration, {
             seasonId: filterForm.value.seasonId,
@@ -729,6 +748,7 @@ export default {
         }
       } else {
         isPageLoading.value = false;
+        await resetInitialScroll();
         const duration = performance.now() - startTime;
         trackPerformance('首页首次加载', duration, {
           seasonId: filterForm.value.seasonId,
@@ -1129,6 +1149,11 @@ export default {
 
   .vis-content {
     padding: 0 10px;
+  }
+
+  .vis-content.is-loading {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .vis-body > .banner-fullbleed {

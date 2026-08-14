@@ -37,9 +37,40 @@ try {
     viewport: { width: 390, height: 520 },
     userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
   })
+  await page.route('**/static-data/api-cache.json', async route => {
+    await new Promise(resolve => setTimeout(resolve, 350))
+    await route.continue()
+  })
   await page.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await page.locator('.page-loading').waitFor({ state: 'visible', timeout: 10_000 })
+  const loadingMetrics = await page.evaluate(() => {
+    const loading = document.querySelector('.loading-panel').getBoundingClientRect()
+    const content = document.querySelector('.vis-content').getBoundingClientRect()
+    const viewport = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || ''
+    return {
+      contentHeight: content.height,
+      loadingCenterY: loading.top + loading.height / 2,
+      viewportCenterY: window.innerHeight / 2,
+      viewport
+    }
+  })
+  if (loadingMetrics.contentHeight < 500 || Math.abs(loadingMetrics.loadingCenterY - loadingMetrics.viewportCenterY) > 4) {
+    throw new Error(`WebView loading position is incorrect: ${JSON.stringify(loadingMetrics)}`)
+  }
+  if (!/user-scalable\s*=\s*no/i.test(loadingMetrics.viewport) || !/maximum-scale\s*=\s*1(?:\.0)?/i.test(loadingMetrics.viewport)) {
+    throw new Error(`WebView zoom is not disabled by viewport: ${JSON.stringify(loadingMetrics)}`)
+  }
+  await page.evaluate(() => {
+    document.body.style.minHeight = 'calc(100dvh + 300px)'
+    window.scrollTo(0, 180)
+  })
   await page.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
-  await page.getByRole('tab', { name: '赛程列表' }).click()
+  await page.waitForTimeout(320)
+  const postLoadScrollTop = await page.evaluate(() => document.scrollingElement.scrollTop)
+  if (postLoadScrollTop !== 0) {
+    throw new Error(`WebView did not reset the restored scroll position after loading: ${postLoadScrollTop}`)
+  }
+  await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
 
   const metrics = await page.evaluate(() => {
@@ -58,12 +89,13 @@ try {
         flex: style.flex
       }
     }
-    window.scrollTo(0, 0)
+    const initialScrollTop = scrollingElement.scrollTop
     const eventTop = eventContext.getBoundingClientRect().top
     const before = scrollingElement.scrollTop
     window.scrollTo(0, Math.min(180, Math.max(0, scrollingElement.scrollHeight - scrollingElement.clientHeight)))
     return {
       embeddedClass: document.documentElement.classList.contains('is-embedded-webview'),
+      initialScrollTop,
       before,
       after: scrollingElement.scrollTop,
       documentScrollable: scrollingElement.scrollHeight > scrollingElement.clientHeight,
@@ -88,6 +120,9 @@ try {
   })
 
   if (!metrics.embeddedClass) throw new Error(`未识别 Android WebView: ${JSON.stringify(metrics)}`)
+  if (metrics.initialScrollTop !== 0) {
+    throw new Error(`WebView did not reset its initial scroll position: ${JSON.stringify(metrics)}`)
+  }
   if (metrics.tabOverflowY !== 'visible' || metrics.tabScrollTop !== 0) {
     throw new Error(`WebView 仍在使用内层滚动: ${JSON.stringify(metrics)}`)
   }
@@ -125,7 +160,33 @@ try {
     throw new Error(`普通浏览器内层滚动回归: ${JSON.stringify(browserMetrics)}`)
   }
 
-  console.log(`[embedded-webview] passed ${JSON.stringify({ webView: metrics, browser: browserMetrics })}`)
+  const responsiveMetrics = []
+  for (const viewport of [{ width: 375, height: 667 }, { width: 667, height: 375 }]) {
+    const responsivePage = await browser.newPage({
+      viewport,
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
+    })
+    await responsivePage.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    await responsivePage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
+    await responsivePage.waitForTimeout(300)
+    const responsiveMetric = await responsivePage.evaluate(() => {
+      const eventContext = document.querySelector('.mobile-event-context')
+      return {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        eventTop: eventContext.getBoundingClientRect().top,
+        eventPaddingTop: getComputedStyle(eventContext).paddingTop,
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+      }
+    })
+    responsiveMetrics.push(responsiveMetric)
+    await responsivePage.close()
+  }
+  if (responsiveMetrics.some(metric => Math.abs(metric.eventTop) > 1 || metric.eventPaddingTop !== '7px' || metric.horizontalOverflow)) {
+    throw new Error(`WebView responsive layout regression: ${JSON.stringify(responsiveMetrics)}`)
+  }
+
+  console.log(`[embedded-webview] passed ${JSON.stringify({ webView: metrics, browser: browserMetrics, responsive: responsiveMetrics })}`)
 } finally {
   await browser.close()
 }

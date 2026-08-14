@@ -67,7 +67,11 @@ const router = createRouter({
   history: isStaticExport
     ? createWebHashHistory(import.meta.env.BASE_URL)
     : createWebHistory(import.meta.env.BASE_URL),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (to.path === '/visualize') return { left: 0, top: 0 }
+    return savedPosition || { left: 0, top: 0 }
+  }
 });
 
 if (isStaticExport) {
