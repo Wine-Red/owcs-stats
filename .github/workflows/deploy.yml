@@ -8,6 +8,8 @@ on:
       - .github/workflows/deploy.yml
       - .github/workflows/deployment-path-diagnostic.yml
       - .github/scripts/deployment-path-probe.sh
+      - scripts/verify-embedded-webview.mjs
+      - src/utils/embeddedWebView.test.mjs
   workflow_dispatch:
 
 concurrency:
