@@ -89,6 +89,7 @@ jobs:
             sleep 1
           done
           npm run smoke:static
+          npm run verify:embedded-webview
 
       - name: Package release
         id: release

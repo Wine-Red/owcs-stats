@@ -12,7 +12,9 @@
     "export:static:production": "node scripts/export-static.mjs --production && vite build --mode static",
     "test:static-export": "node --test scripts/tests/fetch-json-with-retry.test.mjs",
     "test:liquipedia-url": "node --test src/utils/liquipediaTournament.test.mjs",
+    "test:embedded-webview": "node --test src/utils/embeddedWebView.test.mjs",
     "verify:static-bundle": "node scripts/verify-static-bundle.mjs",
+    "verify:embedded-webview": "node scripts/verify-embedded-webview.mjs",
     "smoke:static": "node scripts/smoke-static.mjs",
     "preview": "vite preview",
     "lint": "vue-cli-service lint"

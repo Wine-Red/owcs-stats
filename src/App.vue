@@ -227,7 +227,8 @@ body {
 .app-layout {
   display: flex;
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -505,6 +506,76 @@ html.dark .divider {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  html.is-embedded-webview,
+  html.is-embedded-webview body,
+  html.is-embedded-webview #app {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
+  html.is-embedded-webview body {
+    touch-action: pan-y;
+    overscroll-behavior-y: auto;
+  }
+
+  html.is-embedded-webview .app-layout.is-visualize-home {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .app-layout.is-visualize-home .app-content-wrapper {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .app-layout.is-visualize-home .app-main {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .visualize-container,
+  html.is-embedded-webview .vis-content,
+  html.is-embedded-webview .vis-body,
+  html.is-embedded-webview .tab-content {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .vis-content,
+  html.is-embedded-webview .vis-body,
+  html.is-embedded-webview .tab-content {
+    flex: 0 0 auto;
+  }
+
+  html.is-embedded-webview .tab-content {
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+  }
+
+  html.is-embedded-webview .tab-content.is-stats-hero {
+    display: block;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-workspace,
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-category-panel,
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-data-section,
+  html.is-embedded-webview .hero-overview-chart {
+    height: auto;
+  }
+
+  html.is-embedded-webview .hero-scroll-area {
+    height: auto;
+    flex: 0 0 auto;
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
+  }
+
   .app-layout {
     flex-direction: column;
   }

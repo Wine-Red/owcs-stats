@@ -1119,7 +1119,12 @@ export default {
   .vis-container {
     height: 100%;
     min-height: 0;
+    --vis-safe-area-top: env(safe-area-inset-top);
     background: #fff;
+  }
+
+  :global(html.is-embedded-webview) .vis-container {
+    --vis-safe-area-top: 0px;
   }
 
   .vis-content {
@@ -1153,7 +1158,7 @@ export default {
     align-items: center;
     gap: 10px;
     margin: 0 -10px;
-    padding: calc(7px + env(safe-area-inset-top)) 10px 7px 12px;
+    padding: calc(7px + var(--vis-safe-area-top)) 10px 7px 12px;
     border-bottom: 1px solid rgba(17, 17, 17, 0.09);
     background:
       linear-gradient(105deg, rgba(255, 106, 0, 0.08), rgba(255, 255, 255, 0) 38%),
@@ -1164,7 +1169,7 @@ export default {
   .mobile-event-context::before {
     content: '';
     position: absolute;
-    top: calc(12px + env(safe-area-inset-top));
+    top: calc(12px + var(--vis-safe-area-top));
     bottom: 12px;
     left: 0;
     width: 3px;
