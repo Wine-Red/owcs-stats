@@ -142,6 +142,7 @@ try {
   await browserPage.getByRole('tab', { name: '赛程列表' }).click()
   await browserPage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
   const browserMetrics = await browserPage.locator('.tab-content').evaluate(element => {
+    const eventContext = document.querySelector('.mobile-event-context')
     element.scrollTop = 0
     const before = element.scrollTop
     element.scrollTop = Math.min(180, Math.max(0, element.scrollHeight - element.clientHeight))
@@ -150,7 +151,9 @@ try {
       before,
       after: element.scrollTop,
       scrollable: element.scrollHeight > element.clientHeight,
-      overflowY: getComputedStyle(element).overflowY
+      overflowY: getComputedStyle(element).overflowY,
+      eventTop: eventContext.getBoundingClientRect().top,
+      eventPaddingTop: getComputedStyle(eventContext).paddingTop
     }
   })
   if (browserMetrics.embeddedClass || browserMetrics.overflowY !== 'auto') {
@@ -158,6 +161,9 @@ try {
   }
   if (browserMetrics.scrollable && browserMetrics.after <= browserMetrics.before) {
     throw new Error(`普通浏览器内层滚动回归: ${JSON.stringify(browserMetrics)}`)
+  }
+  if (Math.abs(browserMetrics.eventTop) > 1 || browserMetrics.eventPaddingTop !== '7px') {
+    throw new Error(`普通浏览器顶部布局回归: ${JSON.stringify(browserMetrics)}`)
   }
 
   const responsiveMetrics = []

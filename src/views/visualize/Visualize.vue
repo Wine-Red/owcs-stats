@@ -1139,12 +1139,11 @@ export default {
   .vis-container {
     height: 100%;
     min-height: 0;
-    --vis-safe-area-top: env(safe-area-inset-top);
-    background: #fff;
-  }
-
-  :global(html.is-embedded-webview) .vis-container {
+    /* The browser/WebView host already places this non-fixed page below its
+       system chrome. Applying the reported top inset here adds that space a
+       second time in some Android shells. */
     --vis-safe-area-top: 0px;
+    background: #fff;
   }
 
   .vis-content {
