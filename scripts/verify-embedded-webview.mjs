@@ -35,6 +35,8 @@ try {
     // The host app's own top/bottom chrome leaves a much shorter WebView than
     // the physical screen, which is where nested scrolling used to fail.
     viewport: { width: 390, height: 520 },
+    hasTouch: true,
+    isMobile: true,
     userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
   })
   await page.route('**/static-data/api-cache.json', async route => {
@@ -77,10 +79,41 @@ try {
   await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
 
-  const metrics = await page.evaluate(() => {
+  const beforeGesture = await page.evaluate(() => {
     const scrollingElement = document.scrollingElement
     const tabContent = document.querySelector('.tab-content')
     const eventContext = document.querySelector('.mobile-event-context')
+    const tabsContext = document.querySelector('.vis-tabs-container')
+    return {
+      documentScrollTop: scrollingElement.scrollTop,
+      eventTop: eventContext.getBoundingClientRect().top,
+      tabsTop: tabsContext.getBoundingClientRect().top,
+      tabScrollTop: tabContent.scrollTop
+    }
+  })
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: 195, y: 430 }]
+  })
+  for (const y of [390, 350, 310, 270, 230, 190]) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x: 195, y }]
+    })
+    await page.waitForTimeout(16)
+  }
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: []
+  })
+  await page.waitForTimeout(250)
+
+  const metrics = await page.evaluate(beforeGesture => {
+    const scrollingElement = document.scrollingElement
+    const tabContent = document.querySelector('.tab-content')
+    const eventContext = document.querySelector('.mobile-event-context')
+    const tabsContext = document.querySelector('.vis-tabs-container')
     const dimensions = selector => {
       const element = document.querySelector(selector)
       if (!element) return null
@@ -93,26 +126,17 @@ try {
         flex: style.flex
       }
     }
-    const initialScrollTop = scrollingElement.scrollTop
-    const eventTopBefore = eventContext.getBoundingClientRect().top
-    const documentBefore = scrollingElement.scrollTop
-    window.scrollTo(0, Math.min(180, Math.max(0, scrollingElement.scrollHeight - scrollingElement.clientHeight)))
-    const documentAfter = scrollingElement.scrollTop
-    tabContent.scrollTop = 0
-    const tabBefore = tabContent.scrollTop
-    tabContent.scrollTop = Math.min(180, Math.max(0, tabContent.scrollHeight - tabContent.clientHeight))
     return {
       embeddedClass: document.documentElement.classList.contains('is-embedded-webview'),
-      initialScrollTop,
-      documentBefore,
-      documentAfter,
+      beforeGesture,
+      documentAfterGesture: scrollingElement.scrollTop,
       documentScrollable: scrollingElement.scrollHeight > scrollingElement.clientHeight,
-      tabScrollable: tabContent.scrollHeight > tabContent.clientHeight,
       tabOverflowY: getComputedStyle(tabContent).overflowY,
-      tabBefore,
-      tabAfter: tabContent.scrollTop,
-      eventTopBefore,
-      eventTopAfter: eventContext.getBoundingClientRect().top,
+      tabScrollTopAfterGesture: tabContent.scrollTop,
+      eventPosition: getComputedStyle(eventContext).position,
+      tabsPosition: getComputedStyle(tabsContext).position,
+      eventTopAfterGesture: eventContext.getBoundingClientRect().top,
+      tabsTopAfterGesture: tabsContext.getBoundingClientRect().top,
       eventPaddingTop: getComputedStyle(eventContext).paddingTop,
       dimensions: {
         html: dimensions('html'),
@@ -128,23 +152,29 @@ try {
         schedule: dimensions('.schedule-shell')
       }
     }
-  })
+  }, beforeGesture)
 
   if (!metrics.embeddedClass) throw new Error(`未识别 Android WebView: ${JSON.stringify(metrics)}`)
-  if (metrics.initialScrollTop !== 0) {
+  if (metrics.beforeGesture.documentScrollTop !== 0) {
     throw new Error(`WebView did not reset its initial scroll position: ${JSON.stringify(metrics)}`)
   }
-  if (metrics.tabOverflowY !== 'auto' || !metrics.tabScrollable || metrics.tabAfter <= metrics.tabBefore) {
-    throw new Error(`WebView Tab 下方内容区无法独立滚动: ${JSON.stringify(metrics)}`)
+  if (!metrics.documentScrollable || metrics.documentAfterGesture <= metrics.beforeGesture.documentScrollTop) {
+    throw new Error(`WebView 真实触摸手势无法滚动内容: ${JSON.stringify(metrics)}`)
   }
-  if (metrics.documentScrollable || metrics.documentAfter !== metrics.documentBefore) {
-    throw new Error(`WebView 仍在使用整页滚动: ${JSON.stringify(metrics)}`)
+  if (metrics.tabOverflowY !== 'visible' || metrics.tabScrollTopAfterGesture !== 0) {
+    throw new Error(`WebView 仍在依赖失效的内层滚动: ${JSON.stringify(metrics)}`)
+  }
+  if (metrics.eventPosition !== 'fixed' || metrics.tabsPosition !== 'fixed') {
+    throw new Error(`WebView 固定事件栏或 Tab 未生效: ${JSON.stringify(metrics)}`)
   }
   if (metrics.eventPaddingTop !== '7px') {
     throw new Error(`WebView 重复应用顶部安全区: ${JSON.stringify(metrics)}`)
   }
-  if (Math.abs(metrics.eventTopBefore) > 1 || Math.abs(metrics.eventTopAfter) > 1) {
+  if (Math.abs(metrics.beforeGesture.eventTop) > 1 || Math.abs(metrics.eventTopAfterGesture) > 1) {
     throw new Error(`WebView 内容顶部仍有额外留白: ${JSON.stringify(metrics)}`)
+  }
+  if (Math.abs(metrics.beforeGesture.tabsTop - 66) > 1 || Math.abs(metrics.tabsTopAfterGesture - 66) > 1) {
+    throw new Error(`WebView Tab 未固定在事件栏下方: ${JSON.stringify(metrics)}`)
   }
 
   const browserPage = await browser.newPage({ viewport: { width: 390, height: 520 } })
@@ -181,17 +211,42 @@ try {
   for (const viewport of [{ width: 375, height: 667 }, { width: 667, height: 375 }]) {
     const responsivePage = await browser.newPage({
       viewport,
+      hasTouch: true,
+      isMobile: true,
       userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
     })
     await responsivePage.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await responsivePage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
+    await responsivePage.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
+    await responsivePage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
     await responsivePage.waitForTimeout(300)
+    const responsiveCdp = await responsivePage.context().newCDPSession(responsivePage)
+    const touchStartY = viewport.height - 55
+    await responsiveCdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: Math.floor(viewport.width / 2), y: touchStartY }]
+    })
+    for (const offset of [35, 70, 105, 140, 175]) {
+      await responsiveCdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: Math.floor(viewport.width / 2), y: touchStartY - offset }]
+      })
+      await responsivePage.waitForTimeout(16)
+    }
+    await responsiveCdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: []
+    })
+    await responsivePage.waitForTimeout(200)
     const responsiveMetric = await responsivePage.evaluate(() => {
       const eventContext = document.querySelector('.mobile-event-context')
+      const tabsContext = document.querySelector('.vis-tabs-container')
       return {
         width: window.innerWidth,
         height: window.innerHeight,
+        documentScrollTop: document.scrollingElement.scrollTop,
         eventTop: eventContext.getBoundingClientRect().top,
+        tabsTop: tabsContext.getBoundingClientRect().top,
         eventPaddingTop: getComputedStyle(eventContext).paddingTop,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
       }
@@ -199,7 +254,7 @@ try {
     responsiveMetrics.push(responsiveMetric)
     await responsivePage.close()
   }
-  if (responsiveMetrics.some(metric => Math.abs(metric.eventTop) > 1 || metric.eventPaddingTop !== '7px' || metric.horizontalOverflow)) {
+  if (responsiveMetrics.some(metric => metric.documentScrollTop <= 0 || Math.abs(metric.eventTop) > 1 || Math.abs(metric.tabsTop - 66) > 1 || metric.eventPaddingTop !== '7px' || metric.horizontalOverflow)) {
     throw new Error(`WebView responsive layout regression: ${JSON.stringify(responsiveMetrics)}`)
   }
 

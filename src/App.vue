@@ -509,40 +509,91 @@ html.dark .divider {
   html.is-embedded-webview,
   html.is-embedded-webview body,
   html.is-embedded-webview #app {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
   }
 
   html.is-embedded-webview body {
     touch-action: pan-y;
-    overscroll-behavior: none;
+    overscroll-behavior-y: auto;
   }
 
   html.is-embedded-webview .app-layout.is-visualize-home {
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
-  html.is-embedded-webview .app-layout.is-visualize-home .app-content-wrapper,
-  html.is-embedded-webview .app-layout.is-visualize-home .app-main,
+  html.is-embedded-webview .app-layout.is-visualize-home .app-content-wrapper {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .app-layout.is-visualize-home .app-main {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
   html.is-embedded-webview .visualize-container,
   html.is-embedded-webview .vis-content,
+  html.is-embedded-webview .vis-body,
+  html.is-embedded-webview .tab-content {
+    height: auto;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .vis-content,
+  html.is-embedded-webview .vis-body,
+  html.is-embedded-webview .tab-content {
+    flex: 0 0 auto;
+  }
+
   html.is-embedded-webview .vis-body {
-    min-height: 0;
-    overflow: hidden;
+    padding-top: 112px;
   }
 
   html.is-embedded-webview .tab-content {
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: auto;
     touch-action: pan-y;
-    -webkit-overflow-scrolling: touch;
+  }
+
+  html.is-embedded-webview .mobile-event-context {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    margin: 0;
+  }
+
+  html.is-embedded-webview .vis-tabs-container {
+    position: fixed;
+    top: 66px;
+    right: 0;
+    left: 0;
+    margin: 0;
+  }
+
+  html.is-embedded-webview .tab-content.is-stats-hero {
+    display: block;
+    overflow: visible;
+  }
+
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-workspace,
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-category-panel,
+  html.is-embedded-webview .tab-content.is-stats-hero .stats-data-section,
+  html.is-embedded-webview .hero-overview-chart {
+    height: auto;
+  }
+
+  html.is-embedded-webview .hero-scroll-area {
+    height: auto;
+    flex: 0 0 auto;
+    overflow-y: visible;
+    overscroll-behavior-y: auto;
   }
 
   .app-layout {
