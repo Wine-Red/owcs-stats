@@ -509,71 +509,40 @@ html.dark .divider {
   html.is-embedded-webview,
   html.is-embedded-webview body,
   html.is-embedded-webview #app {
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   html.is-embedded-webview body {
     touch-action: pan-y;
-    overscroll-behavior-y: auto;
+    overscroll-behavior: none;
   }
 
   html.is-embedded-webview .app-layout.is-visualize-home {
-    height: auto;
-    min-height: 100vh;
-    min-height: 100dvh;
-    overflow: visible;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  html.is-embedded-webview .app-layout.is-visualize-home .app-content-wrapper {
-    height: auto;
-    min-height: 100vh;
-    min-height: 100dvh;
-    overflow: visible;
-  }
-
-  html.is-embedded-webview .app-layout.is-visualize-home .app-main {
-    flex: 0 0 auto;
-    overflow: visible;
-  }
-
+  html.is-embedded-webview .app-layout.is-visualize-home .app-content-wrapper,
+  html.is-embedded-webview .app-layout.is-visualize-home .app-main,
   html.is-embedded-webview .visualize-container,
   html.is-embedded-webview .vis-content,
-  html.is-embedded-webview .vis-body,
-  html.is-embedded-webview .tab-content {
-    height: auto;
-    overflow: visible;
-  }
-
-  html.is-embedded-webview .vis-content,
-  html.is-embedded-webview .vis-body,
-  html.is-embedded-webview .tab-content {
-    flex: 0 0 auto;
+  html.is-embedded-webview .vis-body {
+    min-height: 0;
+    overflow: hidden;
   }
 
   html.is-embedded-webview .tab-content {
-    overscroll-behavior-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     touch-action: pan-y;
-  }
-
-  html.is-embedded-webview .tab-content.is-stats-hero {
-    display: block;
-    overflow: visible;
-  }
-
-  html.is-embedded-webview .tab-content.is-stats-hero .stats-workspace,
-  html.is-embedded-webview .tab-content.is-stats-hero .stats-category-panel,
-  html.is-embedded-webview .tab-content.is-stats-hero .stats-data-section,
-  html.is-embedded-webview .hero-overview-chart {
-    height: auto;
-  }
-
-  html.is-embedded-webview .hero-scroll-area {
-    height: auto;
-    flex: 0 0 auto;
-    overflow-y: visible;
-    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .app-layout {

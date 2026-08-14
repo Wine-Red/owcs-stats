@@ -70,6 +70,10 @@ try {
   if (postLoadScrollTop !== 0) {
     throw new Error(`WebView did not reset the restored scroll position after loading: ${postLoadScrollTop}`)
   }
+  await page.evaluate(() => {
+    document.body.style.removeProperty('min-height')
+    window.scrollTo(0, 0)
+  })
   await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
 
@@ -90,18 +94,25 @@ try {
       }
     }
     const initialScrollTop = scrollingElement.scrollTop
-    const eventTop = eventContext.getBoundingClientRect().top
-    const before = scrollingElement.scrollTop
+    const eventTopBefore = eventContext.getBoundingClientRect().top
+    const documentBefore = scrollingElement.scrollTop
     window.scrollTo(0, Math.min(180, Math.max(0, scrollingElement.scrollHeight - scrollingElement.clientHeight)))
+    const documentAfter = scrollingElement.scrollTop
+    tabContent.scrollTop = 0
+    const tabBefore = tabContent.scrollTop
+    tabContent.scrollTop = Math.min(180, Math.max(0, tabContent.scrollHeight - tabContent.clientHeight))
     return {
       embeddedClass: document.documentElement.classList.contains('is-embedded-webview'),
       initialScrollTop,
-      before,
-      after: scrollingElement.scrollTop,
+      documentBefore,
+      documentAfter,
       documentScrollable: scrollingElement.scrollHeight > scrollingElement.clientHeight,
+      tabScrollable: tabContent.scrollHeight > tabContent.clientHeight,
       tabOverflowY: getComputedStyle(tabContent).overflowY,
-      tabScrollTop: tabContent.scrollTop,
-      eventTop,
+      tabBefore,
+      tabAfter: tabContent.scrollTop,
+      eventTopBefore,
+      eventTopAfter: eventContext.getBoundingClientRect().top,
       eventPaddingTop: getComputedStyle(eventContext).paddingTop,
       dimensions: {
         html: dimensions('html'),
@@ -123,16 +134,16 @@ try {
   if (metrics.initialScrollTop !== 0) {
     throw new Error(`WebView did not reset its initial scroll position: ${JSON.stringify(metrics)}`)
   }
-  if (metrics.tabOverflowY !== 'visible' || metrics.tabScrollTop !== 0) {
-    throw new Error(`WebView 仍在使用内层滚动: ${JSON.stringify(metrics)}`)
+  if (metrics.tabOverflowY !== 'auto' || !metrics.tabScrollable || metrics.tabAfter <= metrics.tabBefore) {
+    throw new Error(`WebView Tab 下方内容区无法独立滚动: ${JSON.stringify(metrics)}`)
   }
-  if (!metrics.documentScrollable || metrics.after <= metrics.before) {
-    throw new Error(`WebView 无法页面级纵向滚动: ${JSON.stringify(metrics)}`)
+  if (metrics.documentScrollable || metrics.documentAfter !== metrics.documentBefore) {
+    throw new Error(`WebView 仍在使用整页滚动: ${JSON.stringify(metrics)}`)
   }
   if (metrics.eventPaddingTop !== '7px') {
     throw new Error(`WebView 重复应用顶部安全区: ${JSON.stringify(metrics)}`)
   }
-  if (Math.abs(metrics.eventTop) > 1) {
+  if (Math.abs(metrics.eventTopBefore) > 1 || Math.abs(metrics.eventTopAfter) > 1) {
     throw new Error(`WebView 内容顶部仍有额外留白: ${JSON.stringify(metrics)}`)
   }
 
