@@ -87,8 +87,20 @@ if [[ "$RECOVERY_MODE" == "audit" ]]; then
     -printf '%p\n' 2>/dev/null | head -n 50
   echo '[candidate visualize directories]'
   find /www/wwwroot -maxdepth 6 -type d -name visualize -printf '%p\n' 2>/dev/null | head -n 50
+  echo '[live frontend path permissions]'
+  namei -l "$frontend_live/index.html" || true
+  stat -c '%n type=%F mode=%a owner=%U:%G size=%s' \
+    "$frontend_live" "$frontend_live/index.html" "$frontend_live/assets" 2>/dev/null || true
   curl --insecure --silent --show-error --output /dev/null --write-out 'origin_status=%{http_code}\n' \
     --resolve owmini.xyz:443:127.0.0.1 https://owmini.xyz/stats/visualize/
+  curl --insecure --silent --show-error --output /dev/null --write-out 'stats_index_status=%{http_code}\n' \
+    --resolve owmini.xyz:443:127.0.0.1 https://owmini.xyz/stats/index.html
+  echo '[recent nginx errors]'
+  for error_log in /www/wwwlogs/owmini.xyz.error.log /www/server/nginx/logs/error.log /www/wwwlogs/nginx_error.log; do
+    [[ -f "$error_log" ]] || continue
+    echo "log=$error_log"
+    tail -n 50 "$error_log"
+  done
   exit 0
 fi
 
