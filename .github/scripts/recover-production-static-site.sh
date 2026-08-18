@@ -78,6 +78,10 @@ if [[ "$RECOVERY_MODE" == "audit" ]]; then
       grep -nE 'server_name|location|root |alias |stats|visualize' "$config" | head -n 100
     fi
   done
+  echo '[owmini stats configuration block]'
+  if [[ -f /www/server/panel/vhost/nginx/owmini.xyz.conf ]]; then
+    sed -n '110,225p' /www/server/panel/vhost/nginx/owmini.xyz.conf
+  fi
   echo '[candidate static manifests]'
   find /www/wwwroot -maxdepth 6 -type f -path '*/static-data/manifest.json' \
     -printf '%p\n' 2>/dev/null | head -n 50
