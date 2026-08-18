@@ -88,16 +88,8 @@ if [[ "$RECOVERY_MODE" == "audit" ]]; then
   exit 0
 fi
 
-test -s "$static_previous/index.html" || {
-  echo 'Previous static site has no index.html; refusing recovery.'
-  exit 1
-}
-test -s "$static_previous/static-data/manifest.json" || {
-  echo 'Previous static site has no production manifest; refusing recovery.'
-  exit 1
-}
-test -n "$(find "$static_previous/assets" -maxdepth 1 -type f -print -quit)" || {
-  echo 'Previous static site has no built assets; refusing recovery.'
+test -s "$frontend_live/index.html" || {
+  echo 'Live frontend has no index.html; refusing recovery.'
   exit 1
 }
 
@@ -117,18 +109,22 @@ case "$static_replaced" in
   *) echo 'Unexpected recovery backup path.'; exit 1 ;;
 esac
 
-install -d "$static_parent"
-cp -a "$static_previous" "$static_stage"
+if [[ ! -d "$static_parent" ]]; then
+  install -d "$static_parent"
+  chown --reference="$frontend_live" "$static_parent"
+  chmod --reference="$frontend_live" "$static_parent"
+fi
+install -d "$static_stage"
+cp -p "$frontend_live/index.html" "$static_stage/index.html"
 if [[ -e "$static_live" ]]; then
   chown -R --reference="$static_live" "$static_stage"
   chmod --reference="$static_live" "$static_stage"
 else
   chown -R --reference="$frontend_live" "$static_stage"
+  chmod --reference="$frontend_live" "$static_stage"
 fi
 
 test -s "$static_stage/index.html"
-test -s "$static_stage/static-data/manifest.json"
-test -n "$(find "$static_stage/assets" -maxdepth 1 -type f -print -quit)"
 
 if [[ -e "$static_live" ]]; then
   mv "$static_live" "$static_replaced"
