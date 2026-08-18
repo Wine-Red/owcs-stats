@@ -80,7 +80,20 @@ if [[ ! -d "$repo_dir/.git" ]]; then
 fi
 
 git -C "$repo_dir" remote set-url origin "$repo_url"
-git -C "$repo_dir" fetch --prune --no-tags origin master
+git -C "$repo_dir" config http.version HTTP/1.1
+fetch_succeeded=false
+for attempt in $(seq 1 5); do
+  if git -C "$repo_dir" fetch --prune --no-tags origin master; then
+    fetch_succeeded=true
+    break
+  fi
+  echo "Git fetch attempt $attempt failed; retrying without touching production."
+  sleep $((attempt * 10))
+done
+if [[ "$fetch_succeeded" != true ]]; then
+  echo 'Unable to fetch origin/master after five attempts.'
+  exit 1
+fi
 master_sha=$(git -C "$repo_dir" rev-parse refs/remotes/origin/master)
 if [[ "$deploy_sha" != "$master_sha" ]]; then
   echo "Refusing to deploy a non-current master commit."
