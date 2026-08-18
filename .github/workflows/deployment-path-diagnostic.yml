@@ -20,6 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Inspect server build readiness without changing it
+        env:
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PORT: ${{ secrets.SERVER_PORT }}
+          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: bash .github/scripts/server-build-readiness-audit.sh
+
       - name: Probe deployment path without touching production
         env:
           DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
