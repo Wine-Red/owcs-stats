@@ -111,74 +111,17 @@ flock -n 9 || {
   exit 3
 }
 
-nginx_bin="/www/server/nginx/sbin/nginx"
-nginx_config="/www/server/panel/vhost/nginx/owmini.xyz.conf"
-nginx_backup="$state_root/nginx-owmini.xyz-$RECOVERY_ID.conf"
-nginx_new="$state_root/nginx-owmini.xyz-$RECOVERY_ID.conf.new"
-rollback_required=false
-
-test -x "$nginx_bin" || {
-  echo "Nginx command is missing: $nginx_bin"
+test -s "$frontend_live/index.html" || {
+  echo 'Live frontend index is missing; refusing permission repair.'
   exit 1
 }
-test -s "$nginx_config" || {
-  echo "Nginx vhost is missing: $nginx_config"
+test -n "$(find "$frontend_live/assets" -maxdepth 1 -type f -print -quit)" || {
+  echo 'Live frontend assets are missing; refusing permission repair.'
   exit 1
 }
 
-cp -p "$nginx_config" "$nginx_backup"
-node - "$nginx_config" "$nginx_new" <<'NODE'
-const { readFileSync, writeFileSync } = require('node:fs');
-
-const [sourcePath, outputPath] = process.argv.slice(2);
-let config = readFileSync(sourcePath, 'utf8');
-const oldDirective = 'try_files $uri $uri/ /stats/index.html;';
-const newDirective = 'try_files /__owcs_visualize_entry_missing__ /stats/index.html;';
-const blocks = [
-  /location\s*=\s*\/stats\/visualize\s*\{[\s\S]*?\n\}/,
-  /location\s+\^~\s+\/stats\/visualize\/\s*\{[\s\S]*?\n\}/,
-];
-
-let replacements = 0;
-for (const pattern of blocks) {
-  const match = config.match(pattern);
-  if (!match) throw new Error(`Expected visualize location was not found: ${pattern}`);
-  const occurrences = match[0].split(oldDirective).length - 1;
-  if (occurrences !== 1) {
-    throw new Error(`Expected one old try_files directive in visualize location, received ${occurrences}`);
-  }
-  config = config.replace(pattern, match[0].replace(oldDirective, newDirective));
-  replacements += 1;
-}
-if (replacements !== 2) throw new Error(`Unexpected replacement count: ${replacements}`);
-writeFileSync(outputPath, config);
-NODE
-chown --reference="$nginx_config" "$nginx_new"
-chmod --reference="$nginx_config" "$nginx_new"
-
-rollback_config() {
-  echo 'Restoring the previous Nginx vhost configuration.'
-  cp -p "$nginx_backup" "$nginx_config"
-  "$nginx_bin" -t
-  "$nginx_bin" -s reload
-  rollback_required=false
-}
-
-cleanup_remote() {
-  local exit_code=$?
-  if [[ "$exit_code" -ne 0 && "$rollback_required" == true ]]; then
-    rollback_config || true
-  fi
-  rm -f -- "$nginx_new"
-  exit "$exit_code"
-}
-trap cleanup_remote EXIT
-
-mv "$nginx_new" "$nginx_config"
-rollback_required=true
-"$nginx_bin" -t
-"$nginx_bin" -s reload
-sleep 1
+find "$frontend_live" -type d -exec chmod a+rx {} +
+find "$frontend_live" -type f ! -name '.user.ini' -exec chmod a+r {} +
 
 origin_status=$(curl --insecure --silent --show-error --output /dev/null --write-out '%{http_code}' \
   --resolve owmini.xyz:443:127.0.0.1 https://owmini.xyz/stats/visualize/ || true)
@@ -194,6 +137,5 @@ if [[ "$public_status" != "200" ]]; then
   exit 1
 fi
 
-rollback_required=false
-echo "Visualize Nginx recovery completed: origin=$origin_status public=$public_status backup=$nginx_backup"
+echo "Frontend permission recovery completed: origin=$origin_status public=$public_status"
 REMOTE_RECOVERY

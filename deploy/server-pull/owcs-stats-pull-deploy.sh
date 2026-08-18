@@ -197,6 +197,8 @@ rsync --archive --delete --exclude='.env' "$worktree/backend/" "$backend_stage/"
 cp -p "$backend_live/.env" "$backend_stage/.env"
 
 chown -R --reference="$frontend_live" "$frontend_stage"
+find "$frontend_stage" -type d -exec chmod 755 {} +
+find "$frontend_stage" -type f -exec chmod 644 {} +
 chmod --reference="$frontend_live" "$frontend_stage"
 chown -R --reference="$backend_live" "$backend_stage"
 chmod --reference="$backend_live" "$backend_stage"
