@@ -158,6 +158,7 @@ const initBasicData = async () => {
     { name: '温斯顿', role: 'tank', subRole: '先锋' },
     { name: '破坏球', role: 'tank', subRole: '先锋' },
     // 重装 - 铁壁
+    { name: 'D.Mon', role: 'tank', subRole: '铁壁' },
     { name: '金驭', role: 'tank', subRole: '铁壁' },
     { name: '骇灾', role: 'tank', subRole: '铁壁' },
     { name: '渣客女王', role: 'tank', subRole: '铁壁' },

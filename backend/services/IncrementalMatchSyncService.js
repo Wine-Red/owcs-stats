@@ -19,6 +19,7 @@ const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const DEFAULT_PAGE_SIZE = 50;
 const DETAIL_CONCURRENCY = 5;
 const HERO_NAME_ALIASES = {
+  dmon: 'd.mon',
   dva: 'd.va'
 };
 

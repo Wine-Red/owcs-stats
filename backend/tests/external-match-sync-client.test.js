@@ -57,7 +57,9 @@ test('sync helpers parse API values and preserve concurrent result order', async
   assert.deepEqual(result, [6, 2, 4]);
 });
 
-test('hero aliases map external DVA to the database D.Va key', () => {
+test('hero aliases normalize dotted MEKA hero names', () => {
+  assert.equal(HERO_NAME_ALIASES.dmon, 'd.mon');
+  assert.equal(heroNameKey('DMON'), heroNameKey('D.Mon'));
   assert.equal(HERO_NAME_ALIASES.dva, 'd.va');
   assert.equal(heroNameKey('DVA'), heroNameKey('D.Va'));
 });
