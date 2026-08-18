@@ -70,6 +70,19 @@ describe_tree live "$static_live"
 describe_tree previous "$static_previous"
 
 if [[ "$RECOVERY_MODE" == "audit" ]]; then
+  echo '[nginx mappings mentioning stats or visualize]'
+  for config in /www/server/panel/vhost/nginx/*.conf /www/server/nginx/conf/*.conf; do
+    [[ -f "$config" ]] || continue
+    if grep -qE 'stats|visualize' "$config"; then
+      echo "config=$config"
+      grep -nE 'server_name|location|root |alias |stats|visualize' "$config" | head -n 100
+    fi
+  done
+  echo '[candidate static manifests]'
+  find /www/wwwroot -maxdepth 6 -type f -path '*/static-data/manifest.json' \
+    -printf '%p\n' 2>/dev/null | head -n 50
+  echo '[candidate visualize directories]'
+  find /www/wwwroot -maxdepth 6 -type d -name visualize -printf '%p\n' 2>/dev/null | head -n 50
   curl --insecure --silent --show-error --output /dev/null --write-out 'origin_status=%{http_code}\n' \
     --resolve owmini.xyz:443:127.0.0.1 https://owmini.xyz/stats/visualize/
   exit 0
