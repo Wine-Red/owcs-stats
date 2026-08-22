@@ -218,6 +218,7 @@ import apiService from '@/services/api';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { getHeroIconUrl } from '@/utils/heroIcons';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
+import { mergeRegisteredRosterWithStats } from '@/utils/teamRoster.mjs';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
 import DetailTopbar from './components/DetailTopbar.vue';
 import DetailSectionTabs from './components/DetailSectionTabs.vue';
@@ -241,6 +242,7 @@ export default {
     const scoreStat = ref(null);
     const recentMatches = ref([]);
     const allMatches = ref([]);
+    const allSeasonTeamLinks = ref([]);
     const seasonMapGames = ref([]);
     const availableSeasons = ref([]);
     const currentSeasonId = ref(null);
@@ -478,13 +480,25 @@ export default {
         const teamId = queryParams.value.teamId;
         team.value = store.state.teams.find(t => String(t.id) === String(teamId));
 
-        const matchesRes = await apiService.getMatches({ pageSize: 2000 });
+        const [matchesRes, seasonTeamsRes] = await Promise.all([
+          apiService.getMatches({ pageSize: 2000 }),
+          apiService.getAllSeasonTeams().catch(() => [])
+        ]);
         const matches = Array.isArray(matchesRes) ? matchesRes : matchesRes.data || matchesRes.list || [];
+        allSeasonTeamLinks.value = Array.isArray(seasonTeamsRes)
+          ? seasonTeamsRes
+          : seasonTeamsRes.data || seasonTeamsRes.list || [];
         
         const teamMatches = matches.filter(m => String(m.team1Id) === String(teamId) || String(m.team2Id) === String(teamId));
         allMatches.value = teamMatches;
 
-        const seasonIds = [...new Set(teamMatches.map(m => String(m.seasonId)))];
+        const registeredSeasonIds = allSeasonTeamLinks.value
+          .filter(link => String(link.teamId) === String(teamId))
+          .map(link => String(link.seasonId));
+        const seasonIds = [...new Set([
+          ...teamMatches.map(m => String(m.seasonId)),
+          ...registeredSeasonIds
+        ])];
         
         availableSeasons.value = seasonIds
           .map(id => store.state.seasons.find(s => String(s.id) === id))
@@ -521,16 +535,24 @@ export default {
       seasonLoading.value = true;
       try {
         const teamId = queryParams.value.teamId;
+        const seasonTeam = allSeasonTeamLinks.value.find(link => (
+          String(link.seasonId) === String(seasonId)
+          && String(link.teamId) === String(teamId)
+        ));
+        const registeredRosterPromise = seasonTeam
+          ? apiService.getSeasonTeamPlayers(seasonTeam.id).catch(() => [])
+          : Promise.resolve([]);
         
         let allPlayerStats = [];
         let scoreStats = [];
 
-        const [statsRes, scoreStatsRes, mapGamesRes, compsRes, heroStatsRes] = await Promise.all([
+        const [statsRes, scoreStatsRes, mapGamesRes, compsRes, heroStatsRes, registeredRosterRes] = await Promise.all([
           apiService.getSeasonPlayerStats(seasonId),
           apiService.getSeasonTeamScoreStats(seasonId),
           apiService.getMapGames({ seasonId, teamId, pageSize: 2000 }),
           apiService.getSeasonTeamCompositions(seasonId, teamId).catch(() => []),
-          apiService.getSeasonTeamHeroStats(seasonId, teamId).catch(() => ({ picks: [], bans: [], bannedAgainst: [] }))
+          apiService.getSeasonTeamHeroStats(seasonId, teamId).catch(() => ({ picks: [], bans: [], bannedAgainst: [] })),
+          registeredRosterPromise
         ]);
         allPlayerStats = Array.isArray(statsRes) ? statsRes : statsRes.data || statsRes.list || [];
         scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
@@ -573,22 +595,22 @@ export default {
            scoreStat.value = { matchWin, matchLoss, mapWin, mapLoss, mapDiff: mapWin - mapLoss };
         }
 
-        const teamPlayers = allPlayerStats.filter(p => String(p.teamId) === String(teamId));
+        const registeredRoster = Array.isArray(registeredRosterRes)
+          ? registeredRosterRes
+          : registeredRosterRes.data || registeredRosterRes.list || [];
+        const teamPlayers = mergeRegisteredRosterWithStats(registeredRoster, allPlayerStats, teamId);
         
         ['tank', 'damage', 'support'].forEach(r => {
           rosterGroups.value[r] = [];
         });
 
         teamPlayers.forEach(p => {
-          const duration = p.gameTime || p.totalDuration || 0;
-          if (duration === 0) return;
-
           const playerObj = {
-            name: p.player?.name || p.playerName || '未知',
-            id: p.playerId || p.player?.id,
-            teamId: p.teamId || p.team?.id || teamId,
-            role: p.player?.role || p.role || 'damage',
-            gameTime: duration
+            name: p.name,
+            id: p.id,
+            teamId: p.teamId || teamId,
+            role: p.role,
+            gameTime: p.gameTime
           };
 
           const role = ['tank', 'damage', 'support'].includes(playerObj.role) ? playerObj.role : 'damage';
@@ -596,7 +618,9 @@ export default {
         });
 
         ['tank', 'damage', 'support'].forEach(r => {
-           rosterGroups.value[r].sort((a,b) => b.gameTime - a.gameTime);
+           rosterGroups.value[r].sort((a, b) => (
+             b.gameTime - a.gameTime || a.name.localeCompare(b.name, 'zh-CN')
+           ));
         });
 
       } catch (err) {

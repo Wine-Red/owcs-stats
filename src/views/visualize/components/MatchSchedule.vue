@@ -83,7 +83,7 @@
       </div>
     </el-drawer>
 
-    <div v-if="isUpcomingLoading && completedMatches.length" class="schedule-sync" role="status">
+    <div v-if="isUpcomingLoading && recordedMatches.length" class="schedule-sync" role="status">
       <span class="sync-spinner" aria-hidden="true"></span>
       正在同步未开赛赛程
     </div>
@@ -121,7 +121,7 @@
               </div>
 
               <div class="match-center">
-                <div v-if="match.state === 'completed'" class="score-line" aria-label="比赛比分">
+                <div v-if="match.source === 'recorded'" class="score-line" aria-label="比赛比分">
                   <span
                     class="winner-indicator winner-indicator--left"
                     :class="{ visible: getTeamStateClass(match, 'left') === 'winner' }"
@@ -236,6 +236,10 @@ import {
   isLiquipediaTournamentMatch,
   isValidLiquipediaTournamentUrl
 } from '@/utils/liquipediaTournament.mjs';
+import {
+  getRecordedMatchState,
+  removeRecordedFromUpcoming
+} from '@/utils/matchScheduleReconciliation.mjs';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000;
@@ -337,24 +341,27 @@ export default {
 
     const normalizeLogo = value => String(value || '').trim() || TBD_TEAM_LOGO_URL;
 
-    const completedMatches = computed(() => (Array.isArray(props.matches) ? props.matches : []).map(match => {
+    const recordedMatches = computed(() => (Array.isArray(props.matches) ? props.matches : []).map(match => {
       const localTeam1 = match.team1 || getTeamById(match.team1Id);
       const localTeam2 = match.team2 || getTeamById(match.team2Id);
+      const state = getRecordedMatchState(match);
       return {
         ...match,
-        key: `completed-${match.id}`,
-        source: 'completed',
-        state: 'completed',
-        stateLabel: '已结束',
+        key: `recorded-${match.id}`,
+        source: 'recorded',
+        state,
+        stateLabel: state === 'completed' ? '已结束' : '比赛中',
         dateKey: normalizeDateKey(match.matchDate),
         timestamp: null,
         timeLabel: '—',
         boFormat: String(match.boFormat || '').trim(),
         team1: {
+          id: localTeam1?.id ?? match.team1Id,
           name: String(localTeam1?.name || 'Unknown'),
           logo: normalizeLogo(localTeam1?.logo)
         },
         team2: {
+          id: localTeam2?.id ?? match.team2Id,
           name: String(localTeam2?.name || 'Unknown'),
           logo: normalizeLogo(localTeam2?.logo)
         }
@@ -396,7 +403,7 @@ export default {
             id: null,
             source: 'upcoming',
             state: ongoing ? 'ongoing' : 'upcoming',
-            stateLabel: ongoing ? '预计进行中' : '未开始',
+            stateLabel: ongoing ? '比赛中' : '未开始',
             dateKey: timestamp ? timestampToDateKey(timestamp) : TBD_DATE,
             timestamp,
             timeLabel: timestamp ? `${pad2(new Date(timestamp).getHours())}:${pad2(new Date(timestamp).getMinutes())}` : '待定',
@@ -407,10 +414,12 @@ export default {
             team2Score: null,
             winnerId: null,
             team1: {
+              id: localTeam1?.id ?? null,
               name: localTeam1?.name || apiTeam1Name,
               logo: normalizeLogo(localTeam1?.logo)
             },
             team2: {
+              id: localTeam2?.id ?? null,
               name: localTeam2?.name || apiTeam2Name,
               logo: normalizeLogo(localTeam2?.logo)
             }
@@ -419,7 +428,14 @@ export default {
         .sort((left, right) => (left.timestamp || Number.MAX_SAFE_INTEGER) - (right.timestamp || Number.MAX_SAFE_INTEGER));
     });
 
-    const allScheduleMatches = computed(() => [...upcomingMatches.value, ...completedMatches.value]);
+    const reconciledUpcomingMatches = computed(() => removeRecordedFromUpcoming(
+      upcomingMatches.value,
+      recordedMatches.value
+    ));
+    const allScheduleMatches = computed(() => [
+      ...reconciledUpcomingMatches.value,
+      ...recordedMatches.value
+    ]);
     const hasScheduleData = computed(() => allScheduleMatches.value.length > 0);
 
     const sortDateGroups = (left, right) => {
@@ -625,7 +641,7 @@ export default {
       }
     };
 
-    const openCompletedMatch = match => {
+    const openRecordedMatch = match => {
       trackPublicEvent('首页-打开比赛详情', {
         source: 'match_schedule',
         seasonId: match.seasonId,
@@ -698,7 +714,7 @@ export default {
     };
 
     const openMatch = match => {
-      if (match.source === 'completed') openCompletedMatch(match);
+      if (match.source === 'recorded') openRecordedMatch(match);
       else openUpcomingMatch(match);
     };
 
@@ -711,14 +727,14 @@ export default {
     const displayScore = score => score === null || score === undefined ? '—' : score;
 
     const getMatchAriaLabel = match => {
-      const result = match.state === 'completed'
-        ? `${displayScore(match.team1Score)} 比 ${displayScore(match.team2Score)}`
+      const result = match.source === 'recorded'
+        ? `${displayScore(match.team1Score)} 比 ${displayScore(match.team2Score)}，${match.stateLabel}`
         : match.stateLabel;
       return `${match.team1.name} 对阵 ${match.team2.name}，${result}`;
     };
 
     const emptyTitle = computed(() => {
-      if (upcomingUnavailable.value && !completedMatches.value.length) return '暂时无法获取赛程';
+      if (upcomingUnavailable.value && !recordedMatches.value.length) return '暂时无法获取赛程';
       if (selectedDate.value !== ALL_DATE) return '这个比赛日暂无赛事';
       return '当前赛季暂无比赛';
     });
@@ -739,14 +755,14 @@ export default {
       fetchUpcomingMatches
     );
 
-    watch(completedMatches, () => {
+    watch(recordedMatches, () => {
       if (!isUpcomingLoading.value && !hasInitializedDate.value) initializeDate({ force: true });
     });
 
     return {
       ALL_DATE,
       scheduleCount: computed(() => allScheduleMatches.value.length),
-      completedMatches,
+      recordedMatches,
       selectedDate,
       datePickerOpen,
       dateOptions,
