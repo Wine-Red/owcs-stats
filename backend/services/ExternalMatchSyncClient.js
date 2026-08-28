@@ -46,7 +46,15 @@ const createExternalMatchSyncClient = ({
       if (!response.ok) {
         throw new Error(`External match API request failed: ${response.status} ${response.statusText}`);
       }
-      return await response.json();
+      try {
+        return await response.json();
+      } catch (error) {
+        const contentType = response.headers?.get?.('content-type') || 'unknown content type';
+        const finalUrl = response.url && response.url !== `${normalizeBaseUrl(baseUrl)}${path}`
+          ? ` after redirect to ${response.url}`
+          : '';
+        throw new Error(`External match API returned invalid JSON (${contentType})${finalUrl}`);
+      }
     } catch (error) {
       if (error.name === 'AbortError') throw new Error('External match API request timed out');
       throw error;

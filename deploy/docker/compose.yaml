@@ -15,6 +15,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       MEDIA_ROOT: /app/media
+      EXTERNAL_MATCH_API_BASE: ${EXTERNAL_MATCH_API_BASE:-http://matchweb-app:5000}
     volumes:
       - ./data/media:/app/media
     expose:
@@ -22,6 +23,7 @@ services:
     networks:
       - default
       - 1panel
+      - matchweb
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
@@ -79,3 +81,6 @@ networks:
   1panel:
     external: true
     name: 1panel-network
+  matchweb:
+    external: true
+    name: ${MATCHWEB_DOCKER_NETWORK:-matchweb_default}

@@ -38,6 +38,23 @@ test('fetchMatch URL-encodes IDs and rejects mismatched details', async () => {
   assert.equal(requestedUrl, 'https://example.test/api/sync/matches/match%2F1');
 });
 
+test('fetchChanges reports a readable error when authentication returns HTML', async () => {
+  const client = createExternalMatchSyncClient({
+    baseUrl: 'https://match.example.test',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      url: 'https://auth.example.test/login',
+      headers: { get: () => 'text/html; charset=utf-8' },
+      json: async () => { throw new SyntaxError("Unexpected token '<'"); }
+    })
+  });
+  await assert.rejects(
+    () => client.fetchChanges({ limit: 1 }),
+    /invalid JSON \(text\/html; charset=utf-8\).*redirect to https:\/\/auth\.example\.test\/login/
+  );
+});
+
 test('validators reject malformed pages and accept a matching detail', () => {
   assert.throws(
     () => validateSummary({ schemaVersion: 2, items: [{ operation: 'unknown', id: '1' }], hasMore: false }),
