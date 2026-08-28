@@ -18,6 +18,11 @@ previous compose file, environment file, source link, and images.
 its static assets use the unauthenticated, GET-only `/public-api` prefix; the
 normal `/api` prefix stays protected.
 
+The `auth-openresty-*` includes proxy TinyAuth itself. The cookie migration
+include clears host-only cookies created before shared-subdomain sessions were
+enabled, preventing `/continue` redirect loops without deleting valid shared
+sessions.
+
 Required repository secrets:
 
 - `OWCS_STATS_DEPLOY_HOST`
