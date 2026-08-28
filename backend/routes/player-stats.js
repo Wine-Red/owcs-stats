@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const PlayerStatController = require('../controllers/PlayerStatController');
+const { matchDataReadOnly } = require('../middleware/matchDataReadOnly');
 
 // 获取所有选手统计数据
 router.get('/', PlayerStatController.getAll);
@@ -9,12 +10,12 @@ router.get('/', PlayerStatController.getAll);
 router.get('/:id', PlayerStatController.getById);
 
 // 创建选手统计数据
-router.post('/', PlayerStatController.create);
+router.post('/', matchDataReadOnly);
 
 // 更新选手统计数据
-router.put('/:id', PlayerStatController.update);
+router.put('/:id', matchDataReadOnly);
 
 // 删除选手统计数据
-router.delete('/:id', PlayerStatController.delete);
+router.delete('/:id', matchDataReadOnly);
 
 module.exports = router;

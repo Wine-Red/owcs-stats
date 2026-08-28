@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const MapGameController = require('../controllers/MapGameController');
+const { matchDataReadOnly } = require('../middleware/matchDataReadOnly');
 
 // 导入地图数据
-router.post('/import', MapGameController.importMapData);
+router.post('/import', matchDataReadOnly);
 
 // 预览地图数据
 router.post('/preview', MapGameController.previewMapData);
@@ -18,10 +19,10 @@ router.get('/', MapGameController.getAll);
 router.get('/:id', MapGameController.getById);
 
 // 更新地图局
-router.put('/:id', MapGameController.update);
+router.put('/:id', matchDataReadOnly);
 
 // 删除地图局
-router.delete('/:id', MapGameController.delete);
+router.delete('/:id', matchDataReadOnly);
 
 // 获取地图局的选手数据
 router.get('/:id/player-stats', MapGameController.getPlayerStats);

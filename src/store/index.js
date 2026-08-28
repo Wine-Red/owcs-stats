@@ -297,8 +297,9 @@ const store = createStore({
     async deleteSeasonTeam({ commit }, seasonTeamId) {
       commit('setLoading', true);
       try {
-        await apiService.deleteSeasonTeam(seasonTeamId);
-        commit('deleteSeasonTeam', seasonTeamId);
+        const result = await apiService.deleteSeasonTeam(seasonTeamId);
+        if (!result.retained) commit('deleteSeasonTeam', seasonTeamId);
+        return result;
       } catch (error) {
         commit('setError', error.message);
         throw error;
@@ -378,8 +379,9 @@ const store = createStore({
     async deleteSeasonTeamPlayer({ commit }, seasonTeamPlayerId) {
       commit('setLoading', true);
       try {
-        await apiService.deleteSeasonTeamPlayer(seasonTeamPlayerId);
-        commit('deleteSeasonTeamPlayer', seasonTeamPlayerId);
+        const result = await apiService.deleteSeasonTeamPlayer(seasonTeamPlayerId);
+        if (!result.retained) commit('deleteSeasonTeamPlayer', seasonTeamPlayerId);
+        return result;
       } catch (error) {
         commit('setError', error.message);
         throw error;

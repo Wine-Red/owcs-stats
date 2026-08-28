@@ -3,6 +3,8 @@ const Team = require('../models/Team'); // eslint-disable-line no-unused-vars
 const TeamAlias = require('../models/TeamAlias'); // eslint-disable-line no-unused-vars
 const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
+const SeasonTeamSource = require('../models/SeasonTeamSource'); // eslint-disable-line no-unused-vars
+const SeasonTeamPlayerSource = require('../models/SeasonTeamPlayerSource'); // eslint-disable-line no-unused-vars
 const Player = require('../models/Player'); // eslint-disable-line no-unused-vars
 const Map = require('../models/Map');
 const Hero = require('../models/Hero');
@@ -14,6 +16,7 @@ const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 const { ensureAgentViews } = require('./agentViews');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
+const { runMembershipEvidenceMigration } = require('./membershipEvidenceMigration');
 
 const lowerTableName = table => {
   if (typeof table === 'string') return table.toLowerCase();
@@ -54,12 +57,36 @@ const ensureMediaSchema = async () => {
   }
 };
 
+const ensureMembershipSourceSchema = async () => {
+  const queryInterface = sequelize.getQueryInterface();
+  const tables = (await queryInterface.showAllTables()).map(lowerTableName);
+  if (!tables.includes('players')) return;
+  const { DataTypes } = require('sequelize');
+  const columns = await queryInterface.describeTable('players');
+  if (!columns.identityOrigin) {
+    await queryInterface.addColumn('players', 'identityOrigin', {
+      type: DataTypes.STRING(16),
+      allowNull: false,
+      defaultValue: 'legacy',
+      comment: 'legacy/manual/match; controls cautious orphan cleanup'
+    });
+  }
+  if (!columns.orphanedAt) {
+    await queryInterface.addColumn('players', 'orphanedAt', {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'First time this identity was confirmed to have no references'
+    });
+  }
+};
+
 const initDatabase = async () => {
   try {
     // 测试数据库连接
     await sequelize.authenticate();
     await ensureIncrementalSyncSchema();
     await ensureMediaSchema();
+    await ensureMembershipSourceSchema();
     console.log('数据库连接成功');
 
     // 设置模型关联关系
@@ -73,6 +100,16 @@ const initDatabase = async () => {
     if (aliasMigration.found) {
       console.log(`[team-aliases] migrated=${aliasMigration.migrated} skipped=${aliasMigration.skipped} failures=${aliasMigration.failures.length}`);
     }
+
+    const membershipMigration = await runMembershipEvidenceMigration(sequelize);
+    console.log(
+      `[membership-evidence] baseline=${membershipMigration.found ? 'existing' : 'created'} ` +
+      `matchTeams=${membershipMigration.matchTeamSources || 0} ` +
+      `matchPlayers=${membershipMigration.matchPlayerSources || 0} ` +
+      `legacyTeams=${membershipMigration.legacyTeamSources || 0} ` +
+      `legacyPlayers=${membershipMigration.legacyPlayerSources || 0} ` +
+      `anomalies=${membershipMigration.anomalyCount || 0}`
+    );
 
     // Keep the assistant-facing views aligned with the deployed backend while
     // allowing the website to start if this account lacks CREATE VIEW rights.
@@ -96,6 +133,8 @@ const setupAssociations = () => {
   const TeamAlias = require('../models/TeamAlias');
   const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
   const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
+  const SeasonTeamSource = require('../models/SeasonTeamSource');
+  const SeasonTeamPlayerSource = require('../models/SeasonTeamPlayerSource');
   const Player = require('../models/Player');
   const Hero = require('../models/Hero');
   const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
@@ -106,6 +145,22 @@ const setupAssociations = () => {
 
   Team.hasMany(TeamAlias, { foreignKey: 'teamId', as: 'aliasRecords', onDelete: 'CASCADE' });
   TeamAlias.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
+
+  SeasonTeam.hasMany(SeasonTeamSource, {
+    foreignKey: 'seasonTeamId',
+    as: 'sources',
+    onDelete: 'CASCADE'
+  });
+  SeasonTeamSource.belongsTo(SeasonTeam, { foreignKey: 'seasonTeamId', as: 'seasonTeam' });
+  SeasonTeamPlayer.hasMany(SeasonTeamPlayerSource, {
+    foreignKey: 'seasonTeamPlayerId',
+    as: 'sources',
+    onDelete: 'CASCADE'
+  });
+  SeasonTeamPlayerSource.belongsTo(SeasonTeamPlayer, {
+    foreignKey: 'seasonTeamPlayerId',
+    as: 'seasonTeamPlayer'
+  });
 
   // PlayerStat 关联
   PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });
@@ -126,4 +181,4 @@ const setupAssociations = () => {
   });
 };
 
-module.exports = { initDatabase, ensureMediaSchema };
+module.exports = { initDatabase, ensureMediaSchema, ensureMembershipSourceSchema };

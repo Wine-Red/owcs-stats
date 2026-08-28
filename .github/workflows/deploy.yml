@@ -59,11 +59,16 @@ jobs:
           node --check backend/app.js
           node --check backend/database/index.js
           node --check backend/database/teamAliasMigration.js
+          node --check backend/database/membershipEvidenceMigration.js
           node --check backend/controllers/TeamController.js
+          node --check backend/controllers/SeasonTeamController.js
+          node --check backend/controllers/SeasonTeamPlayerController.js
           node --check backend/controllers/MediaController.js
+          node --check backend/services/MembershipSourceService.js
           node --check backend/services/TeamAliasService.js
           node --check backend/services/MediaStorageService.js
           node --check backend/scripts/migrate-media-assets.js
+          node --check backend/scripts/audit-membership-evidence.js
           node --check backend/services/IncrementalMatchSyncService.js
 
       - name: Upload Production Frontend

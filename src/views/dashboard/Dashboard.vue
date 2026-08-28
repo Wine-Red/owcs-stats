@@ -147,7 +147,7 @@
             <div class="art-icon"><el-icon><Management /></el-icon></div>
             <div class="art-text">
               <h4 class="art-title">比赛管理</h4>
-              <p class="art-desc">集中维护比赛结果、地图局详情与回放信息，快速修正赛事录入内容。</p>
+              <p class="art-desc">查看 Matchweb 同步状态与比赛镜像；具体比赛请前往 Matchweb 修改。</p>
             </div>
           </div>
           <div class="art-arrow"><el-icon><ArrowRight /></el-icon></div>

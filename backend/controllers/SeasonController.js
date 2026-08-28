@@ -6,6 +6,7 @@ const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
+const SeasonStage = require('../models/SeasonStage');
 
 const SeasonController = {
   // 检查删除赛季前的影响
@@ -20,15 +21,14 @@ const SeasonController = {
       });
       const matchIds = matches.map(m => m.id);
       
-      // 2. 获取关联的小局 ID
-      let mapGameIds = [];
-      if (matchIds.length > 0) {
-        const mapGames = await MapGame.findAll({
-          where: { matchId: { [Op.in]: matchIds } },
-          attributes: ['id']
-        });
-        mapGameIds = mapGames.map(mg => mg.id);
-      }
+      // 2. 获取关联的小局 ID（兼容旧数据中只写 seasonId 的记录）
+      const mapGameConditions = [{ seasonId: id }];
+      if (matchIds.length > 0) mapGameConditions.push({ matchId: { [Op.in]: matchIds } });
+      const mapGames = await MapGame.findAll({
+        where: { [Op.or]: mapGameConditions },
+        attributes: ['id']
+      });
+      const mapGameIds = mapGames.map(mg => mg.id);
       
       // 3. 计算将要删除的 PlayerStat 数量
       let playerStatsCount = 0;
@@ -58,6 +58,7 @@ const SeasonController = {
       const seasonPlayerStatsCount = 0;
 
       res.status(200).json({
+        blocked: matchIds.length > 0 || mapGameIds.length > 0,
         matchesCount: matchIds.length,
         mapGamesCount: mapGameIds.length,
         playerStatsCount,
@@ -131,47 +132,22 @@ const SeasonController = {
         return res.status(404).json({ error: 'Season not found' });
       }
 
-      // 1. 获取关联数据 ID
-      const matches = await Match.findAll({ where: { seasonId: id }, attributes: ['id'], transaction });
-      const matchIds = matches.map(m => m.id);
-
-      let mapGameIds = [];
-      if (matchIds.length > 0) {
-        const mapGames = await MapGame.findAll({
-          where: { matchId: { [Op.in]: matchIds } },
-          attributes: ['id'],
-          transaction
+      const [matchesCount, mapGamesCount] = await Promise.all([
+        Match.count({ where: { seasonId: id }, transaction }),
+        MapGame.count({ where: { seasonId: id }, transaction })
+      ]);
+      if (matchesCount || mapGamesCount) {
+        await transaction.rollback();
+        return res.status(409).json({
+          code: 'DATA_IN_USE',
+          message: '该赛季仍包含比赛数据。比赛只能在 Matchweb 删除或修改后同步。',
+          references: { matchesCount, mapGamesCount }
         });
-        mapGameIds = mapGames.map(mg => mg.id);
       }
 
       const seasonTeams = await SeasonTeam.findAll({ where: { seasonId: id }, attributes: ['id'], transaction });
       const seasonTeamIds = seasonTeams.map(st => st.id);
 
-      // 2. 按顺序删除数据
-      // 2.1 删除 PlayerStats (依赖 MapGame)
-      if (mapGameIds.length > 0) {
-        await PlayerStat.destroy({
-          where: { mapGameId: { [Op.in]: mapGameIds } },
-          transaction
-        });
-      }
-
-      // 2.2 删除 MapGames (依赖 Match)
-      if (matchIds.length > 0) {
-        await MapGame.destroy({
-          where: { matchId: { [Op.in]: matchIds } },
-          transaction
-        });
-      }
-
-      // 2.3 删除 Matches (依赖 Season)
-      await Match.destroy({
-        where: { seasonId: id },
-        transaction
-      });
-
-      // 2.4 删除 SeasonTeamPlayers (依赖 SeasonTeam)
       if (seasonTeamIds.length > 0) {
         await SeasonTeamPlayer.destroy({
           where: { seasonTeamId: { [Op.in]: seasonTeamIds } },
@@ -179,17 +155,15 @@ const SeasonController = {
         });
       }
 
-      // 2.5 删除 SeasonTeams (依赖 Season)
       await SeasonTeam.destroy({
         where: { seasonId: id },
         transaction
       });
-
-      // 2.8 删除 Season
+      await SeasonStage.destroy({ where: { seasonId: id }, transaction });
       await season.destroy({ transaction });
 
       await transaction.commit();
-      res.status(200).json({ message: 'Season and all related data deleted successfully' });
+      res.status(200).json({ message: 'Season deleted successfully' });
     } catch (error) {
       await transaction.rollback();
       console.error('Delete season error:', error);

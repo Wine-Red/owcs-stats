@@ -14,6 +14,17 @@ const Player = sequelize.define('Player', {
   role: {
     type: DataTypes.ENUM('tank', 'damage', 'support'),
     allowNull: false
+  },
+  identityOrigin: {
+    type: DataTypes.STRING(16),
+    allowNull: false,
+    defaultValue: 'legacy',
+    comment: 'legacy/manual/match; controls cautious orphan cleanup'
+  },
+  orphanedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'First time this identity was confirmed to have no references'
   }
 }, {
   tableName: 'players',

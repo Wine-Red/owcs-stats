@@ -291,6 +291,14 @@
 
     <!-- 比赛管理 -->
     <div v-show="activeTab === 'matches'">
+      <el-alert
+        title="比赛数据为只读镜像"
+        description="具体比赛请在 Matchweb 修改或删除，Stats 会通过同步更新规范数据库。"
+        type="info"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
       <!-- 筛选条件 -->
     <el-card class="filter-card">
       <el-form :model="filterForm" inline>
@@ -357,10 +365,6 @@
                 <el-icon><Refresh /></el-icon>
                 从API同步
               </el-button>
-              <el-button type="success" @click="showImportDialog">
-                <el-icon><Upload /></el-icon>
-                导入地图数据
-              </el-button>
             </div>
           </div>
         </template>
@@ -399,16 +403,13 @@
               {{ scope.row.boFormat || '-' }}
             </template>
           </el-table-column>
+          <el-table-column prop="externalId" label="Matchweb ID" min-width="170" show-overflow-tooltip />
           <el-table-column label="操作" :width="actionColWidth" fixed="right">
             <template #default="scope">
               <div class="action-buttons">
-                <el-button type="warning" size="small" @click="editMapGames(scope.row)">
+                <el-button type="primary" plain size="small" @click="openMatchweb(scope.row.externalId)">
                   <el-icon><Edit /></el-icon>
-                  <span v-if="!isMobile">编辑比赛</span>
-                </el-button>
-                <el-button type="danger" size="small" @click="deleteMatch(scope.row.id)">
-                  <el-icon><Delete /></el-icon>
-                  <span v-if="!isMobile">删除</span>
+                  <span v-if="!isMobile">前往 Matchweb</span>
                 </el-button>
               </div>
             </template>
@@ -797,6 +798,19 @@
               {{ getTeamName(scope.row.teamId) }}
             </template>
           </el-table-column>
+          <el-table-column label="来源" min-width="220">
+            <template #default="scope">
+              <el-tag
+                v-for="sourceType in membershipSourceTypes(scope.row)"
+                :key="`${scope.row.id}-${sourceType}`"
+                :type="membershipSourceTagType(sourceType)"
+                size="small"
+                style="margin-right: 6px"
+              >
+                {{ membershipSourceLabel(sourceType) }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
             <template #default="scope">
               <div class="action-buttons">
@@ -858,6 +872,19 @@
           <el-table-column label="选手" width="180">
             <template #default="scope">
               {{ scope.row.Player ? scope.row.Player.name : getPlayerName(scope.row.playerId) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="来源" min-width="220">
+            <template #default="scope">
+              <el-tag
+                v-for="sourceType in membershipSourceTypes(scope.row)"
+                :key="`${scope.row.id}-${sourceType}`"
+                :type="membershipSourceTagType(sourceType)"
+                size="small"
+                style="margin-right: 6px"
+              >
+                {{ membershipSourceLabel(sourceType) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
@@ -1408,7 +1435,7 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
-  Search, Refresh, Edit, Delete, Plus, Upload, Download
+  Search, Refresh, Edit, Delete, Plus, Download
 } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
@@ -1428,7 +1455,6 @@ export default {
     Edit,
     Delete,
     Plus,
-    Upload,
     Download,
     MapDataImport,
     PlayerStatsEditor,
@@ -1489,7 +1515,6 @@ export default {
         loadSeasonTeamsForPlayers();
       } else if (activeTab.value === 'charts') {
         loadChartConfig();
-        loadTeamNameMapping();
       } else if (activeTab.value === 'season-visualize') {
         if (seasonVisualForm.value.seasonId) {
           loadSeasonVisualConfig(seasonVisualForm.value.seasonId);
@@ -3030,6 +3055,31 @@ export default {
       dialogVisible.value = true;
     };
 
+    const membershipSourceLabel = sourceType => ({
+      manual: '手工配置',
+      match: '比赛出场',
+      owtv: 'OWTV',
+      liquipedia: 'Liquipedia',
+      legacy: '旧数据待确认'
+    }[sourceType] || sourceType);
+
+    const membershipSourceTagType = sourceType => ({
+      manual: 'primary',
+      match: 'success',
+      owtv: 'warning',
+      liquipedia: 'warning',
+      legacy: 'info'
+    }[sourceType] || 'info');
+
+    const membershipSourceTypes = row => [
+      ...new Set((row?.sources || []).map(source => source.sourceType).filter(Boolean))
+    ];
+
+    const openMatchweb = externalId => {
+      window.open('https://match.owmini.xyz/admin.html', '_blank', 'noopener,noreferrer');
+      if (externalId) ElMessage.info(`请在 Matchweb 中选择比赛 ${externalId}`);
+    };
+
     const addHero = () => {
       resetMediaDraft();
       dialogTitle.value = '添加英雄';
@@ -3307,23 +3357,26 @@ export default {
       try {
         // 1. 获取删除预览数据
         const checkResult = await apiService.getSeasonDeletePreview(id);
+        if (checkResult.blocked) {
+          ElMessage.warning(
+            `该赛季仍有 ${checkResult.matchesCount} 场比赛、${checkResult.mapGamesCount} 局地图数据，` +
+            '请先在 Matchweb 删除并完成同步。Stats 不允许级联删除比赛。'
+          );
+          return;
+        }
         
         // 2. 构建提示信息
         const message = `
-          <p>确定要彻底删除该赛季吗？此操作将<strong>不可恢复</strong>。</p>
-          <p>将删除以下关联数据：</p>
+          <p>确定要删除该赛季配置吗？此操作将<strong>不可恢复</strong>。</p>
+          <p>将删除以下非比赛配置：</p>
           <ul style="text-align: left; margin-left: 20px;">
-            <li>比赛记录：${checkResult.matchesCount} 场</li>
-            <li>小局记录：${checkResult.mapGamesCount} 局</li>
-            <li>选手数据：${checkResult.playerStatsCount} 条</li>
             <li>参赛队伍：${checkResult.seasonTeamsCount} 支</li>
             <li>队伍成员记录：${checkResult.seasonTeamPlayersCount} 条</li>
-            <li>赛季选手统计：${checkResult.seasonPlayerStatsCount} 条</li>
           </ul>
         `;
 
-        await ElMessageBox.confirm(message, '彻底删除确认', {
-          confirmButtonText: '确认彻底删除',
+        await ElMessageBox.confirm(message, '删除赛季配置', {
+          confirmButtonText: '确认删除',
           cancelButtonText: '取消',
           type: 'warning',
           dangerouslyUseHTMLString: true,
@@ -3331,7 +3384,7 @@ export default {
         });
         
         await store.dispatch('deleteSeason', id);
-        ElMessage.success('赛季及其关联数据已彻底删除');
+        ElMessage.success('赛季配置删除成功');
         // 重新加载赛季数据
         await store.dispatch('loadBaseData');
       } catch (error) {
@@ -3425,8 +3478,8 @@ export default {
           type: 'warning'
         });
         
-        await store.dispatch('deleteSeasonTeam', id);
-        ElMessage.success('赛季-队伍关联删除成功');
+        const result = await store.dispatch('deleteSeasonTeam', id);
+        ElMessage.success(result?.message || '赛季-队伍关联删除成功');
         loadSeasonTeams();
       } catch (error) {
         if (error !== 'cancel') {
@@ -3444,8 +3497,8 @@ export default {
           type: 'warning'
         });
         
-        await store.dispatch('deleteSeasonTeamPlayer', id);
-        ElMessage.success('赛季-队伍-选手关联删除成功');
+        const result = await store.dispatch('deleteSeasonTeamPlayer', id);
+        ElMessage.success(result?.message || '赛季-队伍-选手关联删除成功');
         loadSeasonTeamPlayers();
       } catch (error) {
         if (error !== 'cancel') {
@@ -3516,6 +3569,10 @@ export default {
       getPlayerName,
       getRoleText,
       getRoleType,
+      membershipSourceLabel,
+      membershipSourceTagType,
+      membershipSourceTypes,
+      openMatchweb,
       getMapName,
       getHeroName,
       formatDate,

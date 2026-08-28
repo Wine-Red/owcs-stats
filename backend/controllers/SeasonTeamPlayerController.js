@@ -1,197 +1,162 @@
+const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+const SeasonTeamPlayerSource = require('../models/SeasonTeamPlayerSource');
 const SeasonTeam = require('../models/SeasonTeam');
 const Player = require('../models/Player');
+const {
+  addManualSeasonTeamPlayer,
+  removeManualSeasonTeamPlayer
+} = require('../services/MembershipSourceService');
+
+const attachSourceTypes = async (rows, transaction) => {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  if (!list.length) return Array.isArray(rows) ? [] : null;
+  const relationIds = list.map(row => Number(row.id));
+  const sourceRows = await SeasonTeamPlayerSource.findAll({
+    where: { seasonTeamPlayerId: { [Op.in]: relationIds }, active: true },
+    attributes: ['seasonTeamPlayerId', 'sourceType'],
+    group: ['seasonTeamPlayerId', 'sourceType'],
+    transaction,
+    raw: true
+  });
+  const sourceTypesById = new Map();
+  for (const source of sourceRows) {
+    const id = Number(source.seasonTeamPlayerId);
+    if (!sourceTypesById.has(id)) sourceTypesById.set(id, []);
+    sourceTypesById.get(id).push({ sourceType: source.sourceType });
+  }
+  const serialized = list.map(row => ({
+    ...row.toJSON(),
+    sources: sourceTypesById.get(Number(row.id)) || []
+  }));
+  return Array.isArray(rows) ? serialized : serialized[0];
+};
+
+const loadRelation = async (id, transaction) => {
+  const relation = await SeasonTeamPlayer.findByPk(id, {
+    include: [
+      { model: SeasonTeam, attributes: ['id', 'seasonId', 'teamId'] },
+      { model: Player, attributes: ['id', 'name', 'role'] }
+    ],
+    transaction
+  });
+  return attachSourceTypes(relation, transaction);
+};
 
 class SeasonTeamPlayerController {
-  // 获取所有赛季-队伍-选手关联
   static async getAll(req, res) {
     try {
-      const seasonTeamPlayers = await SeasonTeamPlayer.findAll({
+      const rows = await SeasonTeamPlayer.findAll({
         include: [
-          { model: SeasonTeam, attributes: ['id'] },
+          { model: SeasonTeam, attributes: ['id', 'seasonId', 'teamId'] },
           { model: Player, attributes: ['id', 'name', 'role'] }
         ]
       });
-      res.json(seasonTeamPlayers);
+      res.json(await attachSourceTypes(rows));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  // 根据ID获取赛季-队伍-选手关联
   static async getById(req, res) {
     try {
-      const { id } = req.params;
-      const seasonTeamPlayer = await SeasonTeamPlayer.findByPk(id, {
-        include: [
-          { model: SeasonTeam, attributes: ['id'] },
-          { model: Player, attributes: ['id', 'name', 'role'] }
-        ]
-      });
-      if (!seasonTeamPlayer) {
-        return res.status(404).json({ error: '赛季-队伍-选手关联不存在' });
-      }
-      res.json(seasonTeamPlayer);
+      const row = await loadRelation(req.params.id);
+      if (!row) return res.status(404).json({ error: '赛季-队伍-选手关联不存在' });
+      res.json(row);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  // 获取指定赛季-队伍的所有选手
   static async getPlayersBySeasonTeamId(req, res) {
     try {
-      const { seasonTeamId } = req.params;
-      const seasonTeamPlayers = await SeasonTeamPlayer.findAll({
-        where: { seasonTeamId },
-        include: [
-          { model: Player, attributes: ['id', 'name', 'role'] }
-        ]
+      const rows = await SeasonTeamPlayer.findAll({
+        where: { seasonTeamId: req.params.seasonTeamId },
+        include: [{ model: Player, attributes: ['id', 'name', 'role'] }]
       });
-      res.json(seasonTeamPlayers);
+      res.json(await attachSourceTypes(rows));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  // 创建赛季-队伍-选手关联
   static async create(req, res) {
     try {
       const { seasonTeamId, playerId } = req.body;
-      
-      // 检查是否已存在关联
-      const existingSeasonTeamPlayer = await SeasonTeamPlayer.findOne({
-        where: { seasonTeamId, playerId }
+      const result = await sequelize.transaction(async transaction => {
+        const [seasonTeam, player] = await Promise.all([
+          SeasonTeam.findByPk(seasonTeamId, { transaction }),
+          Player.findByPk(playerId, { transaction })
+        ]);
+        if (!seasonTeam) throw Object.assign(new Error('赛季-队伍关联不存在'), { statusCode: 400 });
+        if (!player) throw Object.assign(new Error('选手不存在'), { statusCode: 400 });
+        const ensured = await addManualSeasonTeamPlayer({ seasonTeam, playerId, transaction });
+        return {
+          relation: await loadRelation(ensured.seasonTeamPlayer.id, transaction),
+          created: ensured.relationCreated
+        };
       });
-      
-      if (existingSeasonTeamPlayer) {
-        return res.status(400).json({ error: '该赛季-队伍-选手关联已存在' });
-      }
-      
-      // 检查赛季-队伍关联是否存在
-      const seasonTeam = await SeasonTeam.findByPk(seasonTeamId);
-      if (!seasonTeam) {
-        return res.status(400).json({ error: '赛季-队伍关联不存在' });
-      }
-      
-      // 检查选手是否存在
-      const player = await Player.findByPk(playerId);
-      if (!player) {
-        return res.status(400).json({ error: '选手不存在' });
-      }
-      
-      const seasonTeamPlayer = await SeasonTeamPlayer.create({ seasonTeamId, playerId });
-      res.status(201).json(seasonTeamPlayer);
+      res.status(result.created ? 201 : 200).json(result.relation);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   }
 
-  // 批量创建赛季-队伍-选手关联
   static async bulkCreate(req, res) {
     try {
       const { seasonTeamId, playerIds } = req.body;
-      
-      if (!seasonTeamId || !playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+      if (!seasonTeamId || !Array.isArray(playerIds) || playerIds.length === 0) {
         return res.status(400).json({ error: '参数错误' });
       }
-      
-      // 检查赛季-队伍关联是否存在
-      const seasonTeam = await SeasonTeam.findByPk(seasonTeamId);
-      if (!seasonTeam) {
-        return res.status(400).json({ error: '赛季-队伍关联不存在' });
-      }
-      
-      // 检查选手是否存在
-      const players = await Player.findAll({
-        where: { id: playerIds }
-      });
-      
-      if (players.length !== playerIds.length) {
-        return res.status(400).json({ error: '部分选手不存在' });
-      }
-      
-      // 检查已存在的关联
-      const existingSeasonTeamPlayers = await SeasonTeamPlayer.findAll({
-        where: {
-          seasonTeamId,
-          playerId: playerIds
+      const result = await sequelize.transaction(async transaction => {
+        const seasonTeam = await SeasonTeam.findByPk(seasonTeamId, { transaction });
+        if (!seasonTeam) throw Object.assign(new Error('赛季-队伍关联不存在'), { statusCode: 400 });
+        const uniqueIds = [...new Set(playerIds.map(Number))];
+        const players = await Player.findAll({ where: { id: { [Op.in]: uniqueIds } }, transaction });
+        if (players.length !== uniqueIds.length) {
+          throw Object.assign(new Error('部分选手不存在'), { statusCode: 400 });
         }
+        const created = [];
+        const existing = [];
+        for (const playerId of uniqueIds) {
+          const ensured = await addManualSeasonTeamPlayer({ seasonTeam, playerId, transaction });
+          const relation = await loadRelation(ensured.seasonTeamPlayer.id, transaction);
+          if (ensured.relationCreated) created.push(relation);
+          else existing.push(playerId);
+        }
+        return { created, existing };
       });
-      
-      const existingPlayerIds = existingSeasonTeamPlayers.map(stp => stp.playerId);
-      const newPlayerIds = playerIds.filter(id => !existingPlayerIds.includes(id));
-      
-      if (newPlayerIds.length === 0) {
-        return res.status(400).json({ error: '所选选手已全部关联' });
-      }
-      
-      // 批量创建
-      const seasonTeamPlayers = await SeasonTeamPlayer.bulkCreate(
-        newPlayerIds.map(playerId => ({ seasonTeamId, playerId }))
-      );
-      
       res.status(201).json({
-        created: seasonTeamPlayers,
-        existing: existingPlayerIds,
-        message: `成功添加 ${seasonTeamPlayers.length} 个选手关联，${existingPlayerIds.length} 个已存在`
+        ...result,
+        message: `成功添加 ${result.created.length} 个选手关联，${result.existing.length} 个已有关系已保留为手工配置`
       });
     } catch (error) {
-      console.error('批量创建赛季-队伍-选手关联失败:', error);
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   }
 
-  // 更新赛季-队伍-选手关联
   static async update(req, res) {
-    try {
-      const { id } = req.params;
-      const { seasonTeamId, playerId } = req.body;
-      
-      const seasonTeamPlayer = await SeasonTeamPlayer.findByPk(id);
-      if (!seasonTeamPlayer) {
-        return res.status(404).json({ error: '赛季-队伍-选手关联不存在' });
-      }
-      
-      // 检查是否已存在其他关联
-      if (seasonTeamId !== seasonTeamPlayer.seasonTeamId || playerId !== seasonTeamPlayer.playerId) {
-        const existingSeasonTeamPlayer = await SeasonTeamPlayer.findOne({
-          where: { seasonTeamId, playerId }
-        });
-        
-        if (existingSeasonTeamPlayer) {
-          return res.status(400).json({ error: '该赛季-队伍-选手关联已存在' });
-        }
-      }
-      
-      // 检查赛季-队伍关联是否存在
-      const seasonTeam = await SeasonTeam.findByPk(seasonTeamId);
-      if (!seasonTeam) {
-        return res.status(400).json({ error: '赛季-队伍关联不存在' });
-      }
-      
-      // 检查选手是否存在
-      const player = await Player.findByPk(playerId);
-      if (!player) {
-        return res.status(400).json({ error: '选手不存在' });
-      }
-      
-      await seasonTeamPlayer.update({ seasonTeamId, playerId });
-      res.json(seasonTeamPlayer);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
+    return res.status(405).json({
+      code: 'MEMBERSHIP_RELATION_IMMUTABLE',
+      message: '成员关系不能直接改写，请删除手工配置后重新添加'
+    });
   }
 
-  // 删除赛季-队伍-选手关联
   static async delete(req, res) {
     try {
-      const { id } = req.params;
-      const seasonTeamPlayer = await SeasonTeamPlayer.findByPk(id);
-      if (!seasonTeamPlayer) {
-        return res.status(404).json({ error: '赛季-队伍-选手关联不存在' });
-      }
-      await seasonTeamPlayer.destroy();
-      res.json({ message: '赛季-队伍-选手关联删除成功' });
+      const result = await sequelize.transaction(async transaction => {
+        const relation = await SeasonTeamPlayer.findByPk(req.params.id, { transaction });
+        if (!relation) return null;
+        return removeManualSeasonTeamPlayer(relation.id, transaction);
+      });
+      if (!result) return res.status(404).json({ error: '赛季-队伍-选手关联不存在' });
+      res.json({
+        message: result.retained
+          ? '手工来源已移除；该选手仍有比赛或阵容证据，因此继续保留'
+          : '赛季-队伍-选手关联删除成功',
+        ...result
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

@@ -11,10 +11,20 @@ const Season = require('../models/Season');
 const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
-const SeasonTeam = require('../models/SeasonTeam');
-const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
 const { normalizeTeamIdentity, buildTeamIdentityMap } = require('./TeamAliasService');
+const {
+  SOURCE_TYPES,
+  activateSeasonTeamSource,
+  activateSeasonTeamPlayerSource,
+  ensureSeasonTeam: ensureSeasonTeamWithSource,
+  ensureSeasonTeamPlayer: ensureSeasonTeamPlayerWithSource,
+  deactivateMatchSources,
+  createTouchedMemberships,
+  mergeTouchedMemberships,
+  reconcileMemberships,
+  reconcileOrphanPlayers
+} = require('./MembershipSourceService');
 
 const SYNC_CURSOR_CONFIG_KEY = 'external_match_sync_cursor_v2';
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
@@ -95,10 +105,15 @@ const ensurePlayer = async (source, team, caches, transaction) => {
   const role = normalizeRole(source.role);
   let player = caches.players.find(p => lower(p.name) === lower(source.name) && p.role === role);
   if (!player) {
-    player = await Player.create({ name: source.name, teamId: team.id, role }, { transaction });
+    player = await Player.create({
+      name: source.name,
+      role,
+      identityOrigin: SOURCE_TYPES.MATCH,
+      orphanedAt: null
+    }, { transaction });
     caches.players.push(player);
-  } else if (player.teamId !== team.id) {
-    await player.update({ teamId: team.id }, { transaction });
+  } else if (player.orphanedAt) {
+    await player.update({ orphanedAt: null }, { transaction });
   }
   return player;
 };
@@ -120,37 +135,65 @@ const resolveMap = (name, caches) => {
 };
 
 // 同步比赛时自动维护 赛季-队伍 关联（有比赛即视为该队参加了该赛季）
-const ensureSeasonTeam = async (season, team, caches, transaction) => {
+const ensureSeasonTeam = async (season, team, sourceKey, caches, transaction) => {
   if (!caches.seasonTeamByKey) caches.seasonTeamByKey = new Map();
   const key = `${season.id}:${team.id}`;
   let seasonTeam = caches.seasonTeamByKey.get(key);
   if (!seasonTeam) {
-    [seasonTeam] = await SeasonTeam.findOrCreate({
-      where: { seasonId: season.id, teamId: team.id },
-      defaults: { seasonId: season.id, teamId: team.id },
+    const result = await ensureSeasonTeamWithSource({
+      seasonId: season.id,
+      teamId: team.id,
+      sourceType: SOURCE_TYPES.MATCH,
+      sourceKey,
       transaction
     });
+    seasonTeam = result.seasonTeam;
     caches.seasonTeamByKey.set(key, seasonTeam);
+    return { seasonTeam, relationCreated: result.relationCreated, sourceCreated: result.sourceCreated };
   }
-  return seasonTeam;
+  const sourceResult = await activateSeasonTeamSource(
+    seasonTeam.id,
+    SOURCE_TYPES.MATCH,
+    sourceKey,
+    transaction
+  );
+  return { seasonTeam, relationCreated: false, sourceCreated: sourceResult.created };
 };
 
 // 同步比赛时自动维护 赛季-队伍-选手 关联（登场即视为该赛季效力于该队）
-const ensureSeasonTeamPlayer = async (seasonTeam, player, caches, transaction) => {
+const ensureSeasonTeamPlayer = async (seasonTeam, player, sourceKey, caches, transaction) => {
   if (!caches.seasonTeamPlayerByKey) caches.seasonTeamPlayerByKey = new Map();
   const key = `${seasonTeam.id}:${player.id}`;
-  if (caches.seasonTeamPlayerByKey.has(key)) return;
-  await SeasonTeamPlayer.findOrCreate({
-    where: { seasonTeamId: seasonTeam.id, playerId: player.id },
-    defaults: { seasonTeamId: seasonTeam.id, playerId: player.id },
+  let seasonTeamPlayer = caches.seasonTeamPlayerByKey.get(key);
+  if (!seasonTeamPlayer) {
+    const result = await ensureSeasonTeamPlayerWithSource({
+      seasonTeam,
+      playerId: player.id,
+      sourceType: SOURCE_TYPES.MATCH,
+      sourceKey,
+      transaction
+    });
+    seasonTeamPlayer = result.seasonTeamPlayer;
+    caches.seasonTeamPlayerByKey.set(key, seasonTeamPlayer);
+    return {
+      seasonTeamPlayer,
+      relationCreated: result.relationCreated,
+      sourceCreated: result.sourceCreated
+    };
+  }
+  const sourceResult = await activateSeasonTeamPlayerSource(
+    seasonTeamPlayer.id,
+    SOURCE_TYPES.MATCH,
+    sourceKey,
     transaction
-  });
-  caches.seasonTeamPlayerByKey.set(key, true);
+  );
+  return { seasonTeamPlayer, relationCreated: false, sourceCreated: sourceResult.created };
 };
 
 const deleteMatchByExternalId = async (externalId, transaction) => {
+  const touchedMemberships = await deactivateMatchSources(externalId, transaction);
   const match = await Match.findOne({ where: { externalId: String(externalId) }, transaction });
-  if (!match) return { deleted: false, seasonId: null };
+  if (!match) return { deleted: false, seasonId: null, touchedMemberships };
   const mapGames = await MapGame.findAll({ where: { matchId: match.id }, attributes: ['id'], transaction });
   const mapGameIds = mapGames.map(game => game.id);
   if (mapGameIds.length) {
@@ -161,10 +204,20 @@ const deleteMatchByExternalId = async (externalId, transaction) => {
     await MapGame.destroy({ where: { id: { [Op.in]: mapGameIds } }, transaction });
   }
   await match.destroy({ transaction });
-  return { deleted: true, seasonId: match.seasonId };
+  return { deleted: true, seasonId: match.seasonId, touchedMemberships };
 };
 
-const replacePlayerStats = async ({ mapGame, round, team1, team2, seasonTeam1, seasonTeam2, caches, transaction }) => {
+const replacePlayerStats = async ({
+  mapGame,
+  round,
+  team1,
+  team2,
+  seasonTeam1,
+  seasonTeam2,
+  sourceKey,
+  caches,
+  transaction
+}) => {
   const existing = await PlayerStat.findAll({ where: { mapGameId: mapGame.id }, attributes: ['id'], transaction });
   const existingIds = existing.map(stat => stat.id);
   if (existingIds.length) await PlayerHeroStat.destroy({ where: { playerStatId: { [Op.in]: existingIds } }, transaction });
@@ -173,10 +226,20 @@ const replacePlayerStats = async ({ mapGame, round, team1, team2, seasonTeam1, s
   const pendingHeroStats = [];
   let playerStatsCount = 0;
   let heroStatsCount = 0;
+  let newMembershipsCount = 0;
   for (const [players, team, seasonTeam] of [[round.playersA || [], team1, seasonTeam1], [round.playersB || [], team2, seasonTeam2]]) {
     for (const source of players) {
       const player = await ensurePlayer(source, team, caches, transaction);
-      if (seasonTeam) await ensureSeasonTeamPlayer(seasonTeam, player, caches, transaction);
+      if (seasonTeam) {
+        const membership = await ensureSeasonTeamPlayer(
+          seasonTeam,
+          player,
+          sourceKey,
+          caches,
+          transaction
+        );
+        if (membership.relationCreated) newMembershipsCount++;
+      }
       const role = normalizeRole(source.role);
       const heroes = Array.isArray(source.heroes) ? source.heroes : [];
       const heroModels = [];
@@ -221,7 +284,7 @@ const replacePlayerStats = async ({ mapGame, round, team1, team2, seasonTeam1, s
     await PlayerHeroStat.bulkCreate(pendingHeroStats, { transaction });
     heroStatsCount = pendingHeroStats.length;
   }
-  return { playerStatsCount, heroStatsCount };
+  return { playerStatsCount, heroStatsCount, newMembershipsCount };
 };
 
 const upsertMatchDetail = async (source, caches, transaction) => {
@@ -230,10 +293,14 @@ const upsertMatchDetail = async (source, caches, transaction) => {
   if (!season) throw new Error(`Season not found for eventName: ${eventName}`);
   if (!source.teamA?.name || !source.teamB?.name) throw new Error(`Match ${source.id} is missing team data`);
 
+  const touchedMemberships = await deactivateMatchSources(source.id, transaction);
+
   const team1 = await ensureTeam(source.teamA.name, caches, transaction);
   const team2 = await ensureTeam(source.teamB.name, caches, transaction);
-  const seasonTeam1 = await ensureSeasonTeam(season, team1, caches, transaction);
-  const seasonTeam2 = await ensureSeasonTeam(season, team2, caches, transaction);
+  const seasonTeamResult1 = await ensureSeasonTeam(season, team1, source.id, caches, transaction);
+  const seasonTeamResult2 = await ensureSeasonTeam(season, team2, source.id, caches, transaction);
+  const seasonTeam1 = seasonTeamResult1.seasonTeam;
+  const seasonTeam2 = seasonTeamResult2.seasonTeam;
   const scoreA = integer(source.scoreA);
   const scoreB = integer(source.scoreB);
   const winnerId = scoreA > scoreB ? team1.id : team2.id;
@@ -260,6 +327,7 @@ const upsertMatchDetail = async (source, caches, transaction) => {
   let updatedMapGamesCount = 0;
   let newPlayerStatsCount = 0;
   let updatedPlayerStatsCount = 0;
+  let newMembershipsCount = 0;
   for (const round of source.rounds || []) {
     const map = resolveMap(round.mapName, caches);
     if (!map) throw new Error(`Map not found: ${round.mapName}`);
@@ -289,9 +357,20 @@ const upsertMatchDetail = async (source, caches, transaction) => {
       newMapGamesCount++;
     }
     keptMapGameIds.push(mapGame.id);
-    const counts = await replacePlayerStats({ mapGame, round, team1, team2, seasonTeam1, seasonTeam2, caches, transaction });
+    const counts = await replacePlayerStats({
+      mapGame,
+      round,
+      team1,
+      team2,
+      seasonTeam1,
+      seasonTeam2,
+      sourceKey: source.id,
+      caches,
+      transaction
+    });
     playerStatsCount += counts.playerStatsCount;
     heroStatsCount += counts.heroStatsCount;
+    newMembershipsCount += counts.newMembershipsCount;
     if (mapGameCreated) newPlayerStatsCount += counts.playerStatsCount;
     else updatedPlayerStatsCount += counts.playerStatsCount;
   }
@@ -316,6 +395,9 @@ const upsertMatchDetail = async (source, caches, transaction) => {
     updatedMapGamesCount,
     newPlayerStatsCount,
     updatedPlayerStatsCount,
+    newSeasonTeamsCount: Number(seasonTeamResult1.relationCreated) + Number(seasonTeamResult2.relationCreated),
+    newMembershipsCount,
+    touchedMemberships,
     updatedMatch: {
       matchId: match.id,
       externalId: match.externalId,
@@ -370,12 +452,21 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
       updatedMapGamesCount: 0,
       newPlayerStatsCount: 0,
       updatedPlayerStatsCount: 0,
+      newSeasonTeamsCount: 0,
+      newSeasonTeamPlayersCount: 0,
+      removedSeasonTeamsCount: 0,
+      removedSeasonTeamPlayersCount: 0,
+      orphanPlayersMarkedCount: 0,
+      orphanPlayersRestoredCount: 0,
+      orphanPlayersDeletedCount: 0,
+      protectedOrphanPlayersCount: 0,
       updatedMatches: [],
       seasonImportSummary: [],
       affectedSeasonIds: [],
       cursor: null,
       errors: []
     };
+    let fullyCaughtUp = false;
 
     do {
       const page = await client.fetchChanges({ cursor, limit: DEFAULT_PAGE_SIZE });
@@ -389,14 +480,17 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
       await sequelize.transaction(async transaction => {
         const caches = await buildCaches(transaction);
         const affectedSeasonIds = new Set();
+        const touchedMemberships = createTouchedMemberships();
 
         for (const item of page.items) {
           if (item.operation === 'delete') {
             const result = await deleteMatchByExternalId(item.id, transaction);
+            mergeTouchedMemberships(touchedMemberships, result.touchedMemberships);
             if (result.deleted) totals.deletedMatchesCount++;
             if (result.seasonId) affectedSeasonIds.add(Number(result.seasonId));
           } else {
             const result = await upsertMatchDetail(detailsById.get(String(item.id)), caches, transaction);
+            mergeTouchedMemberships(touchedMemberships, result.touchedMemberships);
             totals.upsertedMatchesCount++;
             if (result.created) totals.newMatchesCount++;
             else totals.updatedMatchesCount++;
@@ -406,10 +500,16 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
             totals.updatedMapGamesCount += result.updatedMapGamesCount;
             totals.newPlayerStatsCount += result.newPlayerStatsCount;
             totals.updatedPlayerStatsCount += result.updatedPlayerStatsCount;
+            totals.newSeasonTeamsCount += result.newSeasonTeamsCount;
+            totals.newSeasonTeamPlayersCount += result.newMembershipsCount;
             if (!result.created) totals.updatedMatches.push(result.updatedMatch);
             affectedSeasonIds.add(Number(result.seasonId));
           }
         }
+
+        const membershipResult = await reconcileMemberships(touchedMemberships, transaction);
+        totals.removedSeasonTeamsCount += membershipResult.removedSeasonTeamIds.length;
+        totals.removedSeasonTeamPlayersCount += membershipResult.removedSeasonTeamPlayerIds.length;
 
         // 赛季聚合统计改为读取接口实时计算，同步后不再重写预聚合表
         const nextCursor = page.nextCursor ?? cursor;
@@ -426,8 +526,19 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
       });
 
       totals.pagesProcessed++;
-      if (!page.hasMore) break;
+      if (!page.hasMore) {
+        fullyCaughtUp = true;
+        break;
+      }
     } while (totals.pagesProcessed < maxPages);
+
+    if (fullyCaughtUp) {
+      const orphanSummary = await sequelize.transaction(transaction => reconcileOrphanPlayers({ transaction }));
+      totals.orphanPlayersMarkedCount = orphanSummary.marked.length;
+      totals.orphanPlayersRestoredCount = orphanSummary.restored.length;
+      totals.orphanPlayersDeletedCount = orphanSummary.deleted.length;
+      totals.protectedOrphanPlayersCount = orphanSummary.protectedLegacyOrManual.length;
+    }
 
     totals.lastSyncAt = new Date().toISOString();
     totals.cursor = cursor;

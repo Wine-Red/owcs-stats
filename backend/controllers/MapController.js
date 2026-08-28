@@ -1,4 +1,5 @@
 const Map = require('../models/Map');
+const MapGame = require('../models/MapGame');
 
 const mapPayload = body => ({
   name: body?.name,
@@ -63,6 +64,14 @@ const MapController = {
       const map = await Map.findByPk(id);
       if (!map) {
         return res.status(404).json({ error: 'Map not found' });
+      }
+      const mapGamesCount = await MapGame.count({ where: { mapId: id } });
+      if (mapGamesCount) {
+        return res.status(409).json({
+          code: 'DATA_IN_USE',
+          message: '该地图仍被比赛引用，不能直接删除。',
+          references: { mapGamesCount }
+        });
       }
       await map.destroy();
       res.status(200).json({ message: 'Map deleted successfully' });

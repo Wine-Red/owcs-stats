@@ -1,4 +1,8 @@
 const Hero = require('../models/Hero');
+const PlayerStat = require('../models/PlayerStat');
+const PlayerHeroStat = require('../models/PlayerHeroStat');
+const MapGame = require('../models/MapGame');
+const { Op } = require('sequelize');
 
 const heroPayload = body => ({
   name: body?.name,
@@ -64,6 +68,20 @@ const HeroController = {
       const hero = await Hero.findByPk(id);
       if (!hero) {
         return res.status(404).json({ error: 'Hero not found' });
+      }
+      const [playerStatsCount, heroStatsCount, bansCount] = await Promise.all([
+        PlayerStat.count({ where: { heroId: id } }),
+        PlayerHeroStat.count({ where: { heroId: id } }),
+        MapGame.count({
+          where: { [Op.or]: [{ team1BanHeroId: id }, { team2BanHeroId: id }] }
+        })
+      ]);
+      if (playerStatsCount || heroStatsCount || bansCount) {
+        return res.status(409).json({
+          code: 'DATA_IN_USE',
+          message: '该英雄仍被比赛数据引用，不能直接删除。',
+          references: { playerStatsCount, heroStatsCount, bansCount }
+        });
       }
       await hero.destroy();
       res.status(200).json({ message: 'Hero deleted successfully' });

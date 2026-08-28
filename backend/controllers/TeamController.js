@@ -3,7 +3,6 @@ const Player = require('../models/Player');
 const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
-const PlayerHeroStat = require('../models/PlayerHeroStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const TeamAlias = require('../models/TeamAlias');
@@ -20,18 +19,6 @@ const teamPayload = body => ({
   region: body?.region,
   ...(Object.prototype.hasOwnProperty.call(body || {}, 'logo') ? { logo: body.logo || null } : {})
 });
-
-const deletePlayerStats = async (where, transaction) => {
-  const stats = await PlayerStat.findAll({ where, attributes: ['id'], transaction });
-  const statIds = stats.map(stat => stat.id);
-  if (statIds.length > 0) {
-    await PlayerHeroStat.destroy({
-      where: { playerStatId: { [Op.in]: statIds } },
-      transaction
-    });
-  }
-  return PlayerStat.destroy({ where, transaction });
-};
 
 const TeamController = {
   // 获取所有队伍
@@ -115,61 +102,25 @@ const TeamController = {
         return res.status(404).json({ error: 'Team not found' });
       }
 
-      // Cascade delete other non-critical references
-      
-      // Get all match IDs associated with this team
-      const matches = await Match.findAll({
-        where: { [Op.or]: [{ team1Id: id }, { team2Id: id }, { winnerId: id }] },
-        transaction: t
-      });
-      const matchIds = matches.map(m => m.id);
-
-      if (matchIds.length > 0) {
-        // Find all MapGames for these matches
-        const mapGames = await MapGame.findAll({
-          where: { matchId: { [Op.in]: matchIds } },
+      const [matchesCount, mapGamesCount, playerStatsCount] = await Promise.all([
+        Match.count({
+          where: { [Op.or]: [{ team1Id: id }, { team2Id: id }, { winnerId: id }] },
           transaction: t
-        });
-        const mapGameIds = mapGames.map(mg => mg.id);
-
-        if (mapGameIds.length > 0) {
-          // Delete PlayerStats associated with these MapGames
-          await deletePlayerStats({ mapGameId: { [Op.in]: mapGameIds } }, t);
-        }
-
-        // Delete MapGames
-        await MapGame.destroy({
-          where: { matchId: { [Op.in]: matchIds } },
+        }),
+        MapGame.count({
+          where: { [Op.or]: [{ team1Id: id }, { team2Id: id }, { winnerId: id }] },
           transaction: t
-        });
-
-        // Delete Matches
-        await Match.destroy({
-          where: { id: { [Op.in]: matchIds } },
-          transaction: t
+        }),
+        PlayerStat.count({ where: { teamId: id }, transaction: t })
+      ]);
+      if (matchesCount || mapGamesCount || playerStatsCount) {
+        await t.rollback();
+        return res.status(409).json({
+          code: 'DATA_IN_USE',
+          message: '该队伍仍被比赛数据引用。比赛只能在 Matchweb 删除或修改后同步。',
+          references: { matchesCount, mapGamesCount, playerStatsCount }
         });
       }
-
-      // We should also find any MapGames where the team is directly involved (just in case they are orphaned)
-      const orphanMapGames = await MapGame.findAll({
-        where: {
-          matchId: null, // or whatever indicates orphan if any exist, but let's just match any MapGame by teamId
-          [Op.or]: [{ team1Id: id }, { team2Id: id }, { winnerId: id }]
-        },
-        transaction: t
-      });
-      const orphanMapGameIds = orphanMapGames.map(mg => mg.id);
-      
-      if (orphanMapGameIds.length > 0) {
-        await deletePlayerStats({ mapGameId: { [Op.in]: orphanMapGameIds } }, t);
-        await MapGame.destroy({
-          where: { id: { [Op.in]: orphanMapGameIds } },
-          transaction: t
-        });
-      }
-
-      // Delete any leftover PlayerStats directly tied to the team (just in case)
-      await deletePlayerStats({ teamId: id }, t);
 
       // SeasonTeamPlayer (must be deleted before SeasonTeam and Player)
       const seasonTeams = await SeasonTeam.findAll({
@@ -197,7 +148,7 @@ const TeamController = {
       await team.destroy({ transaction: t });
 
       await t.commit();
-      res.status(200).json({ message: 'Team and related data deleted successfully' });
+      res.status(200).json({ message: 'Team deleted successfully' });
     } catch (error) {
       await t.rollback();
       res.status(500).json({ error: error.message });
