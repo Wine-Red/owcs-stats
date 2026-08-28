@@ -1,9 +1,19 @@
 <template>
-  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-visualize': isVisualizeRoute, 'is-visualize-home': isVisualizeHome }">
+  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-admin': showSidebar, 'is-visualize': isVisualizeRoute, 'is-visualize-home': isVisualizeHome }">
+    <a v-if="showSidebar" class="skip-link" href="#admin-main-content">跳到主要内容</a>
+
     <!-- 移动端顶部导航 -->
     <div class="mobile-top-header" v-if="showSidebar">
-      <el-icon class="menu-toggle-btn" @click="mobileSidebarOpen = true"><Menu /></el-icon>
-      <span class="mobile-header-title">OWCS Stats 数据中心</span>
+      <button class="menu-toggle-btn" type="button" aria-label="打开后台导航" @click="mobileSidebarOpen = true">
+        <el-icon><Menu /></el-icon>
+      </button>
+      <div class="mobile-header-copy">
+        <span class="mobile-header-kicker">OWCS CONTROL</span>
+        <strong class="mobile-header-title">{{ activePageTitle }}</strong>
+      </div>
+      <router-link class="mobile-visualize-link" to="/visualize" aria-label="打开数据可视化">
+        <el-icon><View /></el-icon>
+      </router-link>
     </div>
 
     <!-- 侧边导航栏遮罩 -->
@@ -11,17 +21,26 @@
 
     <!-- 侧边导航栏 -->
     <aside class="app-sidebar" :class="{ 'mobile-open': mobileSidebarOpen }" v-if="showSidebar">
-      <div class="sidebar-logo">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-mark" aria-hidden="true"><span>OW</span></div>
         <div class="logo-text">
+          <span class="logo-kicker">DATA OPERATIONS</span>
           <h1 class="logo-title">OWCS Stats</h1>
-          <span class="logo-subtitle">数据中心</span>
         </div>
+        <button class="sidebar-close" type="button" aria-label="关闭后台导航" @click="mobileSidebarOpen = false">
+          <el-icon><Close /></el-icon>
+        </button>
       </div>
-      <div class="sidebar-sync-time">
-        最后同步：{{ latestSyncTime }}
+
+      <div class="sidebar-status" aria-label="数据同步状态">
+        <span class="status-indicator" aria-hidden="true"></span>
+        <span class="sidebar-status-copy">
+          <small>数据镜像在线</small>
+          <strong>{{ latestSyncTime }}</strong>
+        </span>
       </div>
       
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="后台主导航">
         <div
           v-for="group in sidebarGroups"
           :key="group.title"
@@ -35,16 +54,28 @@
               :to="item.to"
               class="nav-item"
             >
+              <el-icon class="nav-item-icon"><component :is="item.icon" /></el-icon>
               <span>{{ item.label }}</span>
+              <el-icon class="nav-item-arrow"><ArrowRight /></el-icon>
             </router-link>
           </div>
         </div>
       </nav>
+
+      <div class="sidebar-footer">
+        <router-link to="/visualize" class="sidebar-public-link">
+          <span>
+            <small>PUBLIC VIEW</small>
+            <strong>打开数据可视化</strong>
+          </span>
+          <el-icon><ArrowRight /></el-icon>
+        </router-link>
+      </div>
     </aside>
 
     <!-- 主内容区与页脚 -->
     <div :class="['app-content-wrapper', { 'full-width': !showSidebar, 'has-mobile-header': showSidebar }]">
-      <main :class="['app-main', { 'no-padding-main': isAnalyticsRoute }]">
+      <main id="admin-main-content" :class="['app-main', { 'no-padding-main': isAnalyticsRoute }]" tabindex="-1">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
@@ -75,12 +106,33 @@
 import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
-import { Menu } from '@element-plus/icons-vue';
+import {
+  ArrowRight,
+  Avatar,
+  Calendar,
+  Close,
+  Collection,
+  Connection,
+  DataAnalysis,
+  DataLine,
+  HomeFilled,
+  MapLocation,
+  Menu,
+  Monitor,
+  PictureFilled,
+  Setting,
+  Timer,
+  User,
+  View
+} from '@element-plus/icons-vue';
 
 export default {
   name: 'App',
   components: {
-    Menu
+    ArrowRight,
+    Close,
+    Menu,
+    View
   },
   setup() {
     const route = useRoute();
@@ -94,39 +146,39 @@ export default {
       {
         title: '总览中心',
         items: [
-          { to: '/dashboard', label: '全局总控' },
-          { to: '/visualize', label: '数据可视化' },
-          { to: '/analytics', label: '访问统计' }
+          { to: '/dashboard', label: '全局总控', icon: HomeFilled },
+          { to: '/visualize', label: '数据可视化', icon: DataAnalysis },
+          { to: '/analytics', label: '访问统计', icon: DataLine }
         ]
       },
       {
         title: '赛事管理',
         items: [
-          { to: '/data-manage/seasons', label: '赛季管理' },
-          { to: '/data-manage/matches', label: '比赛管理' },
-          { to: '/data-manage/season-visualize', label: '赛季可视化配置' }
+          { to: '/data-manage/seasons', label: '赛季管理', icon: Calendar },
+          { to: '/data-manage/matches', label: '比赛管理', icon: Timer },
+          { to: '/data-manage/season-visualize', label: '赛季可视化配置', icon: Monitor }
         ]
       },
       {
         title: '战队与选手',
         items: [
-          { to: '/data-manage/teams', label: '队伍管理' },
-          { to: '/data-manage/players', label: '选手管理' },
-          { to: '/data-manage/season-teams', label: '赛季-队伍关联' },
-          { to: '/data-manage/season-team-players', label: '赛季-队伍-选手关联' }
+          { to: '/data-manage/teams', label: '队伍管理', icon: Collection },
+          { to: '/data-manage/players', label: '选手管理', icon: User },
+          { to: '/data-manage/season-teams', label: '赛季-队伍关联', icon: Connection },
+          { to: '/data-manage/season-team-players', label: '赛季队员关联', icon: Avatar }
         ]
       },
       {
         title: '游戏资料',
         items: [
-          { to: '/data-manage/heroes', label: '英雄管理' },
-          { to: '/data-manage/maps', label: '地图管理' }
+          { to: '/data-manage/heroes', label: '英雄管理', icon: PictureFilled },
+          { to: '/data-manage/maps', label: '地图管理', icon: MapLocation }
         ]
       },
       {
         title: '系统配置',
         items: [
-          { to: '/data-manage/charts', label: '全局设置' }
+          { to: '/data-manage/charts', label: '全局设置', icon: Setting }
         ]
       }
     ];
@@ -139,6 +191,13 @@ export default {
 
     const isAnalyticsRoute = computed(() => {
       return route.path === '/analytics';
+    });
+
+    const activePageTitle = computed(() => {
+      const activeItem = sidebarGroups
+        .flatMap(group => group.items)
+        .find(item => item.to === route.path);
+      return activeItem?.label || 'OWCS Stats 管理后台';
     });
 
     const isBlankLayout = computed(() => {
@@ -158,11 +217,8 @@ export default {
     });
 
     const updateTheme = () => {
-      if (showSidebar.value) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.toggle('admin-theme', showSidebar.value);
     };
 
     const latestSyncTime = ref('获取中...');
@@ -201,6 +257,7 @@ export default {
       sidebarGroups,
       latestSyncTime,
       mobileSidebarOpen,
+      activePageTitle,
       isAnalyticsRoute,
       isVisualizeRoute,
       isVisualizeHome

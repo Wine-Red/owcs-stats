@@ -1,6 +1,27 @@
 <template>
   <div class="data-manage-container">
-    <h2 class="page-title">数据管理 - {{ pageTitleMap[activeTab] || '概览' }}</h2>
+    <header class="admin-page-hero vis-clip-notch">
+      <div class="admin-page-heading">
+        <div class="admin-page-kicker">
+          <span class="admin-slant-marker" aria-hidden="true"></span>
+          <span>{{ pageSectionMap[activeTab] || 'DATA OPERATIONS' }}</span>
+        </div>
+        <h1>{{ pageTitleMap[activeTab] || '数据管理' }}</h1>
+        <p>{{ pageDescriptionMap[activeTab] || '维护 OWCS Stats 的规范数据与展示配置。' }}</p>
+      </div>
+      <div class="admin-page-hero-actions">
+        <div class="admin-mode-chip">
+          <span class="admin-mode-dot" aria-hidden="true"></span>
+          管理模式
+        </div>
+        <router-link to="/visualize" class="admin-preview-link">
+          查看公开数据页
+          <el-icon><ArrowRight /></el-icon>
+        </router-link>
+      </div>
+    </header>
+
+    <section class="admin-workbench" :aria-label="pageTitleMap[activeTab] || '数据管理'">
 
     <!-- 图表管理 -->
     <div v-show="activeTab === 'charts'">
@@ -903,6 +924,8 @@
 
 
     
+    </section>
+
     <!-- 导入地图数据对话框 -->
     <el-dialog
       v-model="importDialogVisible"
@@ -1435,7 +1458,7 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
-  Search, Refresh, Edit, Delete, Plus, Download
+  ArrowRight, Search, Refresh, Edit, Delete, Plus, Download
 } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
@@ -1451,6 +1474,7 @@ export default {
   name: 'DataManage',
   components: {
     Search,
+    ArrowRight,
     Refresh,
     Edit,
     Delete,
@@ -1473,6 +1497,30 @@ export default {
       'season-team-players': '赛季-队伍-选手关联',
       'charts': '全局设置',
       'matches': '比赛管理'
+    };
+    const pageSectionMap = {
+      'seasons': 'COMPETITION STRUCTURE',
+      'season-visualize': 'PUBLIC PRESENTATION',
+      'teams': 'TEAM DIRECTORY',
+      'heroes': 'GAME CATALOG',
+      'maps': 'GAME CATALOG',
+      'players': 'PLAYER DIRECTORY',
+      'season-teams': 'ROSTER EVIDENCE',
+      'season-team-players': 'ROSTER EVIDENCE',
+      'charts': 'DISPLAY CONTROL',
+      'matches': 'MATCHWEB MIRROR'
+    };
+    const pageDescriptionMap = {
+      'seasons': '组织赛事、赛段与外部事件映射，控制公开页面的赛事顺序。',
+      'season-visualize': '配置公开数据页中的赛事标签、地图池、阶段与积分榜呈现。',
+      'teams': '维护队伍主名、同步别名和公开展示使用的 Logo。',
+      'heroes': '维护英雄名称、职责分类与公开页面图片资源。',
+      'maps': '维护地图名称、模式分类与公开页面横幅资源。',
+      'players': '按职责浏览和维护规范选手身份。',
+      'season-teams': '配置赛前参赛队伍，并查看比赛同步产生的关系证据。',
+      'season-team-players': '配置赛季阵容与替补，并查看比赛出场产生的关系证据。',
+      'charts': '控制公开数据页可见的数据模块，不影响底层比赛数据。',
+      'matches': '只读查看 Matchweb 同步结果、导出比赛并检查数据状态。'
     };
 
     const store = useStore();
@@ -3522,6 +3570,8 @@ export default {
     
     return {
       pageTitleMap,
+      pageSectionMap,
+      pageDescriptionMap,
       activeTab,
       syncing,
       syncExternalMatches,

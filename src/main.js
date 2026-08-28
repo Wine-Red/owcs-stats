@@ -25,6 +25,7 @@ import '@fontsource/oxanium/latin-600.css'
 import '@fontsource/oxanium/latin-700.css'
 import '@fontsource/oxanium/latin-800.css'
 import '@/styles/visualize-theme.css'
+import '@/styles/admin-theme.css'
 import { initAnalytics } from '@/utils/analytics'
 import { isEmbeddedWebView, readSafeAreaInsetTop } from '@/utils/embeddedWebView.mjs'
 

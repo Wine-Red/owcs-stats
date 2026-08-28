@@ -1,12 +1,25 @@
 <template>
   <div class="dashboard-container">
-    <div class="header-container">
-      <h2 class="page-title">系统仪表盘</h2>
-      <el-button :loading="syncing" @click="handleSync" class="sync-btn" color="#141414">
-        <el-icon><Refresh /></el-icon>
-        从API手动同步
-      </el-button>
-    </div>
+    <header class="admin-page-hero dashboard-hero vis-clip-notch">
+      <div class="admin-page-heading">
+        <div class="admin-page-kicker">
+          <span class="admin-slant-marker" aria-hidden="true"></span>
+          <span>OPERATIONS OVERVIEW</span>
+        </div>
+        <h1>系统总控</h1>
+        <p>快速检查数据规模、最近比赛和同步状态，再进入对应模块处理具体配置。</p>
+      </div>
+      <div class="admin-page-hero-actions">
+        <div class="admin-mode-chip">
+          <span class="admin-mode-dot" aria-hidden="true"></span>
+          数据镜像在线
+        </div>
+        <el-button :loading="syncing" @click="handleSync" class="sync-btn" type="primary">
+          <el-icon><Refresh /></el-icon>
+          从 API 手动同步
+        </el-button>
+      </div>
+    </header>
 
     <!-- 概览卡片 -->
     <div class="overview-cards">
