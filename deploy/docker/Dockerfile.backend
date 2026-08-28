@@ -10,7 +10,6 @@ RUN npm ci --omit=dev --no-audit --no-fund \
 COPY --chown=node:node backend/ ./
 COPY --chown=node:node dist/heroes/ ./legacy-assets/heroes/
 COPY --chown=node:node dist/maps/ ./legacy-assets/maps/
-COPY --chown=node:node dist/static-data/team-logos/ ./legacy-assets/static-data/team-logos/
 
 ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
