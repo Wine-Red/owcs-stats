@@ -14,6 +14,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      MEDIA_ROOT: /app/media
+    volumes:
+      - ./data/media:/app/media
     expose:
       - "3000"
     networks:
@@ -49,6 +52,8 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8081:80"
+    volumes:
+      - ./data/media:/srv/media:ro
     read_only: true
     tmpfs:
       - /var/cache/nginx:size=64m,mode=0755

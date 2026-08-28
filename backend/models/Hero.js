@@ -19,6 +19,10 @@ const Hero = sequelize.define('Hero', {
   subRole: {
     type: DataTypes.STRING,
     allowNull: true
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'heroes',

@@ -1,10 +1,17 @@
 const Hero = require('../models/Hero');
 
+const heroPayload = body => ({
+  name: body?.name,
+  role: body?.role,
+  subRole: body?.subRole || null,
+  ...(Object.prototype.hasOwnProperty.call(body || {}, 'image') ? { image: body.image || null } : {})
+});
+
 const HeroController = {
   // 获取所有英雄
   getAll: async (req, res) => {
     try {
-      const heroes = await Hero.findAll();
+      const heroes = await Hero.findAll({ order: [['role', 'ASC'], ['name', 'ASC']] });
       res.status(200).json(heroes);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -28,7 +35,7 @@ const HeroController = {
   // 创建英雄
   create: async (req, res) => {
     try {
-      const hero = await Hero.create(req.body);
+      const hero = await Hero.create(heroPayload(req.body));
       res.status(201).json(hero);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -43,7 +50,7 @@ const HeroController = {
       if (!hero) {
         return res.status(404).json({ error: 'Hero not found' });
       }
-      await hero.update(req.body);
+      await hero.update(heroPayload(req.body));
       res.status(200).json(hero);
     } catch (error) {
       res.status(400).json({ error: error.message });

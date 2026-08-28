@@ -184,7 +184,7 @@ export default {
           banRate: Number(item.banRate) || 0,
           winRate: Number(item.winRate) || 0,
           finalBlowsPer10: Number(item.finalBlowsPer10) || 0,
-          iconUrl: getHeroIconUrl(item.heroName),
+          iconUrl: getHeroIconUrl(item.heroName, store.state.heroes),
           iconFailed: false,
           players: null,
           playersLoading: false,

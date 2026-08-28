@@ -1,10 +1,16 @@
 const Map = require('../models/Map');
 
+const mapPayload = body => ({
+  name: body?.name,
+  type: body?.type,
+  ...(Object.prototype.hasOwnProperty.call(body || {}, 'image') ? { image: body.image || null } : {})
+});
+
 const MapController = {
   // 获取所有地图
   getAll: async (req, res) => {
     try {
-      const maps = await Map.findAll();
+      const maps = await Map.findAll({ order: [['type', 'ASC'], ['name', 'ASC']] });
       res.status(200).json(maps);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -28,7 +34,7 @@ const MapController = {
   // 创建地图
   create: async (req, res) => {
     try {
-      const map = await Map.create(req.body);
+      const map = await Map.create(mapPayload(req.body));
       res.status(201).json(map);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -43,7 +49,7 @@ const MapController = {
       if (!map) {
         return res.status(404).json({ error: 'Map not found' });
       }
-      await map.update(req.body);
+      await map.update(mapPayload(req.body));
       res.status(200).json(map);
     } catch (error) {
       res.status(400).json({ error: error.message });

@@ -38,9 +38,14 @@ app.use((req, res) => {
 });
 
 // 错误处理中间件
-app.use((err, req, res) => {
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  if (err?.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image exceeds the 8 MB limit' : err.message;
+    return res.status(400).json({ error: message });
+  }
+  if (err?.statusCode) return res.status(err.statusCode).json({ error: err.message });
   console.error(err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
+  return res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // 启动服务器

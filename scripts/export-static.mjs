@@ -26,6 +26,7 @@ if (productionMode && ['localhost', '127.0.0.1', '::1'].includes(apiUrl.hostname
 const publicRoot = path.resolve(projectRoot, 'public');
 const outputRoot = path.resolve(publicRoot, 'static-data');
 const logoRoot = path.join(outputRoot, 'team-logos');
+const entityMediaRoot = path.join(outputRoot, 'media');
 const STATIC_ASSET_TOKEN = '__OWCS_STATIC_BASE__/';
 const TBD_TEAM_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
 const CONCURRENCY = Math.max(
@@ -128,20 +129,22 @@ const extensionFor = (url, contentType) => {
   return '.img';
 };
 
-const downloadTeamLogos = async teams => {
+const downloadEntityMedia = async ({ items, field, category, outputDir, urlPrefix }) => {
   const replacements = new Map();
   const manifest = [];
 
-  await runPool(teams.map(team => async () => {
-    const sourceUrl = String(team?.logo || '').trim();
-    if (!/^https?:\/\//i.test(sourceUrl)) return;
+  await runPool(items.map(item => async () => {
+    const sourceUrl = String(item?.[field] || '').trim();
+    if (!sourceUrl) return;
 
     try {
+      const remoteUrl = new URL(sourceUrl, apiUrl.origin);
+      if (!['http:', 'https:'].includes(remoteUrl.protocol)) return;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30_000);
       let response;
       try {
-        response = await fetch(sourceUrl, {
+        response = await fetch(remoteUrl, {
           headers: { 'User-Agent': 'OWCS-Stats-Static-Exporter/1.0' },
           redirect: 'follow',
           signal: controller.signal
@@ -158,13 +161,13 @@ const downloadTeamLogos = async teams => {
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes.length > 5 * 1024 * 1024) throw new Error('图片超过 5 MB 限制');
 
-      const fileName = `team-${safeId(team.id)}${extensionFor(sourceUrl, contentType)}`;
-      await writeFile(path.join(logoRoot, fileName), bytes);
-      const localUrl = `${STATIC_ASSET_TOKEN}static-data/team-logos/${fileName}`;
+      const fileName = `${category}-${safeId(item.id)}${extensionFor(remoteUrl, contentType)}`;
+      await writeFile(path.join(outputDir, fileName), bytes);
+      const localUrl = `${STATIC_ASSET_TOKEN}${urlPrefix}/${fileName}`;
       replacements.set(sourceUrl, localUrl);
-      manifest.push({ teamId: team.id, sourceUrl, localUrl, bytes: bytes.length });
+      manifest.push({ entityId: item.id, sourceUrl, localUrl, bytes: bytes.length });
     } catch (error) {
-      warnings.push(`队伍 ${team.id} 图标下载失败 (${sourceUrl}): ${error.message}`);
+      warnings.push(`${category} ${item.id} 图片下载失败 (${sourceUrl}): ${error.message}`);
     }
   }));
 
@@ -186,7 +189,13 @@ const main = async () => {
   console.log(`[static-export] 模式：${productionMode ? 'production' : 'development'}`);
   console.log(`[static-export] 数据源：${API_BASE}`);
   await rm(outputRoot, { recursive: true, force: true });
-  await mkdir(logoRoot, { recursive: true });
+  const heroMediaRoot = path.join(entityMediaRoot, 'heroes');
+  const mapMediaRoot = path.join(entityMediaRoot, 'maps');
+  await Promise.all([
+    mkdir(logoRoot, { recursive: true }),
+    mkdir(heroMediaRoot, { recursive: true }),
+    mkdir(mapMediaRoot, { recursive: true })
+  ]);
 
   let serverSnapshot = null;
   if (!FORCE_LEGACY_EXPORT) {
@@ -359,10 +368,35 @@ const main = async () => {
     await runPool(matchTasks);
   }
 
-  const { replacements, manifest: logoManifest } = await downloadTeamLogos([
-    ...teams,
-    { id: 'tbd', logo: TBD_TEAM_LOGO_URL }
+  const [teamMedia, heroMedia, mapMedia] = await Promise.all([
+    downloadEntityMedia({
+      items: [...teams, { id: 'tbd', logo: TBD_TEAM_LOGO_URL }],
+      field: 'logo',
+      category: 'team',
+      outputDir: logoRoot,
+      urlPrefix: 'static-data/team-logos'
+    }),
+    downloadEntityMedia({
+      items: heroes,
+      field: 'image',
+      category: 'hero',
+      outputDir: heroMediaRoot,
+      urlPrefix: 'static-data/media/heroes'
+    }),
+    downloadEntityMedia({
+      items: maps,
+      field: 'image',
+      category: 'map',
+      outputDir: mapMediaRoot,
+      urlPrefix: 'static-data/media/maps'
+    })
   ]);
+  const replacements = new Map([
+    ...teamMedia.replacements,
+    ...heroMedia.replacements,
+    ...mapMedia.replacements
+  ]);
+  const logoManifest = teamMedia.manifest;
   const localizedResponses = replaceAssetUrls(responses, replacements);
   const snapshot = {
     schemaVersion: 1,
@@ -379,7 +413,9 @@ const main = async () => {
       matches: matches.length,
       mapGames: mapGames.length,
       responses: Object.keys(localizedResponses).length,
-      localizedTeamLogos: logoManifest.filter(item => item.teamId !== 'tbd').length
+      localizedTeamLogos: logoManifest.filter(item => item.entityId !== 'tbd').length,
+      localizedHeroImages: heroMedia.manifest.length,
+      localizedMapImages: mapMedia.manifest.length
     },
     responses: localizedResponses
   };
@@ -391,10 +427,12 @@ const main = async () => {
     exportMode: snapshot.exportMode,
     sourceApi: snapshot.sourceApi,
     warnings,
-    teamLogos: logoManifest
+    teamLogos: logoManifest,
+    heroImages: heroMedia.manifest,
+    mapImages: mapMedia.manifest
   }, null, 2));
 
-  console.log(`[static-export] 完成：${snapshot.counts.responses} 个接口快照，${snapshot.counts.localizedTeamLogos}/${teams.filter(team => /^https?:\/\//i.test(String(team.logo || ''))).length} 个队伍图标及本地 TBD 占位图已生成`);
+  console.log(`[static-export] 完成：${snapshot.counts.responses} 个接口快照，队伍 ${snapshot.counts.localizedTeamLogos}/${teams.filter(team => team.logo).length}，英雄 ${snapshot.counts.localizedHeroImages}/${heroes.filter(hero => hero.image).length}，地图 ${snapshot.counts.localizedMapImages}/${maps.filter(map => map.image).length} 张图片已本地化`);
   if (warnings.length) console.warn(`[static-export] ${warnings.length} 条警告，详见 public/static-data/manifest.json`);
 };
 

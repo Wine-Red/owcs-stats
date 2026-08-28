@@ -15,6 +15,10 @@ const Map = sequelize.define('Map', {
   type: {
     type: DataTypes.ENUM('机动推进', '运载目标', '占领要点', '攻击/护送', '闪点作战'),
     allowNull: false
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   tableName: 'maps',

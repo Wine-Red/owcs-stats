@@ -630,7 +630,7 @@ export default {
           byHero.set(key, {
             heroId: r.heroId != null ? Number(r.heroId) : null,
             heroName,
-            iconUrl: getHeroIconUrl(heroName),
+            iconUrl: getHeroIconUrl(heroName, store.state.heroes),
             iconFailed: false,
             usageSeconds: 0,
             finalBlows: 0,
@@ -887,7 +887,7 @@ export default {
           side: 'team1',
           teamLogo: queryParams.value.team1Logo,
           heroName: mg.team1BanHero.name,
-          iconUrl: getHeroIconUrl(mg.team1BanHero.name)
+          iconUrl: getHeroIconUrl(mg.team1BanHero, store.state.heroes)
         });
       }
       if (mg.team2BanHero) {
@@ -895,7 +895,7 @@ export default {
           side: 'team2',
           teamLogo: queryParams.value.team2Logo,
           heroName: mg.team2BanHero.name,
-          iconUrl: getHeroIconUrl(mg.team2BanHero.name)
+          iconUrl: getHeroIconUrl(mg.team2BanHero, store.state.heroes)
         });
       }
       return chips;

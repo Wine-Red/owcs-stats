@@ -79,6 +79,17 @@ const apiService = {
   updateHero: (id, data) => api.put(`/heroes/${id}`, data),
   deleteHero: (id) => api.delete(`/heroes/${id}`),
 
+  // 媒体资源（上传后由后端直接关联到对应实体）
+  uploadMedia: (category, id, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post(`/media/${category}/${id}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    });
+  },
+  clearMedia: (category, id) => api.delete(`/media/${category}/${id}`),
+
   // 比赛相关
   getUpcomingMatches: () => api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),

@@ -483,6 +483,90 @@ const store = createStore({
         commit('setLoading', false);
       }
     },
+
+    // 地图 CRUD 操作
+    async createMap({ commit }, mapData) {
+      commit('setLoading', true);
+      try {
+        const map = await apiService.createMap(mapData);
+        commit('setMaps', await apiService.getMaps());
+        return map;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    async updateMap({ commit }, { id, mapData }) {
+      commit('setLoading', true);
+      try {
+        const map = await apiService.updateMap(id, mapData);
+        commit('setMaps', await apiService.getMaps());
+        return map;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    async deleteMap({ commit }, id) {
+      commit('setLoading', true);
+      try {
+        await apiService.deleteMap(id);
+        commit('setMaps', await apiService.getMaps());
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    // 英雄 CRUD 操作
+    async createHero({ commit }, heroData) {
+      commit('setLoading', true);
+      try {
+        const hero = await apiService.createHero(heroData);
+        commit('setHeroes', await apiService.getHeroes());
+        return hero;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    async updateHero({ commit }, { id, heroData }) {
+      commit('setLoading', true);
+      try {
+        const hero = await apiService.updateHero(id, heroData);
+        commit('setHeroes', await apiService.getHeroes());
+        return hero;
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
+
+    async deleteHero({ commit }, id) {
+      commit('setLoading', true);
+      try {
+        await apiService.deleteHero(id);
+        commit('setHeroes', await apiService.getHeroes());
+      } catch (error) {
+        commit('setError', error.message);
+        throw error;
+      } finally {
+        commit('setLoading', false);
+      }
+    },
     
     // 选手CRUD操作
     async createPlayer({ commit }, playerData) {

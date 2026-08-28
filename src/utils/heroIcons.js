@@ -1,4 +1,6 @@
-// DB 英雄名 → public/heroes/illustrated/ 文件 slug
+import { resolveMediaUrl } from './media';
+
+// DB 英雄名 → public/heroes/illustrated/ 文件 slug（仅作为未配置图片时的兼容回退）
 export const HERO_SLUG_BY_NAME = {
   '毛加': 'mauga', '奥丽莎': 'orisa', '路霸': 'roadhog', '查莉娅': 'zarya',
   'D.Va': 'dva', '末日铁拳': 'doomfist', '温斯顿': 'winston', '破坏球': 'wrecking-ball',
@@ -16,7 +18,13 @@ export const HERO_SLUG_BY_NAME = {
   '瑞稀': 'mizuki', '无漾': 'wuyang'
 };
 
-export const getHeroIconUrl = (heroName) => {
+export const getHeroIconUrl = (heroOrName, heroRecords = []) => {
+  const hero = typeof heroOrName === 'object' && heroOrName
+    ? heroOrName
+    : heroRecords.find(item => item?.name === heroOrName);
+  if (hero?.image) return resolveMediaUrl(hero.image);
+
+  const heroName = hero?.name || heroOrName;
   if (!heroName) return '';
   const slug = HERO_SLUG_BY_NAME[heroName];
   if (!slug) return '';

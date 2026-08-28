@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from './media';
+
 export const typeFolderMap = {
   '占领要点': 'control',
   '运载目标': 'escort',
@@ -75,6 +77,7 @@ export const fileMap = {
 
 export const getMapImageUrl = (map) => {
   if (!map) return '';
+  if (map.image) return resolveMediaUrl(map.image);
   const baseUrl = import.meta.env.BASE_URL.endsWith('/')
     ? import.meta.env.BASE_URL
     : `${import.meta.env.BASE_URL}/`;

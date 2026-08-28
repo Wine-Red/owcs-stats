@@ -17,6 +17,7 @@ deploy_root="/opt/compose/owcs-stats"
 releases_root="$deploy_root/releases"
 upload_root="$deploy_root/ci-upload"
 state_root="$deploy_root/.deploy-state"
+media_root="$deploy_root/data/media"
 lock_file="$state_root/deploy.lock"
 prepared_marker="$state_root/prepared-$deploy_sha"
 candidate_dir="$upload_root/$deploy_sha"
@@ -48,6 +49,9 @@ test -s "$deploy_root/.env" || {
 }
 
 install -d -m 0750 "$releases_root" "$state_root"
+install -d -m 0755 -o 1000 -g 1000 "$media_root"
+install -d -m 0755 -o 1000 -g 1000 "$media_root/teams" "$media_root/heroes" "$media_root/maps"
+install -d -m 0750 -o 1000 -g 1000 "$media_root/.migration-reports"
 install -d -m 0750 -o "$ci_user" -g "$ci_group" "$upload_root"
 exec 9>"$lock_file"
 if ! flock -n 9; then

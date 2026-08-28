@@ -117,6 +117,13 @@ export default {
         ]
       },
       {
+        title: '游戏资料',
+        items: [
+          { to: '/data-manage/heroes', label: '英雄管理' },
+          { to: '/data-manage/maps', label: '地图管理' }
+        ]
+      },
+      {
         title: '系统配置',
         items: [
           { to: '/data-manage/charts', label: '全局设置' }

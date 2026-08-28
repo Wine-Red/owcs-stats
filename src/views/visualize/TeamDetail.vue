@@ -412,8 +412,8 @@ export default {
     };
 
     const getCompHeroIcon = (heroId) => {
-      const name = getCompHero(heroId)?.name;
-      return name ? getHeroIconUrl(name) : '';
+      const hero = getCompHero(heroId);
+      return hero ? getHeroIconUrl(hero) : '';
     };
 
     const getCompHeroRole = (heroId) => getCompHero(heroId)?.role || '';

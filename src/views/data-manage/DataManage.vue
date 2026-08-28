@@ -546,6 +546,7 @@
           <div class="card-header">
             <div class="header-title-with-tabs">
               <span>队伍列表</span>
+              <span class="asset-coverage">图片 {{ getMediaCoverage(teams, 'logo') }}</span>
               <div v-if="groupedTeamsByRegion.length > 0" class="management-tabs-header management-tabs-inline">
                 <button
                   v-for="group in groupedTeamsByRegion"
@@ -572,8 +573,23 @@
             style="width: 100%"
             border
           >
+            <el-table-column label="Logo" width="108" align="center">
+              <template #default="scope">
+                <div class="asset-cell asset-cell--logo">
+                  <img v-if="scope.row.logo" :src="resolveMediaUrl(scope.row.logo)" :alt="scope.row.name" />
+                  <span v-else>无图片</span>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="name" label="队伍名称" min-width="220" />
             <el-table-column prop="region" label="地区" width="160" />
+            <el-table-column label="资源状态" width="110" align="center">
+              <template #default="scope">
+                <el-tag :type="mediaSourceState(scope.row.logo).type" size="small">
+                  {{ mediaSourceState(scope.row.logo).label }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
               <template #default="scope">
                 <div class="action-buttons">
@@ -590,6 +606,131 @@
             </el-table-column>
           </el-table>
         </div>
+      </el-card>
+    </div>
+
+    <!-- 英雄管理 -->
+    <div v-show="activeTab === 'heroes'">
+      <el-card class="data-card list-card">
+        <template #header>
+          <div class="card-header">
+            <div class="header-title-with-tabs">
+              <span>英雄资料</span>
+              <span class="asset-coverage">图片 {{ getMediaCoverage(heroes, 'image') }}</span>
+              <div v-if="groupedHeroesForManagement.length" class="management-tabs-header management-tabs-inline">
+                <button
+                  v-for="group in groupedHeroesForManagement"
+                  :key="`hero-management-${group.role}`"
+                  class="management-tab"
+                  :class="{ active: activeHeroRole === group.role }"
+                  @click="activeHeroRole = group.role"
+                >
+                  {{ getRoleText(group.role) }}
+                  <span class="management-tab-count">{{ group.heroes.length }}</span>
+                </button>
+              </div>
+            </div>
+            <el-button type="primary" @click="addHero">
+              <el-icon><Plus /></el-icon>
+              添加英雄
+            </el-button>
+          </div>
+        </template>
+        <el-table v-if="currentHeroRoleGroup" v-loading="loading" :data="currentHeroRoleGroup.heroes" border>
+          <el-table-column label="图片" width="108" align="center">
+            <template #default="scope">
+              <div class="asset-cell asset-cell--hero">
+                <img v-if="scope.row.image" :src="resolveMediaUrl(scope.row.image)" :alt="scope.row.name" />
+                <span v-else>无图片</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="英雄名称" min-width="180" />
+          <el-table-column label="职责" width="120">
+            <template #default="scope">{{ getRoleText(scope.row.role) }}</template>
+          </el-table-column>
+          <el-table-column prop="subRole" label="子职责" width="140" />
+          <el-table-column label="资源状态" width="110" align="center">
+            <template #default="scope">
+              <el-tag :type="mediaSourceState(scope.row.image).type" size="small">
+                {{ mediaSourceState(scope.row.image).label }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
+            <template #default="scope">
+              <div class="action-buttons">
+                <el-button type="primary" size="small" @click="editHero(scope.row)">
+                  <el-icon><Edit /></el-icon><span v-if="!isMobile">编辑</span>
+                </el-button>
+                <el-button type="danger" size="small" @click="deleteHero(scope.row.id)">
+                  <el-icon><Delete /></el-icon><span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </div>
+
+    <!-- 地图管理 -->
+    <div v-show="activeTab === 'maps'">
+      <el-card class="data-card list-card">
+        <template #header>
+          <div class="card-header">
+            <div class="header-title-with-tabs">
+              <span>地图资料</span>
+              <span class="asset-coverage">图片 {{ getMediaCoverage(maps, 'image') }}</span>
+              <div v-if="groupedMapsForManagement.length" class="management-tabs-header management-tabs-inline">
+                <button
+                  v-for="group in groupedMapsForManagement"
+                  :key="`map-management-${group.type}`"
+                  class="management-tab"
+                  :class="{ active: activeCatalogMapType === group.type }"
+                  @click="activeCatalogMapType = group.type"
+                >
+                  {{ group.type }}
+                  <span class="management-tab-count">{{ group.maps.length }}</span>
+                </button>
+              </div>
+            </div>
+            <el-button type="primary" @click="addMap">
+              <el-icon><Plus /></el-icon>
+              添加地图
+            </el-button>
+          </div>
+        </template>
+        <el-table v-if="currentMapTypeGroup" v-loading="loading" :data="currentMapTypeGroup.maps" border>
+          <el-table-column label="图片" width="170" align="center">
+            <template #default="scope">
+              <div class="asset-cell asset-cell--map">
+                <img v-if="scope.row.image" :src="resolveMediaUrl(scope.row.image)" :alt="scope.row.name" />
+                <span v-else>无图片</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="地图名称" min-width="220" />
+          <el-table-column prop="type" label="地图模式" width="160" />
+          <el-table-column label="资源状态" width="110" align="center">
+            <template #default="scope">
+              <el-tag :type="mediaSourceState(scope.row.image).type" size="small">
+                {{ mediaSourceState(scope.row.image).label }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
+            <template #default="scope">
+              <div class="action-buttons">
+                <el-button type="primary" size="small" @click="editMap(scope.row)">
+                  <el-icon><Edit /></el-icon><span v-if="!isMobile">编辑</span>
+                </el-button>
+                <el-button type="danger" size="small" @click="deleteMap(scope.row.id)">
+                  <el-icon><Delete /></el-icon><span v-if="!isMobile">删除</span>
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-card>
     </div>
 
@@ -805,11 +946,68 @@
         <el-form-item label="地区" prop="region">
           <el-input v-model="editForm.region" placeholder="请输入队伍地区" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="Logo" prop="logo">
-          <el-input v-model="editForm.logo" placeholder="请输入队伍Logo URL" style="width: 100%" />
+        <el-form-item label="队伍 Logo">
+          <media-upload-field
+            :model-value="editForm.logo"
+            :entity-name="editForm.name || '新队伍'"
+            variant="logo"
+            @file-change="handleMediaFileChange"
+            @clear="handleMediaClear"
+          />
         </el-form-item>
       </el-form>
     </div>
+
+      <!-- 英雄编辑 -->
+      <div v-if="dialogType === 'hero'">
+        <el-form :model="editForm" :rules="heroRules" ref="editFormRef" label-width="120px">
+          <el-form-item label="英雄名称" prop="name">
+            <el-input v-model="editForm.name" placeholder="请输入英雄名称" />
+          </el-form-item>
+          <el-form-item label="职责" prop="role">
+            <el-select v-model="editForm.role" placeholder="请选择职责" style="width: 100%">
+              <el-option label="重装" value="tank" />
+              <el-option label="输出" value="damage" />
+              <el-option label="支援" value="support" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="子职责" prop="subRole">
+            <el-input v-model="editForm.subRole" placeholder="例如：先锋、神准、战术" />
+          </el-form-item>
+          <el-form-item label="英雄图片">
+            <media-upload-field
+              :model-value="editForm.image"
+              :entity-name="editForm.name || '新英雄'"
+              variant="logo"
+              @file-change="handleMediaFileChange"
+              @clear="handleMediaClear"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- 地图编辑 -->
+      <div v-if="dialogType === 'map'">
+        <el-form :model="editForm" :rules="mapRules" ref="editFormRef" label-width="120px">
+          <el-form-item label="地图名称" prop="name">
+            <el-input v-model="editForm.name" placeholder="请输入地图名称" />
+          </el-form-item>
+          <el-form-item label="地图模式" prop="type">
+            <el-select v-model="editForm.type" placeholder="请选择地图模式" style="width: 100%">
+              <el-option v-for="type in MAP_TYPE_ORDER" :key="type" :label="type" :value="type" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="地图图片">
+            <media-upload-field
+              :model-value="editForm.image"
+              :entity-name="editForm.name || '新地图'"
+              variant="banner"
+              @file-change="handleMediaFileChange"
+              @clear="handleMediaClear"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
       
       <!-- 选手编辑 -->
       <div v-if="dialogType === 'player'">
@@ -1223,6 +1421,8 @@ import {
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
 import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
+import MediaUploadField from './components/MediaUploadField.vue';
+import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
   isValidLiquipediaTournamentUrl,
   normalizeLiquipediaTournamentUrl
@@ -1239,7 +1439,8 @@ export default {
     Upload,
     Download,
     MapDataImport,
-    PlayerStatsEditor
+    PlayerStatsEditor,
+    MediaUploadField
   },
   setup() {
     // 页面标题映射
@@ -1247,6 +1448,8 @@ export default {
       'seasons': '赛季管理',
       'season-visualize': '赛季可视化配置',
       'teams': '队伍管理',
+      'heroes': '英雄管理',
+      'maps': '地图管理',
       'players': '选手管理',
       'season-teams': '赛季-队伍关联',
       'season-team-players': '赛季-队伍-选手关联',
@@ -1730,6 +1933,8 @@ export default {
     const activeMapType = ref('');
     const activeSeasonStage = ref('');
     const activeTeamRegion = ref('');
+    const activeHeroRole = ref('tank');
+    const activeCatalogMapType = ref('');
 
     const availableVisualCopySeasons = computed(() => {
       const currentSeasonId = Number(seasonVisualForm.value.seasonId);
@@ -1820,6 +2025,8 @@ export default {
     const dialogType = ref('season');
     const editForm = ref({});
     const editFormRef = ref(null);
+    const pendingMediaFile = ref(null);
+    const clearMediaOnSave = ref(false);
     
 
     
@@ -1835,6 +2042,16 @@ export default {
     const teamRules = {
       name: [{ required: true, message: '请输入队伍名称', trigger: 'blur' }],
       region: [{ required: true, message: '请输入队伍地区', trigger: 'blur' }]
+    };
+
+    const heroRules = {
+      name: [{ required: true, message: '请输入英雄名称', trigger: 'blur' }],
+      role: [{ required: true, message: '请选择职责', trigger: 'change' }]
+    };
+
+    const mapRules = {
+      name: [{ required: true, message: '请输入地图名称', trigger: 'blur' }],
+      type: [{ required: true, message: '请选择地图模式', trigger: 'change' }]
     };
     
     // 选手验证规则
@@ -2080,6 +2297,24 @@ export default {
 
     const maps = computed(() => store.state.maps);
     const heroes = computed(() => store.state.heroes);
+
+    const getMediaCoverage = (items, field) => {
+      const list = Array.isArray(items) ? items : [];
+      return `${list.filter(item => String(item?.[field] || '').trim()).length}/${list.length}`;
+    };
+
+    const groupedHeroesForManagement = computed(() => ['tank', 'damage', 'support']
+      .map(role => ({
+        role,
+        heroes: heroes.value
+          .filter(hero => hero.role === role)
+          .sort((a, b) => sortText(a.name, b.name))
+      }))
+      .filter(group => group.heroes.length > 0));
+
+    const currentHeroRoleGroup = computed(() => groupedHeroesForManagement.value
+      .find(group => group.role === activeHeroRole.value) || groupedHeroesForManagement.value[0] || null);
+
     const groupedMapsForSelect = computed(() => {
       const grouped = new Map(MAP_TYPE_ORDER.map(type => [type, []]));
       maps.value.forEach(map => {
@@ -2098,6 +2333,22 @@ export default {
         }))
         .filter(group => group.maps.length > 0);
     });
+
+    const groupedMapsForManagement = groupedMapsForSelect;
+    const currentMapTypeGroup = computed(() => groupedMapsForManagement.value
+      .find(group => group.type === activeCatalogMapType.value) || groupedMapsForManagement.value[0] || null);
+
+    watch(groupedHeroesForManagement, groups => {
+      if (!groups.some(group => group.role === activeHeroRole.value)) {
+        activeHeroRole.value = groups[0]?.role || 'tank';
+      }
+    }, { immediate: true });
+
+    watch(groupedMapsForManagement, groups => {
+      if (!groups.some(group => group.type === activeCatalogMapType.value)) {
+        activeCatalogMapType.value = groups[0]?.type || '';
+      }
+    }, { immediate: true });
 
     const handleMapPoolDropdownVisible = (visible) => {
       if (!visible) return;
@@ -2815,6 +3066,7 @@ export default {
     
     // 添加队伍
     const addTeam = () => {
+      resetMediaDraft();
       dialogTitle.value = '添加队伍';
       dialogType.value = 'team';
       editForm.value = {
@@ -2827,10 +3079,43 @@ export default {
     
     // 编辑队伍
     const editTeam = (team) => {
+      resetMediaDraft();
       dialogTitle.value = '编辑队伍';
       dialogType.value = 'team';
       // 深拷贝队伍数据
       editForm.value = JSON.parse(JSON.stringify(team));
+      dialogVisible.value = true;
+    };
+
+    const addHero = () => {
+      resetMediaDraft();
+      dialogTitle.value = '添加英雄';
+      dialogType.value = 'hero';
+      editForm.value = { name: '', role: activeHeroRole.value || 'tank', subRole: '', image: '' };
+      dialogVisible.value = true;
+    };
+
+    const editHero = hero => {
+      resetMediaDraft();
+      dialogTitle.value = '编辑英雄';
+      dialogType.value = 'hero';
+      editForm.value = JSON.parse(JSON.stringify(hero));
+      dialogVisible.value = true;
+    };
+
+    const addMap = () => {
+      resetMediaDraft();
+      dialogTitle.value = '添加地图';
+      dialogType.value = 'map';
+      editForm.value = { name: '', type: activeCatalogMapType.value || MAP_TYPE_ORDER[0], image: '' };
+      dialogVisible.value = true;
+    };
+
+    const editMap = map => {
+      resetMediaDraft();
+      dialogTitle.value = '编辑地图';
+      dialogType.value = 'map';
+      editForm.value = JSON.parse(JSON.stringify(map));
       dialogVisible.value = true;
     };
     
@@ -2905,6 +3190,78 @@ export default {
       
       dialogVisible.value = true;
     };
+
+    const resetMediaDraft = () => {
+      pendingMediaFile.value = null;
+      clearMediaOnSave.value = false;
+    };
+
+    const handleMediaFileChange = file => {
+      pendingMediaFile.value = file || null;
+      if (file) clearMediaOnSave.value = false;
+    };
+
+    const handleMediaClear = () => {
+      pendingMediaFile.value = null;
+      clearMediaOnSave.value = true;
+      if (dialogType.value === 'team') editForm.value.logo = '';
+      if (dialogType.value === 'hero' || dialogType.value === 'map') editForm.value.image = '';
+    };
+
+    const catalogMediaConfig = {
+      team: {
+        category: 'teams',
+        imageField: 'logo',
+        createAction: 'createTeam',
+        updateAction: 'updateTeam',
+        dataKey: 'teamData',
+        label: '队伍'
+      },
+      hero: {
+        category: 'heroes',
+        imageField: 'image',
+        createAction: 'createHero',
+        updateAction: 'updateHero',
+        dataKey: 'heroData',
+        label: '英雄'
+      },
+      map: {
+        category: 'maps',
+        imageField: 'image',
+        createAction: 'createMap',
+        updateAction: 'updateMap',
+        dataKey: 'mapData',
+        label: '地图'
+      }
+    };
+
+    const saveCatalogEntity = async type => {
+      const config = catalogMediaConfig[type];
+      const payload = { ...editForm.value };
+      delete payload[config.imageField];
+
+      let entity;
+      if (editForm.value.id) {
+        entity = await store.dispatch(config.updateAction, {
+          id: editForm.value.id,
+          [config.dataKey]: payload
+        });
+      } else {
+        entity = await store.dispatch(config.createAction, payload);
+        editForm.value.id = entity.id;
+      }
+
+      const entityId = entity?.id || editForm.value.id;
+      if (pendingMediaFile.value) {
+        await apiService.uploadMedia(config.category, entityId, pendingMediaFile.value);
+      } else if (clearMediaOnSave.value) {
+        await apiService.clearMedia(config.category, entityId);
+      }
+
+      await store.dispatch('loadBaseData');
+      resetMediaDraft();
+      ElMessage.success(`${config.label}数据保存成功`);
+    };
     
     // 保存编辑
     const saveEdit = async () => {
@@ -2942,18 +3299,13 @@ export default {
                 await store.dispatch('loadBaseData');
                 break;
               case 'team':
-                if (editForm.value.id) {
-                  await store.dispatch('updateTeam', {
-                    id: editForm.value.id,
-                    teamData: editForm.value
-                  });
-                  ElMessage.success('队伍数据更新成功');
-                } else {
-                  await store.dispatch('createTeam', editForm.value);
-                  ElMessage.success('队伍数据添加成功');
-                }
-                // 重新加载队伍数据
-                await store.dispatch('loadBaseData');
+                await saveCatalogEntity('team');
+                break;
+              case 'hero':
+                await saveCatalogEntity('hero');
+                break;
+              case 'map':
+                await saveCatalogEntity('map');
                 break;
               case 'player':
                 if (editForm.value.id) {
@@ -3066,6 +3418,40 @@ export default {
         }
       }
     };
+
+    const deleteHero = async id => {
+      try {
+        await ElMessageBox.confirm('确定要删除这个英雄吗？此操作不可恢复。', '警告', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        await store.dispatch('deleteHero', id);
+        ElMessage.success('英雄删除成功');
+        await store.dispatch('loadBaseData');
+      } catch (error) {
+        if (error !== 'cancel') {
+          ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
+        }
+      }
+    };
+
+    const deleteMap = async id => {
+      try {
+        await ElMessageBox.confirm('确定要删除这张地图吗？此操作不可恢复。', '警告', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        await store.dispatch('deleteMap', id);
+        ElMessage.success('地图删除成功');
+        await store.dispatch('loadBaseData');
+      } catch (error) {
+        if (error !== 'cancel') {
+          ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message));
+        }
+      }
+    };
     
     // 删除选手
     const deletePlayer = async (id) => {
@@ -3159,6 +3545,8 @@ export default {
       editFormRef,
       seasonRules,
       teamRules,
+      heroRules,
+      mapRules,
       playerRules,
       seasonTeamRules,
       seasonTeamPlayerRules,
@@ -3200,6 +3588,10 @@ export default {
       editSeason,
       addTeam,
       editTeam,
+      addHero,
+      editHero,
+      addMap,
+      editMap,
       addPlayer,
       editPlayer,
       addSeasonTeam,
@@ -3209,6 +3601,8 @@ export default {
       resetMapGameEditForm,
       deleteSeason,
       deleteTeam,
+      deleteHero,
+      deleteMap,
       deletePlayer,
       deleteSeasonTeam,
       deleteSeasonTeamPlayer,
@@ -3259,6 +3653,18 @@ export default {
       groupedTeamsByRegion,
       currentTeamRegionGroup,
       activeTeamRegion,
+      groupedHeroesForManagement,
+      currentHeroRoleGroup,
+      activeHeroRole,
+      groupedMapsForManagement,
+      currentMapTypeGroup,
+      activeCatalogMapType,
+      MAP_TYPE_ORDER,
+      getMediaCoverage,
+      mediaSourceState,
+      resolveMediaUrl,
+      handleMediaFileChange,
+      handleMediaClear,
       moveSeasonOrder,
       saveVisualizeSeasonOrderConfig,
       seasonOrderSaving,
@@ -3574,6 +3980,48 @@ export default {
   gap: 16px;
   min-width: 0;
   flex: 1;
+}
+
+.asset-coverage {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid #3b3b3b;
+  border-radius: 999px;
+  color: #a3a3a3;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.asset-cell {
+  display: grid;
+  place-items: center;
+  margin: 4px auto;
+  overflow: hidden;
+  border: 1px solid #343434;
+  background: #151515;
+  color: #737373;
+  font-size: 11px;
+}
+
+.asset-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.asset-cell--logo,
+.asset-cell--hero {
+  width: 68px;
+  height: 58px;
+}
+
+.asset-cell--map {
+  width: 132px;
+  height: 70px;
+}
+
+.asset-cell--map img {
+  object-fit: cover;
 }
 
 .management-tabs-inline {

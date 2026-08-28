@@ -273,7 +273,7 @@ export default {
                   return {
                     heroId: Number(heroId),
                     heroName,
-                    iconUrl: getHeroIconUrl(heroName),
+                    iconUrl: getHeroIconUrl(hero || heroName, store.state.heroes),
                     iconFailed: false
                   };
                 });

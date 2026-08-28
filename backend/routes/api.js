@@ -16,6 +16,7 @@ const seasonTeamPlayerRoutes = require('./season-team-players');
 const seasonStatRoutes = require('./season-stats');
 const configRoutes = require('./config');
 const staticExportRoutes = require('./static-export');
+const mediaRoutes = require('./media');
 
 // 注册路由
 router.use('/seasons', seasonRoutes);
@@ -32,5 +33,6 @@ router.use('/season-team-players', seasonTeamPlayerRoutes);
 router.use('/season-stats', seasonStatRoutes);
 router.use('/config', configRoutes);
 router.use('/static-export', staticExportRoutes);
+router.use('/media', mediaRoutes);
 
 module.exports = router;

@@ -58,6 +58,9 @@ jobs:
         run: |
           node --check backend/app.js
           node --check backend/database/index.js
+          node --check backend/controllers/MediaController.js
+          node --check backend/services/MediaStorageService.js
+          node --check backend/scripts/migrate-media-assets.js
           node --check backend/services/IncrementalMatchSyncService.js
 
       - name: Upload Production Frontend

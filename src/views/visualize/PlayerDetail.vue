@@ -447,8 +447,8 @@ export default {
     const getHero = heroId => store.state.heroes.find(hero => String(hero.id) === String(heroId)) || null;
     const getHeroName = heroId => getHero(heroId)?.name || '未知英雄';
     const getHeroIcon = heroId => {
-      const name = getHero(heroId)?.name;
-      return name ? getHeroIconUrl(name) : '';
+      const hero = getHero(heroId);
+      return hero ? getHeroIconUrl(hero) : '';
     };
     const markHeroIconFailed = heroId => {
       const next = new Set(failedHeroIcons.value);

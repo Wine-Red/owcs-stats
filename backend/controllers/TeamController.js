@@ -9,6 +9,12 @@ const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 
+const teamPayload = body => ({
+  name: body?.name,
+  region: body?.region,
+  ...(Object.prototype.hasOwnProperty.call(body || {}, 'logo') ? { logo: body.logo || null } : {})
+});
+
 const deletePlayerStats = async (where, transaction) => {
   const stats = await PlayerStat.findAll({ where, attributes: ['id'], transaction });
   const statIds = stats.map(stat => stat.id);
@@ -25,7 +31,7 @@ const TeamController = {
   // 获取所有队伍
   getAll: async (req, res) => {
     try {
-      const teams = await Team.findAll();
+      const teams = await Team.findAll({ order: [['name', 'ASC']] });
       res.status(200).json(teams);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -49,7 +55,7 @@ const TeamController = {
   // 创建队伍
   create: async (req, res) => {
     try {
-      const team = await Team.create(req.body);
+      const team = await Team.create(teamPayload(req.body));
       res.status(201).json(team);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -64,7 +70,7 @@ const TeamController = {
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });
       }
-      await team.update(req.body);
+      await team.update(teamPayload(req.body));
       res.status(200).json(team);
     } catch (error) {
       res.status(400).json({ error: error.message });
