@@ -17,6 +17,7 @@ for file in owcs-stats-deploy.sh owcs-stats-ci-entrypoint.sh compose.yaml id_ed2
 done
 bash -n "$bootstrap_dir/owcs-stats-deploy.sh"
 bash -n "$bootstrap_dir/owcs-stats-ci-entrypoint.sh"
+test -x /usr/bin/rrsync
 
 install -m 0755 "$bootstrap_dir/owcs-stats-deploy.sh" /usr/local/sbin/owcs-stats-deploy
 install -m 0755 "$bootstrap_dir/owcs-stats-ci-entrypoint.sh" /usr/local/bin/owcs-stats-ci-entrypoint
@@ -51,6 +52,7 @@ usermod --lock "$ci_user"
 ci_group=$(id -gn "$ci_user")
 install -d -m 0750 -o "$ci_user" -g "$ci_group" "$ci_home"
 install -d -m 0700 -o "$ci_user" -g "$ci_group" "$ci_home/.ssh"
+install -d -m 0750 -o "$ci_user" -g "$ci_group" "$deploy_root/ci-upload"
 
 public_key=$(<"$bootstrap_dir/id_ed25519.pub")
 if [[ ! "$public_key" =~ ^ssh-ed25519\  ]]; then

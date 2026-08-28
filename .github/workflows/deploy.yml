@@ -59,6 +59,14 @@ jobs:
           node --check backend/database/index.js
           node --check backend/services/IncrementalMatchSyncService.js
 
+      - name: Upload Production Frontend
+        uses: actions/upload-artifact@v4
+        with:
+          name: owcs-stats-frontend-${{ github.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
+
   deploy:
     name: Build and activate on Tencent
     needs: validate
@@ -72,6 +80,12 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Download validated frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: owcs-stats-frontend-${{ github.sha }}
+          path: dist
+
       - name: Configure restricted SSH key
         env:
           DEPLOY_KEY: ${{ secrets.OWCS_STATS_DEPLOY_KEY }}
@@ -82,18 +96,47 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/owcs_stats_deploy ~/.ssh/known_hosts
 
-      - name: Stream immutable Git release to production
+      - name: Prepare and synchronize release candidate
         env:
           DEPLOY_HOST: ${{ secrets.OWCS_STATS_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.OWCS_STATS_DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.OWCS_STATS_DEPLOY_USER }}
         run: |
-          git archive --format=tar.gz "$GITHUB_SHA" \
-            | ssh -i ~/.ssh/owcs_stats_deploy \
-                -p "$DEPLOY_PORT" \
-                -o BatchMode=yes \
-                -o IdentitiesOnly=yes \
-                -o ServerAliveInterval=20 \
-                -o ServerAliveCountMax=15 \
-                "$DEPLOY_USER@$DEPLOY_HOST" \
-                "deploy $GITHUB_SHA"
+          release_dir="$RUNNER_TEMP/owcs-stats-release"
+          install -d "$release_dir"
+          cp -a backend deploy dist .dockerignore "$release_dir/"
+          printf '%s\n' "$GITHUB_SHA" > "$release_dir/.release-sha"
+
+          ssh -i ~/.ssh/owcs_stats_deploy \
+              -p "$DEPLOY_PORT" \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ServerAliveInterval=20 \
+              -o ServerAliveCountMax=15 \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "prepare $GITHUB_SHA"
+
+          export RSYNC_RSH="ssh -i ~/.ssh/owcs_stats_deploy -p $DEPLOY_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=15"
+          rsync --archive --checksum --compress --delete --delete-excluded \
+              --exclude='.env' \
+              --exclude='.env.*' \
+              --exclude='node_modules' \
+              --exclude='*.log' \
+              --stats \
+              "$release_dir/" \
+              "$DEPLOY_USER@$DEPLOY_HOST:$GITHUB_SHA/"
+
+      - name: Activate verified release
+        env:
+          DEPLOY_HOST: ${{ secrets.OWCS_STATS_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.OWCS_STATS_DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.OWCS_STATS_DEPLOY_USER }}
+        run: |
+          ssh -i ~/.ssh/owcs_stats_deploy \
+              -p "$DEPLOY_PORT" \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ServerAliveInterval=20 \
+              -o ServerAliveCountMax=15 \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "activate $GITHUB_SHA"

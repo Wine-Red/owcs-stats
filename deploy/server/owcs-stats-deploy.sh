@@ -2,7 +2,12 @@
 set -Eeuo pipefail
 umask 027
 
-deploy_sha="${1:-}"
+mode="${1:-}"
+deploy_sha="${2:-}"
+if [[ "$mode" != "prepare" && "$mode" != "activate" ]]; then
+    echo "Invalid deployment mode." >&2
+    exit 2
+fi
 if [[ ! "$deploy_sha" =~ ^[0-9a-f]{40}$ ]]; then
     echo "Invalid deployment SHA." >&2
     exit 2
@@ -10,13 +15,19 @@ fi
 
 deploy_root="/opt/compose/owcs-stats"
 releases_root="$deploy_root/releases"
+upload_root="$deploy_root/ci-upload"
 state_root="$deploy_root/.deploy-state"
 lock_file="$state_root/deploy.lock"
-image_tag="${deploy_sha}-deploy1"
+prepared_marker="$state_root/prepared-$deploy_sha"
+candidate_dir="$upload_root/$deploy_sha"
+release_dir="$releases_root/$deploy_sha"
+image_tag="${deploy_sha}-deploy2"
 api_image="owmini/owcs-stats-backend:$image_tag"
 web_image="owmini/owcs-stats-web:$image_tag"
+ci_user="owcs-stats-ci"
+ci_group=$(id -gn "$ci_user")
 
-for command in awk curl docker flock find grep mktemp tar; do
+for command in curl docker flock find grep mktemp rsync; do
     command -v "$command" >/dev/null 2>&1 || {
         echo "Required command is missing: $command" >&2
         exit 1
@@ -37,70 +48,96 @@ test -s "$deploy_root/.env" || {
 }
 
 install -d -m 0750 "$releases_root" "$state_root"
+install -d -m 0750 -o "$ci_user" -g "$ci_group" "$upload_root"
 exec 9>"$lock_file"
 if ! flock -n 9; then
-    echo "Another OWCS Stats deployment is already running." >&2
+    echo "Another OWCS Stats deployment operation is already running." >&2
     exit 3
 fi
 
-incoming_dir=$(mktemp -d "$state_root/incoming.${deploy_sha}.XXXXXX")
-cleanup() {
-    case "$incoming_dir" in
-        "$state_root"/incoming.*)
-            rm -rf -- "$incoming_dir"
+safe_remove_candidate() {
+    case "$candidate_dir" in
+        "$upload_root"/[0-9a-f]*)
+            rm -rf -- "$candidate_dir"
             ;;
         *)
-            echo "Refusing to remove unexpected temporary path: $incoming_dir" >&2
+            echo "Refusing to remove unexpected candidate path: $candidate_dir" >&2
+            exit 1
             ;;
     esac
 }
-trap cleanup EXIT
 
-archive="$incoming_dir/release.tar.gz"
-cat >"$archive"
-test -s "$archive"
+if [[ "$mode" == "prepare" ]]; then
+    safe_remove_candidate
+    install -d -m 0750 -o "$ci_user" -g "$ci_group" "$candidate_dir"
 
-if tar -tzf "$archive" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
-    echo "Release archive contains an unsafe path." >&2
-    exit 1
+    current_source=$(readlink -f "$deploy_root/source" 2>/dev/null || true)
+    if [[ -n "$current_source" && -d "$current_source" && -s "$current_source/.release-sha" ]]; then
+        rsync --archive --delete "$current_source/" "$candidate_dir/"
+        chown -R "$ci_user:$ci_group" "$candidate_dir"
+    fi
+
+    printf '%s\n' "$deploy_sha" >"$prepared_marker"
+    chmod 0640 "$prepared_marker"
+    echo "OWCS Stats release candidate prepared: $deploy_sha"
+    exit 0
 fi
 
-staging_dir="$incoming_dir/source"
-install -d -m 0750 "$staging_dir"
-tar -xzf "$archive" -C "$staging_dir"
+test "$(cat "$prepared_marker" 2>/dev/null || true)" = "$deploy_sha" || {
+    echo "Release candidate was not prepared." >&2
+    exit 1
+}
+test -d "$candidate_dir" || {
+    echo "Uploaded release candidate is missing." >&2
+    exit 1
+}
+test "$(cat "$candidate_dir/.release-sha" 2>/dev/null || true)" = "$deploy_sha" || {
+    echo "Uploaded release SHA does not match the requested SHA." >&2
+    exit 1
+}
 
-if find "$staging_dir" -type l -print -quit | grep -q .; then
-    echo "Release archive contains symbolic links, which are not accepted." >&2
+if find "$candidate_dir" -type l -print -quit | grep -q .; then
+    echo "Release candidate contains symbolic links, which are not accepted." >&2
     exit 1
 fi
 
 for required_file in \
-    package.json \
-    package-lock.json \
     backend/package.json \
     backend/package-lock.json \
+    backend/app.js \
     deploy/docker/compose.yaml \
     deploy/docker/Dockerfile.backend \
     deploy/docker/Dockerfile.web \
     deploy/docker/web.nginx.conf \
     deploy/server/owcs-stats-deploy.sh \
-    deploy/server/owcs-stats-ci-entrypoint.sh; do
-    test -s "$staging_dir/$required_file" || {
+    deploy/server/owcs-stats-ci-entrypoint.sh \
+    dist/index.html; do
+    test -s "$candidate_dir/$required_file" || {
         echo "Release is missing required file: $required_file" >&2
         exit 1
     }
 done
+test -n "$(find "$candidate_dir/dist/assets" -maxdepth 1 -type f -print -quit)" || {
+    echo "Frontend asset bundle is empty." >&2
+    exit 1
+}
 
-release_dir="$releases_root/$deploy_sha"
 if [[ -e "$release_dir" ]]; then
     test "$(cat "$release_dir/.release-sha" 2>/dev/null || true)" = "$deploy_sha" || {
         echo "Existing release directory does not match the requested SHA." >&2
         exit 1
     }
+    safe_remove_candidate
 else
-    printf '%s\n' "$deploy_sha" >"$staging_dir/.release-sha"
-    mv "$staging_dir" "$release_dir"
+    chown -R root:root "$candidate_dir"
+    find "$candidate_dir" -type d -exec chmod 0755 {} +
+    find "$candidate_dir" -type f -exec chmod 0644 {} +
+    chmod 0755 \
+        "$candidate_dir/deploy/server/owcs-stats-deploy.sh" \
+        "$candidate_dir/deploy/server/owcs-stats-ci-entrypoint.sh"
+    mv "$candidate_dir" "$release_dir"
 fi
+rm -f -- "$prepared_marker"
 
 echo "Building immutable backend image: $api_image"
 docker build \
@@ -109,10 +146,9 @@ docker build \
     --tag "$api_image" \
     "$release_dir"
 
-echo "Building immutable frontend image: $web_image"
+echo "Packaging validated frontend image: $web_image"
 docker build \
     --build-arg "SOURCE_COMMIT=$deploy_sha" \
-    --build-arg "VITE_BASE_PATH=/" \
     --file "$release_dir/deploy/docker/Dockerfile.web" \
     --tag "$web_image" \
     "$release_dir"
@@ -120,14 +156,26 @@ docker build \
 docker run --rm --network none "$api_image" node --check app.js
 docker run --rm --network none "$web_image" nginx -t
 
+incoming_dir=$(mktemp -d "$state_root/activate.${deploy_sha}.XXXXXX")
+cleanup() {
+    case "$incoming_dir" in
+        "$state_root"/activate.*)
+            rm -rf -- "$incoming_dir"
+            ;;
+        *)
+            echo "Refusing to remove unexpected activation path: $incoming_dir" >&2
+            ;;
+    esac
+}
+trap cleanup EXIT
+
 candidate_compose="$incoming_dir/compose.yaml"
 candidate_env="$incoming_dir/compose.env"
 cp "$release_dir/deploy/docker/compose.yaml" "$candidate_compose"
-cat >"$candidate_env" <<EOF
-OWCS_IMAGE_TAG=$image_tag
-OWCS_SOURCE_DIR=./source
-OWCS_BACKEND_ENV_FILE=./secrets/backend.env
-EOF
+printf '%s\n' \
+    "OWCS_IMAGE_TAG=$image_tag" \
+    'OWCS_SOURCE_DIR=./source' \
+    'OWCS_BACKEND_ENV_FILE=./secrets/backend.env' >"$candidate_env"
 
 docker compose \
     --project-directory "$deploy_root" \
@@ -137,10 +185,7 @@ docker compose \
 
 cp -a "$deploy_root/compose.yaml" "$incoming_dir/compose.previous"
 cp -a "$deploy_root/.env" "$incoming_dir/env.previous"
-
-source_was_symlink=false
-previous_source_target=""
-bootstrap_source=""
+previous_source_target=$(readlink "$deploy_root/source")
 activation_started=false
 
 rollback() {
@@ -150,17 +195,10 @@ rollback() {
     echo "Deployment failed; restoring the previous release." >&2
     cp -a "$incoming_dir/compose.previous" "$deploy_root/compose.yaml"
     cp -a "$incoming_dir/env.previous" "$deploy_root/.env"
-
-    if [[ "$source_was_symlink" == true ]]; then
-        rollback_link="$deploy_root/.source.rollback.new"
-        unlink "$rollback_link" 2>/dev/null || true
-        ln -s "$previous_source_target" "$rollback_link"
-        mv -Tf "$rollback_link" "$deploy_root/source"
-    elif [[ -n "$bootstrap_source" && -d "$bootstrap_source" ]]; then
-        unlink "$deploy_root/source" 2>/dev/null || true
-        mv "$bootstrap_source" "$deploy_root/source"
-    fi
-
+    rollback_link="$deploy_root/.source.rollback.new"
+    unlink "$rollback_link" 2>/dev/null || true
+    ln -s "$previous_source_target" "$rollback_link"
+    mv -Tf "$rollback_link" "$deploy_root/source"
     (cd "$deploy_root" && docker compose up -d --no-build --remove-orphans) || true
     set -e
 }
@@ -173,17 +211,6 @@ on_error() {
     exit "$status"
 }
 trap on_error ERR
-
-if [[ -L "$deploy_root/source" ]]; then
-    source_was_symlink=true
-    previous_source_target=$(readlink "$deploy_root/source")
-elif [[ -d "$deploy_root/source" ]]; then
-    bootstrap_source="$state_root/bootstrap-source-$(date +%Y%m%d-%H%M%S)"
-    mv "$deploy_root/source" "$bootstrap_source"
-else
-    echo "Current source path is missing or unsupported." >&2
-    exit 1
-fi
 
 activation_started=true
 new_source_link="$deploy_root/.source.${deploy_sha}.new"
