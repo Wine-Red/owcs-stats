@@ -154,7 +154,7 @@ docker build \
     "$release_dir"
 
 docker run --rm --network none "$api_image" node --check app.js
-docker run --rm --network none "$web_image" nginx -t
+docker run --rm --network none --add-host api:127.0.0.1 "$web_image" nginx -t
 
 incoming_dir=$(mktemp -d "$state_root/activate.${deploy_sha}.XXXXXX")
 cleanup() {
