@@ -4,6 +4,7 @@ const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamSource = require('../models/SeasonTeamSource');
 const Season = require('../models/Season');
 const Team = require('../models/Team');
+const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const { addManualSeasonTeam, removeManualSeasonTeam } = require('../services/MembershipSourceService');
 
 const attachSourceTypes = async (rows, transaction) => {
@@ -34,7 +35,8 @@ const loadSeasonTeam = async (id, transaction) => {
   const relation = await SeasonTeam.findByPk(id, {
     include: [
       { model: Season, attributes: ['id', 'name'], as: 'Season' },
-      { model: Team, attributes: ['id', 'name'], as: 'Team' }
+      { model: Team, attributes: ['id', 'name'], as: 'Team' },
+      { model: SeasonTeamPlayer, attributes: ['id'], as: 'players' }
     ],
     transaction
   });
@@ -47,7 +49,8 @@ class SeasonTeamController {
       const seasonTeams = await SeasonTeam.findAll({
         include: [
           { model: Season, attributes: ['id', 'name'], as: 'Season' },
-          { model: Team, attributes: ['id', 'name'], as: 'Team' }
+          { model: Team, attributes: ['id', 'name'], as: 'Team' },
+          { model: SeasonTeamPlayer, attributes: ['id'], as: 'players' }
         ]
       });
       res.json(await attachSourceTypes(seasonTeams));

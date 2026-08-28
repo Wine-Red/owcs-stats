@@ -13,6 +13,7 @@ const {
   replaceTeamAliases,
   serializeTeamsWithAliases
 } = require('../services/TeamAliasService');
+const { getTeamContext } = require('../services/AdminEntityContextService');
 
 const teamPayload = body => ({
   name: body?.name,
@@ -40,6 +41,16 @@ const TeamController = {
         return res.status(404).json({ error: 'Team not found' });
       }
       res.status(200).json(await serializeTeamsWithAliases(team));
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getAdminContext: async (req, res) => {
+    try {
+      const context = await getTeamContext(req.params.id);
+      if (!context) return res.status(404).json({ error: 'Team not found' });
+      res.status(200).json(context);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

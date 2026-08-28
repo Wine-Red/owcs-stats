@@ -38,7 +38,7 @@
                       v-model="heroStat.heroId"
                       filterable
                       clearable
-                      placeholder="选择英雄"
+                      placeholder="搜索英雄"
                       @change="syncHeroName(heroStat)"
                     >
                       <el-option v-for="hero in heroes" :key="hero.id" :label="hero.name" :value="hero.id" />
@@ -70,7 +70,7 @@
 
         <el-table-column label="选手" min-width="150">
           <template #default="scope">
-            <el-select v-model="scope.row.playerId" filterable clearable placeholder="选择选手" @change="onPlayerChange(scope.row)">
+            <el-select v-model="scope.row.playerId" filterable clearable placeholder="搜索选手" @change="onPlayerChange(scope.row)">
               <el-option
                 v-for="player in playersForRole(scope.row.role)"
                 :key="player.id"
@@ -82,7 +82,7 @@
         </el-table-column>
         <el-table-column label="职责" width="102">
           <template #default="scope">
-            <el-select v-model="scope.row.role" @change="scope.row.playerId = ''">
+            <el-select v-model="scope.row.role" filterable clearable placeholder="职责" @change="scope.row.playerId = ''">
               <el-option label="T" value="tank" />
               <el-option label="D" value="damage" />
               <el-option label="S" value="support" />

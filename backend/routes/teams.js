@@ -6,6 +6,7 @@ const TeamController = require('../controllers/TeamController');
 router.get('/', TeamController.getAll);
 
 // 获取单个队伍
+router.get('/:id/admin-context', TeamController.getAdminContext);
 router.get('/:id', TeamController.getById);
 
 // 创建队伍

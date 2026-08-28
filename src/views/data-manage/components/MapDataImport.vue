@@ -2,7 +2,7 @@
   <div class="map-data-import">
     <el-form :inline="true" class="upload-form">
       <el-form-item label="赛季">
-        <el-select v-model="seasonId" placeholder="请选择赛季" style="width: 200px">
+        <el-select v-model="seasonId" filterable clearable placeholder="搜索赛季" style="width: 240px">
            <el-option v-for="s in seasons" :key="s.id" :label="s.name" :value="s.id" />
         </el-select>
       </el-form-item>

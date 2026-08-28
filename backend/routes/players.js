@@ -6,6 +6,7 @@ const PlayerController = require('../controllers/PlayerController');
 router.get('/', PlayerController.getAll);
 
 // 获取单个选手
+router.get('/:id/admin-context', PlayerController.getAdminContext);
 router.get('/:id', PlayerController.getById);
 
 // 创建选手

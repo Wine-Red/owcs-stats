@@ -24,7 +24,7 @@
     <section class="admin-workbench" :aria-label="pageTitleMap[activeTab] || '数据管理'">
 
     <!-- 图表管理 -->
-    <div v-show="activeTab === 'charts'">
+    <div v-if="activeTab === 'charts'">
       <el-card class="data-card">
         <template #header>
           <div class="card-header">
@@ -61,7 +61,7 @@
       </el-card>
     </div>
 
-    <div v-show="activeTab === 'season-visualize'">
+    <div v-if="activeTab === 'season-visualize'">
       <el-card class="data-card">
         <template #header>
           <div class="card-header">
@@ -71,7 +71,7 @@
         </template>
         <el-form :model="seasonVisualForm" label-width="140px">
           <el-form-item label="赛季">
-            <el-select v-model="seasonVisualForm.seasonId" placeholder="请选择赛季" style="width: 280px" @change="loadSeasonVisualConfig">
+            <el-select v-model="seasonVisualForm.seasonId" filterable clearable placeholder="搜索赛季" style="width: 280px" @change="loadSeasonVisualConfig">
               <el-option
                 v-for="season in seasons"
                 :key="season.id"
@@ -85,6 +85,9 @@
               v-model="seasonVisualForm.tags"
               multiple
               filterable
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
               allow-create
               default-first-option
               :reserve-keyword="false"
@@ -98,6 +101,8 @@
             <div class="visual-copy-row">
               <el-select
                 v-model="seasonVisualCopySourceId"
+                filterable
+                clearable
                 placeholder="选择要复用的源赛季"
                 style="width: 280px"
                 :disabled="!seasonVisualForm.seasonId"
@@ -144,6 +149,9 @@
               v-model="seasonVisualForm.mapIds"
               multiple
               filterable
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
               style="width: 100%"
               placeholder="选择该赛季地图池"
               popper-class="map-type-dropdown"
@@ -175,7 +183,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="积分榜模板">
-            <el-select v-model="seasonVisualForm.standingsTemplate" placeholder="请选择模板" style="width: 240px">
+            <el-select v-model="seasonVisualForm.standingsTemplate" filterable clearable placeholder="搜索模板" style="width: 240px">
               <el-option label="W-L / Maps / +/-" value="wl_maps" />
               <el-option label="Points(3-0)" value="points_3_0" />
             </el-select>
@@ -196,6 +204,7 @@
                 v-if="seasonStages.length > 0"
                 v-model="stageDraft.startMatchId"
                 filterable
+                clearable
                 placeholder="选择本阶段第一场比赛"
               >
                 <el-option
@@ -218,6 +227,7 @@
                   v-model="stage.startMatchId"
                   class="stage-match-select"
                   filterable
+                  clearable
                 >
                   <el-option
                     v-for="match in seasonStageMatches"
@@ -253,6 +263,7 @@
                   v-model="getStageOverride(seg.key).hiddenTeamIds"
                   multiple
                   filterable
+                  clearable
                   collapse-tags
                   collapse-tags-tooltip
                   style="width: 100%"
@@ -272,6 +283,7 @@
                   :model-value="getStageOverride(seg.key).orderedTeamIds"
                   multiple
                   filterable
+                  clearable
                   collapse-tags
                   collapse-tags-tooltip
                   style="width: 100%"
@@ -311,7 +323,7 @@
     </div>
 
     <!-- 比赛管理 -->
-    <div v-show="activeTab === 'matches'">
+    <div v-if="activeTab === 'matches'">
       <el-alert
         title="比赛数据为只读镜像"
         description="具体比赛请在 Matchweb 修改或删除，Stats 会通过同步更新规范数据库。"
@@ -324,7 +336,7 @@
     <el-card class="filter-card">
       <el-form :model="filterForm" inline>
         <el-form-item label="赛季">
-          <el-select v-model="filterForm.seasonId" placeholder="请选择赛季" style="width: 180px">
+          <el-select v-model="filterForm.seasonId" filterable clearable placeholder="搜索赛季" style="width: 200px">
             <el-option
               v-for="season in seasons"
               :key="season.id"
@@ -334,7 +346,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="队伍">
-          <el-select v-model="filterForm.teamId" placeholder="请选择队伍" style="width: 180px">
+          <el-select v-model="filterForm.teamId" filterable clearable placeholder="搜索队伍" style="width: 200px">
             <el-option
               v-for="team in matchFilterTeams"
               :key="team.id"
@@ -424,11 +436,10 @@
               {{ scope.row.boFormat || '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="externalId" label="Matchweb ID" min-width="170" show-overflow-tooltip />
           <el-table-column label="操作" :width="actionColWidth" fixed="right">
-            <template #default="scope">
+            <template #default>
               <div class="action-buttons">
-                <el-button type="primary" plain size="small" @click="openMatchweb(scope.row.externalId)">
+                <el-button type="primary" plain size="small" @click="openMatchweb">
                   <el-icon><Edit /></el-icon>
                   <span v-if="!isMobile">前往 Matchweb</span>
                 </el-button>
@@ -454,7 +465,7 @@
     </div>
 
     <!-- 赛季管理 -->
-    <div v-show="activeTab === 'seasons'">
+    <div v-if="activeTab === 'seasons'">
       <el-card class="data-card list-card">
         <template #header>
           <div class="card-header">
@@ -529,402 +540,196 @@
     </div>
 
     <!-- 队伍管理 -->
-    <div v-show="activeTab === 'teams'">
-      <el-card class="data-card list-card">
-        <template #header>
-          <div class="card-header">
-            <div class="header-title-with-tabs">
-              <span>队伍列表</span>
-              <span class="asset-coverage">图片 {{ getMediaCoverage(teams, 'logo') }}</span>
-              <div v-if="groupedTeamsByRegion.length > 0" class="management-tabs-header management-tabs-inline">
-                <button
-                  v-for="group in groupedTeamsByRegion"
-                  :key="'team-tab-' + group.key"
-                  class="management-tab"
-                  :class="{ active: activeTeamRegion === group.key }"
-                  @click="activeTeamRegion = group.key"
-                >
-                  {{ group.label }}
-                  <span class="management-tab-count">{{ group.teams.length }}</span>
-                </button>
-              </div>
-            </div>
-            <el-button type="primary" @click="addTeam">
-              <el-icon><Plus /></el-icon>
-              添加队伍
-            </el-button>
+    <div v-if="activeTab === 'teams'">
+      <section class="entity-workspace" v-loading="loading">
+        <div class="entity-toolbar">
+          <div class="entity-toolbar-title">
+            <strong>队伍目录</strong>
+            <span>{{ teams.length }} 支 · 图片 {{ getMediaCoverage(teams, 'logo') }}</span>
           </div>
-        </template>
-        <div class="grouped-section-list" v-loading="loading">
-          <el-table
-            v-if="currentTeamRegionGroup"
-            :data="currentTeamRegionGroup.teams"
-            style="width: 100%"
-            border
-          >
-            <el-table-column label="Logo" width="108" align="center">
-              <template #default="scope">
-                <div class="asset-cell asset-cell--logo">
-                  <img v-if="scope.row.logo" :src="resolveMediaUrl(scope.row.logo)" :alt="scope.row.name" />
-                  <span v-else>无图片</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="队伍身份" min-width="320">
-              <template #default="scope">
-                <div class="team-identity-cell">
-                  <span class="team-primary-name">{{ scope.row.name }}</span>
-                  <div v-if="scope.row.aliases?.length" class="team-alias-list">
-                    <span v-for="alias in scope.row.aliases" :key="alias" class="team-alias-chip">{{ alias }}</span>
-                  </div>
-                  <span v-else class="team-alias-empty">暂无同步别名</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column prop="region" label="地区" width="160" />
-            <el-table-column label="资源状态" width="110" align="center">
-              <template #default="scope">
-                <el-tag :type="mediaSourceState(scope.row.logo).type" size="small">
-                  {{ mediaSourceState(scope.row.logo).label }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-              <template #default="scope">
-                <div class="action-buttons">
-                  <el-button type="primary" size="small" @click="editTeam(scope.row)">
-                    <el-icon><Edit /></el-icon>
-                    <span v-if="!isMobile">编辑</span>
-                  </el-button>
-                  <el-button type="danger" size="small" @click="deleteTeam(scope.row.id)">
-                    <el-icon><Delete /></el-icon>
-                    <span v-if="!isMobile">删除</span>
-                  </el-button>
-                </div>
-              </template>
-            </el-table-column>
-          </el-table>
+          <el-input v-model="teamSearch" clearable placeholder="搜索主名、别名或地区" class="entity-search">
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+          <el-button type="primary" @click="addTeam"><el-icon><Plus /></el-icon>新增队伍</el-button>
         </div>
-      </el-card>
+        <div v-if="groupedTeamsByRegion.length" class="entity-filter-strip">
+          <button
+            v-for="group in groupedTeamsByRegion"
+            :key="`team-region-${group.key}`"
+            :class="{ active: activeTeamRegion === group.key }"
+            @click="activeTeamRegion = group.key"
+          >{{ group.label }} <span>{{ group.teams.length }}</span></button>
+        </div>
+        <div v-if="filteredTeamCatalog.length" class="entity-card-grid entity-card-grid--teams">
+          <article v-for="team in filteredTeamCatalog" :key="team.id" class="entity-card team-card" role="button" tabindex="0" title="打开队伍历史档案" @click="openTeamContext(team)" @keydown.enter="openTeamContext(team)" @keydown.space.prevent="openTeamContext(team)">
+            <div class="entity-thumb entity-thumb--logo">
+              <img v-if="team.logo" :src="resolveMediaUrl(team.logo)" :alt="team.name" />
+              <span v-else>{{ team.name.slice(0, 2).toUpperCase() }}</span>
+            </div>
+            <div class="entity-card-copy">
+              <div class="entity-card-heading"><strong>{{ team.name }}</strong><span>{{ team.region || '未分区' }}</span></div>
+              <div v-if="team.aliases?.length" class="entity-card-tags">
+                <span v-for="alias in team.aliases.slice(0, 3)" :key="alias">{{ alias }}</span>
+                <span v-if="team.aliases.length > 3">+{{ team.aliases.length - 3 }}</span>
+              </div>
+              <span v-else class="entity-card-muted">暂无同步别名</span>
+            </div>
+            <div class="entity-card-actions" @click.stop>
+              <button type="button" @click="openTeamContext(team)">历史</button>
+              <button type="button" @click="editTeam(team)">编辑</button>
+              <button type="button" class="danger" @click="deleteTeam(team.id)">删除</button>
+            </div>
+          </article>
+        </div>
+        <el-empty v-else description="没有符合条件的队伍" />
+      </section>
     </div>
 
     <!-- 英雄管理 -->
-    <div v-show="activeTab === 'heroes'">
-      <el-card class="data-card list-card">
-        <template #header>
-          <div class="card-header">
-            <div class="header-title-with-tabs">
-              <span>英雄资料</span>
-              <span class="asset-coverage">图片 {{ getMediaCoverage(heroes, 'image') }}</span>
-              <div v-if="groupedHeroesForManagement.length" class="management-tabs-header management-tabs-inline">
-                <button
-                  v-for="group in groupedHeroesForManagement"
-                  :key="`hero-management-${group.role}`"
-                  class="management-tab"
-                  :class="{ active: activeHeroRole === group.role }"
-                  @click="activeHeroRole = group.role"
-                >
-                  {{ getRoleText(group.role) }}
-                  <span class="management-tab-count">{{ group.heroes.length }}</span>
-                </button>
-              </div>
-            </div>
-            <el-button type="primary" @click="addHero">
-              <el-icon><Plus /></el-icon>
-              添加英雄
-            </el-button>
-          </div>
-        </template>
-        <el-table v-if="currentHeroRoleGroup" v-loading="loading" :data="currentHeroRoleGroup.heroes" border>
-          <el-table-column label="图片" width="108" align="center">
-            <template #default="scope">
-              <div class="asset-cell asset-cell--hero">
-                <img v-if="scope.row.image" :src="resolveMediaUrl(scope.row.image)" :alt="scope.row.name" />
-                <span v-else>无图片</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="name" label="英雄名称" min-width="180" />
-          <el-table-column label="职责" width="120">
-            <template #default="scope">{{ getRoleText(scope.row.role) }}</template>
-          </el-table-column>
-          <el-table-column prop="subRole" label="子职责" width="140" />
-          <el-table-column label="资源状态" width="110" align="center">
-            <template #default="scope">
-              <el-tag :type="mediaSourceState(scope.row.image).type" size="small">
-                {{ mediaSourceState(scope.row.image).label }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="primary" size="small" @click="editHero(scope.row)">
-                  <el-icon><Edit /></el-icon><span v-if="!isMobile">编辑</span>
-                </el-button>
-                <el-button type="danger" size="small" @click="deleteHero(scope.row.id)">
-                  <el-icon><Delete /></el-icon><span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+    <div v-if="activeTab === 'heroes'">
+      <section class="entity-workspace" v-loading="loading">
+        <div class="entity-toolbar">
+          <div class="entity-toolbar-title"><strong>英雄目录</strong><span>{{ heroes.length }} 名 · 图片 {{ getMediaCoverage(heroes, 'image') }}</span></div>
+          <el-input v-model="heroSearch" clearable placeholder="搜索英雄或子职责" class="entity-search"><template #prefix><el-icon><Search /></el-icon></template></el-input>
+          <el-button type="primary" @click="addHero"><el-icon><Plus /></el-icon>新增英雄</el-button>
+        </div>
+        <div class="entity-filter-strip">
+          <button v-for="group in groupedHeroesForManagement" :key="group.role" :class="{ active: activeHeroRole === group.role }" @click="activeHeroRole = group.role">
+            {{ getRoleText(group.role) }} <span>{{ group.heroes.length }}</span>
+          </button>
+        </div>
+        <div v-if="filteredHeroCatalog.length" class="entity-card-grid entity-card-grid--catalog">
+          <article v-for="hero in filteredHeroCatalog" :key="hero.id" class="entity-card catalog-card">
+            <div class="entity-thumb entity-thumb--hero"><img v-if="hero.image" :src="resolveMediaUrl(hero.image)" :alt="hero.name" /><span v-else>NO IMAGE</span></div>
+            <div class="entity-card-copy"><div class="entity-card-heading"><strong>{{ hero.name }}</strong><span>{{ hero.subRole || getRoleText(hero.role) }}</span></div><small>{{ mediaSourceState(hero.image).label }}</small></div>
+            <div class="entity-card-actions"><button type="button" @click="editHero(hero)">编辑</button><button type="button" class="danger" @click="deleteHero(hero.id)">删除</button></div>
+          </article>
+        </div>
+        <el-empty v-else description="没有符合条件的英雄" />
+      </section>
     </div>
 
     <!-- 地图管理 -->
-    <div v-show="activeTab === 'maps'">
-      <el-card class="data-card list-card">
-        <template #header>
-          <div class="card-header">
-            <div class="header-title-with-tabs">
-              <span>地图资料</span>
-              <span class="asset-coverage">图片 {{ getMediaCoverage(maps, 'image') }}</span>
-              <div v-if="groupedMapsForManagement.length" class="management-tabs-header management-tabs-inline">
-                <button
-                  v-for="group in groupedMapsForManagement"
-                  :key="`map-management-${group.type}`"
-                  class="management-tab"
-                  :class="{ active: activeCatalogMapType === group.type }"
-                  @click="activeCatalogMapType = group.type"
-                >
-                  {{ group.type }}
-                  <span class="management-tab-count">{{ group.maps.length }}</span>
-                </button>
-              </div>
-            </div>
-            <el-button type="primary" @click="addMap">
-              <el-icon><Plus /></el-icon>
-              添加地图
-            </el-button>
-          </div>
-        </template>
-        <el-table v-if="currentMapTypeGroup" v-loading="loading" :data="currentMapTypeGroup.maps" border>
-          <el-table-column label="图片" width="170" align="center">
-            <template #default="scope">
-              <div class="asset-cell asset-cell--map">
-                <img v-if="scope.row.image" :src="resolveMediaUrl(scope.row.image)" :alt="scope.row.name" />
-                <span v-else>无图片</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="name" label="地图名称" min-width="220" />
-          <el-table-column prop="type" label="地图模式" width="160" />
-          <el-table-column label="资源状态" width="110" align="center">
-            <template #default="scope">
-              <el-tag :type="mediaSourceState(scope.row.image).type" size="small">
-                {{ mediaSourceState(scope.row.image).label }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="primary" size="small" @click="editMap(scope.row)">
-                  <el-icon><Edit /></el-icon><span v-if="!isMobile">编辑</span>
-                </el-button>
-                <el-button type="danger" size="small" @click="deleteMap(scope.row.id)">
-                  <el-icon><Delete /></el-icon><span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+    <div v-if="activeTab === 'maps'">
+      <section class="entity-workspace" v-loading="loading">
+        <div class="entity-toolbar">
+          <div class="entity-toolbar-title"><strong>地图目录</strong><span>{{ maps.length }} 张 · 图片 {{ getMediaCoverage(maps, 'image') }}</span></div>
+          <el-input v-model="mapSearch" clearable placeholder="搜索地图或模式" class="entity-search"><template #prefix><el-icon><Search /></el-icon></template></el-input>
+          <el-button type="primary" @click="addMap"><el-icon><Plus /></el-icon>新增地图</el-button>
+        </div>
+        <div class="entity-filter-strip">
+          <button v-for="group in groupedMapsForManagement" :key="group.type" :class="{ active: activeCatalogMapType === group.type }" @click="activeCatalogMapType = group.type">
+            {{ group.type }} <span>{{ group.maps.length }}</span>
+          </button>
+        </div>
+        <div v-if="filteredMapCatalog.length" class="entity-card-grid entity-card-grid--maps">
+          <article v-for="map in filteredMapCatalog" :key="map.id" class="entity-card map-card">
+            <div class="entity-thumb entity-thumb--map"><img v-if="map.image" :src="resolveMediaUrl(map.image)" :alt="map.name" /><span v-else>NO IMAGE</span></div>
+            <div class="entity-card-copy"><div class="entity-card-heading"><strong>{{ map.name }}</strong><span>{{ map.type }}</span></div><small>{{ mediaSourceState(map.image).label }}</small></div>
+            <div class="entity-card-actions"><button type="button" @click="editMap(map)">编辑</button><button type="button" class="danger" @click="deleteMap(map.id)">删除</button></div>
+          </article>
+        </div>
+        <el-empty v-else description="没有符合条件的地图" />
+      </section>
     </div>
 
     <!-- 选手管理 -->
-    <div v-show="activeTab === 'players'">
-      <el-row :gutter="24">
-        <el-col :xs="24" :sm="12" :md="8" v-for="role in ['tank', 'damage', 'support']" :key="role">
-          <el-card class="data-card role-card list-card">
-            <template #header>
-              <div class="card-header">
-                <span>{{ getRoleText(role) }}列表</span>
-                <el-button type="primary" size="small" @click="addPlayer(role)">
-                  <el-icon><Plus /></el-icon>
-                  添加{{ getRoleText(role) }}
-                </el-button>
-              </div>
-            </template>
-            <el-table
-              v-loading="loading"
-              :data="getPlayersByRole(role)"
-              style="width: 100%"
-              border
-              max-height="600"
-            >
-              <el-table-column prop="name" label="选手名称" min-width="120" />
-              <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
-                <template #default="scope">
-                  <div class="action-buttons">
-                    <el-button type="primary" size="small" @click="editPlayer(scope.row)">
-                      <el-icon><Edit /></el-icon>
-                      <span v-if="!isMobile">编辑</span>
-                    </el-button>
-                    <el-button type="danger" size="small" @click="deletePlayer(scope.row.id)">
-                      <el-icon><Delete /></el-icon>
-                      <span v-if="!isMobile">删除</span>
-                    </el-button>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-      </el-row>
+    <div v-if="activeTab === 'players'">
+      <section class="entity-workspace" v-loading="loading">
+        <div class="entity-toolbar">
+          <div class="entity-toolbar-title"><strong>选手身份库</strong><span>{{ players.length }} 名规范身份</span></div>
+          <el-input v-model="playerSearch" clearable placeholder="搜索选手名称" class="entity-search"><template #prefix><el-icon><Search /></el-icon></template></el-input>
+          <el-button type="primary" @click="addPlayer(playerRoleFilter === 'all' ? 'tank' : playerRoleFilter)"><el-icon><Plus /></el-icon>新增选手</el-button>
+        </div>
+        <div class="entity-filter-strip">
+          <button v-for="role in ['all', 'tank', 'damage', 'support']" :key="role" :class="{ active: playerRoleFilter === role }" @click="playerRoleFilter = role">
+            {{ role === 'all' ? '全部' : getRoleText(role) }} <span>{{ role === 'all' ? players.length : getPlayersByRole(role).length }}</span>
+          </button>
+        </div>
+        <div v-if="filteredPlayerCatalog.length" class="entity-card-grid entity-card-grid--players">
+          <article v-for="player in filteredPlayerCatalog" :key="player.id" class="entity-card player-card" :class="{ 'is-orphan': player.orphanedAt }" role="button" tabindex="0" title="打开选手历史档案" @click="openPlayerContext(player)" @keydown.enter="openPlayerContext(player)" @keydown.space.prevent="openPlayerContext(player)">
+            <div class="player-monogram">{{ player.name.slice(0, 2).toUpperCase() }}</div>
+            <div class="entity-card-copy"><div class="entity-card-heading"><strong>{{ player.name }}</strong><span>{{ getRoleText(player.role) }}</span></div><small>{{ player.orphanedAt ? '孤儿身份 · 需要排查' : identityOriginText(player.identityOrigin) }}</small></div>
+            <div class="entity-card-actions" @click.stop><button type="button" @click="openPlayerContext(player)">履历</button><button type="button" @click="editPlayer(player)">编辑</button><button type="button" class="danger" @click="deletePlayer(player.id)">删除</button></div>
+          </article>
+        </div>
+        <el-empty v-else description="没有符合条件的选手" />
+      </section>
     </div>
 
     <!-- 赛季-队伍关联管理 -->
-    <div v-show="activeTab === 'season-teams'">
-      <el-card class="filter-card">
-        <el-form :model="seasonTeamFilter" inline>
-          <el-form-item label="赛季">
-            <el-select v-model="seasonTeamFilter.seasonId" placeholder="请选择赛季" style="width: 180px" @change="loadSeasonTeams">
-              <el-option
-                v-for="season in seasons"
-                :key="season.id"
-                :label="season.name"
-                :value="season.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="addSeasonTeam">
-              <el-icon><Plus /></el-icon>
-              添加赛季-队伍关联
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-      <el-card class="data-card list-card" style="margin-top: 20px">
-        <template #header>
-          <div class="card-header">
-            <span>赛季-队伍关联列表</span>
-          </div>
-        </template>
-        <el-table
-          v-loading="loading"
-          :data="seasonTeams"
-          style="width: 100%"
-          border
-        >
-          <el-table-column label="赛季" width="180">
-            <template #default="scope">
-              {{ getSeasonName(scope.row.seasonId) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="队伍" width="180">
-            <template #default="scope">
-              {{ getTeamName(scope.row.teamId) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="来源" min-width="220">
-            <template #default="scope">
-              <el-tag
-                v-for="sourceType in membershipSourceTypes(scope.row)"
-                :key="`${scope.row.id}-${sourceType}`"
-                :type="membershipSourceTagType(sourceType)"
-                size="small"
-                style="margin-right: 6px"
-              >
-                {{ membershipSourceLabel(sourceType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="danger" size="small" @click="deleteSeasonTeam(scope.row.id)">
-                  <el-icon><Delete /></el-icon>
-                  <span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+    <div v-if="activeTab === 'season-teams'">
+      <section class="relation-workspace">
+        <div class="relation-commandbar">
+          <div><strong>参赛队伍配置</strong><span>先选赛季，再批量加入；同步证据会继续保留。</span></div>
+          <el-select v-model="seasonTeamFilter.seasonId" filterable clearable placeholder="搜索赛季" @change="loadSeasonTeams">
+            <el-option v-for="season in seasons" :key="season.id" :label="season.name" :value="season.id" />
+          </el-select>
+          <el-select v-model="seasonTeamAddIds" multiple filterable clearable collapse-tags collapse-tags-tooltip :max-collapse-tags="2" placeholder="搜索并选择要加入的队伍" :disabled="!seasonTeamFilter.seasonId">
+            <el-option v-for="team in availableSeasonTeamCatalog" :key="team.id" :label="`${team.name}${team.region ? ` · ${team.region}` : ''}`" :value="team.id" />
+          </el-select>
+          <el-button type="primary" :disabled="!seasonTeamAddIds.length" :loading="relationSaving" @click="addSeasonTeamsInline"><el-icon><Plus /></el-icon>批量加入</el-button>
+        </div>
+        <div v-if="seasonTeamFilter.seasonId && seasonTeams.length" class="relation-card-grid">
+          <article v-for="relation in seasonTeams" :key="relation.id" class="relation-card">
+            <div class="relation-team-logo"><img v-if="getTeamById(relation.teamId)?.logo" :src="resolveMediaUrl(getTeamById(relation.teamId).logo)" :alt="getTeamName(relation.teamId)" /><span v-else>{{ getTeamName(relation.teamId).slice(0, 2) }}</span></div>
+            <div class="relation-card-copy"><strong>{{ getTeamName(relation.teamId) }}</strong><span>{{ getSeasonName(relation.seasonId) }}</span><div class="relation-sources"><em v-for="source in membershipSourceTypes(relation)" :key="source">{{ membershipSourceLabel(source) }}</em><em v-if="!membershipSourceTypes(relation).length">无来源</em></div></div>
+            <div class="relation-card-count"><strong>{{ relation.players?.length || relation.rosterCount || 0 }}</strong><span>阵容关系</span></div>
+            <div class="relation-card-actions"><button type="button" @click="manageSeasonTeamRoster(relation)">管理阵容</button><button type="button" class="danger" @click="deleteSeasonTeam(relation.id)">移除手工来源</button></div>
+          </article>
+        </div>
+        <el-empty v-else :description="seasonTeamFilter.seasonId ? '该赛季还没有参赛队伍' : '请先选择一个赛季'" />
+      </section>
     </div>
 
     <!-- 赛季-队伍-选手关联管理 -->
-    <div v-show="activeTab === 'season-team-players'">
-      <el-card class="filter-card">
-        <el-form :model="seasonTeamPlayerFilter" inline>
-          <el-form-item label="赛季">
-            <el-select v-model="seasonTeamPlayerFilter.seasonId" placeholder="请选择赛季" style="width: 180px" @change="loadSeasonTeamsForPlayers">
-              <el-option
-                v-for="season in seasons"
-                :key="season.id"
-                :label="season.name"
-                :value="season.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="队伍">
-            <el-select v-model="seasonTeamPlayerFilter.seasonTeamId" placeholder="请选择队伍" style="width: 180px" @change="loadSeasonTeamPlayers">
-              <el-option
-                v-for="seasonTeam in seasonTeams"
-                :key="seasonTeam.id"
-                :label="getTeamName(seasonTeam.teamId)"
-                :value="seasonTeam.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="addSeasonTeamPlayer">
-              <el-icon><Plus /></el-icon>
-              添加赛季-队伍-选手关联
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-      <el-card class="data-card list-card" style="margin-top: 20px">
-        <template #header>
-          <div class="card-header">
-            <span>赛季-队伍-选手关联列表</span>
-          </div>
-        </template>
-        <el-table
-          v-loading="loading"
-          :data="seasonTeamPlayers"
-          style="width: 100%"
-          border
-        >
-          <el-table-column label="选手" width="180">
-            <template #default="scope">
-              {{ scope.row.Player ? scope.row.Player.name : getPlayerName(scope.row.playerId) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="来源" min-width="220">
-            <template #default="scope">
-              <el-tag
-                v-for="sourceType in membershipSourceTypes(scope.row)"
-                :key="`${scope.row.id}-${sourceType}`"
-                :type="membershipSourceTagType(sourceType)"
-                size="small"
-                style="margin-right: 6px"
-              >
-                {{ membershipSourceLabel(sourceType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" :width="deleteActionColWidth" fixed="right">
-            <template #default="scope">
-              <div class="action-buttons">
-                <el-button type="danger" size="small" @click="deleteSeasonTeamPlayer(scope.row.id)">
-                  <el-icon><Delete /></el-icon>
-                  <span v-if="!isMobile">删除</span>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
+    <div v-if="activeTab === 'season-team-players'">
+      <section class="relation-workspace">
+        <div class="relation-commandbar roster-commandbar">
+          <div><strong>赛季阵容工作台</strong><span>来源标签说明为什么关系仍然存在；移除只撤销手工来源。</span></div>
+          <el-select v-model="seasonTeamPlayerFilter.seasonId" filterable clearable placeholder="搜索赛季" @change="loadSeasonTeamsForPlayers">
+            <el-option v-for="season in seasons" :key="season.id" :label="season.name" :value="season.id" />
+          </el-select>
+          <el-select v-model="seasonTeamPlayerFilter.seasonTeamId" filterable clearable placeholder="搜索赛季内队伍" :disabled="!seasonTeamPlayerFilter.seasonId" @change="loadSeasonTeamPlayers">
+            <el-option v-for="relation in seasonTeams" :key="relation.id" :label="getTeamName(relation.teamId)" :value="relation.id" />
+          </el-select>
+        </div>
+        <div v-if="seasonTeamPlayerFilter.seasonTeamId" class="roster-addbar">
+          <div><strong>{{ selectedRosterTeamName }}</strong><span>当前 {{ seasonTeamPlayers.length }} 条成员关系</span></div>
+          <el-select v-model="rosterAddPlayerIds" multiple filterable clearable collapse-tags collapse-tags-tooltip :max-collapse-tags="3" placeholder="输入选手名，支持多选">
+            <el-option-group v-for="group in rosterCandidateGroups" :key="group.role" :label="getRoleText(group.role)">
+              <el-option v-for="player in group.players" :key="player.id" :label="`${player.name} · ${getRoleText(player.role)}`" :value="player.id" />
+            </el-option-group>
+          </el-select>
+          <el-button type="primary" :disabled="!rosterAddPlayerIds.length" :loading="relationSaving" @click="addRosterPlayersInline"><el-icon><Plus /></el-icon>加入阵容</el-button>
+        </div>
+        <div v-if="seasonTeamPlayerFilter.seasonTeamId && seasonTeamPlayers.length" class="roster-role-grid">
+          <section v-for="role in ['tank', 'damage', 'support']" :key="role" class="roster-role-column">
+            <header><strong>{{ getRoleText(role) }}</strong><span>{{ rosterPlayersByRole(role).length }}</span></header>
+            <article v-for="relation in rosterPlayersByRole(role)" :key="relation.id" class="roster-player-row" role="button" tabindex="0" @click="openPlayerContext(relation.Player || getPlayerById(relation.playerId))" @keydown.enter="openPlayerContext(relation.Player || getPlayerById(relation.playerId))">
+              <div class="player-monogram small">{{ (relation.Player?.name || getPlayerName(relation.playerId)).slice(0, 2).toUpperCase() }}</div>
+              <div><strong>{{ relation.Player?.name || getPlayerName(relation.playerId) }}</strong><span class="relation-sources"><em v-for="source in membershipSourceTypes(relation)" :key="source">{{ membershipSourceLabel(source) }}</em></span></div>
+              <button type="button" class="danger" @click.stop="deleteSeasonTeamPlayer(relation.id)">移除手工来源</button>
+            </article>
+            <div v-if="!rosterPlayersByRole(role).length" class="roster-empty">暂无{{ getRoleText(role) }}关系</div>
+          </section>
+        </div>
+        <el-empty v-else :description="seasonTeamPlayerFilter.seasonTeamId ? '该队伍还没有阵容关系' : '选择赛季和队伍后管理阵容'" />
+      </section>
     </div>
 
 
     
     </section>
+
+    <entity-context-drawer
+      v-model="entityContextVisible"
+      :type="entityContextType"
+      :entity="entityContextEntity"
+      :context="entityContext"
+      :loading="entityContextLoading"
+      @edit="editContextEntity"
+    />
 
     <!-- 导入地图数据对话框 -->
     <el-dialog
@@ -956,7 +761,7 @@
             <el-input v-model="editForm.stage" placeholder="请输入所属赛段（如：2024 亚洲赛区）" style="width: 100%" />
           </el-form-item>
           <el-form-item label="状态" prop="status">
-            <el-select v-model="editForm.status" placeholder="请选择状态" style="width: 100%">
+            <el-select v-model="editForm.status" filterable clearable placeholder="搜索状态" style="width: 100%">
               <el-option label="进行中" value="in_progress" />
               <el-option label="已完成" value="completed" />
             </el-select>
@@ -978,6 +783,9 @@
             v-model="editForm.aliases"
             multiple
             filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
             allow-create
             default-first-option
             :reserve-keyword="false"
@@ -1007,7 +815,7 @@
             <el-input v-model="editForm.name" placeholder="请输入英雄名称" />
           </el-form-item>
           <el-form-item label="职责" prop="role">
-            <el-select v-model="editForm.role" placeholder="请选择职责" style="width: 100%">
+            <el-select v-model="editForm.role" filterable clearable placeholder="搜索职责" style="width: 100%">
               <el-option label="重装" value="tank" />
               <el-option label="输出" value="damage" />
               <el-option label="支援" value="support" />
@@ -1035,7 +843,7 @@
             <el-input v-model="editForm.name" placeholder="请输入地图名称" />
           </el-form-item>
           <el-form-item label="地图模式" prop="type">
-            <el-select v-model="editForm.type" placeholder="请选择地图模式" style="width: 100%">
+            <el-select v-model="editForm.type" filterable clearable placeholder="搜索地图模式" style="width: 100%">
               <el-option v-for="type in MAP_TYPE_ORDER" :key="type" :label="type" :value="type" />
             </el-select>
           </el-form-item>
@@ -1058,7 +866,7 @@
             <el-input v-model="editForm.name" placeholder="请输入选手名称" style="width: 100%" />
           </el-form-item>
           <el-form-item label="位置" prop="role">
-            <el-select v-model="editForm.role" placeholder="请选择位置" style="width: 100%">
+            <el-select v-model="editForm.role" filterable clearable placeholder="搜索位置" style="width: 100%">
               <el-option label="重装" value="tank" />
               <el-option label="输出" value="damage" />
               <el-option label="支援" value="support" />
@@ -1071,7 +879,7 @@
       <div v-if="dialogType === 'season-team'">
         <el-form :model="editForm" :rules="seasonTeamRules" ref="editFormRef" label-width="120px">
           <el-form-item label="赛季" prop="seasonId">
-            <el-select v-model="editForm.seasonId" placeholder="请选择赛季" style="width: 100%" @change="handleSeasonChangeForTeams">
+            <el-select v-model="editForm.seasonId" filterable clearable placeholder="搜索赛季" style="width: 100%" @change="handleSeasonChangeForTeams">
               <el-option
                 v-for="season in seasons"
                 :key="season.id"
@@ -1081,7 +889,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="队伍" prop="teamIds">
-            <el-select v-model="editForm.teamIds" placeholder="请选择队伍" style="width: 100%" multiple filterable>
+            <el-select v-model="editForm.teamIds" placeholder="搜索并选择队伍" style="width: 100%" multiple filterable clearable collapse-tags collapse-tags-tooltip>
               <el-option
                 v-for="team in availableTeams"
                 :key="team.id"
@@ -1097,7 +905,7 @@
       <div v-if="dialogType === 'season-team-player'">
         <el-form :model="editForm" :rules="seasonTeamPlayerRules" ref="editFormRef" label-width="120px">
           <el-form-item label="赛季-队伍" prop="seasonTeamId">
-            <el-select v-model="editForm.seasonTeamId" placeholder="请选择赛季-队伍" style="width: 100%" @change="handleSeasonTeamChangeForPlayers">
+            <el-select v-model="editForm.seasonTeamId" filterable clearable placeholder="搜索赛季-队伍" style="width: 100%" @change="handleSeasonTeamChangeForPlayers">
               <el-option
                 v-for="seasonTeam in seasonTeams"
                 :key="seasonTeam.id"
@@ -1107,7 +915,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="选手" prop="playerIds">
-            <el-select v-model="editForm.playerIds" placeholder="请选择选手" style="width: 100%" multiple filterable>
+            <el-select v-model="editForm.playerIds" placeholder="搜索并选择选手" style="width: 100%" multiple filterable clearable collapse-tags collapse-tags-tooltip>
               <el-option
                 v-for="player in availablePlayers"
                 :key="player.id"
@@ -1152,21 +960,21 @@
             <el-row :gutter="20">
               <el-col :span="8">
                 <el-form-item label="队伍1 (左侧)">
-                  <el-select v-model="currentMatchForEdit.team1Id" placeholder="选择队伍" style="width: 100%">
+                  <el-select v-model="currentMatchForEdit.team1Id" filterable clearable placeholder="搜索队伍" style="width: 100%">
                     <el-option v-for="team in matchEditTeams" :key="team.id" :label="team.name" :value="team.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="队伍2 (右侧)">
-                  <el-select v-model="currentMatchForEdit.team2Id" placeholder="选择队伍" style="width: 100%">
+                  <el-select v-model="currentMatchForEdit.team2Id" filterable clearable placeholder="搜索队伍" style="width: 100%">
                     <el-option v-for="team in matchEditTeams" :key="team.id" :label="team.name" :value="team.id" />
                   </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="8">
                 <el-form-item label="大场获胜方">
-                  <el-select v-model="currentMatchForEdit.winnerId" placeholder="选择获胜队伍" style="width: 100%">
+                  <el-select v-model="currentMatchForEdit.winnerId" filterable clearable placeholder="搜索获胜队伍" style="width: 100%">
                     <el-option :label="getTeamName(currentMatchForEdit.team1Id)" :value="currentMatchForEdit.team1Id" />
                     <el-option :label="getTeamName(currentMatchForEdit.team2Id)" :value="currentMatchForEdit.team2Id" />
                   </el-select>
@@ -1186,7 +994,7 @@
               </el-col>
               <el-col :span="8">
                 <el-form-item label="赛制">
-                  <el-select v-model="currentMatchForEdit.boFormat" placeholder="如: BO5" style="width: 100%">
+                  <el-select v-model="currentMatchForEdit.boFormat" filterable clearable placeholder="搜索赛制，如 BO5" style="width: 100%">
                     <el-option label="BO3" value="BO3" />
                     <el-option label="BO5" value="BO5" />
                     <el-option label="BO7" value="BO7" />
@@ -1215,7 +1023,7 @@
               <template v-else>
               <el-form :model="mapGame" label-width="120px" style="margin-top: 20px;">
                 <el-form-item label="地图">
-                  <el-select v-model="mapGame.mapId" placeholder="请选择地图" style="width: 100%">
+                  <el-select v-model="mapGame.mapId" filterable clearable placeholder="搜索地图" style="width: 100%">
                     <el-option
                       v-for="map in maps"
                       :key="map.id"
@@ -1228,7 +1036,7 @@
                   </el-select>
                 </el-form-item>
                 <el-form-item label="获胜队伍">
-                  <el-select v-model="mapGame.winnerId" placeholder="请选择获胜队伍" style="width: 100%">
+                  <el-select v-model="mapGame.winnerId" filterable clearable placeholder="搜索获胜队伍" style="width: 100%">
                     <el-option
                       :label="getTeamName(currentMatchForEdit.team1Id)"
                       :value="currentMatchForEdit.team1Id"
@@ -1257,7 +1065,7 @@
                   </el-col>
                 </el-row>
                 <el-form-item label="队伍1 Ban">
-                  <el-select v-model="mapGame.team1BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                  <el-select v-model="mapGame.team1BanHeroId" filterable placeholder="搜索 Ban 英雄" style="width: 100%" clearable>
                     <el-option
                       v-for="hero in heroes"
                       :key="hero.id"
@@ -1270,7 +1078,7 @@
                   </el-select>
                 </el-form-item>
                 <el-form-item label="队伍2 Ban">
-                  <el-select v-model="mapGame.team2BanHeroId" placeholder="请选择Ban英雄" style="width: 100%" clearable>
+                  <el-select v-model="mapGame.team2BanHeroId" filterable placeholder="搜索 Ban 英雄" style="width: 100%" clearable>
                     <el-option
                       v-for="hero in heroes"
                       :key="hero.id"
@@ -1339,7 +1147,7 @@
 
                       <div class="player-stat-row" v-for="(stat, idx) in mapGame.team1Stats" :key="'t1-'+idx">
                         <div class="col-name">
-                          <el-select v-model="stat.playerId" placeholder="选择选手" filterable @change="handlePlayerChange(stat)">
+                          <el-select v-model="stat.playerId" placeholder="搜索选手" filterable clearable @change="handlePlayerChange(stat)">
                             <el-option
                               v-for="player in getMatchTeamPlayers(mapGame, 'team1', stat.role)"
                               :key="player.id"
@@ -1352,7 +1160,7 @@
                           </el-select>
                         </div>
                         <div class="col-role">
-                          <el-select v-model="stat.role" @change="stat.playerId = ''">
+                          <el-select v-model="stat.role" filterable clearable @change="stat.playerId = ''">
                             <el-option label="T" value="tank" />
                             <el-option label="D" value="damage" />
                             <el-option label="S" value="support" />
@@ -1396,7 +1204,7 @@
 
                       <div class="player-stat-row" v-for="(stat, idx) in mapGame.team2Stats" :key="'t2-'+idx">
                         <div class="col-name">
-                          <el-select v-model="stat.playerId" placeholder="选择选手" filterable @change="handlePlayerChange(stat)">
+                          <el-select v-model="stat.playerId" placeholder="搜索选手" filterable clearable @change="handlePlayerChange(stat)">
                             <el-option
                               v-for="player in getMatchTeamPlayers(mapGame, 'team2', stat.role)"
                               :key="player.id"
@@ -1409,7 +1217,7 @@
                           </el-select>
                         </div>
                         <div class="col-role">
-                          <el-select v-model="stat.role" @change="stat.playerId = ''">
+                          <el-select v-model="stat.role" filterable clearable @change="stat.playerId = ''">
                             <el-option label="T" value="tank" />
                             <el-option label="D" value="damage" />
                             <el-option label="S" value="support" />
@@ -1464,6 +1272,7 @@ import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
 import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
 import MediaUploadField from './components/MediaUploadField.vue';
+import EntityContextDrawer from './components/EntityContextDrawer.vue';
 import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
   isValidLiquipediaTournamentUrl,
@@ -1482,7 +1291,8 @@ export default {
     Download,
     MapDataImport,
     PlayerStatsEditor,
-    MediaUploadField
+    MediaUploadField,
+    EntityContextDrawer
   },
   setup() {
     // 页面标题映射
@@ -1659,12 +1469,15 @@ export default {
     const seasonTeamFilter = ref({
       seasonId: ''
     });
+    const seasonTeamAddIds = ref([]);
     
     // 赛季-队伍-选手关联筛选
     const seasonTeamPlayerFilter = ref({
       seasonId: '',
       seasonTeamId: ''
     });
+    const rosterAddPlayerIds = ref([]);
+    const relationSaving = ref(false);
 
     // 图表配置
     const chartConfig = ref({
@@ -2000,6 +1813,11 @@ export default {
     const activeTeamRegion = ref('');
     const activeHeroRole = ref('tank');
     const activeCatalogMapType = ref('');
+    const teamSearch = ref('');
+    const heroSearch = ref('');
+    const mapSearch = ref('');
+    const playerSearch = ref('');
+    const playerRoleFilter = ref('all');
 
     const availableVisualCopySeasons = computed(() => {
       const currentSeasonId = Number(seasonVisualForm.value.seasonId);
@@ -2039,6 +1857,11 @@ export default {
     const editFormRef = ref(null);
     const pendingMediaFile = ref(null);
     const clearMediaOnSave = ref(false);
+    const entityContextVisible = ref(false);
+    const entityContextType = ref('team');
+    const entityContextEntity = ref(null);
+    const entityContext = ref(null);
+    const entityContextLoading = ref(false);
     
 
     
@@ -2310,6 +2133,29 @@ export default {
     const maps = computed(() => store.state.maps);
     const heroes = computed(() => store.state.heroes);
 
+    const normalizeSearchText = value => String(value || '').trim().toLocaleLowerCase('zh-CN');
+    const matchesSearch = (query, values) => {
+      const normalized = normalizeSearchText(query);
+      if (!normalized) return true;
+      return values.some(value => normalizeSearchText(value).includes(normalized));
+    };
+
+    const filteredTeamCatalog = computed(() => (currentTeamRegionGroup.value?.teams || [])
+      .filter(team => matchesSearch(teamSearch.value, [team.name, team.region, ...(team.aliases || [])])));
+
+    const filteredPlayerCatalog = computed(() => players.value
+      .filter(player => playerRoleFilter.value === 'all' || player.role === playerRoleFilter.value)
+      .filter(player => matchesSearch(playerSearch.value, [player.name, player.role]))
+      .sort((a, b) => sortText(a.name, b.name)));
+
+    const getTeamById = id => teams.value.find(team => Number(team.id) === Number(id)) || null;
+    const getPlayerById = id => players.value.find(player => Number(player.id) === Number(id)) || null;
+    const identityOriginText = origin => ({
+      manual: '手工建立',
+      matchweb: 'Matchweb 自动建立',
+      sync: '同步建立'
+    }[origin] || origin || '来源未记录');
+
     const getMediaCoverage = (items, field) => {
       const list = Array.isArray(items) ? items : [];
       return `${list.filter(item => String(item?.[field] || '').trim()).length}/${list.length}`;
@@ -2326,6 +2172,9 @@ export default {
 
     const currentHeroRoleGroup = computed(() => groupedHeroesForManagement.value
       .find(group => group.role === activeHeroRole.value) || groupedHeroesForManagement.value[0] || null);
+
+    const filteredHeroCatalog = computed(() => (currentHeroRoleGroup.value?.heroes || [])
+      .filter(hero => matchesSearch(heroSearch.value, [hero.name, hero.subRole, hero.role])));
 
     const groupedMapsForSelect = computed(() => {
       const grouped = new Map(MAP_TYPE_ORDER.map(type => [type, []]));
@@ -2349,6 +2198,35 @@ export default {
     const groupedMapsForManagement = groupedMapsForSelect;
     const currentMapTypeGroup = computed(() => groupedMapsForManagement.value
       .find(group => group.type === activeCatalogMapType.value) || groupedMapsForManagement.value[0] || null);
+
+    const filteredMapCatalog = computed(() => (currentMapTypeGroup.value?.maps || [])
+      .filter(map => matchesSearch(mapSearch.value, [map.name, map.type])));
+
+    const availableSeasonTeamCatalog = computed(() => {
+      const existingIds = new Set(seasonTeams.value.map(row => Number(row.teamId)));
+      return teams.value
+        .filter(team => !existingIds.has(Number(team.id)))
+        .sort((a, b) => sortText(a.name, b.name));
+    });
+
+    const rosterCandidateGroups = computed(() => {
+      const existingIds = new Set(seasonTeamPlayers.value.map(row => Number(row.playerId)));
+      return ['tank', 'damage', 'support'].map(role => ({
+        role,
+        players: players.value
+          .filter(player => player.role === role && !existingIds.has(Number(player.id)))
+          .sort((a, b) => sortText(a.name, b.name))
+      })).filter(group => group.players.length);
+    });
+
+    const selectedRosterTeamName = computed(() => {
+      const relation = seasonTeams.value.find(row => Number(row.id) === Number(seasonTeamPlayerFilter.value.seasonTeamId));
+      return relation ? getTeamName(relation.teamId) : '未选择队伍';
+    });
+
+    const rosterPlayersByRole = role => seasonTeamPlayers.value
+      .filter(row => (row.Player || getPlayerById(row.playerId))?.role === role)
+      .sort((a, b) => sortText(a.Player?.name || getPlayerName(a.playerId), b.Player?.name || getPlayerName(b.playerId)));
 
     watch(groupedHeroesForManagement, groups => {
       if (!groups.some(group => group.role === activeHeroRole.value)) {
@@ -2637,6 +2515,7 @@ export default {
     const loadSeasonTeams = async () => {
       // 先清空列表，避免显示旧数据
       store.commit('setSeasonTeams', []);
+      seasonTeamAddIds.value = [];
       
       if (seasonTeamFilter.value.seasonId) {
         try {
@@ -2654,6 +2533,7 @@ export default {
     const loadSeasonTeamPlayers = async () => {
       // 先清空列表，避免显示旧数据
       store.commit('setSeasonTeamPlayers', []);
+      rosterAddPlayerIds.value = [];
       
       if (seasonTeamPlayerFilter.value.seasonTeamId) {
         try {
@@ -2665,18 +2545,23 @@ export default {
     };
     
     // 加载赛季队伍用于选手关联
-    const loadSeasonTeamsForPlayers = async () => {
+    const loadSeasonTeamsForPlayers = async (preserveSelection = false) => {
       // 先清空列表，避免显示旧数据
+      const previousSeasonTeamId = preserveSelection === true
+        ? seasonTeamPlayerFilter.value.seasonTeamId
+        : '';
       store.commit('setSeasonTeams', []);
       store.commit('setSeasonTeamPlayers', []);
       
       if (seasonTeamPlayerFilter.value.seasonId) {
         try {
           const seasonId = seasonTeamPlayerFilter.value.seasonId;
-          const allSeasonTeams = await apiService.getAllSeasonTeams();
-          const filteredSeasonTeams = allSeasonTeams.filter(st => st.seasonId === seasonId);
-          store.commit('setSeasonTeams', filteredSeasonTeams);
-          seasonTeamPlayerFilter.value.seasonTeamId = '';
+           const allSeasonTeams = await apiService.getAllSeasonTeams();
+           const filteredSeasonTeams = allSeasonTeams.filter(st => st.seasonId === seasonId);
+           store.commit('setSeasonTeams', filteredSeasonTeams);
+           const selectionExists = filteredSeasonTeams.some(row => Number(row.id) === Number(previousSeasonTeamId));
+           seasonTeamPlayerFilter.value.seasonTeamId = selectionExists ? previousSeasonTeamId : '';
+           if (selectionExists) await loadSeasonTeamPlayers();
         } catch (error) {
           ElMessage.error('加载赛季-队伍关联失败: ' + error.message);
         }
@@ -3123,9 +3008,36 @@ export default {
       ...new Set((row?.sources || []).map(source => source.sourceType).filter(Boolean))
     ];
 
-    const openMatchweb = externalId => {
+    const openMatchweb = () => {
       window.open('https://match.owmini.xyz/admin.html', '_blank', 'noopener,noreferrer');
-      if (externalId) ElMessage.info(`请在 Matchweb 中选择比赛 ${externalId}`);
+    };
+
+    const loadEntityContext = async (type, entity) => {
+      if (!entity?.id) return;
+      entityContextType.value = type;
+      entityContextEntity.value = entity;
+      entityContext.value = null;
+      entityContextVisible.value = true;
+      entityContextLoading.value = true;
+      try {
+        entityContext.value = type === 'team'
+          ? await apiService.getTeamAdminContext(entity.id)
+          : await apiService.getPlayerAdminContext(entity.id);
+        entityContextEntity.value = entityContext.value?.entity || entity;
+      } catch (error) {
+        ElMessage.error('加载历史上下文失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        entityContextLoading.value = false;
+      }
+    };
+
+    const openTeamContext = team => loadEntityContext('team', team);
+    const openPlayerContext = player => loadEntityContext('player', player);
+    const editContextEntity = () => {
+      const entity = entityContextEntity.value;
+      if (!entity) return;
+      if (entityContextType.value === 'team') editTeam(entity);
+      else editPlayer(entity);
     };
 
     const addHero = () => {
@@ -3230,6 +3142,49 @@ export default {
       }
       
       dialogVisible.value = true;
+    };
+
+    const addSeasonTeamsInline = async () => {
+      if (!seasonTeamFilter.value.seasonId || !seasonTeamAddIds.value.length) return;
+      relationSaving.value = true;
+      try {
+        const result = await store.dispatch('bulkCreateSeasonTeams', {
+          seasonId: seasonTeamFilter.value.seasonId,
+          teamIds: seasonTeamAddIds.value
+        });
+        seasonTeamAddIds.value = [];
+        await loadSeasonTeams();
+        ElMessage.success(result?.message || '参赛队伍已加入');
+      } catch (error) {
+        ElMessage.error('加入失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        relationSaving.value = false;
+      }
+    };
+
+    const addRosterPlayersInline = async () => {
+      if (!seasonTeamPlayerFilter.value.seasonTeamId || !rosterAddPlayerIds.value.length) return;
+      relationSaving.value = true;
+      try {
+        const result = await store.dispatch('bulkCreateSeasonTeamPlayers', {
+          seasonTeamId: seasonTeamPlayerFilter.value.seasonTeamId,
+          playerIds: rosterAddPlayerIds.value
+        });
+        rosterAddPlayerIds.value = [];
+        await loadSeasonTeamPlayers();
+        ElMessage.success(result?.message || '阵容成员已加入');
+      } catch (error) {
+        ElMessage.error('加入失败: ' + (error.response?.data?.error || error.message));
+      } finally {
+        relationSaving.value = false;
+      }
+    };
+
+    const manageSeasonTeamRoster = async relation => {
+      seasonTeamPlayerFilter.value.seasonId = relation.seasonId;
+      seasonTeamPlayerFilter.value.seasonTeamId = relation.id;
+      await router.push('/data-manage/season-team-players');
+      await loadSeasonTeamsForPlayers(true);
     };
 
     const resetMediaDraft = () => {
@@ -3579,6 +3534,9 @@ export default {
       matchFilterTeams,
       seasonTeamFilter,
       seasonTeamPlayerFilter,
+      seasonTeamAddIds,
+      rosterAddPlayerIds,
+      relationSaving,
       matches,
       loading,
       total,
@@ -3703,12 +3661,39 @@ export default {
       groupedTeamsByRegion,
       currentTeamRegionGroup,
       activeTeamRegion,
+      teamSearch,
+      filteredTeamCatalog,
       groupedHeroesForManagement,
       currentHeroRoleGroup,
       activeHeroRole,
+      heroSearch,
+      filteredHeroCatalog,
       groupedMapsForManagement,
       currentMapTypeGroup,
       activeCatalogMapType,
+      mapSearch,
+      filteredMapCatalog,
+      playerSearch,
+      playerRoleFilter,
+      filteredPlayerCatalog,
+      getTeamById,
+      getPlayerById,
+      identityOriginText,
+      availableSeasonTeamCatalog,
+      rosterCandidateGroups,
+      selectedRosterTeamName,
+      rosterPlayersByRole,
+      addSeasonTeamsInline,
+      addRosterPlayersInline,
+      manageSeasonTeamRoster,
+      entityContextVisible,
+      entityContextType,
+      entityContextEntity,
+      entityContext,
+      entityContextLoading,
+      openTeamContext,
+      openPlayerContext,
+      editContextEntity,
       MAP_TYPE_ORDER,
       getMediaCoverage,
       mediaSourceState,
@@ -3737,6 +3722,443 @@ export default {
 </script>
 
 <style scoped>
+.entity-workspace,
+.relation-workspace {
+  overflow: hidden;
+  border: 1px solid #dfe2e6;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.entity-toolbar,
+.relation-commandbar,
+.roster-addbar {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) minmax(280px, 420px) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e7e9ec;
+  background: #fff;
+}
+
+.entity-toolbar-title,
+.relation-commandbar > div:first-child,
+.roster-addbar > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entity-toolbar-title strong,
+.relation-commandbar > div:first-child strong,
+.roster-addbar > div:first-child strong {
+  color: #17181a;
+  font-family: 'Oxanium', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.entity-toolbar-title span,
+.relation-commandbar > div:first-child span,
+.roster-addbar > div:first-child span {
+  color: #7a7f87;
+  font-size: 11px;
+}
+
+.entity-search {
+  width: 100%;
+}
+
+.entity-filter-strip {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e7e9ec;
+  background: #f7f8f9;
+}
+
+.entity-filter-strip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #61666d;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.entity-filter-strip button:hover {
+  color: #17181a;
+  background: #fff;
+}
+
+.entity-filter-strip button.active {
+  border-color: #ffb17b;
+  color: #9d4100;
+  background: #fff0e6;
+}
+
+.entity-filter-strip button span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #73777e;
+  background: rgba(0, 0, 0, .055);
+  font-size: 10px;
+}
+
+.entity-card-grid {
+  display: grid;
+  gap: 1px;
+  background: #e7e9ec;
+}
+
+.entity-card-grid--teams,
+.entity-card-grid--players {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.entity-card-grid--catalog {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.entity-card-grid--maps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.entity-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  padding: 11px;
+  color: #2d3034;
+  background: #fff;
+  cursor: pointer;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.entity-card:hover {
+  z-index: 1;
+  background: #fffaf6;
+  box-shadow: inset 3px 0 0 #ff6a00;
+}
+
+.entity-thumb {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  overflow: hidden;
+  border: 1px solid #e1e3e6;
+  border-radius: 10px;
+  color: #8a8f96;
+  background:
+    linear-gradient(45deg, #f2f3f4 25%, transparent 25%),
+    linear-gradient(-45deg, #f2f3f4 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f2f3f4 75%),
+    linear-gradient(-45deg, transparent 75%, #f2f3f4 75%), #fff;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  font: 800 12px/1 'Oxanium', sans-serif;
+}
+
+.entity-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.entity-thumb--logo img {
+  padding: 6px;
+}
+
+.entity-thumb--hero img {
+  object-fit: cover;
+}
+
+.entity-thumb--map {
+  width: 108px;
+}
+
+.entity-thumb--map img {
+  object-fit: cover;
+}
+
+.map-card {
+  grid-template-columns: 108px minmax(0, 1fr);
+}
+
+.entity-card-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.entity-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.entity-card-heading strong {
+  overflow: hidden;
+  color: #1d1f22;
+  font-family: 'Oxanium', sans-serif;
+  font-size: 14px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-card-heading span,
+.entity-card-copy small,
+.entity-card-muted {
+  flex: 0 0 auto;
+  color: #838890;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.entity-card-tags {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.entity-card-tags span {
+  max-width: 90px;
+  padding: 3px 6px;
+  overflow: hidden;
+  border-radius: 5px;
+  color: #8a3b00;
+  background: #fff0e7;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-card-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.entity-card:hover .entity-card-actions,
+.entity-card:focus-within .entity-card-actions {
+  opacity: 1;
+}
+
+.entity-card-actions button,
+.relation-card-actions button,
+.roster-player-row > button {
+  min-height: 27px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  color: #565b62;
+  background: #f1f2f4;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.entity-card-actions button:hover,
+.relation-card-actions button:hover,
+.roster-player-row > button:hover {
+  color: #9d4100;
+  background: #ffe9d9;
+}
+
+.entity-card-actions button.danger:hover,
+.relation-card-actions button.danger:hover,
+.roster-player-row > button.danger:hover {
+  color: #b42318;
+  background: #feeceb;
+}
+
+.player-card {
+  grid-template-columns: 48px minmax(0, 1fr);
+  min-height: 75px;
+}
+
+.player-card.is-orphan {
+  background: #fffbf3;
+}
+
+.player-monogram {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, #292b2f, #575b62);
+  font: 750 11px/1 'Oxanium', sans-serif;
+}
+
+.player-monogram.small {
+  width: 34px;
+  height: 34px;
+  font-size: 9px;
+}
+
+.relation-commandbar {
+  grid-template-columns: minmax(230px, 1fr) minmax(210px, 300px) minmax(280px, 460px) auto;
+}
+
+.relation-commandbar.roster-commandbar {
+  grid-template-columns: minmax(280px, 1fr) minmax(220px, 340px) minmax(220px, 340px);
+}
+
+.relation-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: #f3f4f5;
+}
+
+.relation-card {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 72px;
+  gap: 11px;
+  align-items: center;
+  min-height: 92px;
+  padding: 11px;
+  border: 1px solid #dfe2e6;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.relation-team-logo {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 1px solid #e1e3e6;
+  border-radius: 9px;
+  color: #747981;
+  background: #fafafa;
+  font: 800 10px/1 'Oxanium', sans-serif;
+}
+
+.relation-team-logo img { width: 100%; height: 100%; padding: 5px; object-fit: contain; }
+.relation-card-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.relation-card-copy > strong { overflow: hidden; color: #1f2124; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.relation-card-copy > span { color: #858a92; font-size: 10px; }
+.relation-sources { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.relation-sources em { padding: 2px 5px; border-radius: 4px; color: #5a5f66; background: #eef0f2; font-size: 9px; font-style: normal; }
+.relation-card-count { display: flex; flex-direction: column; align-items: flex-end; }
+.relation-card-count strong { color: #d95700; font: 800 21px/1 'Oxanium', sans-serif; }
+.relation-card-count span { color: #8a8f96; font-size: 9px; }
+.relation-card-actions { display: flex; grid-column: 2 / -1; justify-content: flex-end; gap: 4px; padding-top: 7px; border-top: 1px dashed #e0e2e5; }
+
+.roster-addbar {
+  grid-template-columns: minmax(210px, 1fr) minmax(360px, 2fr) auto;
+  background: #fafafa;
+}
+
+.roster-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: #e2e4e7;
+}
+
+.roster-role-column {
+  min-width: 0;
+  padding: 12px;
+  background: #f7f8f9;
+}
+
+.roster-role-column > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.roster-role-column > header strong { color: #34373b; font-size: 12px; }
+.roster-role-column > header span { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: 999px; color: #8a3b00; background: #ffe9da; font-size: 10px; }
+
+.roster-player-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid #e1e3e6;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.roster-player-row > div:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
+.roster-player-row > div:nth-child(2) > strong { overflow: hidden; color: #2c2f33; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.roster-player-row > button { opacity: 0; }
+.roster-player-row:hover > button,
+.roster-player-row:focus-within > button { opacity: 1; }
+.roster-empty { padding: 26px 8px; border: 1px dashed #d6d9dd; border-radius: 8px; color: #92969d; text-align: center; font-size: 11px; }
+
+@media (max-width: 1320px) {
+  .entity-card-grid--teams,
+  .entity-card-grid--players,
+  .entity-card-grid--maps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .entity-card-grid--catalog { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .relation-commandbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .entity-toolbar,
+  .relation-commandbar,
+  .relation-commandbar.roster-commandbar,
+  .roster-addbar { grid-template-columns: 1fr; }
+  .entity-card-grid--teams,
+  .entity-card-grid--players,
+  .entity-card-grid--maps,
+  .relation-card-grid { grid-template-columns: 1fr; }
+  .entity-card-grid--catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .roster-role-grid { grid-template-columns: 1fr; }
+  .entity-card-actions,
+  .roster-player-row > button { position: static; opacity: 1; }
+  .entity-card-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 520px) {
+  .entity-card-grid--catalog { grid-template-columns: 1fr; }
+  .entity-card { min-height: 84px; }
+  .entity-card-actions button,
+  .relation-card-actions button,
+  .roster-player-row > button { min-height: 42px; padding: 0 11px; }
+  .relation-card { grid-template-columns: 44px minmax(0, 1fr); }
+  .relation-card-count { grid-column: 2; align-items: flex-start; }
+  .relation-card-actions { grid-column: 1 / -1; }
+}
+
 .export-mode-controls {
   display: flex;
   align-items: center;

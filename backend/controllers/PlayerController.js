@@ -1,6 +1,7 @@
 const Player = require('../models/Player');
 const PlayerStat = require('../models/PlayerStat');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+const { getPlayerContext } = require('../services/AdminEntityContextService');
 
 const playerPayload = body => ({ name: body?.name, role: body?.role });
 
@@ -24,6 +25,16 @@ const PlayerController = {
         return res.status(404).json({ error: 'Player not found' });
       }
       res.status(200).json(player);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  getAdminContext: async (req, res) => {
+    try {
+      const context = await getPlayerContext(req.params.id);
+      if (!context) return res.status(404).json({ error: 'Player not found' });
+      res.status(200).json(context);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

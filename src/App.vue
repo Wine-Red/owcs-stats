@@ -1,5 +1,5 @@
 <template>
-  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-admin': showSidebar, 'is-visualize': isVisualizeRoute, 'is-visualize-home': isVisualizeHome }">
+  <div class="app-layout" :class="{ 'no-sidebar': !showSidebar, 'is-admin': showSidebar, 'sidebar-collapsed': showSidebar && sidebarCollapsed, 'is-visualize': isVisualizeRoute, 'is-visualize-home': isVisualizeHome }">
     <a v-if="showSidebar" class="skip-link" href="#admin-main-content">跳到主要内容</a>
 
     <!-- 移动端顶部导航 -->
@@ -11,16 +11,14 @@
         <span class="mobile-header-kicker">OWCS CONTROL</span>
         <strong class="mobile-header-title">{{ activePageTitle }}</strong>
       </div>
-      <router-link class="mobile-visualize-link" to="/visualize" aria-label="打开数据可视化">
-        <el-icon><View /></el-icon>
-      </router-link>
+      <span class="mobile-header-spacer" aria-hidden="true"></span>
     </div>
 
     <!-- 侧边导航栏遮罩 -->
     <div class="sidebar-overlay" v-if="showSidebar && mobileSidebarOpen" @click="mobileSidebarOpen = false"></div>
 
     <!-- 侧边导航栏 -->
-    <aside class="app-sidebar" :class="{ 'mobile-open': mobileSidebarOpen }" v-if="showSidebar">
+    <aside class="app-sidebar" :class="{ 'mobile-open': mobileSidebarOpen, collapsed: sidebarCollapsed }" v-if="showSidebar">
       <div class="sidebar-brand">
         <div class="sidebar-brand-mark" aria-hidden="true"><span>OW</span></div>
         <div class="logo-text">
@@ -29,6 +27,15 @@
         </div>
         <button class="sidebar-close" type="button" aria-label="关闭后台导航" @click="mobileSidebarOpen = false">
           <el-icon><Close /></el-icon>
+        </button>
+        <button
+          class="sidebar-collapse"
+          type="button"
+          :aria-label="sidebarCollapsed ? '展开后台导航' : '折叠后台导航'"
+          :title="sidebarCollapsed ? '展开导航' : '折叠导航'"
+          @click="toggleSidebarCollapse"
+        >
+          <el-icon><component :is="sidebarCollapsed ? Expand : Fold" /></el-icon>
         </button>
       </div>
 
@@ -48,29 +55,23 @@
         >
           <div class="nav-group-title">{{ group.title }}</div>
           <div class="nav-group-items">
-            <router-link
+            <el-tooltip
               v-for="item in group.items"
               :key="item.to"
-              :to="item.to"
-              class="nav-item"
+              :content="item.label"
+              placement="right"
+              :disabled="!sidebarCollapsed"
+              :show-after="280"
             >
-              <el-icon class="nav-item-icon"><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
-              <el-icon class="nav-item-arrow"><ArrowRight /></el-icon>
-            </router-link>
+              <router-link :to="item.to" class="nav-item">
+                <el-icon class="nav-item-icon"><component :is="item.icon" /></el-icon>
+                <span class="nav-item-label">{{ item.label }}</span>
+                <el-icon class="nav-item-arrow"><ArrowRight /></el-icon>
+              </router-link>
+            </el-tooltip>
           </div>
         </div>
       </nav>
-
-      <div class="sidebar-footer">
-        <router-link to="/visualize" class="sidebar-public-link">
-          <span>
-            <small>PUBLIC VIEW</small>
-            <strong>打开数据可视化</strong>
-          </span>
-          <el-icon><ArrowRight /></el-icon>
-        </router-link>
-      </div>
     </aside>
 
     <!-- 主内容区与页脚 -->
@@ -113,17 +114,15 @@ import {
   Close,
   Collection,
   Connection,
-  DataAnalysis,
-  DataLine,
+  Expand,
+  Fold,
   HomeFilled,
   MapLocation,
   Menu,
   Monitor,
   PictureFilled,
-  Setting,
   Timer,
-  User,
-  View
+  User
 } from '@element-plus/icons-vue';
 
 export default {
@@ -132,11 +131,18 @@ export default {
     ArrowRight,
     Close,
     Menu,
-    View
+    Expand,
+    Fold
   },
   setup() {
     const route = useRoute();
     const mobileSidebarOpen = ref(false);
+    const sidebarCollapsed = ref(localStorage.getItem('owcs-admin-sidebar-collapsed') === 'true');
+
+    const toggleSidebarCollapse = () => {
+      sidebarCollapsed.value = !sidebarCollapsed.value;
+      localStorage.setItem('owcs-admin-sidebar-collapsed', String(sidebarCollapsed.value));
+    };
 
     watch(() => route.path, () => {
       mobileSidebarOpen.value = false;
@@ -146,9 +152,7 @@ export default {
       {
         title: '总览中心',
         items: [
-          { to: '/dashboard', label: '全局总控', icon: HomeFilled },
-          { to: '/visualize', label: '数据可视化', icon: DataAnalysis },
-          { to: '/analytics', label: '访问统计', icon: DataLine }
+          { to: '/dashboard', label: '全局总控', icon: HomeFilled }
         ]
       },
       {
@@ -173,12 +177,6 @@ export default {
         items: [
           { to: '/data-manage/heroes', label: '英雄管理', icon: PictureFilled },
           { to: '/data-manage/maps', label: '地图管理', icon: MapLocation }
-        ]
-      },
-      {
-        title: '系统配置',
-        items: [
-          { to: '/data-manage/charts', label: '全局设置', icon: Setting }
         ]
       }
     ];
@@ -257,6 +255,10 @@ export default {
       sidebarGroups,
       latestSyncTime,
       mobileSidebarOpen,
+      sidebarCollapsed,
+      toggleSidebarCollapse,
+      Expand,
+      Fold,
       activePageTitle,
       isAnalyticsRoute,
       isVisualizeRoute,

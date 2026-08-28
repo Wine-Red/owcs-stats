@@ -1,4 +1,5 @@
 import axios from 'axios';
+/* global globalThis */
 import { trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
 import { resolveRuntimeApiBaseUrl } from './apiBaseUrl.mjs';
@@ -53,6 +54,7 @@ const apiService = {
   // 队伍相关
   getTeams: () => api.get('/teams'),
   getTeamById: (id) => api.get(`/teams/${id}`),
+  getTeamAdminContext: (id) => api.get(`/teams/${id}/admin-context`),
   createTeam: (data) => api.post('/teams', data),
   updateTeam: (id, data) => api.put(`/teams/${id}`, data),
   deleteTeam: (id) => api.delete(`/teams/${id}`),
@@ -61,6 +63,7 @@ const apiService = {
   // 选手相关
   getPlayers: () => api.get('/players'),
   getPlayerById: (id) => api.get(`/players/${id}`),
+  getPlayerAdminContext: (id) => api.get(`/players/${id}/admin-context`),
   createPlayer: (data) => api.post('/players', data),
   updatePlayer: (id, data) => api.put(`/players/${id}`, data),
   deletePlayer: (id) => api.delete(`/players/${id}`),
