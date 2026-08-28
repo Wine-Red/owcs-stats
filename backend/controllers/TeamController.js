@@ -6,8 +6,14 @@ const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
+const TeamAlias = require('../models/TeamAlias');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
+const {
+  validateTeamIdentity,
+  replaceTeamAliases,
+  serializeTeamsWithAliases
+} = require('../services/TeamAliasService');
 
 const teamPayload = body => ({
   name: body?.name,
@@ -32,7 +38,7 @@ const TeamController = {
   getAll: async (req, res) => {
     try {
       const teams = await Team.findAll({ order: [['name', 'ASC']] });
-      res.status(200).json(teams);
+      res.status(200).json(await serializeTeamsWithAliases(teams));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -46,7 +52,7 @@ const TeamController = {
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });
       }
-      res.status(200).json(team);
+      res.status(200).json(await serializeTeamsWithAliases(team));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -55,8 +61,17 @@ const TeamController = {
   // 创建队伍
   create: async (req, res) => {
     try {
-      const team = await Team.create(teamPayload(req.body));
-      res.status(201).json(team);
+      const result = await sequelize.transaction(async transaction => {
+        const identity = await validateTeamIdentity({
+          name: req.body?.name,
+          aliases: req.body?.aliases || [],
+          transaction
+        });
+        const team = await Team.create({ ...teamPayload(req.body), name: identity.name }, { transaction });
+        await replaceTeamAliases(team.id, identity.aliases, transaction);
+        return serializeTeamsWithAliases(team, transaction);
+      });
+      res.status(201).json(result);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -66,12 +81,24 @@ const TeamController = {
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const team = await Team.findByPk(id);
-      if (!team) {
-        return res.status(404).json({ error: 'Team not found' });
-      }
-      await team.update(teamPayload(req.body));
-      res.status(200).json(team);
+      const result = await sequelize.transaction(async transaction => {
+        const team = await Team.findByPk(id, { transaction });
+        if (!team) return null;
+        const current = await serializeTeamsWithAliases(team, transaction);
+        const identity = await validateTeamIdentity({
+          teamId: team.id,
+          name: req.body?.name,
+          aliases: Object.prototype.hasOwnProperty.call(req.body || {}, 'aliases')
+            ? req.body.aliases
+            : current.aliases,
+          transaction
+        });
+        await team.update({ ...teamPayload(req.body), name: identity.name }, { transaction });
+        await replaceTeamAliases(team.id, identity.aliases, transaction);
+        return serializeTeamsWithAliases(team, transaction);
+      });
+      if (!result) return res.status(404).json({ error: 'Team not found' });
+      res.status(200).json(result);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -163,6 +190,8 @@ const TeamController = {
         where: { teamId: id },
         transaction: t
       });
+
+      await TeamAlias.destroy({ where: { teamId: id }, transaction: t });
 
       // Delete the team itself
       await team.destroy({ transaction: t });

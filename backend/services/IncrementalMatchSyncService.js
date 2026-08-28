@@ -6,6 +6,7 @@ const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
 const Config = require('../models/Config');
 const Team = require('../models/Team');
+const TeamAlias = require('../models/TeamAlias');
 const Season = require('../models/Season');
 const MapModel = require('../models/Map');
 const Player = require('../models/Player');
@@ -13,6 +14,7 @@ const Hero = require('../models/Hero');
 const SeasonTeam = require('../models/SeasonTeam');
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
+const { normalizeTeamIdentity, buildTeamIdentityMap } = require('./TeamAliasService');
 
 const SYNC_CURSOR_CONFIG_KEY = 'external_match_sync_cursor_v2';
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
@@ -55,9 +57,10 @@ const mapWithConcurrency = async (items, limit, mapper) => {
 };
 
 const buildCaches = async (transaction) => {
-  const [seasons, teams, maps, players, heroes] = await Promise.all([
+  const [seasons, teams, teamAliases, maps, players, heroes] = await Promise.all([
     Season.findAll({ transaction }),
     Team.findAll({ transaction }),
+    TeamAlias.findAll({ transaction }),
     MapModel.findAll({ transaction }),
     Player.findAll({ transaction }),
     Hero.findAll({ transaction })
@@ -65,11 +68,12 @@ const buildCaches = async (transaction) => {
   return {
     seasons,
     teams,
+    teamAliases,
     maps,
     players,
     heroes,
     seasonByName: new Map(seasons.flatMap(s => [s.name, s.externalEventName].filter(Boolean).map(name => [lower(name), s]))),
-    teamByName: new Map(teams.filter(t => t.name).map(t => [lower(t.name), t])),
+    teamByName: buildTeamIdentityMap(teams, teamAliases),
     mapByName: new Map(maps.filter(m => m.name).map(m => [lower(m.name), m])),
     heroByName: new Map(heroes.filter(h => h.name).map(h => [heroNameKey(h.name), h]))
   };
@@ -77,11 +81,11 @@ const buildCaches = async (transaction) => {
 
 const ensureTeam = async (name, caches, transaction) => {
   if (!name) throw new Error('Match team name is missing');
-  let team = caches.teamByName.get(lower(name));
+  let team = caches.teamByName.get(normalizeTeamIdentity(name));
   if (!team) {
     team = await Team.create({ name, region: 'ap' }, { transaction });
     caches.teams.push(team);
-    caches.teamByName.set(lower(name), team);
+    caches.teamByName.set(normalizeTeamIdentity(name), team);
   }
   return team;
 };
@@ -220,16 +224,14 @@ const replacePlayerStats = async ({ mapGame, round, team1, team2, seasonTeam1, s
   return { playerStatsCount, heroStatsCount };
 };
 
-const upsertMatchDetail = async (source, teamNameMapping, caches, transaction) => {
+const upsertMatchDetail = async (source, caches, transaction) => {
   const eventName = source.eventName;
   const season = caches.seasonByName.get(lower(eventName));
   if (!season) throw new Error(`Season not found for eventName: ${eventName}`);
   if (!source.teamA?.name || !source.teamB?.name) throw new Error(`Match ${source.id} is missing team data`);
 
-  const team1Name = teamNameMapping[source.teamA.name] || source.teamA.name;
-  const team2Name = teamNameMapping[source.teamB.name] || source.teamB.name;
-  const team1 = await ensureTeam(team1Name, caches, transaction);
-  const team2 = await ensureTeam(team2Name, caches, transaction);
+  const team1 = await ensureTeam(source.teamA.name, caches, transaction);
+  const team2 = await ensureTeam(source.teamB.name, caches, transaction);
   const seasonTeam1 = await ensureSeasonTeam(season, team1, caches, transaction);
   const seasonTeam2 = await ensureSeasonTeam(season, team2, caches, transaction);
   const scoreA = integer(source.scoreA);
@@ -385,8 +387,6 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
       const detailsById = new Map(details.map(detail => [String(detail.id), detail]));
 
       await sequelize.transaction(async transaction => {
-        const mappingConfig = await Config.findByPk('team_name_mapping', { transaction });
-        const teamNameMapping = mappingConfig?.value || {};
         const caches = await buildCaches(transaction);
         const affectedSeasonIds = new Set();
 
@@ -396,7 +396,7 @@ const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncCli
             if (result.deleted) totals.deletedMatchesCount++;
             if (result.seasonId) affectedSeasonIds.add(Number(result.seasonId));
           } else {
-            const result = await upsertMatchDetail(detailsById.get(String(item.id)), teamNameMapping, caches, transaction);
+            const result = await upsertMatchDetail(detailsById.get(String(item.id)), caches, transaction);
             totals.upsertedMatchesCount++;
             if (result.created) totals.newMatchesCount++;
             else totals.updatedMatchesCount++;

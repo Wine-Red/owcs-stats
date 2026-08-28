@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 const Team = require('../models/Team'); // eslint-disable-line no-unused-vars
+const TeamAlias = require('../models/TeamAlias'); // eslint-disable-line no-unused-vars
 const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
 const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
 const Player = require('../models/Player'); // eslint-disable-line no-unused-vars
@@ -12,6 +13,7 @@ const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-li
 const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 const { ensureAgentViews } = require('./agentViews');
+const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
 
 const lowerTableName = table => {
   if (typeof table === 'string') return table.toLowerCase();
@@ -67,6 +69,11 @@ const initDatabase = async () => {
     await sequelize.sync();
     console.log('数据库模型同步成功');
 
+    const aliasMigration = await migrateLegacyTeamNameMapping(sequelize);
+    if (aliasMigration.found) {
+      console.log(`[team-aliases] migrated=${aliasMigration.migrated} skipped=${aliasMigration.skipped} failures=${aliasMigration.failures.length}`);
+    }
+
     // Keep the assistant-facing views aligned with the deployed backend while
     // allowing the website to start if this account lacks CREATE VIEW rights.
     try {
@@ -86,6 +93,7 @@ const initDatabase = async () => {
 const setupAssociations = () => {
   const Season = require('../models/Season');
   const Team = require('../models/Team');
+  const TeamAlias = require('../models/TeamAlias');
   const SeasonTeam = require('../models/SeasonTeam'); // eslint-disable-line no-unused-vars
   const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disable-line no-unused-vars
   const Player = require('../models/Player');
@@ -95,6 +103,9 @@ const setupAssociations = () => {
   const PlayerStat = require('../models/PlayerStat');
   const PlayerHeroStat = require('../models/PlayerHeroStat');
   const SeasonStage = require('../models/SeasonStage');
+
+  Team.hasMany(TeamAlias, { foreignKey: 'teamId', as: 'aliasRecords', onDelete: 'CASCADE' });
+  TeamAlias.belongsTo(Team, { foreignKey: 'teamId', as: 'team' });
 
   // PlayerStat 关联
   PlayerStat.belongsTo(MapGame, { foreignKey: 'mapGameId' });

@@ -7,39 +7,6 @@
       <el-card class="data-card">
         <template #header>
           <div class="card-header">
-            <span>数据同步与别名映射配置</span>
-            <el-button type="primary" @click="saveTeamNameMapping">保存配置</el-button>
-          </div>
-        </template>
-        <el-form label-position="top">
-          <el-form-item label="队伍名称映射 (用于同步外部API数据时将外部名称映射为标准名称)">
-            <el-table :data="teamNameMappingList" style="width: 100%" border size="small">
-              <el-table-column label="外部数据源队伍名称 (如 DF)">
-                <template #default="scope">
-                  <el-input v-model="scope.row.from" placeholder="外部名称" />
-                </template>
-              </el-table-column>
-              <el-table-column label="系统标准队伍名称 (如 DAL)">
-                <template #default="scope">
-                  <el-input v-model="scope.row.to" placeholder="标准名称" />
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="100" align="center">
-                <template #default="scope">
-                  <el-button type="danger" :icon="Delete" circle @click="removeTeamNameMapping(scope.$index)" />
-                </template>
-              </el-table-column>
-            </el-table>
-            <div style="margin-top: 10px;">
-              <el-button type="primary" plain :icon="Plus" @click="addTeamNameMapping">添加映射规则</el-button>
-            </div>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <el-card class="data-card" style="margin-top: 20px;">
-        <template #header>
-          <div class="card-header">
             <span>图表显示配置</span>
             <el-button type="primary" @click="saveChartConfig">保存配置</el-button>
           </div>
@@ -581,7 +548,17 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="队伍名称" min-width="220" />
+            <el-table-column label="队伍身份" min-width="320">
+              <template #default="scope">
+                <div class="team-identity-cell">
+                  <span class="team-primary-name">{{ scope.row.name }}</span>
+                  <div v-if="scope.row.aliases?.length" class="team-alias-list">
+                    <span v-for="alias in scope.row.aliases" :key="alias" class="team-alias-chip">{{ alias }}</span>
+                  </div>
+                  <span v-else class="team-alias-empty">暂无同步别名</span>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="region" label="地区" width="160" />
             <el-table-column label="资源状态" width="110" align="center">
               <template #default="scope">
@@ -945,6 +922,21 @@
         </el-form-item>
         <el-form-item label="地区" prop="region">
           <el-input v-model="editForm.region" placeholder="请输入队伍地区" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="同步别名">
+          <el-select
+            v-model="editForm.aliases"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            :reserve-keyword="false"
+            placeholder="输入 Matchweb 使用的名称并按 Enter"
+            class="team-alias-editor"
+          />
+          <div class="form-hint team-alias-hint">
+            Matchweb 命中任一别名时都会归入主名“{{ editForm.name || '未命名队伍' }}”；公开页面始终只显示主名。
+          </div>
         </el-form-item>
         <el-form-item label="队伍 Logo">
           <media-upload-field
@@ -1957,59 +1949,6 @@ export default {
       }
     };
     
-    // ==========================================
-    // 队伍名称映射配置逻辑
-    // ==========================================
-    const teamNameMappingList = ref([]);
-    
-    const loadTeamNameMapping = async () => {
-      try {
-        const config = await apiService.getConfig('team_name_mapping');
-        if (config && typeof config === 'object') {
-          // 将 {"DF": "DAL", "EXN": "EA"} 转换为 [{from: 'DF', to: 'DAL'}, ...]
-          teamNameMappingList.value = Object.entries(config).map(([from, to]) => ({ from, to }));
-        } else {
-          teamNameMappingList.value = [];
-        }
-      } catch (error) {
-        console.error('加载队伍名称映射失败:', error);
-        teamNameMappingList.value = [];
-      }
-    };
-
-    const saveTeamNameMapping = async () => {
-      try {
-        // 过滤空值并转换为对象 {"DF": "DAL"}
-        const mappingObject = {};
-        teamNameMappingList.value.forEach(item => {
-          const from = item.from?.trim();
-          const to = item.to?.trim();
-          if (from && to) {
-            mappingObject[from] = to;
-          }
-        });
-        
-        await apiService.updateConfig({
-          key: 'team_name_mapping',
-          value: mappingObject,
-          description: '队伍名称映射表，用于外部数据同步'
-        });
-        ElMessage.success('队伍名称映射配置已保存');
-        await loadTeamNameMapping(); // 重新加载整理后的数据
-      } catch (error) {
-        console.error('保存队伍名称映射配置失败:', error);
-        ElMessage.error('保存配置失败');
-      }
-    };
-
-    const addTeamNameMapping = () => {
-      teamNameMappingList.value.push({ from: '', to: '' });
-    };
-
-    const removeTeamNameMapping = (index) => {
-      teamNameMappingList.value.splice(index, 1);
-    };
-
     // 比赛列表数据
     const matches = ref([]);
     const loading = ref(false);
@@ -3072,7 +3011,8 @@ export default {
       editForm.value = {
         name: '',
         region: '',
-        logo: ''
+        logo: '',
+        aliases: []
       };
       dialogVisible.value = true;
     };
@@ -3083,7 +3023,10 @@ export default {
       dialogTitle.value = '编辑队伍';
       dialogType.value = 'team';
       // 深拷贝队伍数据
-      editForm.value = JSON.parse(JSON.stringify(team));
+      editForm.value = {
+        ...JSON.parse(JSON.stringify(team)),
+        aliases: Array.isArray(team.aliases) ? [...team.aliases] : []
+      };
       dialogVisible.value = true;
     };
 
@@ -3349,7 +3292,7 @@ export default {
             }
             dialogVisible.value = false;
           } catch (error) {
-            ElMessage.error('操作失败: ' + error.message);
+            ElMessage.error('操作失败: ' + (error.response?.data?.error || error.message));
           }
         } else {
           ElMessage.warning('请检查表单数据');
@@ -3669,12 +3612,6 @@ export default {
       saveVisualizeSeasonOrderConfig,
       seasonOrderSaving,
 
-      teamNameMappingList,
-      loadTeamNameMapping,
-      saveTeamNameMapping,
-      addTeamNameMapping,
-      removeTeamNameMapping,
-
       isMobile,
       actionColWidth,
       deleteActionColWidth,
@@ -3722,6 +3659,52 @@ export default {
   color: #888;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.team-identity-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 4px 0;
+}
+
+.team-primary-name {
+  color: #f5f5f5;
+  font-family: 'Oxanium', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.team-alias-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.team-alias-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid #4a4022;
+  border-radius: 999px;
+  background: #211e15;
+  color: #e5c85c;
+  font-family: 'Oxanium', sans-serif;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.team-alias-empty {
+  color: #737373;
+  font-size: 11px;
+}
+
+.team-alias-editor,
+.team-alias-hint {
+  width: 100%;
 }
 
 .map-type-tabs-header {
