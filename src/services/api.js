@@ -1,11 +1,12 @@
 import axios from 'axios';
 import { trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
+import { resolveRuntimeApiBaseUrl } from './apiBaseUrl.mjs';
 
 // 创建axios实例
 const isStaticExport = import.meta.env.MODE === 'static';
 const api = isStaticExport ? createStaticApi() : axios.create({
-  baseURL: '/api',
+  baseURL: resolveRuntimeApiBaseUrl(globalThis.location?.pathname),
   timeout: 60000, // 增加到 60 秒以支持耗时的同步和 AI 操作
   headers: {
     'Content-Type': 'application/json'

@@ -13,6 +13,11 @@ The external MySQL database and `/opt/compose/owcs-stats/secrets/backend.env` ar
 not included in images or release archives. Failed health checks restore the
 previous compose file, environment file, source link, and images.
 
+`stats-openresty-root.conf` and `stats-openresty-proxy-headers.inc` are the
+1Panel includes that protect the application with TinyAuth. `/visualize` and
+its static assets use the unauthenticated, GET-only `/public-api` prefix; the
+normal `/api` prefix stays protected.
+
 Required repository secrets:
 
 - `OWCS_STATS_DEPLOY_HOST`
