@@ -72,6 +72,19 @@
           </div>
         </div>
       </nav>
+
+      <div class="sidebar-footer">
+        <el-tooltip content="打开数据可视化" placement="right" :disabled="!sidebarCollapsed" :show-after="280">
+          <router-link to="/visualize" class="sidebar-public-link" aria-label="打开数据可视化">
+            <el-icon class="sidebar-public-icon"><View /></el-icon>
+            <span class="sidebar-public-copy">
+              <small>PUBLIC VIEW</small>
+              <strong>打开数据可视化</strong>
+            </span>
+            <el-icon class="sidebar-public-arrow"><ArrowRight /></el-icon>
+          </router-link>
+        </el-tooltip>
+      </div>
     </aside>
 
     <!-- 主内容区与页脚 -->
@@ -122,7 +135,8 @@ import {
   Monitor,
   PictureFilled,
   Timer,
-  User
+  User,
+  View
 } from '@element-plus/icons-vue';
 
 export default {
@@ -132,7 +146,8 @@ export default {
     Close,
     Menu,
     Expand,
-    Fold
+    Fold,
+    View
   },
   setup() {
     const route = useRoute();
