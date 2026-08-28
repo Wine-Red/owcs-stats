@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig(({ mode }) => ({
-  base: mode === 'static' ? './' : '/stats/',
+  base: mode === 'static' ? './' : (process.env.VITE_BASE_PATH || '/stats/'),
   
   plugins: [
     vue(),

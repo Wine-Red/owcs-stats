@@ -1,20 +1,13 @@
-name: Deploy To BT
+name: Deploy OWCS Stats to Tencent
 
 on:
   push:
     branches:
       - master
-    paths-ignore:
-      - .github/workflows/**
-      - .github/scripts/**
-      - deploy/server-pull/**
-      - docs/**
-      - scripts/verify-embedded-webview.mjs
-      - src/utils/embeddedWebView.test.mjs
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy-and-static-release
+  group: owcs-stats-production-deploy
   cancel-in-progress: false
 
 permissions:
@@ -28,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -40,7 +33,17 @@ jobs:
         run: npm ci
 
       - name: Build Frontend
+        env:
+          VITE_BASE_PATH: /
         run: npm run build
+
+      - name: Test Frontend Units
+        run: |
+          npm run test:static-export
+          npm run test:liquipedia-url
+          npm run test:match-schedule
+          npm run test:team-roster
+          npm run test:embedded-webview
 
       - name: Install Backend Dependencies
         working-directory: backend
@@ -57,21 +60,40 @@ jobs:
           node --check backend/services/IncrementalMatchSyncService.js
 
   deploy:
-    name: Pull, build, verify, and activate on server
+    name: Build and activate on Tencent
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
+    environment: production
 
     steps:
-      - name: Checkout deployment control scripts
-        uses: actions/checkout@v4
+      - name: Checkout immutable release
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
 
-      - name: Run fixed server-side deployment
+      - name: Configure restricted SSH key
         env:
-          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
-          DEPLOY_USER: ${{ secrets.SERVER_USER }}
-          DEPLOY_PORT: ${{ secrets.SERVER_PORT }}
-          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          DEPLOY_MODE: deploy
-          DEPLOY_SHA: ${{ github.sha }}
-        run: bash .github/scripts/run-server-pull-deploy.sh
+          DEPLOY_KEY: ${{ secrets.OWCS_STATS_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OWCS_STATS_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/owcs_stats_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/owcs_stats_deploy ~/.ssh/known_hosts
+
+      - name: Stream immutable Git release to production
+        env:
+          DEPLOY_HOST: ${{ secrets.OWCS_STATS_DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.OWCS_STATS_DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.OWCS_STATS_DEPLOY_USER }}
+        run: |
+          git archive --format=tar.gz "$GITHUB_SHA" \
+            | ssh -i ~/.ssh/owcs_stats_deploy \
+                -p "$DEPLOY_PORT" \
+                -o BatchMode=yes \
+                -o IdentitiesOnly=yes \
+                -o ServerAliveInterval=20 \
+                -o ServerAliveCountMax=15 \
+                "$DEPLOY_USER@$DEPLOY_HOST" \
+                "deploy $GITHUB_SHA"

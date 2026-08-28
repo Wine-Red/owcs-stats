@@ -3,7 +3,7 @@ name: Build Production Static Release
 on:
   workflow_run:
     workflows:
-      - Deploy To BT
+      - Deploy OWCS Stats to Tencent
     types:
       - completed
     branches:
