@@ -15,8 +15,9 @@ permissions:
   packages: write
 
 env:
-  OWCS_API_IMAGE: ghcr.io/wine-red/owcs-stats-backend
-  OWCS_WEB_IMAGE: ghcr.io/wine-red/owcs-stats-web
+  OWCS_API_IMAGE: ${{ vars.OWCS_API_IMAGE || 'ghcr.io/wine-red/owcs-stats-backend' }}
+  OWCS_WEB_IMAGE: ${{ vars.OWCS_WEB_IMAGE || 'ghcr.io/wine-red/owcs-stats-web' }}
+  CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
 
 jobs:
   validate:
@@ -103,12 +104,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to image registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ secrets.CONTAINER_REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.CONTAINER_REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Build cached backend image
         uses: docker/build-push-action@v6
@@ -151,22 +152,6 @@ jobs:
           docker push "$OWCS_API_IMAGE:$GITHUB_SHA"
           docker push "$OWCS_WEB_IMAGE:$GITHUB_SHA"
 
-      - name: Package verified images for deployment
-        run: |
-          docker save \
-              "$OWCS_API_IMAGE:$GITHUB_SHA" \
-              "$OWCS_WEB_IMAGE:$GITHUB_SHA" \
-            | gzip -1 > "$RUNNER_TEMP/owcs-stats-images.tar.gz"
-
-      - name: Upload verified deployment images
-        uses: actions/upload-artifact@v4
-        with:
-          name: owcs-stats-images-${{ github.sha }}
-          path: ${{ runner.temp }}/owcs-stats-images.tar.gz
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
   deploy:
     name: Activate images on Tencent
     needs: build-images
@@ -185,12 +170,6 @@ jobs:
         with:
           name: owcs-stats-frontend-${{ github.sha }}
           path: dist
-
-      - name: Download verified deployment images
-        uses: actions/download-artifact@v4
-        with:
-          name: owcs-stats-images-${{ github.sha }}
-          path: ${{ runner.temp }}
 
       - name: Configure restricted SSH key
         env:
@@ -234,20 +213,22 @@ jobs:
               "$release_dir/" \
               "$DEPLOY_USER@$DEPLOY_HOST:$GITHUB_SHA/"
 
-      - name: Stream and activate verified release
+      - name: Pull and activate verified release
         env:
           DEPLOY_HOST: ${{ secrets.OWCS_STATS_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.OWCS_STATS_DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.OWCS_STATS_DEPLOY_USER }}
+          REGISTRY_USER: ${{ secrets.CONTAINER_REGISTRY_USERNAME || github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.CONTAINER_REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           api_image="$OWCS_API_IMAGE:$GITHUB_SHA"
           web_image="$OWCS_WEB_IMAGE:$GITHUB_SHA"
-          ssh -i ~/.ssh/owcs_stats_deploy \
-              -p "$DEPLOY_PORT" \
-              -o BatchMode=yes \
-              -o IdentitiesOnly=yes \
-              -o ServerAliveInterval=20 \
-              -o ServerAliveCountMax=15 \
-              "$DEPLOY_USER@$DEPLOY_HOST" \
-              "activate-stream $GITHUB_SHA $api_image $web_image" \
-              < "$RUNNER_TEMP/owcs-stats-images.tar.gz"
+          printf '%s\n' "$REGISTRY_TOKEN" \
+            | ssh -i ~/.ssh/owcs_stats_deploy \
+                -p "$DEPLOY_PORT" \
+                -o BatchMode=yes \
+                -o IdentitiesOnly=yes \
+                -o ServerAliveInterval=20 \
+                -o ServerAliveCountMax=15 \
+                "$DEPLOY_USER@$DEPLOY_HOST" \
+                "activate $GITHUB_SHA $api_image $web_image $REGISTRY_USER"
