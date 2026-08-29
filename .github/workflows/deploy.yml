@@ -151,6 +151,22 @@ jobs:
           docker push "$OWCS_API_IMAGE:$GITHUB_SHA"
           docker push "$OWCS_WEB_IMAGE:$GITHUB_SHA"
 
+      - name: Package verified images for deployment
+        run: |
+          docker save \
+              "$OWCS_API_IMAGE:$GITHUB_SHA" \
+              "$OWCS_WEB_IMAGE:$GITHUB_SHA" \
+            | gzip -1 > "$RUNNER_TEMP/owcs-stats-images.tar.gz"
+
+      - name: Upload verified deployment images
+        uses: actions/upload-artifact@v4
+        with:
+          name: owcs-stats-images-${{ github.sha }}
+          path: ${{ runner.temp }}/owcs-stats-images.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
   deploy:
     name: Activate images on Tencent
     needs: build-images
@@ -169,6 +185,12 @@ jobs:
         with:
           name: owcs-stats-frontend-${{ github.sha }}
           path: dist
+
+      - name: Download verified deployment images
+        uses: actions/download-artifact@v4
+        with:
+          name: owcs-stats-images-${{ github.sha }}
+          path: ${{ runner.temp }}
 
       - name: Configure restricted SSH key
         env:
@@ -212,21 +234,20 @@ jobs:
               "$release_dir/" \
               "$DEPLOY_USER@$DEPLOY_HOST:$GITHUB_SHA/"
 
-      - name: Activate verified release
+      - name: Stream and activate verified release
         env:
           DEPLOY_HOST: ${{ secrets.OWCS_STATS_DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.OWCS_STATS_DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.OWCS_STATS_DEPLOY_USER }}
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           api_image="$OWCS_API_IMAGE:$GITHUB_SHA"
           web_image="$OWCS_WEB_IMAGE:$GITHUB_SHA"
-          printf '%s\n' "$REGISTRY_TOKEN" \
-            | ssh -i ~/.ssh/owcs_stats_deploy \
-                -p "$DEPLOY_PORT" \
-                -o BatchMode=yes \
-                -o IdentitiesOnly=yes \
-                -o ServerAliveInterval=20 \
-                -o ServerAliveCountMax=15 \
-                "$DEPLOY_USER@$DEPLOY_HOST" \
-                "activate $GITHUB_SHA $api_image $web_image $GITHUB_ACTOR"
+          ssh -i ~/.ssh/owcs_stats_deploy \
+              -p "$DEPLOY_PORT" \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ServerAliveInterval=20 \
+              -o ServerAliveCountMax=15 \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "activate-stream $GITHUB_SHA $api_image $web_image" \
+              < "$RUNNER_TEMP/owcs-stats-images.tar.gz"

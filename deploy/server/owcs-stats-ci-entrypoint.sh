@@ -15,9 +15,16 @@ if [[ "$requested_command" =~ ^activate\ ([0-9a-f]{40})\ ([a-z0-9][a-z0-9._:/-]*
         "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
 fi
 
+if [[ "$requested_command" =~ ^activate-stream\ ([0-9a-f]{40})\ ([a-z0-9][a-z0-9._:/-]*:[0-9a-f]{40})\ ([a-z0-9][a-z0-9._:/-]*:[0-9a-f]{40})$ ]]; then
+    exec timeout --foreground --signal=TERM --kill-after=30s 27m \
+        sudo -n /usr/local/sbin/owcs-stats-deploy \
+        activate-stream "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" \
+        "${BASH_REMATCH[3]}"
+fi
+
 if [[ "$requested_command" == rsync\ --server* ]]; then
     exec /usr/bin/rrsync -wo /opt/compose/owcs-stats/ci-upload
 fi
 
-echo "This key only accepts immutable prepare/activate commands and restricted rsync uploads." >&2
+echo "This key only accepts immutable prepare/activate/activate-stream commands and restricted rsync uploads." >&2
 exit 2

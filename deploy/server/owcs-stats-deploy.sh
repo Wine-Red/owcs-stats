@@ -8,7 +8,7 @@ api_image="${3:-}"
 web_image="${4:-}"
 registry_user="${5:-}"
 
-if [[ "$mode" != "prepare" && "$mode" != "activate" ]]; then
+if [[ "$mode" != "prepare" && "$mode" != "activate" && "$mode" != "activate-stream" ]]; then
     echo "Invalid deployment mode." >&2
     exit 2
 fi
@@ -39,7 +39,7 @@ release_dir="$releases_root/$deploy_sha"
 ci_user="owcs-stats-ci"
 ci_group=$(id -gn "$ci_user")
 
-for command in awk curl docker flock find grep mktemp readlink rsync sed; do
+for command in awk curl docker flock find grep gzip mktemp readlink rsync sed; do
     command -v "$command" >/dev/null 2>&1 || {
         echo "Required command is missing: $command" >&2
         exit 1
@@ -162,41 +162,45 @@ else
     mv "$candidate_dir" "$release_dir"
 fi
 
-IFS= read -r registry_token || true
-test -n "$registry_token" || {
-    echo "Registry token was not provided." >&2
-    exit 1
-}
+if [[ "$mode" == "activate" ]]; then
+    IFS= read -r registry_token || true
+    test -n "$registry_token" || {
+        echo "Registry token was not provided." >&2
+        exit 1
+    }
 
-api_registry="${api_image%%/*}"
-web_registry="${web_image%%/*}"
-test "$api_registry" = "$web_registry" || {
-    echo "Backend and web images must use the same registry." >&2
-    exit 1
-}
+    api_registry="${api_image%%/*}"
+    web_registry="${web_image%%/*}"
+    test "$api_registry" = "$web_registry" || {
+        echo "Backend and web images must use the same registry." >&2
+        exit 1
+    }
 
-registry_config=$(mktemp -d "$state_root/registry.${deploy_sha}.XXXXXX")
-cleanup_registry() {
-    case "$registry_config" in
-        "$state_root"/registry.*)
-            rm -rf -- "$registry_config"
-            ;;
-        *)
-            echo "Refusing to remove unexpected registry configuration: $registry_config" >&2
-            ;;
-    esac
-}
-trap cleanup_registry EXIT
+    registry_config=$(mktemp -d "$state_root/registry.${deploy_sha}.XXXXXX")
+    cleanup_registry() {
+        case "$registry_config" in
+            "$state_root"/registry.*)
+                rm -rf -- "$registry_config"
+                ;;
+            *)
+                echo "Refusing to remove unexpected registry configuration: $registry_config" >&2
+                ;;
+        esac
+    }
+    trap cleanup_registry EXIT
 
-printf '%s\n' "$registry_token" \
-    | docker --config "$registry_config" login "$api_registry" \
-        --username "$registry_user" --password-stdin >/dev/null
-unset registry_token
-docker --config "$registry_config" pull "$api_image"
-docker --config "$registry_config" pull "$web_image"
-docker --config "$registry_config" logout "$api_registry" >/dev/null 2>&1 || true
-cleanup_registry
-trap - EXIT
+    printf '%s\n' "$registry_token" \
+        | docker --config "$registry_config" login "$api_registry" \
+            --username "$registry_user" --password-stdin >/dev/null
+    unset registry_token
+    docker --config "$registry_config" pull "$api_image"
+    docker --config "$registry_config" pull "$web_image"
+    docker --config "$registry_config" logout "$api_registry" >/dev/null 2>&1 || true
+    cleanup_registry
+    trap - EXIT
+else
+    gzip -dc | docker load >/dev/null
+fi
 
 for image_ref in "$api_image" "$web_image"; do
     image_revision=$(docker image inspect \
