@@ -1,17 +1,16 @@
 # OWCS Stats production deployment
 
-Pushes to `master` validate the frontend and backend, build the frontend once,
-and create two immutable Docker images in GitHub Actions. BuildKit caches the
-backend npm layer and the Nginx frontend layers between releases. The verified
-images are published to GHCR under the exact Git commit SHA.
+Pushes to `master` validate the frontend and backend and build the production
+frontend in GitHub Actions. The restricted deployment account synchronizes the
+validated bundle and immutable source release to Tencent. The server then
+builds two commit-tagged images locally with persistent BuildKit caches under
+`/opt/compose/owcs-stats/.build-cache`.
 
-The restricted deployment account synchronizes a small immutable release
-record, then the server uses a workflow-scoped registry credential to pull the
-two images. It verifies both embedded revision labels, runs isolated Node and
-Nginx checks, and only then switches Compose. Registry credentials live in a
-temporary Docker configuration directory and are deleted before activation. A
+The server verifies both embedded revision labels, runs isolated Node and Nginx
+checks, and only then switches Compose. No registry account or cross-border
+image pull is involved. A failed build leaves the running release untouched; a
 failed health check restores the previous Compose file, environment, source
-link, and already-cached images.
+link, and locally cached images.
 
 ## Persistent state and migration
 
@@ -26,17 +25,13 @@ The following state is outside images and immutable releases:
 This allows a new server to use a mounted disk or restored backup without
 changing application code.
 
-A complete migration consists of a transactionally consistent MySQL dump,
-the media directory, `backend.env`, `.env`, and `compose.yaml`. Restore the
-database and files on the new host, update only host-specific database/network
-values, then run the normal workflow. The workflow pulls immutable images and
-recreates containers; Node/npm and frontend builds do not run on the new host.
-Do not archive `releases`, `ci-upload`, or `.deploy-state` unless deployment
-history itself is required.
-
-The image names are supplied through `OWCS_API_IMAGE` and `OWCS_WEB_IMAGE`.
-Moving from GHCR to another OCI registry therefore changes only the workflow
-image names and registry login, not Compose storage or application settings.
+A complete migration consists of a transactionally consistent MySQL dump, the
+media directory, `backend.env`, `.env`, and `compose.yaml`. Restore the database
+and files on the new host, update only host-specific database/network values,
+then run the normal workflow. The first deployment on a new host rebuilds the
+images; later deployments reuse dependency layers. Copy `.build-cache` only if
+you want the first post-migration build to be warm. Do not archive `releases`,
+`ci-upload`, or `.deploy-state` unless deployment history itself is required.
 
 ## Proxy and deployment access
 
@@ -58,17 +53,9 @@ Required repository secrets:
 - `OWCS_STATS_DEPLOY_KEY`
 - `OWCS_STATS_DEPLOY_KNOWN_HOSTS`
 
-No long-lived registry credential is stored on the host. The workflow-scoped
-credential is removed immediately after each pull. The key cannot open an
-interactive shell; it accepts only validated `prepare` and `activate` commands
-and writes inside the dedicated upload directory. A server-side lock serializes
-deployment operations and a 27-minute deadline releases the lock if a CI
-connection is lost.
-
-The image names and registry are GitHub Actions variables. Set
-`OWCS_API_IMAGE`, `OWCS_WEB_IMAGE`, and `CONTAINER_REGISTRY`, plus the optional
-`CONTAINER_REGISTRY_USERNAME` and `CONTAINER_REGISTRY_TOKEN` secrets, to move
-from GHCR to a Tencent TCR instance without changing the application, Compose,
-or persistent state. Keeping GHCR as the default is convenient; using TCR in
-the same region as production removes the slow first pull during a host
-migration.
+No registry credential is required. The key cannot open an interactive shell;
+it accepts only validated `prepare` and `activate` commands and writes inside
+the dedicated upload directory. A server-side lock serializes deployment
+operations and a 37-minute deadline releases the lock if a CI connection is
+lost. Dependency changes and the first build on a new server may be slower;
+normal source-only releases reuse the local npm and image layers.

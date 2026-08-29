@@ -4,9 +4,8 @@ umask 027
 
 mode="${1:-}"
 deploy_sha="${2:-}"
-api_image="${3:-}"
-web_image="${4:-}"
-registry_user="${5:-}"
+api_image="owcs-local/owcs-stats-backend:${deploy_sha}"
+web_image="owcs-local/owcs-stats-web:${deploy_sha}"
 
 if [[ "$mode" != "prepare" && "$mode" != "activate" ]]; then
     echo "Invalid deployment mode." >&2
@@ -16,21 +15,11 @@ if [[ ! "$deploy_sha" =~ ^[0-9a-f]{40}$ ]]; then
     echo "Invalid deployment SHA." >&2
     exit 2
 fi
-for image_ref in "$api_image" "$web_image"; do
-    if [[ ! "$image_ref" =~ ^[a-z0-9][a-z0-9._:/-]*:[0-9a-f]{40}$ ]] || [[ "$image_ref" != *":$deploy_sha" ]]; then
-        echo "Invalid immutable image reference." >&2
-        exit 2
-    fi
-done
-if [[ "$mode" == "activate" && ! "$registry_user" =~ ^[A-Za-z0-9_.-]+$ ]]; then
-    echo "Invalid registry user." >&2
-    exit 2
-fi
-
 deploy_root="/opt/compose/owcs-stats"
 releases_root="$deploy_root/releases"
 upload_root="$deploy_root/ci-upload"
 state_root="$deploy_root/.deploy-state"
+build_cache_root="$deploy_root/.build-cache"
 media_root="$deploy_root/data/media"
 lock_file="$state_root/deploy.lock"
 prepared_marker="$state_root/prepared-$deploy_sha"
@@ -45,6 +34,10 @@ for command in awk curl docker flock find grep mktemp readlink rsync sed; do
         exit 1
     }
 done
+docker buildx version >/dev/null 2>&1 || {
+    echo "Docker Buildx is required for cached local builds." >&2
+    exit 1
+}
 
 test -s "$deploy_root/secrets/backend.env" || {
     echo "Backend environment file is missing." >&2
@@ -59,7 +52,7 @@ test -s "$deploy_root/.env" || {
     exit 1
 }
 
-install -d -m 0750 "$releases_root" "$state_root"
+install -d -m 0750 "$releases_root" "$state_root" "$build_cache_root"
 install -d -m 0755 -o 1000 -g 1000 "$media_root"
 install -d -m 0755 -o 1000 -g 1000 "$media_root/teams" "$media_root/heroes" "$media_root/maps"
 install -d -m 0750 -o 1000 -g 1000 "$media_root/.migration-reports"
@@ -93,7 +86,7 @@ if [[ "$mode" == "prepare" ]]; then
         chown -R "$ci_user:$ci_group" "$candidate_dir"
     fi
 
-    printf '%s\n%s\n%s\n' "$deploy_sha" "$api_image" "$web_image" >"$prepared_marker"
+    printf '%s\n' "$deploy_sha" >"$prepared_marker"
     chmod 0640 "$prepared_marker"
     echo "OWCS Stats release candidate prepared: $deploy_sha"
     exit 0
@@ -101,14 +94,6 @@ fi
 
 test "$(sed -n '1p' "$prepared_marker" 2>/dev/null || true)" = "$deploy_sha" || {
     echo "Release candidate was not prepared." >&2
-    exit 1
-}
-test "$(sed -n '2p' "$prepared_marker" 2>/dev/null || true)" = "$api_image" || {
-    echo "Prepared backend image reference does not match." >&2
-    exit 1
-}
-test "$(sed -n '3p' "$prepared_marker" 2>/dev/null || true)" = "$web_image" || {
-    echo "Prepared web image reference does not match." >&2
     exit 1
 }
 test -d "$candidate_dir" || {
@@ -162,41 +147,48 @@ else
     mv "$candidate_dir" "$release_dir"
 fi
 
-IFS= read -r registry_token || true
-test -n "$registry_token" || {
-    echo "Registry token was not provided." >&2
-    exit 1
-}
+build_one_image() {
+    local cache_name="$1"
+    local dockerfile="$2"
+    local image_ref="$3"
+    local cache_dir="$build_cache_root/$cache_name"
+    local cache_current="$cache_dir/current"
+    local cache_next="$cache_dir/next-$deploy_sha"
+    local cache_previous="$cache_dir/previous"
+    local build_started_at
+    local -a cache_from=()
 
-api_registry="${api_image%%/*}"
-web_registry="${web_image%%/*}"
-test "$api_registry" = "$web_registry" || {
-    echo "Backend and web images must use the same registry." >&2
-    exit 1
-}
-
-registry_config=$(mktemp -d "$state_root/registry.${deploy_sha}.XXXXXX")
-cleanup_registry() {
-    case "$registry_config" in
-        "$state_root"/registry.*)
-            rm -rf -- "$registry_config"
-            ;;
-        *)
-            echo "Refusing to remove unexpected registry configuration: $registry_config" >&2
-            ;;
+    install -d -m 0750 "$cache_dir"
+    case "$cache_next" in
+        "$build_cache_root"/*/next-[0-9a-f]*) rm -rf -- "$cache_next" ;;
+        *) echo "Refusing unexpected build cache path." >&2; exit 1 ;;
     esac
-}
-trap cleanup_registry EXIT
+    if [[ -s "$cache_current/index.json" ]]; then
+        cache_from+=(--cache-from "type=local,src=$cache_current")
+    fi
 
-printf '%s\n' "$registry_token" \
-    | docker --config "$registry_config" login "$api_registry" \
-        --username "$registry_user" --password-stdin >/dev/null
-unset registry_token
-docker --config "$registry_config" pull "$api_image"
-docker --config "$registry_config" pull "$web_image"
-docker --config "$registry_config" logout "$api_registry" >/dev/null 2>&1 || true
-cleanup_registry
-trap - EXIT
+    build_started_at=$SECONDS
+    docker buildx build \
+        --progress=plain \
+        --load \
+        --file "$release_dir/$dockerfile" \
+        --tag "$image_ref" \
+        --build-arg "SOURCE_COMMIT=$deploy_sha" \
+        "${cache_from[@]}" \
+        --cache-to "type=local,dest=$cache_next,mode=max" \
+        "$release_dir"
+    echo "$image_ref built locally in $((SECONDS - build_started_at)) seconds."
+
+    rm -rf -- "$cache_previous"
+    if [[ -d "$cache_current" ]]; then
+        mv "$cache_current" "$cache_previous"
+    fi
+    mv "$cache_next" "$cache_current"
+    rm -rf -- "$cache_previous"
+}
+
+build_one_image backend deploy/docker/Dockerfile.backend "$api_image"
+build_one_image web deploy/docker/Dockerfile.web "$web_image"
 
 for image_ref in "$api_image" "$web_image"; do
     image_revision=$(docker image inspect \
