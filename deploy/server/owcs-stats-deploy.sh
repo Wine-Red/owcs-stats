@@ -20,6 +20,7 @@ releases_root="$deploy_root/releases"
 upload_root="$deploy_root/ci-upload"
 state_root="$deploy_root/.deploy-state"
 build_cache_root="$deploy_root/.build-cache"
+global_build_lock="/var/lock/owcs-docker-build.lock"
 media_root="$deploy_root/data/media"
 lock_file="$state_root/deploy.lock"
 prepared_marker="$state_root/prepared-$deploy_sha"
@@ -147,6 +148,14 @@ else
     mv "$candidate_dir" "$release_dir"
 fi
 
+previous_sha=$(cat "$state_root/current-sha" 2>/dev/null || true)
+if [[ ! "$previous_sha" =~ ^[0-9a-f]{40}$ ]] || [[ "$previous_sha" == "$deploy_sha" ]]; then
+    previous_sha=""
+fi
+
+exec 8>"$global_build_lock"
+flock 8
+
 build_one_image() {
     local cache_name="$1"
     local dockerfile="$2"
@@ -189,6 +198,7 @@ build_one_image() {
 
 build_one_image backend deploy/docker/Dockerfile.backend "$api_image"
 build_one_image web deploy/docker/Dockerfile.web "$web_image"
+flock -u 8
 
 for image_ref in "$api_image" "$web_image"; do
     image_revision=$(docker image inspect \
@@ -310,8 +320,43 @@ fi
 
 install -m 0755 "$release_dir/deploy/server/owcs-stats-deploy.sh" /usr/local/sbin/owcs-stats-deploy
 install -m 0755 "$release_dir/deploy/server/owcs-stats-ci-entrypoint.sh" /usr/local/bin/owcs-stats-ci-entrypoint
+if [[ -n "$previous_sha" ]]; then
+    printf '%s\n' "$previous_sha" >"$state_root/previous-sha"
+fi
 printf '%s\n' "$deploy_sha" >"$state_root/current-sha"
 rm -f -- "$prepared_marker"
 activation_started=false
+
+previous_api_image=""
+previous_web_image=""
+if [[ -n "$previous_sha" ]]; then
+    previous_api_image="owcs-local/owcs-stats-backend:$previous_sha"
+    previous_web_image="owcs-local/owcs-stats-web:$previous_sha"
+fi
+while IFS= read -r managed_image; do
+    case "$managed_image" in
+        owcs-local/owcs-stats-backend:*|owcs-local/owcs-stats-web:*|\
+        owmini/owcs-stats-backend:*|owmini/owcs-stats-web:*|\
+        ghcr.io/wine-red/owcs-stats-backend:*|ghcr.io/wine-red/owcs-stats-web:*) ;;
+        *) continue ;;
+    esac
+    if [[ "$managed_image" == "$api_image" ]] \
+        || [[ "$managed_image" == "$web_image" ]] \
+        || [[ -n "$previous_api_image" && "$managed_image" == "$previous_api_image" ]] \
+        || [[ -n "$previous_web_image" && "$managed_image" == "$previous_web_image" ]]; then
+        continue
+    fi
+    docker image rm "$managed_image" >/dev/null 2>&1 \
+        || echo "Could not remove retained/in-use image: $managed_image" >&2
+done < <(docker image ls --format '{{.Repository}}:{{.Tag}}')
+
+if flock -w 60 8; then
+    docker buildx prune --force \
+        --max-used-space 2gb \
+        --reserved-space 512mb || true
+    flock -u 8
+else
+    echo "Skipped BuildKit cache cleanup because another build is active." >&2
+fi
 
 echo "OWCS Stats deployment completed successfully: $deploy_sha"

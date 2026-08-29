@@ -59,3 +59,9 @@ the dedicated upload directory. A server-side lock serializes deployment
 operations and a 37-minute deadline releases the lock if a CI connection is
 lost. Dependency changes and the first build on a new server may be slower;
 normal source-only releases reuse the local npm and image layers.
+
+After a successful deployment, cleanup keeps the current and immediately
+previous Stats backend/web images for rollback and removes older Stats/GHCR
+legacy images. A host-wide build lock serializes OWCS image builds, and
+disposable BuildKit cache is capped at 2 GB. The exported project caches in
+`.build-cache` are separate and remain available for fast rebuilds.
