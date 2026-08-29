@@ -20,7 +20,9 @@
     <!-- 侧边导航栏 -->
     <aside class="app-sidebar" :class="{ 'mobile-open': mobileSidebarOpen, collapsed: sidebarCollapsed }" v-if="showSidebar">
       <div class="sidebar-brand">
-        <div class="sidebar-brand-mark" aria-hidden="true"><span>OW</span></div>
+        <div class="sidebar-brand-mark" aria-hidden="true">
+          <img class="sidebar-brand-image" src="/branding/owcs-stats-mark-v2.png" alt="">
+        </div>
         <div class="logo-text">
           <span class="logo-kicker">DATA OPERATIONS</span>
           <h1 class="logo-title">OWCS Stats</h1>
@@ -78,8 +80,8 @@
           <router-link to="/visualize" class="sidebar-public-link" aria-label="打开数据可视化">
             <el-icon class="sidebar-public-icon"><View /></el-icon>
             <span class="sidebar-public-copy">
-              <small>PUBLIC VIEW</small>
-              <strong>打开数据可视化</strong>
+              <small>公开展示</small>
+              <strong>数据可视化</strong>
             </span>
             <el-icon class="sidebar-public-arrow"><ArrowRight /></el-icon>
           </router-link>
