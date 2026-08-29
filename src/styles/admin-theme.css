@@ -298,87 +298,18 @@ html.admin-theme .skip-link:focus {
 .app-layout.is-admin .sidebar-footer {
   position: relative;
   z-index: 1;
-  padding: 14px 16px 18px;
+  padding: 10px 10px 18px;
   border-top: 1px solid #e2e4e7;
 }
 
 .app-layout.is-admin .sidebar-public-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 64px;
-  padding: 10px;
-  border: 1px solid #f0b17a;
-  border-radius: 14px;
-  color: #2b211b;
-  background: linear-gradient(135deg, #fff0e3 0%, #ffd6b4 100%);
-  box-shadow: 0 8px 20px rgba(196, 78, 0, 0.13);
+  width: 100%;
   text-decoration: none;
-  transition: border-color 180ms var(--admin-ease), background 180ms var(--admin-ease), box-shadow 180ms var(--admin-ease);
-}
-
-.app-layout.is-admin .sidebar-public-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 auto;
-  border: 1px solid #c94800;
-  border-radius: 10px;
-  color: #ffffff;
-  background: #d94f00;
-  font-size: 19px;
-}
-
-.app-layout.is-admin .sidebar-public-copy {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.app-layout.is-admin .sidebar-public-link:hover {
-  border-color: #e56b14;
-  background: linear-gradient(135deg, #ffe9d8 0%, #ffc99d 100%);
-  box-shadow: 0 10px 24px rgba(196, 78, 0, 0.18);
-}
-
-.app-layout.is-admin .sidebar-public-link:active {
-  background: linear-gradient(135deg, #ffe1ca 0%, #ffc18d 100%);
-  box-shadow: 0 5px 14px rgba(196, 78, 0, 0.16);
 }
 
 .app-layout.is-admin .sidebar-public-link:focus-visible {
   outline: 3px solid rgba(255, 106, 0, 0.34);
   outline-offset: 3px;
-}
-
-.app-layout.is-admin .sidebar-public-link small {
-  color: #984000;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.app-layout.is-admin .sidebar-public-link strong {
-  color: #2b211b;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.app-layout.is-admin .sidebar-public-arrow {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-  border: 1px solid rgba(152, 64, 0, 0.18);
-  border-radius: 999px;
-  color: #984000;
-  background: rgba(255, 255, 255, 0.56);
-  font-size: 12px;
 }
 
 .app-layout.is-admin .app-content-wrapper {
@@ -450,23 +381,6 @@ html.admin-theme .skip-link:focus {
 
 .app-layout.is-admin.sidebar-collapsed .sidebar-footer {
   padding: 10px 15px 16px;
-}
-
-.app-layout.is-admin.sidebar-collapsed .sidebar-public-link {
-  justify-content: center;
-  width: 48px;
-  min-height: 48px;
-  padding: 0;
-}
-
-.app-layout.is-admin.sidebar-collapsed .sidebar-public-icon {
-  width: 34px;
-  height: 34px;
-}
-
-.app-layout.is-admin.sidebar-collapsed .sidebar-public-copy,
-.app-layout.is-admin.sidebar-collapsed .sidebar-public-arrow {
-  display: none;
 }
 
 .app-layout.is-admin .app-main.no-padding-main {
@@ -1589,21 +1503,6 @@ html.admin-theme .analytics-container .open-link {
 
   .app-layout.is-admin.sidebar-collapsed .sidebar-footer {
     padding: 14px 16px 18px;
-  }
-
-  .app-layout.is-admin.sidebar-collapsed .sidebar-public-link {
-    justify-content: flex-start;
-    width: auto;
-    min-height: 64px;
-    padding: 10px;
-  }
-
-  .app-layout.is-admin.sidebar-collapsed .sidebar-public-copy {
-    display: flex;
-  }
-
-  .app-layout.is-admin.sidebar-collapsed .sidebar-public-arrow {
-    display: inline-flex;
   }
 
   .app-layout.is-admin .sidebar-overlay {

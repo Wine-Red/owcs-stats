@@ -77,13 +77,10 @@
 
       <div class="sidebar-footer">
         <el-tooltip content="打开数据可视化" placement="right" :disabled="!sidebarCollapsed" :show-after="280">
-          <router-link to="/visualize" class="sidebar-public-link" aria-label="打开数据可视化">
-            <el-icon class="sidebar-public-icon"><View /></el-icon>
-            <span class="sidebar-public-copy">
-              <small>公开展示</small>
-              <strong>数据可视化</strong>
-            </span>
-            <el-icon class="sidebar-public-arrow"><ArrowRight /></el-icon>
+          <router-link to="/visualize" class="sidebar-public-link nav-item" aria-label="打开数据可视化">
+            <el-icon class="sidebar-public-icon nav-item-icon"><View /></el-icon>
+            <span class="sidebar-public-label nav-item-label">数据可视化</span>
+            <el-icon class="sidebar-public-arrow nav-item-arrow"><ArrowRight /></el-icon>
           </router-link>
         </el-tooltip>
       </div>
