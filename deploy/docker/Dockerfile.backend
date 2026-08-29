@@ -12,7 +12,8 @@ COPY --chown=node:node dist/heroes/ ./legacy-assets/heroes/
 COPY --chown=node:node dist/maps/ ./legacy-assets/maps/
 
 ARG SOURCE_COMMIT=unknown
-LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
+LABEL org.opencontainers.image.source="https://github.com/Wine-Red/owcs-stats" \
+      org.opencontainers.image.revision=$SOURCE_COMMIT
 
 USER node
 EXPOSE 3000

@@ -1,7 +1,8 @@
 FROM nginx:1.27-alpine
 
 ARG SOURCE_COMMIT=unknown
-LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
+LABEL org.opencontainers.image.source="https://github.com/Wine-Red/owcs-stats" \
+      org.opencontainers.image.revision=$SOURCE_COMMIT
 
 COPY deploy/docker/web.nginx.conf /etc/nginx/conf.d/default.conf
 COPY dist/ /usr/share/nginx/html/

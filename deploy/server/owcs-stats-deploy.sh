@@ -4,12 +4,26 @@ umask 027
 
 mode="${1:-}"
 deploy_sha="${2:-}"
+api_image="${3:-}"
+web_image="${4:-}"
+registry_user="${5:-}"
+
 if [[ "$mode" != "prepare" && "$mode" != "activate" ]]; then
     echo "Invalid deployment mode." >&2
     exit 2
 fi
 if [[ ! "$deploy_sha" =~ ^[0-9a-f]{40}$ ]]; then
     echo "Invalid deployment SHA." >&2
+    exit 2
+fi
+for image_ref in "$api_image" "$web_image"; do
+    if [[ ! "$image_ref" =~ ^[a-z0-9][a-z0-9._:/-]*:[0-9a-f]{40}$ ]] || [[ "$image_ref" != *":$deploy_sha" ]]; then
+        echo "Invalid immutable image reference." >&2
+        exit 2
+    fi
+done
+if [[ "$mode" == "activate" && ! "$registry_user" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    echo "Invalid registry user." >&2
     exit 2
 fi
 
@@ -22,13 +36,10 @@ lock_file="$state_root/deploy.lock"
 prepared_marker="$state_root/prepared-$deploy_sha"
 candidate_dir="$upload_root/$deploy_sha"
 release_dir="$releases_root/$deploy_sha"
-image_tag="${deploy_sha}-deploy2"
-api_image="owmini/owcs-stats-backend:$image_tag"
-web_image="owmini/owcs-stats-web:$image_tag"
 ci_user="owcs-stats-ci"
 ci_group=$(id -gn "$ci_user")
 
-for command in curl docker flock find grep mktemp rsync; do
+for command in awk curl docker flock find grep mktemp readlink rsync sed; do
     command -v "$command" >/dev/null 2>&1 || {
         echo "Required command is missing: $command" >&2
         exit 1
@@ -53,6 +64,7 @@ install -d -m 0755 -o 1000 -g 1000 "$media_root"
 install -d -m 0755 -o 1000 -g 1000 "$media_root/teams" "$media_root/heroes" "$media_root/maps"
 install -d -m 0750 -o 1000 -g 1000 "$media_root/.migration-reports"
 install -d -m 0750 -o "$ci_user" -g "$ci_group" "$upload_root"
+
 exec 9>"$lock_file"
 if ! flock -n 9; then
     echo "Another OWCS Stats deployment operation is already running." >&2
@@ -81,14 +93,22 @@ if [[ "$mode" == "prepare" ]]; then
         chown -R "$ci_user:$ci_group" "$candidate_dir"
     fi
 
-    printf '%s\n' "$deploy_sha" >"$prepared_marker"
+    printf '%s\n%s\n%s\n' "$deploy_sha" "$api_image" "$web_image" >"$prepared_marker"
     chmod 0640 "$prepared_marker"
     echo "OWCS Stats release candidate prepared: $deploy_sha"
     exit 0
 fi
 
-test "$(cat "$prepared_marker" 2>/dev/null || true)" = "$deploy_sha" || {
+test "$(sed -n '1p' "$prepared_marker" 2>/dev/null || true)" = "$deploy_sha" || {
     echo "Release candidate was not prepared." >&2
+    exit 1
+}
+test "$(sed -n '2p' "$prepared_marker" 2>/dev/null || true)" = "$api_image" || {
+    echo "Prepared backend image reference does not match." >&2
+    exit 1
+}
+test "$(sed -n '3p' "$prepared_marker" 2>/dev/null || true)" = "$web_image" || {
+    echo "Prepared web image reference does not match." >&2
     exit 1
 }
 test -d "$candidate_dir" || {
@@ -141,27 +161,58 @@ else
         "$candidate_dir/deploy/server/owcs-stats-ci-entrypoint.sh"
     mv "$candidate_dir" "$release_dir"
 fi
-rm -f -- "$prepared_marker"
 
-echo "Building immutable backend image: $api_image"
-docker build \
-    --build-arg "SOURCE_COMMIT=$deploy_sha" \
-    --file "$release_dir/deploy/docker/Dockerfile.backend" \
-    --tag "$api_image" \
-    "$release_dir"
+IFS= read -r registry_token || true
+test -n "$registry_token" || {
+    echo "Registry token was not provided." >&2
+    exit 1
+}
 
-echo "Packaging validated frontend image: $web_image"
-docker build \
-    --build-arg "SOURCE_COMMIT=$deploy_sha" \
-    --file "$release_dir/deploy/docker/Dockerfile.web" \
-    --tag "$web_image" \
-    "$release_dir"
+api_registry="${api_image%%/*}"
+web_registry="${web_image%%/*}"
+test "$api_registry" = "$web_registry" || {
+    echo "Backend and web images must use the same registry." >&2
+    exit 1
+}
+
+registry_config=$(mktemp -d "$state_root/registry.${deploy_sha}.XXXXXX")
+cleanup_registry() {
+    case "$registry_config" in
+        "$state_root"/registry.*)
+            rm -rf -- "$registry_config"
+            ;;
+        *)
+            echo "Refusing to remove unexpected registry configuration: $registry_config" >&2
+            ;;
+    esac
+}
+trap cleanup_registry EXIT
+
+printf '%s\n' "$registry_token" \
+    | docker --config "$registry_config" login "$api_registry" \
+        --username "$registry_user" --password-stdin >/dev/null
+unset registry_token
+docker --config "$registry_config" pull "$api_image"
+docker --config "$registry_config" pull "$web_image"
+docker --config "$registry_config" logout "$api_registry" >/dev/null 2>&1 || true
+cleanup_registry
+trap - EXIT
+
+for image_ref in "$api_image" "$web_image"; do
+    image_revision=$(docker image inspect \
+        --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+        "$image_ref")
+    test "$image_revision" = "$deploy_sha" || {
+        echo "Image revision label does not match the requested SHA: $image_ref" >&2
+        exit 1
+    }
+done
 
 docker run --rm --network none "$api_image" node --check app.js
 docker run --rm --network none --add-host api:127.0.0.1 "$web_image" nginx -t
 
 incoming_dir=$(mktemp -d "$state_root/activate.${deploy_sha}.XXXXXX")
-cleanup() {
+cleanup_activation() {
     case "$incoming_dir" in
         "$state_root"/activate.*)
             rm -rf -- "$incoming_dir"
@@ -171,15 +222,32 @@ cleanup() {
             ;;
     esac
 }
-trap cleanup EXIT
+trap cleanup_activation EXIT
+
+upsert_env() {
+    local key="$1"
+    local value="$2"
+    local file="$3"
+    local updated
+    updated=$(mktemp "$state_root/env.${deploy_sha}.XXXXXX")
+    awk -v key="$key" -v value="$value" '
+        BEGIN { replaced = 0 }
+        index($0, key "=") == 1 { print key "=" value; replaced = 1; next }
+        { print }
+        END { if (!replaced) print key "=" value }
+    ' "$file" >"$updated"
+    cat "$updated" >"$file"
+    rm -f -- "$updated"
+}
 
 candidate_compose="$incoming_dir/compose.yaml"
 candidate_env="$incoming_dir/compose.env"
 cp "$release_dir/deploy/docker/compose.yaml" "$candidate_compose"
-printf '%s\n' \
-    "OWCS_IMAGE_TAG=$image_tag" \
-    'OWCS_SOURCE_DIR=./source' \
-    'OWCS_BACKEND_ENV_FILE=./secrets/backend.env' >"$candidate_env"
+cp "$deploy_root/.env" "$candidate_env"
+upsert_env OWCS_API_IMAGE "$api_image" "$candidate_env"
+upsert_env OWCS_WEB_IMAGE "$web_image" "$candidate_env"
+upsert_env OWCS_IMAGE_TAG "$deploy_sha" "$candidate_env"
+upsert_env OWCS_BACKEND_ENV_FILE './secrets/backend.env' "$candidate_env"
 
 docker compose \
     --project-directory "$deploy_root" \
@@ -203,7 +271,7 @@ rollback() {
     unlink "$rollback_link" 2>/dev/null || true
     ln -s "$previous_source_target" "$rollback_link"
     mv -Tf "$rollback_link" "$deploy_root/source"
-    (cd "$deploy_root" && docker compose up -d --no-build --remove-orphans) || true
+    (cd "$deploy_root" && docker compose up -d --no-build --pull never --remove-orphans) || true
     set -e
 }
 
@@ -224,7 +292,7 @@ mv -Tf "$new_source_link" "$deploy_root/source"
 install -m 0644 "$candidate_compose" "$deploy_root/compose.yaml"
 install -m 0600 "$candidate_env" "$deploy_root/.env"
 
-if ! (cd "$deploy_root" && docker compose up -d --no-build --remove-orphans); then
+if ! (cd "$deploy_root" && docker compose up -d --no-build --pull never --remove-orphans); then
     rollback
     exit 1
 fi
@@ -251,6 +319,7 @@ fi
 install -m 0755 "$release_dir/deploy/server/owcs-stats-deploy.sh" /usr/local/sbin/owcs-stats-deploy
 install -m 0755 "$release_dir/deploy/server/owcs-stats-ci-entrypoint.sh" /usr/local/bin/owcs-stats-ci-entrypoint
 printf '%s\n' "$deploy_sha" >"$state_root/current-sha"
+rm -f -- "$prepared_marker"
 activation_started=false
 
 echo "OWCS Stats deployment completed successfully: $deploy_sha"

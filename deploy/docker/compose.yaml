@@ -2,10 +2,7 @@ name: owcs-stats
 
 services:
   api:
-    build:
-      context: ${OWCS_SOURCE_DIR:-../..}
-      dockerfile: deploy/docker/Dockerfile.backend
-    image: owmini/owcs-stats-backend:${OWCS_IMAGE_TAG:-local}
+    image: ${OWCS_API_IMAGE:?OWCS_API_IMAGE must reference an immutable image}
     container_name: owcs-stats-backend
     restart: unless-stopped
     init: true
@@ -17,7 +14,7 @@ services:
       MEDIA_ROOT: /app/media
       EXTERNAL_MATCH_API_BASE: ${EXTERNAL_MATCH_API_BASE:-http://matchweb-app:5000}
     volumes:
-      - ./data/media:/app/media
+      - ${OWCS_MEDIA_DIR:-./data/media}:/app/media
     expose:
       - "3000"
     networks:
@@ -40,12 +37,7 @@ services:
         max-file: "5"
 
   web:
-    build:
-      context: ${OWCS_SOURCE_DIR:-../..}
-      dockerfile: deploy/docker/Dockerfile.web
-      args:
-        VITE_BASE_PATH: /
-    image: owmini/owcs-stats-web:${OWCS_IMAGE_TAG:-local}
+    image: ${OWCS_WEB_IMAGE:?OWCS_WEB_IMAGE must reference an immutable image}
     container_name: owcs-stats-web
     restart: unless-stopped
     init: true
@@ -55,7 +47,7 @@ services:
     ports:
       - "127.0.0.1:8081:80"
     volumes:
-      - ./data/media:/srv/media:ro
+      - ${OWCS_MEDIA_DIR:-./data/media}:/srv/media:ro
     read_only: true
     tmpfs:
       - /var/cache/nginx:size=64m,mode=0755
