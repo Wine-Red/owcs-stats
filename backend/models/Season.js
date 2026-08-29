@@ -26,6 +26,11 @@ const Season = sequelize.define('Season', {
     type: DataTypes.STRING,
     allowNull: true,
     comment: '关联的外部API事件名称，如 OWCSCNS1'
+  },
+  icon: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Managed season icon path'
   }
 }, {
   tableName: 'seasons',

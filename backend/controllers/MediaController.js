@@ -1,9 +1,11 @@
+const Season = require('../models/Season');
 const Team = require('../models/Team');
 const Hero = require('../models/Hero');
 const MapModel = require('../models/Map');
 const { assertCategory, storeImage } = require('../services/MediaStorageService');
 
 const CATEGORY_MODELS = Object.freeze({
+  seasons: { model: Season, field: 'icon' },
   teams: { model: Team, field: 'logo' },
   heroes: { model: Hero, field: 'image' },
   maps: { model: MapModel, field: 'image' }

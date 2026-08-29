@@ -58,6 +58,7 @@ jobs:
         run: |
           node --check backend/app.js
           node --check backend/database/index.js
+          node --check backend/database/seasonIconMigration.js
           node --check backend/database/teamAliasMigration.js
           node --check backend/database/membershipEvidenceMigration.js
           node --check backend/controllers/TeamController.js

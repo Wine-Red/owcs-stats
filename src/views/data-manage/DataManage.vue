@@ -502,6 +502,14 @@
             style="width: 100%"
             border
           >
+            <el-table-column label="图标" width="76" align="center">
+              <template #default="scope">
+                <div class="season-icon-cell" :class="{ 'is-empty': !scope.row.icon }">
+                  <img v-if="scope.row.icon" :src="resolveMediaUrl(scope.row.icon)" :alt="`${scope.row.name} 图标`" />
+                  <span v-else>—</span>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="name" label="赛季名称" min-width="220" />
             <el-table-column prop="externalEventName" label="外部事件关联名" min-width="220" />
             <el-table-column prop="stage" label="所属赛段" width="150" />
@@ -523,11 +531,11 @@
             <el-table-column label="操作" :width="actionColWidth" fixed="right" align="center">
               <template #default="scope">
                 <div class="action-buttons">
-                  <el-button type="primary" size="small" @click="editSeason(scope.row)">
+                  <el-button type="primary" size="small" :aria-label="`编辑${scope.row.name}`" @click="editSeason(scope.row)">
                     <el-icon><Edit /></el-icon>
                     <span v-if="!isMobile">编辑</span>
                   </el-button>
-                  <el-button type="danger" size="small" @click="deleteSeason(scope.row.id)">
+                  <el-button type="danger" size="small" :aria-label="`删除${scope.row.name}`" @click="deleteSeason(scope.row.id)">
                     <el-icon><Delete /></el-icon>
                     <span v-if="!isMobile">删除</span>
                   </el-button>
@@ -765,6 +773,15 @@
               <el-option label="进行中" value="in_progress" />
               <el-option label="已完成" value="completed" />
             </el-select>
+          </el-form-item>
+          <el-form-item label="赛季图标">
+            <media-upload-field
+              :model-value="editForm.icon"
+              :entity-name="editForm.name || '新赛季'"
+              variant="logo"
+              @file-change="handleMediaFileChange"
+              @clear="handleMediaClear"
+            />
           </el-form-item>
         </el-form>
       </div>
@@ -2942,18 +2959,21 @@ export default {
     
     // 添加赛季
     const addSeason = () => {
+      resetMediaDraft();
       dialogTitle.value = '添加赛季';
       dialogType.value = 'season';
       editForm.value = {
         name: '',
         stage: '',
-        status: 'in_progress'
+        status: 'in_progress',
+        icon: ''
       };
       dialogVisible.value = true;
     };
     
     // 编辑赛季
     const editSeason = (season) => {
+      resetMediaDraft();
       dialogTitle.value = '编辑赛季';
       dialogType.value = 'season';
       // 深拷贝赛季数据
@@ -3200,11 +3220,20 @@ export default {
     const handleMediaClear = () => {
       pendingMediaFile.value = null;
       clearMediaOnSave.value = true;
+      if (dialogType.value === 'season') editForm.value.icon = '';
       if (dialogType.value === 'team') editForm.value.logo = '';
       if (dialogType.value === 'hero' || dialogType.value === 'map') editForm.value.image = '';
     };
 
     const catalogMediaConfig = {
+      season: {
+        category: 'seasons',
+        imageField: 'icon',
+        createAction: 'createSeason',
+        updateAction: 'updateSeason',
+        dataKey: 'seasonData',
+        label: '赛季'
+      },
       team: {
         category: 'teams',
         imageField: 'logo',
@@ -3281,18 +3310,7 @@ export default {
                 loadMatches();
                 break;
               case 'season':
-                if (editForm.value.id) {
-                  await store.dispatch('updateSeason', {
-                    id: editForm.value.id,
-                    seasonData: editForm.value
-                  });
-                  ElMessage.success('赛季数据更新成功');
-                } else {
-                  await store.dispatch('createSeason', editForm.value);
-                  ElMessage.success('赛季数据添加成功');
-                }
-                // 重新加载赛季数据
-                await store.dispatch('loadBaseData');
+                await saveCatalogEntity('season');
                 break;
               case 'team':
                 await saveCatalogEntity('team');
@@ -3882,6 +3900,29 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.season-icon-cell {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid #e1e3e6;
+  border-radius: 8px;
+  background: #f7f8f9;
+}
+
+.season-icon-cell img {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+  object-fit: contain;
+}
+
+.season-icon-cell.is-empty {
+  color: #a5a9af;
 }
 
 .entity-thumb--logo img {

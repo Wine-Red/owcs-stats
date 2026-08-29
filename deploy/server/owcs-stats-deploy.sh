@@ -55,7 +55,7 @@ test -s "$deploy_root/.env" || {
 
 install -d -m 0750 "$releases_root" "$state_root" "$build_cache_root"
 install -d -m 0755 -o 1000 -g 1000 "$media_root"
-install -d -m 0755 -o 1000 -g 1000 "$media_root/teams" "$media_root/heroes" "$media_root/maps"
+install -d -m 0755 -o 1000 -g 1000 "$media_root/seasons" "$media_root/teams" "$media_root/heroes" "$media_root/maps"
 install -d -m 0750 -o 1000 -g 1000 "$media_root/.migration-reports"
 install -d -m 0750 -o "$ci_user" -g "$ci_group" "$upload_root"
 

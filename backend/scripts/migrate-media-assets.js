@@ -3,11 +3,14 @@ const fs = require('fs/promises');
 const net = require('net');
 const path = require('path');
 const sequelize = require('../config/database');
+const Season = require('../models/Season');
 const Team = require('../models/Team');
 const Hero = require('../models/Hero');
 const MapModel = require('../models/Map');
+const Config = require('../models/Config');
 const { ensureMediaSchema } = require('../database');
 const manifest = require('../config/legacyMediaManifest');
+const { legacySeasonIconRelativePath } = require('../database/seasonIconMigration');
 const { getMediaRoot, isManagedMediaPath, storeImage } = require('../services/MediaStorageService');
 
 const args = new Set(process.argv.slice(2));
@@ -98,6 +101,15 @@ const teamLegacyFile = id => firstExistingFile(
 );
 
 const getSource = async (category, entity, currentValue) => {
+  if (category === 'seasons') {
+    const config = await Config.findByPk(`visualize_season_${entity.id}`);
+    const relative = legacySeasonIconRelativePath(config?.value?.tags);
+    const local = path.resolve(legacyRoot, relative);
+    if (!local.startsWith(`${legacyRoot}${path.sep}`)) throw new Error('Legacy manifest path escapes its root');
+    const existing = await firstExistingFile([local]);
+    return existing ? { kind: 'bundled-season-icon', value: relative, buffer: await fs.readFile(existing) } : null;
+  }
+
   if (category === 'teams') {
     const local = await teamLegacyFile(entity.id);
     if (local) return { kind: 'bundled-static-export', value: local, buffer: await fs.readFile(local) };
@@ -167,6 +179,7 @@ const main = async () => {
   await sequelize.authenticate();
   await ensureMediaSchema();
   await sequelize.sync();
+  await migrateCategory({ category: 'seasons', model: Season, field: 'icon' }, report);
   await migrateCategory({ category: 'teams', model: Team, field: 'logo' }, report);
   await migrateCategory({ category: 'heroes', model: Hero, field: 'image' }, report);
   await migrateCategory({ category: 'maps', model: MapModel, field: 'image' }, report);

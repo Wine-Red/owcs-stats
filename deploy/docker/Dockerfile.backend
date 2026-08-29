@@ -8,6 +8,7 @@ RUN npm ci --omit=dev --no-audit --no-fund \
   && npm cache clean --force
 
 COPY --chown=node:node backend/ ./
+COPY --chown=node:node dist/icons/ ./legacy-assets/icons/
 COPY --chown=node:node dist/heroes/ ./legacy-assets/heroes/
 COPY --chown=node:node dist/maps/ ./legacy-assets/maps/
 

@@ -8,6 +8,14 @@ const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const SeasonStage = require('../models/SeasonStage');
 
+const seasonPayload = body => Object.fromEntries([
+  ['name', body?.name],
+  ['stage', body?.stage || null],
+  ['status', body?.status],
+  ['externalEventName', body?.externalEventName || null],
+  ['icon', body?.icon || null]
+].filter(([key]) => Object.prototype.hasOwnProperty.call(body || {}, key)));
+
 const SeasonController = {
   // 检查删除赛季前的影响
   preDeleteCheck: async (req, res) => {
@@ -99,7 +107,7 @@ const SeasonController = {
   // 创建赛季
   create: async (req, res) => {
     try {
-      const season = await Season.create(req.body);
+      const season = await Season.create(seasonPayload(req.body));
       res.status(201).json(season);
     } catch (error) {
       res.status(400).json({ error: error.message });
@@ -114,7 +122,7 @@ const SeasonController = {
       if (!season) {
         return res.status(404).json({ error: 'Season not found' });
       }
-      await season.update(req.body);
+      await season.update(seasonPayload(req.body));
       res.status(200).json(season);
     } catch (error) {
       res.status(400).json({ error: error.message });

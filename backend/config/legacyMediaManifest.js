@@ -1,4 +1,13 @@
 module.exports = {
+  seasonIcons: {
+    default: 'icons/OWCS_Dark.png',
+    regions: {
+      KR: 'icons/areas/KR_light.png',
+      NA: 'icons/areas/NA_light.png',
+      CN: 'icons/areas/CN_light.png',
+      EMEA: 'icons/areas/EMEA_light.png'
+    }
+  },
   heroes: {
     '毛加': 'heroes/illustrated/mauga.png', '奥丽莎': 'heroes/illustrated/orisa.png',
     '路霸': 'heroes/illustrated/roadhog.png', '查莉娅': 'heroes/illustrated/zarya.png',

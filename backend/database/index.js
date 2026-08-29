@@ -14,6 +14,7 @@ const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-un
 const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-line no-unused-vars
 const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
+const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
 const { ensureAgentViews } = require('./agentViews');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
 const { runMembershipEvidenceMigration } = require('./membershipEvidenceMigration');
@@ -43,6 +44,17 @@ const ensureMediaSchema = async () => {
   const queryInterface = sequelize.getQueryInterface();
   const tables = (await queryInterface.showAllTables()).map(lowerTableName);
   const { DataTypes } = require('sequelize');
+
+  if (tables.includes('seasons')) {
+    const columns = await queryInterface.describeTable('seasons');
+    if (!columns.icon) {
+      await queryInterface.addColumn('seasons', 'icon', {
+        type: DataTypes.STRING,
+        allowNull: true,
+        comment: 'Managed season icon path'
+      });
+    }
+  }
 
   for (const tableName of ['heroes', 'maps']) {
     if (!tables.includes(tableName)) continue;
@@ -95,6 +107,12 @@ const initDatabase = async () => {
     // 避免 MySQL 在长期运行中反复 alter 表结构，导致索引数量失控
     await sequelize.sync();
     console.log('数据库模型同步成功');
+
+    const seasonIconMigration = await migrateLegacySeasonIcons();
+    console.log(
+      `[season-icons] ${seasonIconMigration.alreadyApplied ? 'already-applied' : 'migration-checked'} ` +
+      `migrated=${seasonIconMigration.migrated} skipped=${seasonIconMigration.skipped} failed=${seasonIconMigration.failed}`
+    );
 
     const aliasMigration = await migrateLegacyTeamNameMapping(sequelize);
     if (aliasMigration.found) {

@@ -57,7 +57,8 @@
         <div v-if="!isPageLoading" class="vis-body">
           <section class="mobile-event-context" aria-label="当前赛事">
             <div class="mobile-event-mark" aria-hidden="true">
-              <img :src="currentSeasonLogoUrl" alt="" width="36" height="36" />
+              <img v-if="currentSeasonLogoUrl" :src="currentSeasonLogoUrl" alt="" width="36" height="36" />
+              <span v-else>OWCS</span>
             </div>
             <button
               type="button"
@@ -250,6 +251,7 @@ import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
 import { ArrowDown } from '@element-plus/icons-vue';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
+import { resolveMediaUrl } from '@/utils/media';
 
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
@@ -572,14 +574,7 @@ export default {
     )));
 
     const currentSeasonLogoUrl = computed(() => {
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-        ? import.meta.env.BASE_URL
-        : `${import.meta.env.BASE_URL}/`;
-      const tagsUpper = seasonVisualConfig.value.tags.map(tag => String(tag).toUpperCase());
-      const regionTag = ['KR', 'NA', 'CN', 'EMEA'].find(tag => tagsUpper.includes(tag));
-      return regionTag
-        ? `${baseUrl}icons/areas/${regionTag}_light.png`
-        : `${baseUrl}icons/OWCS_Dark.png`;
+      return resolveMediaUrl(currentSeason.value?.icon);
     });
 
     const openMobileSeasonPicker = () => {
@@ -1214,6 +1209,14 @@ export default {
     width: 44px;
     height: 44px;
     object-fit: contain;
+  }
+
+  .mobile-event-mark span {
+    color: var(--vis-text-secondary);
+    font-family: var(--vis-font-display);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
   }
 
   .mobile-season-select-trigger {

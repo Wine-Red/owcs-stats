@@ -4,6 +4,7 @@ const path = require('path');
 const sharp = require('sharp');
 
 const MEDIA_CATEGORIES = Object.freeze({
+  seasons: { width: 1024, height: 1024, fit: 'inside', quality: 90 },
   teams: { width: 1024, height: 1024, fit: 'inside', quality: 90 },
   heroes: { width: 1024, height: 1024, fit: 'inside', quality: 90 },
   maps: { width: 1920, height: 1080, fit: 'inside', quality: 86 }

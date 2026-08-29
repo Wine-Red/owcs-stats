@@ -191,8 +191,10 @@ const main = async () => {
   await rm(outputRoot, { recursive: true, force: true });
   const heroMediaRoot = path.join(entityMediaRoot, 'heroes');
   const mapMediaRoot = path.join(entityMediaRoot, 'maps');
+  const seasonMediaRoot = path.join(entityMediaRoot, 'seasons');
   await Promise.all([
     mkdir(logoRoot, { recursive: true }),
+    mkdir(seasonMediaRoot, { recursive: true }),
     mkdir(heroMediaRoot, { recursive: true }),
     mkdir(mapMediaRoot, { recursive: true })
   ]);
@@ -368,7 +370,14 @@ const main = async () => {
     await runPool(matchTasks);
   }
 
-  const [teamMedia, heroMedia, mapMedia] = await Promise.all([
+  const [seasonMedia, teamMedia, heroMedia, mapMedia] = await Promise.all([
+    downloadEntityMedia({
+      items: seasons,
+      field: 'icon',
+      category: 'season',
+      outputDir: seasonMediaRoot,
+      urlPrefix: 'static-data/media/seasons'
+    }),
     downloadEntityMedia({
       items: [...teams, { id: 'tbd', logo: TBD_TEAM_LOGO_URL }],
       field: 'logo',
@@ -392,6 +401,7 @@ const main = async () => {
     })
   ]);
   const replacements = new Map([
+    ...seasonMedia.replacements,
     ...teamMedia.replacements,
     ...heroMedia.replacements,
     ...mapMedia.replacements
@@ -413,6 +423,7 @@ const main = async () => {
       matches: matches.length,
       mapGames: mapGames.length,
       responses: Object.keys(localizedResponses).length,
+      localizedSeasonIcons: seasonMedia.manifest.length,
       localizedTeamLogos: logoManifest.filter(item => item.entityId !== 'tbd').length,
       localizedHeroImages: heroMedia.manifest.length,
       localizedMapImages: mapMedia.manifest.length
@@ -428,11 +439,12 @@ const main = async () => {
     sourceApi: snapshot.sourceApi,
     warnings,
     teamLogos: logoManifest,
+    seasonIcons: seasonMedia.manifest,
     heroImages: heroMedia.manifest,
     mapImages: mapMedia.manifest
   }, null, 2));
 
-  console.log(`[static-export] 完成：${snapshot.counts.responses} 个接口快照，队伍 ${snapshot.counts.localizedTeamLogos}/${teams.filter(team => team.logo).length}，英雄 ${snapshot.counts.localizedHeroImages}/${heroes.filter(hero => hero.image).length}，地图 ${snapshot.counts.localizedMapImages}/${maps.filter(map => map.image).length} 张图片已本地化`);
+  console.log(`[static-export] 完成：${snapshot.counts.responses} 个接口快照，赛季 ${snapshot.counts.localizedSeasonIcons}/${seasons.filter(season => season.icon).length}，队伍 ${snapshot.counts.localizedTeamLogos}/${teams.filter(team => team.logo).length}，英雄 ${snapshot.counts.localizedHeroImages}/${heroes.filter(hero => hero.image).length}，地图 ${snapshot.counts.localizedMapImages}/${maps.filter(map => map.image).length} 张图片已本地化`);
   if (warnings.length) console.warn(`[static-export] ${warnings.length} 条警告，详见 public/static-data/manifest.json`);
 };
 

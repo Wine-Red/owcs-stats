@@ -24,12 +24,15 @@ test('stores normalized images in isolated category directories and deduplicates
   const first = await storeImage('heroes', source);
   const duplicate = await storeImage('heroes', source);
   const map = await storeImage('maps', source);
+  const season = await storeImage('seasons', source);
 
   assert.equal(first.path, duplicate.path);
   assert.match(first.path, /^\/media\/heroes\/[a-f0-9]{32}\.webp$/);
   assert.match(map.path, /^\/media\/maps\/[a-f0-9]{32}\.webp$/);
+  assert.match(season.path, /^\/media\/seasons\/[a-f0-9]{32}\.webp$/);
   assert.equal(isManagedMediaPath(first.path, 'heroes'), true);
   assert.equal(isManagedMediaPath(first.path, 'maps'), false);
+  assert.equal(isManagedMediaPath(season.path, 'seasons'), true);
 
   const stored = await fs.readFile(path.join(mediaRoot, first.path.replace('/media/', '')));
   const metadata = await sharp(stored).metadata();

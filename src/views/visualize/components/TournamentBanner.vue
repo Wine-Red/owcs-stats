@@ -5,7 +5,8 @@
     <div class="banner-decor banner-decor--stripes" aria-hidden="true"></div>
     <div class="banner-content">
       <div class="banner-logo">
-        <img :src="logoUrl" alt="OWCS Logo" width="104" height="104" />
+        <img v-if="logoUrl" :src="logoUrl" :alt="`${season.name} 图标`" width="104" height="104" />
+        <span v-else aria-hidden="true">OWCS</span>
       </div>
       <div class="banner-info">
         <div class="badges">
@@ -34,6 +35,7 @@
 import { computed } from 'vue';
 import { useStore } from 'vuex';
 import { User, Calendar } from '@element-plus/icons-vue';
+import { resolveMediaUrl } from '@/utils/media';
 
 export default {
   name: 'TournamentBanner',
@@ -74,23 +76,7 @@ export default {
     });
 
     const logoUrl = computed(() => {
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
-        ? import.meta.env.BASE_URL 
-        : `${import.meta.env.BASE_URL}/`;
-      
-      const tagsUpper = displayTags.value.map(t => t.toUpperCase());
-      
-      if (tagsUpper.includes('KR')) {
-        return `${baseUrl}icons/areas/KR_light.png`;
-      } else if (tagsUpper.includes('NA')) {
-        return `${baseUrl}icons/areas/NA_light.png`;
-      } else if (tagsUpper.includes('CN')) {
-        return `${baseUrl}icons/areas/CN_light.png`;
-      } else if (tagsUpper.includes('EMEA')) {
-        return `${baseUrl}icons/areas/EMEA_light.png`;
-      }
-      
-      return `${baseUrl}icons/OWCS_Dark.png`;
+      return resolveMediaUrl(season.value?.icon);
     });
 
     return {
@@ -189,6 +175,14 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.banner-logo span {
+  color: var(--vis-text-secondary, #606266);
+  font-family: var(--vis-font-heading);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
 
 .banner-info {
