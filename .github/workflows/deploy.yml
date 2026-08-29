@@ -155,7 +155,7 @@ jobs:
     name: Activate images on Tencent
     needs: build-images
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: production
 
     steps:
