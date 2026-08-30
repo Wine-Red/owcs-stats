@@ -1,4 +1,4 @@
 {
-  "productionSiteUrl": "https://owmini.xyz/stats/visualize",
-  "productionApiBase": "https://owmini.xyz/api"
+  "productionSiteUrl": "https://stats.owmini.xyz/visualize",
+  "productionApiBase": "https://stats.owmini.xyz/public-api"
 }

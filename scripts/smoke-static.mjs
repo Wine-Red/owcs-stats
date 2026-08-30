@@ -269,8 +269,9 @@ try {
       await page.setViewportSize({ width: 1440, height: 1000 });
       const replayToggle = page.locator('.replay-toggle').first();
       if (await replayToggle.count()) {
+        const replayMatch = replayToggle.locator('xpath=ancestor::article[contains(@class, "schedule-match")]');
         await replayToggle.click();
-        await page.locator('.replay-list').first().waitFor({ state: 'visible', timeout: 10_000 });
+        await replayMatch.locator('.replay-list').waitFor({ state: 'visible', timeout: 10_000 });
       }
       await page.locator('.match-main').first().click();
       await page.waitForURL(/\/visualize\/(?:match-detail|upcoming-match)/, { timeout: 10_000 });
