@@ -106,6 +106,7 @@
                   type="button"
                   class="mobile-season-option"
                   :class="{ active: String(season.id) === String(filterForm.seasonId) }"
+                  :data-season-id="season.id"
                   :aria-current="String(season.id) === String(filterForm.seasonId) ? 'true' : undefined"
                   @click="selectMobileSeason(season.id)"
                 >
@@ -252,6 +253,11 @@ import { useRoute } from 'vue-router';
 import { ArrowDown } from '@element-plus/icons-vue';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { resolveMediaUrl } from '@/utils/media';
+import {
+  getDefaultSeason,
+  sortSeasonGroupsNewestFirst,
+  sortSeasonsNewestFirst
+} from '@/utils/seasonSelection.mjs';
 
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
 const PlayerStatsChart = defineAsyncComponent(() => import('./components/PlayerStatsChart.vue'));
@@ -496,56 +502,10 @@ export default {
     
     const seasons = computed(() => store.state.seasons);
     const OTHER_STAGE_LABEL = '其他赛季';
-    const VISUALIZE_STAGE_ORDER_KEY = 'visualize_stage_season_order';
-    const visualizeSeasonOrderConfig = ref({});
 
     const normalizeStageLabel = (stage) => {
       const value = String(stage || '').trim();
       return value || OTHER_STAGE_LABEL;
-    };
-
-    const normalizeSeasonOrderConfig = (rawConfig = {}, seasonList = seasons.value) => {
-      const stageToIds = new Map();
-      seasonList.forEach(season => {
-        const stage = normalizeStageLabel(season.stage);
-        if (!stageToIds.has(stage)) {
-          stageToIds.set(stage, []);
-        }
-        stageToIds.get(stage).push(Number(season.id));
-      });
-
-      const normalized = {};
-      stageToIds.forEach((ids, stage) => {
-        const allowSet = new Set(ids);
-        const configured = Array.isArray(rawConfig?.[stage])
-          ? rawConfig[stage].map(v => Number(v)).filter(id => Number.isFinite(id) && allowSet.has(id))
-          : [];
-        const configuredSet = new Set(configured);
-        const remaining = ids.filter(id => !configuredSet.has(id));
-        normalized[stage] = configured.concat(remaining);
-      });
-
-      return normalized;
-    };
-
-    const sortSeasonsByConfiguredOrder = (stage, seasonList) => {
-      const orderedIds = normalizeSeasonOrderConfig(visualizeSeasonOrderConfig.value, seasons.value)[stage] || [];
-      const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
-      return [...seasonList].sort((a, b) => {
-        const leftIndex = orderMap.has(Number(a.id)) ? orderMap.get(Number(a.id)) : Number.MAX_SAFE_INTEGER;
-        const rightIndex = orderMap.has(Number(b.id)) ? orderMap.get(Number(b.id)) : Number.MAX_SAFE_INTEGER;
-        if (leftIndex !== rightIndex) return leftIndex - rightIndex;
-        return String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN', { sensitivity: 'base' });
-      });
-    };
-
-    const loadVisualizeSeasonOrderConfig = async () => {
-      try {
-        const config = await apiService.getConfig(VISUALIZE_STAGE_ORDER_KEY);
-        visualizeSeasonOrderConfig.value = normalizeSeasonOrderConfig(config, seasons.value);
-      } catch (error) {
-        visualizeSeasonOrderConfig.value = normalizeSeasonOrderConfig({}, seasons.value);
-      }
     };
 
     const currentSeasonStatus = computed(() => {
@@ -566,12 +526,7 @@ export default {
     };
     const currentSeasonStatusLabel = computed(() => getSeasonStatusLabel(currentSeasonStatus.value));
 
-    const mobileSeasonGroups = computed(() => [...groupedSeasons.value].sort((left, right) => (
-      String(right.label).localeCompare(String(left.label), 'zh-CN', {
-        numeric: true,
-        sensitivity: 'base'
-      })
-    )));
+    const mobileSeasonGroups = computed(() => groupedSeasons.value);
 
     const currentSeasonLogoUrl = computed(() => {
       return resolveMediaUrl(currentSeason.value?.icon);
@@ -605,10 +560,13 @@ export default {
         groups.get(stage).push(season);
       });
 
-      return Array.from(groups.entries()).map(([stage, options]) => ({
+      const seasonGroups = Array.from(groups.entries()).map(([stage, options]) => ({
         label: stage,
-        options: sortSeasonsByConfiguredOrder(stage, options)
+        // 公开赛事选择器始终以 ID 表示新旧，避免历史人工排序让新赛季落到末尾。
+        options: sortSeasonsNewestFirst(options)
       }));
+
+      return sortSeasonGroupsNewestFirst(seasonGroups);
     });
     
     // 动态计算 logo URL，确保在非根路径部署时也能正确加载
@@ -691,7 +649,6 @@ export default {
       }
 
       await store.dispatch('loadBaseData');
-      await loadVisualizeSeasonOrderConfig();
 
       const requestedTab = typeof route.query.tab === 'string' ? route.query.tab : '';
       if (['overview', 'recent', 'stats'].includes(requestedTab)) {
@@ -703,7 +660,7 @@ export default {
         activeStatsCategory.value = requestedStatsCategory;
       }
       
-      const inProgressSeason = seasons.value.find(season => season.status === 'in_progress');
+      const defaultSeason = getDefaultSeason(seasons.value);
       
       // 1. 如果 URL 中带有指定的 seasonId，优先使用它（这允许从详情页无缝返回到对应赛季）
       if (route.query.seasonId) {
@@ -713,13 +670,10 @@ export default {
           activeStage.value = normalizeStageLabel(targetSeason.stage);
         }
       } 
-      // 2. 如果没有指定 seasonId，则回退到默认逻辑（找 in_progress 或者第一个）
-      else if (inProgressSeason) {
-        filterForm.value.seasonId = inProgressSeason.id;
-        activeStage.value = normalizeStageLabel(inProgressSeason.stage);
-      } else if (seasons.value.length > 0) {
-         filterForm.value.seasonId = seasons.value[0].id;
-         activeStage.value = normalizeStageLabel(seasons.value[0].stage);
+      // 2. 无 URL 指定时优先最新的进行中赛季；若全都完赛，则选择 ID 最大的最新赛季。
+      else if (defaultSeason) {
+        filterForm.value.seasonId = defaultSeason.id;
+        activeStage.value = normalizeStageLabel(defaultSeason.stage);
       }
 
       if (filterForm.value.seasonId) {

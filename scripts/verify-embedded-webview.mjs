@@ -76,8 +76,35 @@ try {
     document.body.style.removeProperty('min-height')
     window.scrollTo(0, 0)
   })
+  await page.locator('.mobile-season-select-trigger').click()
+  await page.locator('.mobile-season-drawer').waitFor({ state: 'visible', timeout: 10_000 })
+  const seasonPickerOrder = await page.locator('.mobile-season-group').evaluateAll(groups => groups.map(group => ({
+    label: group.querySelector('h2')?.textContent?.trim() || '',
+    ids: [...group.querySelectorAll('.mobile-season-option')].map(option => Number(option.dataset.seasonId))
+  })))
+  const flattenedSeasonIds = seasonPickerOrder.flatMap(group => group.ids)
+  if (flattenedSeasonIds.some((id, index) => index > 0 && id >= flattenedSeasonIds[index - 1])) {
+    throw new Error(`赛事选择器未按 ID 从新到旧排列: ${JSON.stringify(seasonPickerOrder)}`)
+  }
+  const completedSeasonOption = page.locator('.mobile-season-option').filter({ hasText: '已结束' }).first()
+  if (await completedSeasonOption.count()) {
+    const completedSeasonName = (await completedSeasonOption.locator('strong').textContent())?.trim() || ''
+    await completedSeasonOption.click()
+    await page.waitForFunction(name => document.querySelector('.mobile-event-name')?.textContent?.trim() === name, completedSeasonName)
+  } else {
+    await page.keyboard.press('Escape')
+  }
+  await page.locator('.mobile-season-drawer').waitFor({ state: 'hidden', timeout: 10_000 })
+  await page.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
   await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
+  await page.waitForTimeout(320)
+  await page.evaluate(() => {
+    document.activeElement?.blur()
+    window.scrollTo(0, 0)
+    document.scrollingElement.scrollTop = 0
+  })
+  await page.waitForTimeout(50)
 
   const beforeGesture = await page.evaluate(() => {
     const scrollingElement = document.scrollingElement
@@ -150,7 +177,11 @@ try {
         bodyContent: dimensions('.vis-body'),
         tab: dimensions('.tab-content'),
         schedule: dimensions('.schedule-shell')
-      }
+      },
+      scheduleBounds: (() => {
+        const bounds = document.querySelector('.schedule-shell').getBoundingClientRect()
+        return { left: bounds.left, right: bounds.right, viewportWidth: window.innerWidth }
+      })()
     }
   }, beforeGesture)
 
@@ -175,6 +206,9 @@ try {
   }
   if (Math.abs(metrics.beforeGesture.tabsTop - 66) > 1 || Math.abs(metrics.tabsTopAfterGesture - 66) > 1) {
     throw new Error(`WebView Tab 未固定在事件栏下方: ${JSON.stringify(metrics)}`)
+  }
+  if (Math.abs(metrics.scheduleBounds.left) > 1 || Math.abs(metrics.scheduleBounds.right - metrics.scheduleBounds.viewportWidth) > 1) {
+    throw new Error(`WebView 赛程列表未贴齐视口边缘: ${JSON.stringify(metrics)}`)
   }
 
   const browserPage = await browser.newPage({ viewport: { width: 390, height: 520 } })
@@ -245,16 +279,19 @@ try {
         width: window.innerWidth,
         height: window.innerHeight,
         documentScrollTop: document.scrollingElement.scrollTop,
+        documentScrollable: document.scrollingElement.scrollHeight > document.scrollingElement.clientHeight,
         eventTop: eventContext.getBoundingClientRect().top,
         tabsTop: tabsContext.getBoundingClientRect().top,
         eventPaddingTop: getComputedStyle(eventContext).paddingTop,
-        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+        horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        scheduleLeft: document.querySelector('.schedule-shell').getBoundingClientRect().left,
+        scheduleRight: document.querySelector('.schedule-shell').getBoundingClientRect().right
       }
     })
     responsiveMetrics.push(responsiveMetric)
     await responsivePage.close()
   }
-  if (responsiveMetrics.some(metric => metric.documentScrollTop <= 0 || Math.abs(metric.eventTop) > 1 || Math.abs(metric.tabsTop - 66) > 1 || metric.eventPaddingTop !== '7px' || metric.horizontalOverflow)) {
+  if (responsiveMetrics.some(metric => (metric.documentScrollable && metric.documentScrollTop <= 0) || Math.abs(metric.eventTop) > 1 || Math.abs(metric.tabsTop - 66) > 1 || metric.eventPaddingTop !== '7px' || metric.horizontalOverflow || Math.abs(metric.scheduleLeft) > 1 || Math.abs(metric.scheduleRight - metric.width) > 1)) {
     throw new Error(`WebView responsive layout regression: ${JSON.stringify(responsiveMetrics)}`)
   }
 

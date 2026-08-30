@@ -2036,8 +2036,8 @@ export default {
 
 @media (max-width: 768px) {
   .schedule-shell {
-    width: 100%;
-    margin: 0 0 10px;
+    width: calc(100% + 20px);
+    margin: 0 -10px 10px;
     padding: 0 0 52px;
     background: #fff;
   }

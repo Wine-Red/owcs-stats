@@ -15,6 +15,7 @@
     "test:match-schedule": "node --test src/utils/matchScheduleReconciliation.test.mjs",
     "test:team-roster": "node --test src/utils/teamRoster.test.mjs",
     "test:embedded-webview": "node --test src/utils/embeddedWebView.test.mjs",
+    "test:season-selection": "node --test src/utils/seasonSelection.test.mjs",
     "test:api-base-url": "node --test src/services/apiBaseUrl.test.mjs",
     "verify:static-bundle": "node scripts/verify-static-bundle.mjs",
     "verify:embedded-webview": "node scripts/verify-embedded-webview.mjs",

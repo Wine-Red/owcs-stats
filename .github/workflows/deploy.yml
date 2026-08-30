@@ -44,6 +44,7 @@ jobs:
           npm run test:match-schedule
           npm run test:team-roster
           npm run test:embedded-webview
+          npm run test:season-selection
           npm run test:api-base-url
 
       - name: Install Backend Dependencies
