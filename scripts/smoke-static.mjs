@@ -109,11 +109,12 @@ try {
     await page.goto(`${baseUrl}${target.hash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.locator(target.ready).waitFor({ state: 'visible', timeout: 60_000 });
     if (target.verifyHeroTabs) {
+      await page.getByRole('tab', { name: '赛事积分' }).click();
       await page.locator('.regular-season-container').waitFor({ state: 'visible', timeout: 60_000 });
       if (await page.locator('.overview-dashboard').count()) {
         throw new Error('赛事概览仍渲染已移除的赛事速览区域');
       }
-      await page.locator('.vis-tab-item').nth(2).click();
+      await page.getByRole('tab', { name: '赛事数据' }).click();
       await page.locator('.stats-category-choices').waitFor({ state: 'visible', timeout: 10_000 });
       const heroChoice = page.getByRole('radio', { name: '英雄' });
       if (await heroChoice.count()) {
