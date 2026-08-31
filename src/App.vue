@@ -433,7 +433,7 @@ html.dark body {
 
 .app-content-wrapper.full-width {
   width: 100vw;
-  background-color: #fafafa; /* Visualize fallback */
+  background-color: #f4f5f8; /* Visualize fallback */
 }
 
 /* 赛事首页采用应用式滚动：外层固定，滚动责任交给 Tab 下方的内容区。 */

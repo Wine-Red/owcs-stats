@@ -7,16 +7,16 @@
   --vis-text-primary: #303133;
   --vis-text-secondary: #606266;
   --vis-text-placeholder: #909399;
-  --vis-border-color: #EBEEF5;
+  --vis-border-color: #E6E9F0;
 
   /* Layout & Spacing */
   --vis-border-radius: 16px;
   --vis-card-padding: 24px;
   --vis-gap: 24px;
 
-  /* Effects */
-  --vis-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --vis-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
+  /* Effects —— 双层复合阴影：贴地接触影 + 环境弥散影（与 admin 侧边栏同源） */
+  --vis-shadow: 0 1px 2px rgba(17, 17, 17, 0.05), 0 12px 28px -14px rgba(17, 17, 17, 0.08);
+  --vis-shadow-hover: 0 2px 4px rgba(17, 17, 17, 0.06), 0 20px 44px -16px rgba(17, 17, 17, 0.12);
   --vis-transition: box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 
   /* Typography */
@@ -171,7 +171,7 @@
   --vis-accent: #ff6a00;
   --vis-primary-strong: #111111;
 
-  --vis-bg-page: #fafafa;
+  --vis-bg-page: #f4f5f8;
   --vis-bg-subtle: #f8f9fa;
   --vis-bg-muted: #f4f4f5;
   --vis-bg-card: #ffffff;
@@ -180,7 +180,7 @@
   --vis-text-tertiary: #909399;
   --vis-text-disabled: #c0c4cc;
 
-  --vis-border: #ebeef5;
+  --vis-border: #e6e9f0;
   --vis-border-strong: #e4e7ed;
 
   --vis-success: #28a745;
@@ -209,6 +209,10 @@
   --vis-ease: cubic-bezier(0.25, 0.8, 0.25, 1);
   --vis-dur-fast: 0.2s;
   --vis-dur: 0.25s;
+
+  /* 骨架层质感：发丝分隔线 / 悬浮栏阴影（与 admin 侧边栏同源的层次手法） */
+  --vis-hairline: rgba(17, 17, 17, 0.08);
+  --vis-shadow-bar: 0 2px 8px rgba(17, 17, 17, 0.04);
 }
 
 /* ---------- M1 · 斜切标题装饰条（渐变斜块） ---------- */

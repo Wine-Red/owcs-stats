@@ -1557,7 +1557,9 @@ export default {
   }
 
   .versus {
-    font-size: 15px;
+    color: var(--vis-text-strong, #111);
+    font-size: 16px;
+    font-weight: 800;
   }
 
   .score-divider {
@@ -2036,10 +2038,10 @@ export default {
 
 @media (max-width: 768px) {
   .schedule-shell {
-    width: calc(100% + 20px);
-    margin: 0 -10px 10px;
+    width: 100%;
+    margin: 0 0 10px;
     padding: 0 0 52px;
-    background: #fff;
+    background: transparent;
   }
 
   .date-rail-wrap {
@@ -2133,8 +2135,10 @@ export default {
 
   .date-chip {
     min-width: 66px;
-    height: 48px;
-    min-height: 48px;
+    height: 40px;
+    min-height: 40px;
+    margin: 4px 2px;
+    border-radius: 10px;
     grid-template-rows: 19px 14px;
     align-content: center;
     padding: 4px 6px 3px;
@@ -2165,21 +2169,49 @@ export default {
     line-height: 19px;
   }
 
+  /* 激活日期实心化：黑底白字，与全站 chip 激活语言一致 */
+  .date-chip.active {
+    background: var(--vis-primary-strong, #111);
+    color: #ffffff;
+  }
+
+  .date-chip.active .date-chip-sub {
+    color: rgba(255, 255, 255, 0.66);
+  }
+
+  .date-chip.active::after {
+    content: none;
+  }
+
   .schedule-days {
-    gap: 8px;
+    gap: 14px;
   }
 
   .day-header {
-    min-height: 30px;
-    padding: 0 10px;
+    min-height: 32px;
+    padding: 4px 14px 0;
+    border-bottom: 0;
+    background: transparent;
   }
 
   .day-count {
     display: inline;
   }
 
+  /* 贴边整白带：行内发丝分隔，层级靠分组间隔而非逐卡留白 */
   .day-matches {
     margin: 0;
+    border-top: 0;
+    border-bottom: 0;
+    background: #fff;
+  }
+
+  .schedule-match + .schedule-match {
+    border-top: 1px solid #eef1f4;
+  }
+
+  .match-main:active {
+    background: #fbf7f2;
   }
 
   .match-main {
@@ -2255,8 +2287,8 @@ export default {
   .versus {
     min-width: 54px;
     padding: 0 2px;
-    font-size: 19px;
-    line-height: 23px;
+    font-size: 20px;
+    line-height: 24px;
   }
 
   .score-line {
@@ -2281,6 +2313,7 @@ export default {
   .center-state {
     display: inline-flex;
     font-size: 10px;
+    font-weight: 700;
     line-height: 15px;
   }
 

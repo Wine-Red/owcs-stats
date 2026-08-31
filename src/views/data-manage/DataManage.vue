@@ -34,14 +34,14 @@
         </template>
         <el-form :model="chartConfig" label-width="120px" class="chart-config-form">
            <h3 class="config-section-title">全局数据统计</h3>
-           <el-form-item label="赛事概览">
-             <el-switch v-model="chartConfig.overviewTab" active-text="显示" inactive-text="隐藏" />
-           </el-form-item>
-           <el-form-item label="近期比赛">
+           <el-form-item label="赛程列表">
              <el-switch v-model="chartConfig.recentTab" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
            <el-form-item label="赛事数据">
              <el-switch v-model="chartConfig.statsTab" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+           <el-form-item label="赛事积分">
+             <el-switch v-model="chartConfig.overviewTab" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
            <el-form-item label="英雄禁用统计">
              <el-switch v-model="chartConfig.heroBan" active-text="显示" inactive-text="隐藏" />

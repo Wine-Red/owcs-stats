@@ -98,11 +98,11 @@
                   <span class="m-time-main">
                     <img :src="getRoleIconUrl(p.role)" class="m-time-role-icon" :alt="p.role" />
                     <span class="m-time-name">{{ p.name }}</span>
+                    <span class="m-time-track" aria-hidden="true">
+                      <span class="m-time-fill" :style="{ width: `${roleTimePct(p.role, p)}%` }"></span>
+                    </span>
                     <span class="m-time-value">{{ formatPlayTime(p.gameTime) }}</span>
                     <span class="m-time-chevron" aria-hidden="true">›</span>
-                  </span>
-                  <span class="m-time-track">
-                    <span class="m-time-fill" :style="{ width: `${roleTimePct(p.role, p)}%` }"></span>
                   </span>
                 </button>
               </div>
@@ -679,7 +679,7 @@ export default {
 <style scoped>
 .team-detail-page {
   min-height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
   font-family: var(--vis-font-body);
 }
 
@@ -688,7 +688,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
 }
 
 .loading-panel {
@@ -1199,7 +1199,9 @@ export default {
 }
 
 .m-time-track {
-  height: 3px;
+  width: 52px;
+  height: 4px;
+  flex: 0 0 52px;
   border-radius: 2px;
   background: rgba(17, 17, 17, 0.07);
   overflow: hidden;

@@ -4,9 +4,20 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const MatchController = require('./controllers/MatchController');
+const { getMediaRoot } = require('./services/MediaStorageService');
 
 // 加载环境变量
 dotenv.config();
+
+const getMediaFallbackOrigin = () => {
+  const source = String(process.env.MEDIA_FALLBACK_ORIGIN || '').trim();
+  if (!source) return '';
+  const url = new URL(source);
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('MEDIA_FALLBACK_ORIGIN must use HTTP or HTTPS');
+  }
+  return url.origin;
+};
 
 // 初始化Express应用
 const app = express();
@@ -17,6 +28,22 @@ app.use(helmet());
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/media', express.static(getMediaRoot(), {
+  dotfiles: 'deny',
+  etag: true,
+  immutable: true,
+  index: false,
+  maxAge: '30d'
+}));
+
+const mediaFallbackOrigin = getMediaFallbackOrigin();
+if (mediaFallbackOrigin) {
+  app.use('/media', (req, res, next) => {
+    if (!['GET', 'HEAD'].includes(req.method)) return next();
+    const target = new URL(req.originalUrl, `${mediaFallbackOrigin}/`);
+    return res.redirect(307, target.href);
+  });
+}
 
 // 数据库初始化
 const { initDatabase } = require('./database');

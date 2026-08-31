@@ -819,7 +819,7 @@ export default {
 <style scoped>
 .player-detail-page {
   min-height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
   color: var(--vis-text-primary);
   font-family: var(--vis-font-body);
 }
@@ -1747,7 +1747,7 @@ button {
 
 @media (max-width: 680px) {
   .player-detail-page {
-    background: #fafafa;
+    background: var(--vis-bg-page, #f4f5f8);
   }
 
   .detail-container {

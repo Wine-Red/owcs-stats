@@ -1,7 +1,56 @@
 <template>
   <div class="map-stats-overview">
-    <div v-if="groups.length" class="map-groups">
-      <div v-for="group in groups" :key="group.type" class="map-group">
+    <div v-if="groups.length > 1" class="mode-filter" role="group" aria-label="按模式筛选地图">
+      <button type="button" class="mode-chip" :class="{ active: activeMode === '' }" @click="activeMode = ''">
+        <span>全部</span>
+      </button>
+      <button
+        v-for="g in groups"
+        :key="g.type"
+        type="button"
+        class="mode-chip"
+        :class="{ active: activeMode === g.type }"
+        @click="activeMode = activeMode === g.type ? '' : g.type"
+      >
+        <span
+          v-if="g.iconUrl"
+          class="mode-chip-icon"
+          :style="{
+            WebkitMaskImage: `url(${g.iconUrl})`,
+            maskImage: `url(${g.iconUrl})`
+          }"
+          aria-hidden="true"
+        ></span>
+        <span>{{ g.label }}</span>
+        <span class="mode-chip-count">{{ g.totalCount }}</span>
+      </button>
+    </div>
+    <div class="map-layout">
+      <!-- 移动端左侧竖向模式栏（桌面端隐藏，用顶部 chips） -->
+      <nav v-if="groups.length > 1" class="mode-rail" aria-label="地图模式">
+        <button
+          v-for="g in groups"
+          :key="g.type"
+          type="button"
+          class="mode-rail-item"
+          :class="{ active: activeMode === g.type }"
+          @click="activeMode = g.type"
+        >
+          <span
+            v-if="g.iconUrl"
+            class="mode-rail-icon"
+            :style="{
+              WebkitMaskImage: `url(${g.iconUrl})`,
+              maskImage: `url(${g.iconUrl})`
+            }"
+            aria-hidden="true"
+          ></span>
+          <span class="mode-rail-label">{{ g.label }}</span>
+          <span class="mode-rail-count">{{ g.totalCount }}场</span>
+        </button>
+      </nav>
+      <div v-if="visibleGroups.length" class="map-groups">
+      <div v-for="group in visibleGroups" :key="group.type" class="map-group">
         <div class="group-header" :class="group.cssClass">
           <span class="group-label">
             <span
@@ -19,7 +68,17 @@
         <div class="map-rows">
           <div v-for="row in group.rows" :key="row.mapId" class="map-item">
             <button type="button" class="map-row" :class="{ 'not-expandable': !canExpand(row) }" @click="toggleExpand(row)">
-              <div class="map-thumb" :style="{ backgroundImage: `url(${row.imageUrl})` }"></div>
+              <div class="map-thumb" :class="{ 'has-mode-icon': !!group.iconUrl }" :style="{ backgroundImage: `url(${row.imageUrl})` }">
+                <span
+                  v-if="group.iconUrl"
+                  class="map-thumb-mode"
+                  :style="{
+                    WebkitMaskImage: `url(${group.iconUrl})`,
+                    maskImage: `url(${group.iconUrl})`
+                  }"
+                  aria-hidden="true"
+                ></span>
+              </div>
               <div class="map-main">
                 <div class="map-line1">
                   <span class="map-name">{{ row.mapName }}</span>
@@ -82,13 +141,14 @@
           </div>
         </div>
       </div>
+      </div>
+      <div v-else class="empty-text">暂无地图数据</div>
     </div>
-    <div v-else class="empty-text">暂无地图数据</div>
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { ArrowDown } from '@element-plus/icons-vue';
@@ -131,6 +191,9 @@ export default {
     const store = useStore();
     const router = useRouter();
     const expandedMapIds = ref(new Set());
+    // 模式筛选：'' = 全部（桌面 chips 用）；移动端竖栏默认选中第一个模式
+    const activeMode = ref('');
+    const isMobileLayout = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
     // 「各队胜率」行 → 战队详情页（同赛季）
     const goToTeamDetail = (stat) => {
@@ -305,8 +368,22 @@ export default {
       return result;
     });
 
+    // 移动端竖栏默认选中第一个模式（groups 异步填充，需 watch）
+    watch(groups, (gs) => {
+      if (gs.length && isMobileLayout() && !activeMode.value) {
+        activeMode.value = gs[0].type;
+      }
+    }, { immediate: true });
+
+    const visibleGroups = computed(() => {
+      if (!activeMode.value) return groups.value;
+      return groups.value.filter(g => g.type === activeMode.value);
+    });
+
     return {
       groups,
+      visibleGroups,
+      activeMode,
       canExpand,
       toggleExpand,
       isExpanded,
@@ -331,6 +408,69 @@ export default {
 
 .info-icon:hover {
   color: #ff8a00;
+}
+
+/* 竖向模式栏：桌面端隐藏，移动端显示（见底部 media query） */
+.mode-rail {
+  display: none;
+}
+
+/* 模式筛选 chips：横向滑动，激活 = 黑底白字（沿用 vis-chip 语言） */
+.mode-filter {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mode-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--vis-bg-muted, #f4f4f5);
+  color: var(--vis-text-secondary, #606266);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--vis-dur-fast, 0.2s) var(--vis-ease, ease), color var(--vis-dur-fast, 0.2s) var(--vis-ease, ease);
+}
+
+.mode-chip.active {
+  background: var(--vis-primary-strong, #111);
+  color: #ffffff;
+}
+
+.mode-chip-icon {
+  width: 12px;
+  height: 12px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.mode-chip-count {
+  font-family: var(--vis-font-numeric);
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.72;
 }
 
 .map-groups {
@@ -394,20 +534,27 @@ export default {
 }
 
 .map-item {
-  border-radius: 8px;
-  transition: background 0.2s;
+  overflow: hidden;
+  border: 1px solid var(--vis-border, #e6e9f0);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--vis-shadow, 0 1px 2px rgba(17, 17, 17, 0.05));
+  transition: box-shadow var(--vis-dur, 0.25s) var(--vis-ease, ease), transform var(--vis-dur, 0.25s) var(--vis-ease, ease);
 }
 
-.map-item:hover {
-  background: rgba(17, 17, 17, 0.03);
+@media (hover: hover) and (pointer: fine) {
+  .map-item:hover {
+    box-shadow: var(--vis-shadow-hover, 0 4px 12px rgba(17, 17, 17, 0.1));
+    transform: translateY(-1px);
+  }
 }
 
 .map-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 4px 4px;
+  padding: 8px 10px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -420,14 +567,42 @@ export default {
 }
 
 .map-thumb {
+  position: relative;
   flex: 0 0 auto;
-  width: 64px;
-  height: 40px;
-  border-radius: 6px;
+  width: 96px;
+  height: 60px;
   background-size: cover;
   background-position: center;
-  background-color: #f0f2f5;
-  box-shadow: 0 1px 3px rgba(16, 21, 28, 0.12);
+  background-color: #eceff3;
+  /* 签名斜切：右下角切角，呼应 --vis-clip-notch */
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+}
+
+/* 模式图标底板（有图标时才出现） */
+.map-thumb.has-mode-icon::before {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(17, 17, 17, 0.55);
+}
+
+.map-thumb-mode {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 12px;
+  height: 12px;
+  background-color: #ffffff;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .map-main {
@@ -515,7 +690,7 @@ export default {
 
 /* 展开详情 */
 .map-detail {
-  padding: 8px 6px 10px 78px;
+  padding: 10px 10px 12px 118px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -643,13 +818,136 @@ export default {
 }
 
 @media (max-width: 768px) {
+  /* 贴边零空隙：左灰栏 + 右白带直达屏幕边缘 */
+  .map-stats-overview {
+    margin: 0 -10px;
+  }
+
+  /* 顶部 chips 让位给左侧竖栏 */
+  .mode-filter {
+    display: none;
+  }
+
+  .map-layout {
+    display: flex;
+    align-items: stretch;
+  }
+
+  /* 左侧竖向模式栏：灰底、选中白底 + 渐变左条（与后台侧边栏同语感） */
+  .mode-rail {
+    display: flex;
+    flex: 0 0 86px;
+    box-sizing: border-box;
+    flex-direction: column;
+    border-right: 1px solid var(--vis-border, #e6e9f0);
+    background: #f3f4f7;
+  }
+
+  .mode-rail-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 12px 4px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--vis-text-secondary, #606266);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color var(--vis-dur-fast) var(--vis-ease), color var(--vis-dur-fast) var(--vis-ease);
+  }
+
+  .mode-rail-item:active {
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .mode-rail-item.active {
+    background: #ffffff;
+    color: var(--vis-text-strong, #111);
+    font-weight: 700;
+  }
+
+  .mode-rail-item.active::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 0;
+    width: 3px;
+    border-radius: 0 999px 999px 0;
+    background: var(--vis-primary-gradient);
+  }
+
+  .mode-rail-icon {
+    width: 16px;
+    height: 16px;
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+
+  .mode-rail-item.active .mode-rail-icon {
+    color: var(--vis-accent, #ff6a00);
+  }
+
+  .mode-rail-count {
+    font-family: var(--vis-font-numeric);
+    font-size: 9px;
+    font-weight: 700;
+    opacity: 0.62;
+  }
+
+  /* 内容区：单模式直排，无组头、无组间灰缝 */
   .map-groups {
+    flex: 1;
+    min-width: 0;
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 0;
+  }
+
+  .map-group {
+    background: #fff;
+  }
+
+  .group-header {
+    display: none;
+  }
+
+  .map-rows {
+    gap: 0;
+  }
+
+  .map-item {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .map-item + .map-item {
+    border-top: 1px solid #eef1f4;
+  }
+
+  .map-row {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .map-thumb {
+    width: 74px;
+    height: 47px;
   }
 
   .map-detail {
-    padding-left: 6px;
+    padding: 10px 12px 12px;
   }
 }
 </style>

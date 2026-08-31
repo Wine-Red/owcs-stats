@@ -622,9 +622,9 @@ export default {
 }
 
 .header-controls :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  color: #fff !important;
-  background: #111 !important;
-  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.24) !important;
+  color: var(--vis-accent, #ff6a00) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.06) inset, 0 2px 6px rgba(17, 17, 17, 0.08) !important;
 }
 
 /* 选手选择器：白底细边输入框，hover/focus 橙色描边 */

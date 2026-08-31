@@ -75,7 +75,7 @@
 - `#F4F4F5` / `#F0F2F5`
   用途：禁用或未激活 chip、对比分数胶囊、分段背景、轨道背景。
 
-- `#EBEEF5` / `#E4E7ED`
+- `#E6E9F0` / `#E4E7ED`
   用途：标准边框、表格分隔线、弱描边。
 
 - `#303133`
@@ -125,7 +125,7 @@
   --vis-primary-strong: #111111;
   --vis-primary-gradient: linear-gradient(90deg, #ff6a00 0%, #ff9e0f 100%);
 
-  --vis-bg-page: #fafafa;
+  --vis-bg-page: #f4f5f8;
   --vis-bg-subtle: #f8f9fa;
   --vis-bg-muted: #f4f4f5;
   --vis-bg-card: #ffffff;
@@ -136,8 +136,10 @@
   --vis-text-tertiary: #909399;
   --vis-text-disabled: #c0c4cc;
 
-  --vis-border: #ebeef5;
+  --vis-border: #e6e9f0;
   --vis-border-strong: #e4e7ed;
+  --vis-hairline: rgba(17, 17, 17, 0.08);
+  --vis-shadow-bar: 0 2px 8px rgba(17, 17, 17, 0.04);
 
   --vis-success: #28a745;
   --vis-warning: #ff9e0f;
@@ -314,6 +316,17 @@
 - 文字放在遮罩最深区域。
 - 队标不加圆底，保持“悬浮”感。
 
+#### 5. 地图图卡（MapStatsOverview）
+
+- 桌面端：白卡承载（发丝描边 + `--vis-shadow`），多模式组分栏网格。
+- 移动端：去卡片化，整白带贴边 + 发丝分隔线，由顶部模式筛选 chips 控制出屏内容量。
+- 图块签名斜切：右下角 12px 切角（呼应 `--vis-clip-notch`），左下角叠深色模糊底板 + 白色模式图标。
+- 选取率条保持橙色渐变细条 + Oxanium 斜体百分比。
+
+#### 6. 行内迷你仪表
+
+- 选手阵容出场时间等行内计量：52px 定宽细条放在数值左侧，不做通栏数据条（全员满格时会变成粗装饰线）。
+
 ## 5. Layout Principles
 
 ### 间距系统
@@ -382,7 +395,7 @@
   无阴影，仅白底 + 边框
 
 - `Level 1`
-  `0 1px 3px rgba(0, 0, 0, 0.04)`
+  `0 1px 2px rgba(17, 17, 17, 0.05), 0 12px 28px -14px rgba(17, 17, 17, 0.08)`（`--vis-shadow`，贴地接触影 + 环境弥散影复合）
   用于基础卡片、轻浮层
 
 - `Level 2`
@@ -481,6 +494,13 @@
 
 - 列宽继续固定，但整体字号减小。
 - 优先压缩次要列，为选手名和核心数值让出空间。
+
+#### 8. 移动端分层（赛程 / 地图）
+
+- 移动端页面底色使用 `--vis-bg-page`（灰场），顶栏 / tab 条保持白色浮层。
+- 内容采用贴边整白带：行与行之间用发丝线（`#eef1f4`）分隔，不做逐条浮卡；层级靠日分组 / 模式分组之间的灰缝表达。
+- 日分组标题为悬浮式小节标签（透明底、无描边）。
+- 地图 tab 移动端为左侧竖向模式栏（灰底、选中白底 + 渐变左条）+ 右侧贴边直排；桌面端为顶部筛选 chips + 多栏卡格。
 
 ## 9. Agent Prompt Guide
 

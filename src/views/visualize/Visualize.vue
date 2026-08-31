@@ -133,19 +133,9 @@
             class="vis-tabs-container"
           >
             <div class="vis-tabs" role="tablist">
-              <button 
-                v-if="chartConfig.overviewTab"
-                class="vis-tab-item" 
-                :class="{ active: currentTab === 'overview' }"
-                @click="currentTab = 'overview'"
-                role="tab"
-                :aria-selected="currentTab === 'overview'"
-              >
-                赛事概览
-              </button>
-              <button 
+              <button
                 v-if="chartConfig.recentTab"
-                class="vis-tab-item" 
+                class="vis-tab-item"
                 :class="{ active: currentTab === 'recent' }"
                 @click="currentTab = 'recent'"
                 role="tab"
@@ -153,15 +143,25 @@
               >
                 赛程列表
               </button>
-              <button 
+              <button
                 v-if="chartConfig.statsTab"
-                class="vis-tab-item" 
+                class="vis-tab-item"
                 :class="{ active: currentTab === 'stats' }"
                 @click="currentTab = 'stats'"
                 role="tab"
                 :aria-selected="currentTab === 'stats'"
               >
                 赛事数据
+              </button>
+              <button
+                v-if="chartConfig.overviewTab"
+                class="vis-tab-item"
+                :class="{ active: currentTab === 'overview' }"
+                @click="currentTab = 'overview'"
+                role="tab"
+                :aria-selected="currentTab === 'overview'"
+              >
+                赛事积分
               </button>
             </div>
           </div>
@@ -183,9 +183,11 @@
               class="tab-content"
               :class="[
                 `is-${currentTab}`,
-                { 'is-stats-hero': currentTab === 'stats' && activeStatsCategory === 'hero' }
+                {
+                  'is-stats-hero': currentTab === 'stats' && activeStatsCategory === 'hero',
+                  'is-stats-map': currentTab === 'stats' && activeStatsCategory === 'map'
+                }
               ]"
-              style="width: 100%;"
             >
               <template v-if="currentTab === 'overview'">
                 <div class="overview-section">
@@ -290,11 +292,7 @@ export default {
     const store = useStore();
     const route = useRoute();
     
-    const currentTab = ref(
-      typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
-        ? 'recent'
-        : 'overview'
-    );
+    const currentTab = ref('recent');
     const activeStatsCategory = ref('team');
     const mobileSeasonPickerOpen = ref(false);
     const tabContentRef = ref(null);
@@ -752,7 +750,7 @@ export default {
   display: flex;
   flex-direction: column;
   font-family: var(--vis-font-body);
-  background-color: #fafafa;
+  background-color: var(--vis-bg-page, #f4f5f8);
   position: relative;
   overflow: hidden;
 }
@@ -784,6 +782,10 @@ export default {
   margin-left: -32px;
   margin-right: -32px;
   border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--vis-shadow-bar, 0 2px 8px rgba(17, 17, 17, 0.04));
 }
 
 .vis-tabs {
@@ -872,10 +874,11 @@ export default {
 }
 
 .vis-header {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid var(--vis-hairline, rgba(17, 17, 17, 0.08));
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
   height: 64px;
   flex: 0 0 64px;
   padding: 0 32px;
@@ -946,6 +949,7 @@ export default {
 }
 
 .tab-content {
+  width: 100%;
   min-height: 0;
   flex: 1;
   overflow-x: hidden;
@@ -962,7 +966,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
   z-index: 10;
 }
 
@@ -1092,7 +1096,7 @@ export default {
        system chrome. Applying the reported top inset here adds that space a
        second time in some Android shells. */
     --vis-safe-area-top: 0px;
-    background: #fff;
+    background: var(--vis-bg-page, #f4f5f8);
   }
 
   .vis-content {
@@ -1125,6 +1129,7 @@ export default {
   .mobile-event-context {
     position: relative;
     z-index: 42;
+    overflow: hidden;
     display: flex;
     flex: 0 0 auto;
     min-height: 66px;
@@ -1133,9 +1138,7 @@ export default {
     margin: 0 -10px;
     padding: calc(7px + var(--vis-safe-area-top)) 10px 7px 12px;
     border-bottom: 1px solid rgba(17, 17, 17, 0.09);
-    background:
-      linear-gradient(105deg, rgba(255, 106, 0, 0.08), rgba(255, 255, 255, 0) 38%),
-      rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.78) inset;
   }
 
@@ -1147,6 +1150,19 @@ export default {
     left: 0;
     width: 3px;
     background: var(--vis-primary-gradient);
+  }
+
+  /* 品牌斜切纹理（与桌面横幅同源的低透明度斜线） */
+  .mobile-event-context::after {
+    content: '';
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    right: 46px;
+    width: 72px;
+    background: repeating-linear-gradient(90deg, rgba(255, 158, 15, 0.09) 0, rgba(255, 158, 15, 0.09) 4px, transparent 4px, transparent 13px);
+    transform: skewX(-14deg);
+    pointer-events: none;
   }
 
   .mobile-event-mark {
@@ -1293,6 +1309,30 @@ export default {
     -ms-overflow-style: none;
   }
 
+  .tab-content.is-recent {
+    width: calc(100% + 20px);
+    margin-right: -10px;
+    margin-left: -10px;
+  }
+
+  /* 赛事数据区同样全宽贴边（overflow-x:hidden 会裁掉组件级负 margin，必须在容器层扩宽） */
+  .tab-content.is-stats {
+    width: calc(100% + 20px);
+    margin-right: -10px;
+    margin-left: -10px;
+  }
+
+  /* 各图表区内边距与之前一致，仅允许个别组件（如地图）再外扩贴边 */
+  .tab-content.is-stats .stats-workspace {
+    padding: 0 10px;
+    box-sizing: border-box;
+  }
+
+  /* 地图分类：背景渐变铺出全高左灰栏 + 右白带，短列表下方不再露灰底 */
+  .tab-content.is-stats-map {
+    background: linear-gradient(90deg, #f3f4f7 0, #f3f4f7 85px, #e6e9f0 85px, #e6e9f0 86px, #ffffff 86px);
+  }
+
   .tab-content::-webkit-scrollbar {
     display: none;
     width: 0;
@@ -1357,6 +1397,28 @@ export default {
 
 }
 
+/* 赛季切换 pill：白底 + 发丝描边 + 轻投影（与 admin 控件同源的悬浮感） */
+:deep(.vis-season-select .el-select__wrapper) {
+  min-height: 40px;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.1), 0 1px 2px rgba(17, 17, 17, 0.05);
+  transition: box-shadow var(--vis-dur-fast) var(--vis-ease);
+}
+
+:deep(.vis-season-select .el-select__wrapper:hover) {
+  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.2), 0 1px 2px rgba(17, 17, 17, 0.05);
+}
+
+:deep(.vis-season-select .el-select__wrapper.is-focused) {
+  box-shadow: inset 0 0 0 1.5px var(--vis-accent, #ff6a00), 0 1px 2px rgba(17, 17, 17, 0.05);
+}
+
+:deep(.vis-season-select .el-select__selected-item) {
+  color: var(--vis-text-primary);
+  font-weight: 600;
+}
 /* 全局覆盖 Select 下拉框样式以确保内容显示完整 */
 :deep(.vis-season-select .el-input__inner) {
   text-overflow: ellipsis;

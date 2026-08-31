@@ -3,6 +3,9 @@ node_modules
 /dist
 /public/static-data
 /backend/media
+/.codex-remote-attachments/
+/.tmp-pw/
+/.tmp-srv.log
 
 
 # local env files

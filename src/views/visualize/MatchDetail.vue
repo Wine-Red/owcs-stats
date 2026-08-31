@@ -10,7 +10,7 @@
     <div v-else class="detail-container">
       <DetailTopbar :title="formattedTournament" @back="goBack" />
 
-      <div class="match-hero vis-arena-banner">
+      <div class="match-hero">
         <div class="match-banner">
           <div class="team left-team team-link" @click="goToTeamDetail(queryParams.team1Id)">
             <span class="team-name" :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
@@ -69,7 +69,8 @@
             :class="{ active: String(activeTab) === String(mapGame.id) }"
             @click="switchTab(String(mapGame.id))"
           >
-            {{ getMapTabLabel(mapGame, index) }}
+            <span class="tab-map-name">{{ getMapTabLabel(mapGame, index) }}</span>
+            <span class="tab-map-score">{{ displayScore(mapGame.team1Score) }}:{{ displayScore(mapGame.team2Score) }}</span>
           </div>
         </div>
 
@@ -91,46 +92,54 @@
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
                 <div v-if="contentMode === 'data'" key="overall-data" class="overall-stats-container mode-panel">
-                  <div v-for="teamBlock in overallTeamSections" :key="teamBlock.key" class="overall-team-section">
-                    <div class="overall-team-header">
-                      <img :src="teamBlock.logo" class="overall-team-logo" alt="" />
-                      <span>{{ teamBlock.name }}</span>
-                    </div>
-
-                    <div v-if="teamBlock.players.length" class="overall-table">
-                      <div class="overall-table-header">
-                        <div class="col-role"></div>
-                        <div class="col-name">选手</div>
-                        <div class="col-kda">K / A / D</div>
-                        <div class="col-kd">K/D</div>
-                        <div class="col-stat">伤害</div>
-                        <div class="col-stat">治疗</div>
-                        <div class="col-stat">抵挡</div>
-                      </div>
-
-                      <div v-for="player in teamBlock.players" :key="player.playerId" class="overall-table-row">
-                        <div class="col-role">
-                          <img :src="getRoleIconUrl(player.role)" class="role-icon" alt="" />
+                  <template v-for="(teamBlock, ti) in overallTeamSections" :key="teamBlock.key">
+                    <!-- 全场对标带：两队选手之间，深色赛事面 + 双方队标 -->
+                    <div v-if="ti === 1" class="versus-band versus-band--overall">
+                      <div class="versus-band-overlay">
+                        <div class="vb-team vb-team-left">
+                          <img :src="queryParams.team1Logo" class="vb-logo" alt="" />
+                          <span class="vb-name">{{ queryParams.team1 }}</span>
                         </div>
-                        <div class="col-name">{{ player.name }}</div>
-                        <div class="col-kda">{{ player.kills }} / {{ player.assists }} / {{ player.deaths }}</div>
-                        <div class="col-kd" :class="{ 'match-best': player.kdValue > 0 && player.kdValue === overallStats.maxStats.kd }">
-                          {{ player.kd }}
+                        <div class="vb-center">
+                          <span class="vb-map">全场总览{{ queryParams.boFormat ? ` · ${queryParams.boFormat}` : '' }}</span>
+                          <span class="vb-score">
+                            <b :class="{ win: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">{{ displayScore(queryParams.team1Score) }}</b>
+                            <i>:</i>
+                            <b :class="{ win: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team2Id) }">{{ displayScore(queryParams.team2Score) }}</b>
+                          </span>
                         </div>
-                        <div class="col-stat" :class="{ 'match-best': player.damage > 0 && player.damage === overallStats.maxStats.damage }">
-                          {{ formatNumber(player.damage) }}
-                        </div>
-                        <div class="col-stat" :class="{ 'match-best': player.healing > 0 && player.healing === overallStats.maxStats.healing }">
-                          {{ formatNumber(player.healing) }}
-                        </div>
-                        <div class="col-stat" :class="{ 'match-best': player.mitigation > 0 && player.mitigation === overallStats.maxStats.mitigation }">
-                          {{ formatNumber(player.mitigation) }}
+                        <div class="vb-team vb-team-right">
+                          <span class="vb-name">{{ queryParams.team2 }}</span>
+                          <img :src="queryParams.team2Logo" class="vb-logo" alt="" />
                         </div>
                       </div>
                     </div>
+                    <section class="overall-team-section" :class="`is-${teamBlock.key}`">
+                      <div class="overall-team-header">
+                        <img :src="teamBlock.logo" class="overall-team-logo" alt="" />
+                        <span>{{ teamBlock.name }}</span>
+                      </div>
 
-                    <div v-else class="empty-inner">暂无该队选手数据</div>
-                  </div>
+                      <div v-if="teamBlock.players.length" class="stats-rows">
+                        <div v-for="player in teamBlock.players" :key="player.playerId" class="stat-player-row">
+                          <img :src="getRoleIconUrl(player.role)" class="sp-role-icon" :alt="player.role" />
+                          <div class="sp-body">
+                            <div class="sp-line1">
+                              <span class="sp-name">{{ player.name }}</span>
+                              <span class="sp-kda" :class="{ 'match-best': player.kdValue > 0 && player.kdValue === overallStats.maxStats.kd }">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
+                            </div>
+                            <div class="sp-line2">
+                              <span class="sp-stat"><em>伤害</em><span :class="{ 'match-best': player.damage > 0 && player.damage === overallStats.maxStats.damage }">{{ formatNumber(player.damage) }}</span></span>
+                              <span class="sp-stat"><em>治疗</em><span :class="{ 'match-best': player.healing > 0 && player.healing === overallStats.maxStats.healing }">{{ formatNumber(player.healing) }}</span></span>
+                              <span class="sp-stat"><em>抵挡</em><span :class="{ 'match-best': player.mitigation > 0 && player.mitigation === overallStats.maxStats.mitigation }">{{ formatNumber(player.mitigation) }}</span></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div v-else class="empty-inner">暂无该队选手数据</div>
+                    </section>
+                  </template>
                 </div>
 
                 <div v-else-if="teamAnalysis" key="overall-analysis" class="match-analysis-section mode-panel">
@@ -170,7 +179,7 @@
             </div>
 
             <template v-for="(mapGame, index) in matchDetails.mapGames" :key="`panel-${mapGame.id}`">
-            <div v-if="String(activeTab) === String(mapGame.id)" class="seamless-content">
+            <div v-if="String(activeTab) === String(mapGame.id)" class="seamless-content" :class="{ 'is-data-mode': contentMode === 'data' }">
               <div class="map-info-banner" :style="{ backgroundImage: `url(${getMapBannerUrl(mapGame.mapId)})` }">
                 <div class="banner-overlay"></div>
                 <div class="banner-content">
@@ -263,136 +272,57 @@
                   </div>
                 </div>
 
-                <div v-else-if="currentStatsRows.length" key="map-data" class="stats-grid mode-panel">
-                  <div class="team-col-header">{{ queryParams.team1 }}</div>
-                  <div class="team-col-header">{{ queryParams.team2 }}</div>
-
-                  <template v-for="(row, rowIndex) in currentStatsRows" :key="rowIndex">
-                    <div class="player-card">
-                      <template v-if="row.team1">
-                        <div class="player-card-header">
-                          <div class="player-role-name">
-                            <img :src="getRoleIconUrl(row.team1.role)" class="role-icon" alt="" />
-                            <span class="player-name">{{ row.team1.name }}</span>
-                          </div>
-                          <span class="player-kda">{{ row.team1.kills }}/{{ row.team1.assists }}/{{ row.team1.deaths }}</span>
+                <div v-else-if="currentStatsRows.length" key="map-data" class="stats-list mode-panel">
+                  <template v-for="(grp, gi) in mapPlayerGroups" :key="grp.key">
+                    <!-- 两队对标带：夹在双方选手中间，地图头图作背景 -->
+                    <div v-if="gi === 1" class="versus-band" :style="{ backgroundImage: `url(${getMapBannerUrl(mapGame.mapId)})` }">
+                      <div class="versus-band-overlay">
+                        <div class="vb-team vb-team-left">
+                          <img :src="queryParams.team1Logo" class="vb-logo" alt="" />
+                          <span class="vb-name">{{ queryParams.team1 }}</span>
+                          <span v-if="mapGame.team1BanHero" class="vb-ban" :title="`${queryParams.team1} 禁用 ${mapGame.team1BanHero.name}`">
+                            <img :src="getBanIconUrl(mapGame.team1BanHero)" :alt="mapGame.team1BanHero.name" loading="lazy" />
+                          </span>
                         </div>
-
-                        <div v-if="row.team1.heroes && row.team1.heroes.length" class="player-heroes">
-                          <div v-for="hero in row.team1.heroes" :key="hero.heroId || hero.heroName" class="player-hero-row">
-                            <div class="ph-main">
-                              <span class="player-hero-icon">
-                                <img
-                                  v-if="hero.iconUrl && !hero.iconFailed"
-                                  :src="hero.iconUrl"
-                                  :alt="hero.heroName"
-                                  loading="lazy"
-                                  @error="hero.iconFailed = true"
-                                />
-                                <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
-                              </span>
-                              <span class="player-hero-name">{{ hero.heroName }}</span>
-                              <span class="ph-pct">{{ hero.usagePct }}%</span>
-                            </div>
-                            <div class="ph-bar-track">
-                              <div class="ph-bar-fill" :style="{ width: `${hero.usagePct}%` }"></div>
-                            </div>
-                            <div v-if="currentMapHasFinalBlows || (currentMapHasUltCharge && hero.avgUltChargeSeconds !== null)" class="ph-metrics">
-                              <span v-if="currentMapHasFinalBlows">最后一击 {{ hero.finalBlows }}</span>
-                              <span v-if="currentMapHasUltCharge && hero.avgUltChargeSeconds !== null">充能 {{ Math.round(hero.avgUltChargeSeconds) }}秒</span>
-                            </div>
-                          </div>
+                        <div class="vb-center">
+                          <span class="vb-map">MAP {{ index + 1 }} · {{ getMapName(mapGame.mapId) }} · {{ formatDuration(mapGame.duration) }}</span>
+                          <span class="vb-score">
+                            <b :class="{ win: String(mapGame.winnerId) === String(mapGame.team1Id) }">{{ displayScore(mapGame.team1Score) }}</b>
+                            <i>:</i>
+                            <b :class="{ win: String(mapGame.winnerId) === String(mapGame.team2Id) }">{{ displayScore(mapGame.team2Score) }}</b>
+                          </span>
                         </div>
-
-                        <div class="player-stats">
-                          <div class="stat-row">
-                            <span class="stat-label">伤害</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill damage-color" :style="{ width: `${row.team1.damagePercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team1.damage) }}</span>
-                          </div>
-                          <div class="stat-row">
-                            <span class="stat-label">治疗</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill healing-color" :style="{ width: `${row.team1.healingPercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team1.healing) }}</span>
-                          </div>
-                          <div class="stat-row">
-                            <span class="stat-label">抵挡</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill mitigation-color" :style="{ width: `${row.team1.mitigationPercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team1.mitigation) }}</span>
-                          </div>
+                        <div class="vb-team vb-team-right">
+                          <span v-if="mapGame.team2BanHero" class="vb-ban" :title="`${queryParams.team2} 禁用 ${mapGame.team2BanHero.name}`">
+                            <img :src="getBanIconUrl(mapGame.team2BanHero)" :alt="mapGame.team2BanHero.name" loading="lazy" />
+                          </span>
+                          <span class="vb-name">{{ queryParams.team2 }}</span>
+                          <img :src="queryParams.team2Logo" class="vb-logo" alt="" />
                         </div>
-                      </template>
-                      <div v-else class="empty-player">无数据</div>
+                      </div>
                     </div>
-
-                    <div class="player-card">
-                      <template v-if="row.team2">
-                        <div class="player-card-header">
-                          <div class="player-role-name">
-                            <img :src="getRoleIconUrl(row.team2.role)" class="role-icon" alt="" />
-                            <span class="player-name">{{ row.team2.name }}</span>
-                          </div>
-                          <span class="player-kda">{{ row.team2.kills }}/{{ row.team2.assists }}/{{ row.team2.deaths }}</span>
-                        </div>
-
-                        <div v-if="row.team2.heroes && row.team2.heroes.length" class="player-heroes">
-                          <div v-for="hero in row.team2.heroes" :key="hero.heroId || hero.heroName" class="player-hero-row">
-                            <div class="ph-main">
-                              <span class="player-hero-icon">
-                                <img
-                                  v-if="hero.iconUrl && !hero.iconFailed"
-                                  :src="hero.iconUrl"
-                                  :alt="hero.heroName"
-                                  loading="lazy"
-                                  @error="hero.iconFailed = true"
-                                />
-                                <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
-                              </span>
-                              <span class="player-hero-name">{{ hero.heroName }}</span>
-                              <span class="ph-pct">{{ hero.usagePct }}%</span>
+                    <section class="stats-team" :class="`is-${grp.key}`">
+                      <header class="stats-team-header">
+                        <img :src="grp.logo" class="stats-team-logo" alt="" />
+                        <span class="stats-team-name">{{ grp.name }}</span>
+                      </header>
+                      <div class="stats-rows">
+                        <div v-for="player in grp.players" :key="player.playerId || player.name" class="stat-player-row">
+                          <img :src="getRoleIconUrl(player.role)" class="sp-role-icon" :alt="player.role" />
+                          <div class="sp-body">
+                            <div class="sp-line1">
+                              <span class="sp-name">{{ player.name }}</span>
+                              <span class="sp-kda">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
                             </div>
-                            <div class="ph-bar-track">
-                              <div class="ph-bar-fill" :style="{ width: `${hero.usagePct}%` }"></div>
-                            </div>
-                            <div v-if="currentMapHasFinalBlows || (currentMapHasUltCharge && hero.avgUltChargeSeconds !== null)" class="ph-metrics">
-                              <span v-if="currentMapHasFinalBlows">最后一击 {{ hero.finalBlows }}</span>
-                              <span v-if="currentMapHasUltCharge && hero.avgUltChargeSeconds !== null">充能 {{ Math.round(hero.avgUltChargeSeconds) }}秒</span>
+                            <div class="sp-line2">
+                              <span class="sp-stat"><em>伤害</em>{{ formatNumber(player.damage) }}</span>
+                              <span class="sp-stat"><em>治疗</em>{{ formatNumber(player.healing) }}</span>
+                              <span class="sp-stat"><em>抵挡</em>{{ formatNumber(player.mitigation) }}</span>
                             </div>
                           </div>
                         </div>
-
-                        <div class="player-stats">
-                          <div class="stat-row">
-                            <span class="stat-label">伤害</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill damage-color" :style="{ width: `${row.team2.damagePercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team2.damage) }}</span>
-                          </div>
-                          <div class="stat-row">
-                            <span class="stat-label">治疗</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill healing-color" :style="{ width: `${row.team2.healingPercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team2.healing) }}</span>
-                          </div>
-                          <div class="stat-row">
-                            <span class="stat-label">抵挡</span>
-                            <div class="stat-bar-track">
-                              <div class="stat-bar-fill mitigation-color" :style="{ width: `${row.team2.mitigationPercent}%` }"></div>
-                            </div>
-                            <span class="stat-value">{{ formatNumber(row.team2.mitigation) }}</span>
-                          </div>
-                        </div>
-                      </template>
-                      <div v-else class="empty-player">无数据</div>
-                    </div>
+                      </div>
+                    </section>
                   </template>
                 </div>
 
@@ -901,6 +831,9 @@ export default {
       return chips;
     });
 
+    // ban 英雄图标（对标带内联展示用）
+    const getBanIconUrl = (banHero) => (banHero ? getHeroIconUrl(banHero, store.state.heroes) : '');
+
     const currentStatsRows = computed(() => {
       const withPercents = currentMapPlayers.value;
 
@@ -916,6 +849,15 @@ export default {
         team1: team1[index] || null,
         team2: team2[index] || null
       }));
+    });
+
+    // 选手数据按队分组（一选手一行列表用）
+    const mapPlayerGroups = computed(() => {
+      const rows = currentStatsRows.value;
+      return [
+        { key: 'team1', name: queryParams.value.team1, logo: queryParams.value.team1Logo, players: rows.map(r => r.team1).filter(Boolean) },
+        { key: 'team2', name: queryParams.value.team2, logo: queryParams.value.team2Logo, players: rows.map(r => r.team2).filter(Boolean) }
+      ];
     });
 
     const getPlayerImpactScore = (player) => {
@@ -1602,6 +1544,8 @@ export default {
       currentMapHasFinalBlows,
       currentMapHasUltCharge,
       mapBanChips,
+      mapPlayerGroups,
+      getBanIconUrl,
       switchTab,
       switchContentMode,
       handleModePanelAfterEnter,
@@ -1624,7 +1568,7 @@ export default {
 <style scoped>
 .match-detail-page {
   min-height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
   font-family: var(--vis-font-body);
 }
 
@@ -1633,7 +1577,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
 }
 
 .loading-panel {
@@ -1670,9 +1614,18 @@ export default {
   width: 100%;
 }
 
+/* 浅色对位头图：白暖渐变底 + 左黑右橙队色晕染 + 斜线纹理（与对标带同源） */
 .match-hero {
   position: relative;
-  border-bottom: 1px solid var(--vis-border);
+  overflow: hidden;
+  border-bottom: 1px solid var(--vis-border, #e6e9f0);
+  color: #111;
+  background-color: #fffaf3;
+  background-image:
+    linear-gradient(90deg, rgba(17, 17, 17, 0.05) 0%, rgba(17, 17, 17, 0) 34%),
+    linear-gradient(270deg, rgba(255, 106, 0, 0.1) 0%, rgba(255, 106, 0, 0) 38%),
+    repeating-linear-gradient(115deg, rgba(17, 17, 17, 0.024) 0, rgba(17, 17, 17, 0.024) 1px, transparent 1px, transparent 13px),
+    linear-gradient(135deg, #ffffff 0%, #fffaf3 58%, #fff3e2 100%);
 }
 
 .match-banner {
@@ -1741,7 +1694,7 @@ export default {
   height: 60px;
   flex-shrink: 0;
   object-fit: contain;
-  filter: drop-shadow(0 3px 8px rgba(17, 17, 17, 0.16));
+  filter: drop-shadow(0 3px 8px rgba(17, 17, 17, 0.14));
 }
 
 .match-center {
@@ -1797,8 +1750,8 @@ export default {
   gap: 6px;
   margin-top: 2px;
   padding: 3px 12px;
-  background: #f4f4f5;
-  border: 1px solid var(--vis-border);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--vis-border, #e6e9f0);
   border-radius: 999px;
   color: #606266;
   font-size: 11px;
@@ -1811,7 +1764,8 @@ export default {
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: #909399;
+  background: #28a745;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.12);
 }
 
 .match-summary-strip {
@@ -1830,9 +1784,10 @@ export default {
   gap: 8px;
   min-height: 30px;
   padding: 4px 14px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--vis-border, #e6e9f0);
   border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
 }
 
 .summary-label {
@@ -1864,8 +1819,8 @@ export default {
 
 .custom-tabs-nav {
   display: flex;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 4px;
+  padding: 0 16px;
   background: #fff;
   border-bottom: 1px solid var(--vis-border);
   overflow-x: auto;
@@ -1878,37 +1833,72 @@ export default {
   display: none;
 }
 
+/* 下划线 tab：与首页 vis-tabs 同语言，激活 = 深字 + 渐变斜切下划线 */
 .tab-nav-item {
   position: relative;
   flex: 0 0 auto;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 16px;
-  border-radius: 999px;
-  background: var(--vis-bg-muted);
-  color: var(--vis-text-secondary);
+  gap: 0;
+  min-height: 38px;
+  padding: 0 10px;
+  margin: 0 2px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--vis-text-tertiary);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   scroll-snap-align: start;
-  transition: color 0.2s var(--vis-ease), background-color 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
+  transition: color 0.2s var(--vis-ease);
+}
+
+.tab-nav-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vis-primary-gradient);
+  transform: translateX(-50%) skewX(var(--vis-slant, -8deg)) scaleX(0);
+  transition: transform 0.25s var(--vis-ease);
 }
 
 .tab-nav-item:hover {
   color: #111;
-  background: rgba(17, 17, 17, 0.1);
+  background: transparent;
 }
 
 .tab-nav-item.active {
-  background: #111;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.18);
+  color: #111;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 800;
+}
+
+.tab-nav-item.active::after {
+  transform: translateX(-50%) skewX(var(--vis-slant, -8deg)) scaleX(1);
+}
+
+.tab-map-score {
+  color: var(--vis-text-tertiary);
+  font-family: var(--vis-font-numeric);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.tab-nav-item.active .tab-map-score {
+  color: var(--vis-accent);
 }
 
 .tab-content-area {
@@ -2000,19 +1990,7 @@ export default {
 }
 
 .overall-team-section {
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.overall-team-section:first-child {
-  border-left: 3px solid var(--vis-team-left);
-}
-
-.overall-team-section:nth-child(2) {
-  border-left: 3px solid var(--vis-team-right);
+  min-width: 0;
 }
 
 .overall-team-header {
@@ -2033,91 +2011,6 @@ export default {
   height: 24px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
-}
-
-.overall-table {
-  display: flex;
-  flex-direction: column;
-}
-
-.overall-table-header,
-.overall-table-row {
-  display: flex;
-  align-items: center;
-}
-
-.overall-table-header {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--vis-border);
-  color: #909399;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.overall-table-row {
-  padding: 10px 16px;
-  border-bottom: 1px solid #f0f2f5;
-  font-size: 13px;
-  transition: background-color 0.2s var(--vis-ease);
-}
-
-.overall-table-row:last-child {
-  border-bottom: none;
-}
-
-.overall-table-row:hover {
-  background: var(--vis-bg-subtle);
-}
-
-.col-role {
-  width: 40px;
-  display: flex;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.col-name {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  color: #111;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-}
-
-.col-kda {
-  width: 102px;
-  flex-shrink: 0;
-  text-align: center;
-  color: #606266;
-  white-space: nowrap;
-  font-family: var(--vis-font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.col-kd {
-  width: 46px;
-  flex-shrink: 0;
-  text-align: center;
-  font-family: var(--vis-font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.col-stat {
-  width: 64px;
-  flex-shrink: 0;
-  text-align: right;
-  font-family: var(--vis-font-numeric);
-  font-variant-numeric: tabular-nums;
-}
-
-.role-icon {
-  width: 14px;
-  height: 14px;
-  filter: brightness(0);
 }
 
 .match-best {
@@ -2348,11 +2241,11 @@ export default {
 }
 
 .map-analysis-card {
-  padding: 14px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .map-analysis-title {
@@ -2404,14 +2297,15 @@ export default {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 0;
+  padding: 10px 4px 0;
 }
 
 .map-player-team {
   flex: 1;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 14px;
 }
 
 .map-player-team1 {
@@ -2425,40 +2319,40 @@ export default {
 .map-player-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--vis-bg-muted);
-  border: 1px solid rgba(17, 17, 17, 0.06);
-  color: #303133;
+  min-height: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #606266;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
-  transition: color 0.2s var(--vis-ease), background-color 0.2s var(--vis-ease), border-color 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
+  text-decoration: underline;
+  text-decoration-color: rgba(17, 17, 17, 0.18);
+  text-underline-offset: 3px;
+  transition: color 0.2s var(--vis-ease), text-decoration-color 0.2s var(--vis-ease);
 }
 
 .map-player-team1 .map-player-chip:hover {
-  background: rgba(17, 17, 17, 0.06);
-  border-color: rgba(17, 17, 17, 0.14);
+  color: #111;
 }
 
 .map-player-team2 .map-player-chip:hover {
-  background: rgba(255, 106, 0, 0.08);
-  border-color: rgba(255, 106, 0, 0.18);
+  color: #ff6a00;
 }
 
 .map-player-team1 .map-player-chip.active {
-  background: #111;
-  border-color: #111;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(17, 17, 17, 0.22);
+  color: #111;
+  font-weight: 900;
+  text-decoration-color: #111;
 }
 
 .map-player-team2 .map-player-chip.active {
-  background: #ff6a00;
-  border-color: #ff6a00;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(255, 106, 0, 0.28);
+  color: #ff6a00;
+  font-weight: 900;
+  text-decoration-color: #ff6a00;
 }
 
 .map-player-vs {
@@ -2477,6 +2371,19 @@ export default {
 .map-player-radar {
   height: 250px;
   margin-top: 6px;
+}
+
+/* 战队雷达：去卡壳，与前瞻页战队对比同款的扁平呈现 */
+.analysis-card.radar-analysis-card {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.analysis-card.radar-analysis-card::before {
+  content: none;
 }
 
 .map-info-banner {
@@ -2589,154 +2496,305 @@ export default {
   font-size: 16px;
 }
 
-.stats-grid {
+/* 选手数据：一选手一行紧凑扁平行 */
+.stats-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
+  gap: 18px;
 }
 
-.team-col-header {
-  padding-bottom: 8px;
-  border-bottom: 2px solid #e4e7ed;
-  color: #111;
-  font-size: 16px;
-  font-weight: 800;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.stats-team {
+  min-width: 0;
 }
 
-.stats-grid .team-col-header:first-child {
-  border-bottom-color: var(--vis-team-left);
-}
-
-.stats-grid .team-col-header:nth-child(2) {
-  border-bottom-color: var(--vis-team-right);
-}
-
-.player-card {
-  position: relative;
+.stats-team-header {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: #fff;
-  border: 1px solid var(--vis-border);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s var(--vis-ease), box-shadow 0.2s var(--vis-ease);
-}
-
-.player-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12px;
-  right: 12px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--vis-primary-gradient);
-  opacity: 0;
-  transition: opacity 0.2s var(--vis-ease);
-  pointer-events: none;
-}
-
-.player-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.player-card:hover::before {
-  opacity: 1;
-}
-
-.player-card:active {
-  transform: scale(0.98);
-}
-
-.player-card-header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed #f0f0f0;
-}
-
-.player-role-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-}
-
-.player-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 2px 2px 8px;
+  border-bottom: 2px solid var(--vis-team-left, #111);
   color: #111;
   font-size: 14px;
   font-weight: 800;
 }
 
-.player-kda {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  background: var(--vis-bg-muted);
-  border-radius: 999px;
-  color: #303133;
-  font-family: var(--vis-font-numeric);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+.stats-team.is-team2 .stats-team-header {
+  border-bottom-color: var(--vis-team-right, #ff6a00);
 }
 
-.player-stats {
+.stats-team-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.stats-team-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-rows {
   display: flex;
   flex-direction: column;
+}
+
+.stat-player-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 2px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.stat-player-row:last-child {
+  border-bottom: 0;
+}
+
+.sp-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sp-line1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sp-role-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  opacity: 0.78;
+  filter: brightness(0);
+}
+
+/* 黑橙对位装饰：右队（橙方）图标与 K/D/A 着橙色，分隔线转暖 */
+.is-team2 .sp-role-icon {
+  opacity: 1;
+  filter: invert(56%) sepia(91%) saturate(1636%) hue-rotate(357deg) brightness(98%) contrast(106%);
+}
+
+.is-team2 .sp-kda {
+  color: var(--vis-accent, #ff6a00);
+}
+
+.is-team2 .stat-player-row {
+  border-bottom-color: #f7ece1;
+}
+
+.is-team1 .sp-kda {
+  color: #111;
+}
+
+.sp-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #111;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-kda {
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: #111;
+  font-family: var(--vis-font-numeric);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sp-line2 {
+  display: flex;
+  gap: 14px;
+  color: #303133;
+  font-family: var(--vis-font-numeric);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sp-line2 em {
+  margin-right: 3px;
+  color: #a0a6af;
+  font-family: var(--vis-font-body);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* 两队对标带：地图底图 + 深色渐变遮罩，桌面端隐藏（桌面保留队头横线） */
+.versus-band {
+  display: none;
+  position: relative;
+  overflow: hidden;
+  background-color: #141416;
+  background-size: cover;
+  background-position: center 32%;
+  color: #f5f7fa;
+}
+
+.versus-band-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 12px;
+  /* 左黑右橙的双色队色晕染 + 整体轻压暗，保证文字可读 */
+  background:
+    linear-gradient(90deg, rgba(10, 10, 12, 0.62) 0%, rgba(10, 10, 12, 0.22) 36%, rgba(10, 10, 12, 0.08) 50%, rgba(255, 106, 0, 0.14) 72%, rgba(255, 106, 0, 0.32) 100%),
+    linear-gradient(180deg, rgba(10, 10, 12, 0.3), rgba(10, 10, 12, 0.3));
+}
+
+/* 上下黑橙渐变缝线，衔接白带与底图 */
+.versus-band::before,
+.versus-band::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(17, 17, 17, 0.55), rgba(255, 106, 0, 0.55));
+  pointer-events: none;
+}
+
+.versus-band::before {
+  top: 0;
+}
+
+.versus-band::after {
+  bottom: 0;
+}
+
+.vb-team {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
   gap: 6px;
 }
 
-.stat-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
+.vb-team-right {
+  justify-content: flex-end;
 }
 
-.stat-label {
-  width: 52px;
-  flex-shrink: 0;
-  color: #909399;
+.vb-logo {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
-.stat-bar-track {
-  height: 5px;
-  flex: 1;
+.vb-name {
   overflow: hidden;
-  background: #f0f2f5;
-  border-radius: 999px;
+  font-family: var(--vis-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.stat-bar-fill {
+.vb-center {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.vb-map {
+  color: rgba(245, 247, 250, 0.66);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.vb-score {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--vis-font-numeric);
+  font-size: 21px;
+  font-style: italic;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.vb-score i {
+  margin: 0 4px;
+  color: rgba(245, 247, 250, 0.4);
+  font-style: normal;
+}
+
+.vb-score b {
+  font-weight: 800;
+}
+
+.vb-score b.win {
+  color: #ff9e0f;
+}
+
+/* 禁用英雄：小方图 + 红斜杠 */
+.vb-ban {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+.vb-ban img {
+  width: 100%;
   height: 100%;
+  object-fit: cover;
+  filter: grayscale(0.4);
+}
+
+.vb-ban::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 135%;
+  height: 1.5px;
   border-radius: 999px;
+  background: #ff5252;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
-.damage-color {
-  background: #ff6a00;
+/* 全场总览对标带：不指向具体地图——墨色底 + 斜切几何纹理 + 右侧微光 */
+.versus-band--overall {
+  background-color: #141416;
+  background-image:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0, rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 12px),
+    radial-gradient(58% 150% at 85% 50%, rgba(255, 255, 255, 0.07), transparent 60%),
+    linear-gradient(135deg, #1b1c20 0%, #101013 100%);
 }
 
-.healing-color {
-  background: #28a745;
+.versus-band--overall .versus-band-overlay {
+  background: none;
 }
 
-.mitigation-color {
-  background: #111;
+/* 缝线在墨底上改为中性灰 */
+.versus-band--overall::before,
+.versus-band--overall::after {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* 地图 ban 展示 */
@@ -2798,108 +2856,6 @@ export default {
   color: #303133;
 }
 
-/* 选手卡：分英雄数据（时长 / 最后一击 / 充能） */
-.player-heroes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 9px 9px;
-  margin: 2px 0 8px;
-  background: #f7f8fa;
-  border-radius: 10px;
-}
-
-.player-hero-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ph-main {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ph-pct {
-  margin-left: auto;
-  font-family: var(--vis-font-numeric);
-  font-size: 11px;
-  font-weight: 800;
-  color: #111;
-  font-variant-numeric: tabular-nums;
-}
-
-.ph-bar-track {
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(17, 17, 17, 0.08);
-  overflow: hidden;
-}
-
-.ph-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #111;
-}
-
-.ph-metrics {
-  display: flex;
-  gap: 10px;
-  font-size: 10px;
-  color: #909399;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.player-hero-icon {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #f0f2f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 2px rgba(16, 21, 28, 0.12);
-}
-
-.player-hero-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.player-hero-fallback {
-  font-size: 10px;
-  font-weight: 800;
-  color: #909399;
-}
-
-.player-hero-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #303133;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.stat-value {
-  width: 44px;
-  flex-shrink: 0;
-  color: #111;
-  font-family: var(--vis-font-numeric);
-  font-size: 12px;
-  font-weight: 700;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.empty-player,
 .map-empty {
   grid-column: 1 / -1;
 }
@@ -2958,55 +2914,77 @@ export default {
   }
 
   .custom-tabs-nav {
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 2px;
+    padding: 0 10px;
   }
 
   .tab-nav-item {
-    min-height: 30px;
-    padding: 0 12px;
-    font-size: 11px;
-  }
-
-  .seamless-content {
-    padding: 12px;
-  }
-
-  .overall-team-header {
-    padding: 10px 12px;
-    font-size: 15px;
-  }
-
-  .overall-table-header {
-    padding: 6px 8px;
-    font-size: 10px;
-  }
-
-  .overall-table-row {
-    padding: 8px;
-    font-size: 11px;
-  }
-
-  .col-name {
+    min-height: 40px;
+    padding: 0 8px;
     font-size: 12px;
   }
 
-  .col-role {
-    width: 28px;
+  .tab-map-score {
+    font-size: 9px;
   }
 
-  .col-kda {
-    width: 76px;
-    font-size: 10px;
+  .stats-list {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
-  .col-kd {
-    width: 32px;
+  /* 地图 Banner 贴边；选手数据模式下由中间对标带承担地图标识 */
+  .map-info-banner {
+    margin: 0 calc(-1 * var(--sc-pad, 12px));
+    border-radius: 0;
   }
 
-  .col-stat {
-    width: 42px;
-    font-size: 10px;
+  /* 移动端两种模式都不显示顶部 Banner：数据模式由对标带承担，分析模式直接进内容 */
+  .map-info-banner {
+    display: none;
+  }
+
+  /* 移动端用中间对标带替代队头横线 */
+  .stats-team-header {
+    display: none;
+  }
+
+  /* 移动端禁用英雄并入对标带，旧禁用条隐藏（桌面端保留） */
+  .map-ban-strip {
+    display: none;
+  }
+
+  .versus-band {
+    display: block;
+  }
+
+  .stats-list {
+    margin: 0 calc(-1 * var(--sc-pad, 12px));
+  }
+
+  .stats-team-header {
+    padding-right: var(--sc-pad, 12px);
+    padding-left: var(--sc-pad, 12px);
+  }
+
+  .stat-player-row {
+    padding-right: var(--sc-pad, 12px);
+    padding-left: var(--sc-pad, 12px);
+  }
+
+  .seamless-content {
+    --sc-pad: 12px;
+    padding: 4px 12px 10px;
+  }
+
+  /* 选手总览：贴边整白带，队头由中间对标带承担 */
+  .overall-stats-container {
+    gap: 0;
+    margin: 0 calc(-1 * var(--sc-pad, 12px));
+  }
+
+  .overall-team-header {
+    display: none;
   }
 
   .map-info-banner {
@@ -3020,13 +2998,13 @@ export default {
   }
 
   .content-mode-switch {
-    width: calc(100% + 24px);
-    margin: 12px -12px;
+    width: calc(100% + var(--sc-pad, 12px) * 2);
+    margin: -4px calc(-1 * var(--sc-pad, 12px)) 0;
     padding: 0;
   }
 
   .seamless-content > .content-mode-switch:first-child {
-    margin-top: -12px;
+    margin-top: -4px;
   }
 
   .analysis-card-header {
@@ -3068,7 +3046,17 @@ export default {
   }
 
   .map-analysis-card {
-    padding: 12px;
+    padding: 0;
+  }
+
+  /* 地图分析整区贴边：筛选条/选择器保留文字内边距，雷达图吃满宽度 */
+  .map-analysis-simple {
+    margin: 0 calc(-1 * var(--sc-pad, 12px));
+  }
+
+  .map-player-selectors {
+    padding-right: var(--sc-pad, 12px);
+    padding-left: var(--sc-pad, 12px);
   }
 
   .map-analysis-title {
@@ -3201,13 +3189,13 @@ export default {
   }
 
   .content-mode-switch {
-    width: calc(100% + 20px);
-    margin-right: -10px;
-    margin-left: -10px;
+    width: calc(100% + var(--sc-pad, 10px) * 2);
+    margin-right: calc(-1 * var(--sc-pad, 10px));
+    margin-left: calc(-1 * var(--sc-pad, 10px));
   }
 
   .seamless-content > .content-mode-switch:first-child {
-    margin-top: -10px;
+    margin-top: -4px;
   }
 
   .team {
@@ -3252,7 +3240,7 @@ export default {
   }
 
   .custom-tabs-nav {
-    padding: 8px 10px;
+    padding: 0 10px;
   }
 
   .tab-nav-item {
@@ -3262,7 +3250,8 @@ export default {
   }
 
   .seamless-content {
-    padding: 10px;
+    --sc-pad: 10px;
+    padding: 4px 10px 8px;
   }
 
   .team-analysis-radar {
@@ -3292,24 +3281,5 @@ export default {
     font-size: 9px;
   }
 
-  .col-role {
-    width: 24px;
-  }
-
-  .col-kda {
-    width: 68px;
-  }
-
-  .col-kd {
-    width: 28px;
-  }
-
-  .col-stat {
-    width: 38px;
-  }
-
-  .stat-value {
-    width: 32px;
-  }
 }
 </style>

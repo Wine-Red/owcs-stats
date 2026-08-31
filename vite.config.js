@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig(({ mode }) => ({
-  base: mode === 'static' ? './' : (process.env.VITE_BASE_PATH || '/stats/'),
+  base: mode === 'static' ? './' : (process.env.VITE_BASE_PATH || '/'),
   
   plugins: [
     vue(),
@@ -35,6 +35,19 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        proxyTimeout: 60000,
+        timeout: 60000
+      },
+      '/public-api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: requestPath => requestPath.replace(/^\/public-api/, '/api'),
+        proxyTimeout: 60000,
+        timeout: 60000
+      },
+      '/media': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         proxyTimeout: 60000,

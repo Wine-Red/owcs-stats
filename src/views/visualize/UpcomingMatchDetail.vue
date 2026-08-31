@@ -52,11 +52,11 @@
               <div class="radar-container team-radar-container" ref="teamRadarRef"></div>
             </div>
 
-            <!-- 战绩对比（全赛季口径） -->
+            <!-- 战绩对比（双方近 10 场已完赛比赛） -->
             <div class="team-extra-stats" v-if="teamStats.team1 && teamStats.team2">
               <div class="analysis-card-header stats-card-header">
                 <div class="analysis-card-title">
-                  赛季战绩
+                  近10场战绩
                 </div>
               </div>
 
@@ -1083,15 +1083,13 @@ export default {
           await store.dispatch('getSeasonTeams', Number(seasonId));
         }
 
-        const [allGlobalMatchesRes, statsRes, scoreStatsRes, seasonMapGamesRes] = await Promise.all([
+        const [allGlobalMatchesRes, statsRes, seasonMapGamesRes] = await Promise.all([
           apiService.getMatches({ pageSize: 2000 }),
           apiService.getSeasonPlayerStats(seasonId),
-          apiService.getSeasonTeamScoreStats(seasonId),
           apiService.getMapGames({ seasonId, pageSize: 2000 })
         ]);
 
         const allMatches = Array.isArray(allGlobalMatchesRes) ? allGlobalMatchesRes : allGlobalMatchesRes.data || allGlobalMatchesRes.list || [];
-        const scoreStats = Array.isArray(scoreStatsRes) ? scoreStatsRes : scoreStatsRes.data || scoreStatsRes.list || [];
         seasonMapGames.value = Array.isArray(seasonMapGamesRes) ? seasonMapGamesRes : seasonMapGamesRes.data || seasonMapGamesRes.list || [];
         const t1Name = queryParams.value.team1;
         const t2Name = queryParams.value.team2;
@@ -1128,18 +1126,46 @@ export default {
         if (team1) team1MatchStr = team1.name;
         if (team2) team2MatchStr = team2.name;
 
-        const getTeamScoreStat = (teamId, searchName) => {
-          const sName = searchName.toLowerCase();
-          return scoreStats.find(s => {
-            if (teamId != null && Number(s.teamId) === Number(teamId)) return true;
-            const sn = (s.teamName || '').toLowerCase();
-            const ssn = (s.teamShortName || '').toLowerCase();
-            return sn === sName || ssn === sName || sn.includes(sName) || sName.includes(sn);
-          }) || { matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
+        // 近 10 场已完赛战绩（跨赛季，按比赛时间倒序取前 10 场）
+        const getTeamRecentStats = (teamId, searchName) => {
+          const target = String(searchName || '').toLowerCase();
+          const nameOf = (id) => getTeamName(id).toLowerCase();
+          const sideOf = (m) => {
+            const a = nameOf(m.team1Id);
+            const b = nameOf(m.team2Id);
+            const shortA = (m.teamA?.short || '').toLowerCase();
+            const shortB = (m.teamB?.short || '').toLowerCase();
+            const hitA = a === target || shortA === target || (teamId != null && Number(m.team1Id) === Number(teamId))
+              || (target.length > 2 && (a.includes(target) || shortA.includes(target)));
+            const hitB = b === target || shortB === target || (teamId != null && Number(m.team2Id) === Number(teamId))
+              || (target.length > 2 && (b.includes(target) || shortB.includes(target)));
+            if (hitA && !hitB) return 1;
+            if (hitB && !hitA) return 2;
+            return 0;
+          };
+          const recent = allMatches
+            .filter(m => m.winnerId != null && m.team1Score != null && m.team2Score != null && sideOf(m))
+            .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate))
+            .slice(0, 10);
+          const stat = { matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
+          recent.forEach(m => {
+            const side = sideOf(m);
+            const myScore = Number(side === 1 ? m.team1Score : m.team2Score) || 0;
+            const oppScore = Number(side === 1 ? m.team2Score : m.team1Score) || 0;
+            stat.mapWin += myScore;
+            stat.mapLoss += oppScore;
+            const winnerIsTeam1 = Number(m.winnerId) === Number(m.team1Id);
+            const iWon = side === 1 ? winnerIsTeam1 : !winnerIsTeam1;
+            if (iWon) stat.matchWin += 1;
+            else stat.matchLoss += 1;
+          });
+          stat.matchDiff = stat.matchWin - stat.matchLoss;
+          stat.mapDiff = stat.mapWin - stat.mapLoss;
+          return stat;
         };
 
-        const t1ScoreStat = getTeamScoreStat(team1?.id, team1MatchStr || t1Name);
-        const t2ScoreStat = getTeamScoreStat(team2?.id, team2MatchStr || t2Name);
+        const t1ScoreStat = getTeamRecentStats(team1?.id, team1MatchStr || t1Name);
+        const t2ScoreStat = getTeamRecentStats(team2?.id, team2MatchStr || t2Name);
 
         teamStats.value.team1 = processTeamStats(allPlayerStats, team1MatchStr, team1?.id);
         if (teamStats.value.team1) teamStats.value.team1.scoreStat = t1ScoreStat;
@@ -1265,7 +1291,7 @@ export default {
 <style scoped>
 .upcoming-detail-page {
   min-height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
   font-family: var(--vis-font-body);
 }
 
@@ -1274,7 +1300,7 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: #fafafa;
+  background: var(--vis-bg-page, #f4f5f8);
 }
 
 .loading-panel {

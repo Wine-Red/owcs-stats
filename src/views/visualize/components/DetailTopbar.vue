@@ -31,7 +31,9 @@ export default {
   width: 100%;
   min-height: 60px;
   padding: 0 20px;
+  border-bottom: 1px solid var(--vis-border, #e6e9f0);
   background: #fff;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03);
   color: var(--vis-text-primary);
 }
 
