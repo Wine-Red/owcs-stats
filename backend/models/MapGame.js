@@ -101,12 +101,22 @@ const MapGame = sequelize.define('MapGame', {
     allowNull: false,
     defaultValue: 1,
     comment: 'External match statistics schema version'
+  },
+  externalRoundIndex: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Stable zero-based MatchWeb round index; supports repeated map names'
   }
 }, {
   tableName: 'map_games',
   timestamps: true,
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  indexes: [{
+    name: 'uq_map_games_match_external_round',
+    unique: true,
+    fields: ['matchId', 'externalRoundIndex']
+  }]
 });
 
 MapGame.belongsTo(Match, { foreignKey: 'matchId' });

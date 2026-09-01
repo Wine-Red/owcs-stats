@@ -11,6 +11,12 @@ const Player = sequelize.define('Player', {
     type: DataTypes.STRING,
     allowNull: false
   },
+  externalId: {
+    type: DataTypes.STRING(160),
+    allowNull: true,
+    unique: true,
+    comment: 'Authoritative MatchWeb playerId'
+  },
   role: {
     type: DataTypes.ENUM('tank', 'damage', 'support'),
     allowNull: false

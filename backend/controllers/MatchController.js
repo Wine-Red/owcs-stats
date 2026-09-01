@@ -6,10 +6,13 @@ const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
+const PlayerHeroStat = require('../models/PlayerHeroStat');
+const MapGameTimeline = require('../models/MapGameTimeline');
 const sequelize = require('../config/database');
 const { createIncrementalMatchSyncService } = require('../services/IncrementalMatchSyncService');
 const { createExternalMatchSyncClient } = require('../services/ExternalMatchSyncClient');
 const { getUpcomingMatches } = require('../services/UpcomingMatchesService');
+const { buildMatchDataDetail } = require('../services/MatchDataDetailService');
 
 const EXTERNAL_MATCH_API_HEADERS = {
   Accept: 'application/json, text/plain, */*',
@@ -150,6 +153,53 @@ const MatchController = {
       }
       res.status(200).json(match);
     } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  // 后台比赛列表使用的完整只读检查数据
+  getData: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const match = await Match.findByPk(id, {
+        include: [
+          { model: Season },
+          { model: Team, as: 'team1' },
+          { model: Team, as: 'team2' },
+          { model: Team, as: 'winner' }
+        ]
+      });
+      if (!match) return res.status(404).json({ error: 'Match not found' });
+
+      const mapGames = await MapGame.findAll({
+        where: { matchId: id },
+        include: [
+          { model: Team, as: 'winner' },
+          { model: Map },
+          { model: Hero, as: 'team1BanHero' },
+          { model: Hero, as: 'team2BanHero' },
+          { model: MapGameTimeline, as: 'timeline' }
+        ],
+        order: [['externalRoundIndex', 'ASC'], ['id', 'ASC']]
+      });
+      const mapGameIds = mapGames.map(mapGame => mapGame.id);
+      const playerStats = mapGameIds.length === 0 ? [] : await PlayerStat.findAll({
+        where: { mapGameId: mapGameIds },
+        include: [
+          { model: Player, as: 'player' },
+          { model: Hero, as: 'hero' },
+          { model: Team, as: 'team' },
+          {
+            model: PlayerHeroStat,
+            as: 'heroStats',
+            include: [{ model: Hero, as: 'hero' }]
+          }
+        ],
+        order: [['teamId', 'ASC'], ['playerId', 'ASC']]
+      });
+      res.status(200).json(buildMatchDataDetail({ match, mapGames, playerStats }));
+    } catch (error) {
+      console.error('获取比赛检查数据失败:', error);
       res.status(500).json({ error: error.message });
     }
   },

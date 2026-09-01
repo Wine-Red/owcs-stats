@@ -4,6 +4,7 @@ const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
+const MapGameTimeline = require('../models/MapGameTimeline');
 const Config = require('../models/Config');
 const Team = require('../models/Team');
 const TeamAlias = require('../models/TeamAlias');
@@ -12,6 +13,7 @@ const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
+const { aggregateTimeline, buildTimelineMirrorAttributes } = require('./TimelineHeroAggregationService');
 const { normalizeTeamIdentity, buildTeamIdentityMap } = require('./TeamAliasService');
 const {
   SOURCE_TYPES,
@@ -85,7 +87,8 @@ const buildCaches = async (transaction) => {
     seasonByName: new Map(seasons.flatMap(s => [s.name, s.externalEventName].filter(Boolean).map(name => [lower(name), s]))),
     teamByName: buildTeamIdentityMap(teams, teamAliases),
     mapByName: new Map(maps.filter(m => m.name).map(m => [lower(m.name), m])),
-    heroByName: new Map(heroes.filter(h => h.name).map(h => [heroNameKey(h.name), h]))
+    heroByName: new Map(heroes.filter(h => h.name).map(h => [heroNameKey(h.name), h])),
+    heroByExternalId: new Map(heroes.filter(h => h.externalId).map(h => [heroNameKey(h.externalId), h]))
   };
 };
 
@@ -103,28 +106,43 @@ const ensureTeam = async (name, caches, transaction) => {
 const ensurePlayer = async (source, team, caches, transaction) => {
   if (!source?.name) throw new Error('Player name is missing');
   const role = normalizeRole(source.role);
-  let player = caches.players.find(p => lower(p.name) === lower(source.name) && p.role === role);
+  const externalId = String(source.playerId || source.name).trim();
+  let player = caches.players.find(p => lower(p.externalId) === lower(externalId));
+  player ||= caches.players.find(p => (
+    !String(p.externalId || '').trim()
+    && lower(p.name) === lower(source.name)
+    && p.role === role
+  ));
   if (!player) {
     player = await Player.create({
       name: source.name,
+      externalId,
       role,
       identityOrigin: SOURCE_TYPES.MATCH,
       orphanedAt: null
     }, { transaction });
     caches.players.push(player);
-  } else if (player.orphanedAt) {
-    await player.update({ orphanedAt: null }, { transaction });
+  } else {
+    const updates = {};
+    if (!player.externalId) updates.externalId = externalId;
+    if (player.orphanedAt) updates.orphanedAt = null;
+    if (Object.keys(updates).length) await player.update(updates, { transaction });
   }
   return player;
 };
 
-const ensureHero = async (name, role, caches, transaction) => {
+const ensureHero = async (name, role, caches, transaction, externalId = null) => {
   if (!name) return null;
-  let hero = caches.heroByName.get(heroNameKey(name));
+  let hero = externalId ? caches.heroByExternalId.get(heroNameKey(externalId)) : null;
+  hero ||= caches.heroByName.get(heroNameKey(name));
   if (!hero && ['tank', 'damage', 'support'].includes(role)) {
-    hero = await Hero.create({ name, role, subRole: null }, { transaction });
+    hero = await Hero.create({ name, externalId: externalId || null, role, subRole: null }, { transaction });
     caches.heroes.push(hero);
     caches.heroByName.set(heroNameKey(name), hero);
+    if (externalId) caches.heroByExternalId.set(heroNameKey(externalId), hero);
+  } else if (hero && externalId && !hero.externalId) {
+    await hero.update({ externalId }, { transaction });
+    caches.heroByExternalId.set(heroNameKey(externalId), hero);
   }
   return hero || null;
 };
@@ -197,6 +215,7 @@ const deleteMatchByExternalId = async (externalId, transaction) => {
   const mapGames = await MapGame.findAll({ where: { matchId: match.id }, attributes: ['id'], transaction });
   const mapGameIds = mapGames.map(game => game.id);
   if (mapGameIds.length) {
+    await MapGameTimeline.destroy({ where: { mapGameId: { [Op.in]: mapGameIds } }, transaction });
     const playerStats = await PlayerStat.findAll({ where: { mapGameId: { [Op.in]: mapGameIds } }, attributes: ['id'], transaction });
     const playerStatIds = playerStats.map(stat => stat.id);
     if (playerStatIds.length) await PlayerHeroStat.destroy({ where: { playerStatId: { [Op.in]: playerStatIds } }, transaction });
@@ -243,7 +262,15 @@ const replacePlayerStats = async ({
       const role = normalizeRole(source.role);
       const heroes = Array.isArray(source.heroes) ? source.heroes : [];
       const heroModels = [];
-      for (const detail of heroes) heroModels.push(await ensureHero(detail.hero, role, caches, transaction));
+      for (const detail of heroes) {
+        heroModels.push(await ensureHero(
+          detail.hero,
+          role,
+          caches,
+          transaction,
+          detail.heroId || detail.heroExternalId || null
+        ));
+      }
       const { kills, assists, deaths } = parseKad(source.kad);
       const finalBlows = source.finalBlows ?? heroes.reduce((sum, hero) => sum + integer(hero.finalBlows), 0);
       const ultsUsed = heroes.reduce((sum, hero) => sum + integer(hero.ultUsed), 0);
@@ -269,6 +296,7 @@ const replacePlayerStats = async ({
           playerStatId: playerStat.id,
           heroId: heroModels[index]?.id || null,
           heroName: detail.hero,
+          heroExternalId: detail.heroId || detail.heroExternalId || null,
           usageSeconds: integer(detail.usageSeconds),
           usagePercentage: Number(detail.usagePercentage) || 0,
           finalBlows: integer(detail.finalBlows),
@@ -328,7 +356,8 @@ const upsertMatchDetail = async (source, caches, transaction) => {
   let newPlayerStatsCount = 0;
   let updatedPlayerStatsCount = 0;
   let newMembershipsCount = 0;
-  for (const round of source.rounds || []) {
+  for (const [roundPosition, round] of (source.rounds || []).entries()) {
+    const externalRoundIndex = Number.isInteger(round.roundIndex) ? round.roundIndex : roundPosition;
     const map = resolveMap(round.mapName, caches);
     if (!map) throw new Error(`Map not found: ${round.mapName}`);
     const banA = caches.heroByName.get(heroNameKey(round.bans?.teamA)) || null;
@@ -345,9 +374,16 @@ const upsertMatchDetail = async (source, caches, transaction) => {
       team1Score: round.roundScoreA,
       team2Score: round.roundScoreB,
       replayId: round.replayId || null,
-      statsVersion: integer(round.statsVersion) || 1
+      statsVersion: integer(round.statsVersion) || (round.timeline ? 3 : 1),
+      externalRoundIndex
     };
-    let mapGame = await MapGame.findOne({ where: { matchId: match.id, mapId: map.id }, transaction });
+    let mapGame = await MapGame.findOne({ where: { matchId: match.id, externalRoundIndex }, transaction });
+    if (!mapGame) {
+      mapGame = await MapGame.findOne({
+        where: { matchId: match.id, mapId: map.id, externalRoundIndex: null },
+        transaction
+      });
+    }
     const mapGameCreated = !mapGame;
     if (mapGame) {
       await mapGame.update(mapPayload, { transaction });
@@ -357,9 +393,18 @@ const upsertMatchDetail = async (source, caches, transaction) => {
       newMapGamesCount++;
     }
     keptMapGameIds.push(mapGame.id);
+    if (round.timeline) {
+      const timelinePayload = buildTimelineMirrorAttributes(round);
+      const existingTimeline = await MapGameTimeline.findOne({ where: { mapGameId: mapGame.id }, transaction });
+      if (existingTimeline) await existingTimeline.update(timelinePayload, { transaction });
+      else await MapGameTimeline.create({ mapGameId: mapGame.id, ...timelinePayload }, { transaction });
+    } else {
+      await MapGameTimeline.destroy({ where: { mapGameId: mapGame.id }, transaction });
+    }
+    const aggregated = round.timeline ? aggregateTimeline(round.timeline, round) : round;
     const counts = await replacePlayerStats({
       mapGame,
-      round,
+      round: { ...round, ...aggregated },
       team1,
       team2,
       seasonTeam1,
@@ -380,6 +425,7 @@ const upsertMatchDetail = async (source, caches, transaction) => {
   const staleMapGames = await MapGame.findAll({ where: staleWhere, attributes: ['id'], transaction });
   const staleIds = staleMapGames.map(game => game.id);
   if (staleIds.length) {
+    await MapGameTimeline.destroy({ where: { mapGameId: { [Op.in]: staleIds } }, transaction });
     const staleStats = await PlayerStat.findAll({ where: { mapGameId: { [Op.in]: staleIds } }, attributes: ['id'], transaction });
     const staleStatIds = staleStats.map(stat => stat.id);
     if (staleStatIds.length) await PlayerHeroStat.destroy({ where: { playerStatId: { [Op.in]: staleStatIds } }, transaction });

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createExternalMatchSyncClient, validateSummary, validateDetail } = require('../services/ExternalMatchSyncClient');
 const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency } = require('../services/IncrementalMatchSyncService');
 
-test('fetchChanges preserves the opaque cursor and validates schema v2', async () => {
+test('fetchChanges preserves the opaque cursor and accepts schema v3', async () => {
   let requestedUrl = '';
   const client = createExternalMatchSyncClient({
     baseUrl: 'https://example.test/',
@@ -12,7 +12,7 @@ test('fetchChanges preserves the opaque cursor and validates schema v2', async (
       return {
         ok: true,
         json: async () => ({
-          schemaVersion: 2,
+          schemaVersion: 3,
           items: [{ operation: 'delete', id: 'match/1' }],
           nextCursor: 'next-cursor',
           hasMore: false
@@ -55,7 +55,7 @@ test('fetchChanges reports a readable error when authentication returns HTML', a
   );
 });
 
-test('validators reject malformed pages and accept a matching detail', () => {
+test('validators reject malformed pages and accept v2/v3 matching details', () => {
   assert.throws(
     () => validateSummary({ schemaVersion: 2, items: [{ operation: 'unknown', id: '1' }], hasMore: false }),
     /invalid item/
@@ -65,6 +65,7 @@ test('validators reject malformed pages and accept a matching detail', () => {
     /nextCursor/
   );
   assert.deepEqual(validateDetail({ schemaVersion: 2, match: { id: '1' } }, '1'), { id: '1' });
+  assert.deepEqual(validateDetail({ schemaVersion: 3, match: { id: '1' } }, '1'), { id: '1' });
 });
 
 test('sync helpers parse API values and preserve concurrent result order', async () => {

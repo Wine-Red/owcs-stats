@@ -97,6 +97,7 @@ const apiService = {
   getUpcomingMatches: () => api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),
   getMatchById: (id) => api.get(`/matches/${id}`),
+  getMatchData: (id) => api.get(`/matches/${id}/data`),
   createMatch: (data) => api.post('/matches', data),
   updateMatch: (id, data) => api.put(`/matches/${id}`, data),
   deleteMatch: (id) => api.delete(`/matches/${id}`),

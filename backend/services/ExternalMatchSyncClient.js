@@ -4,7 +4,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const normalizeBaseUrl = (value) => String(value || DEFAULT_BASE_URL).replace(/\/+$/, '');
 
 const validateSummary = (payload) => {
-  if (!payload || payload.schemaVersion !== 2 || !Array.isArray(payload.items)) {
+  if (!payload || ![2, 3].includes(payload.schemaVersion) || !Array.isArray(payload.items)) {
     throw new Error('External match sync summary has an unsupported schema');
   }
   for (const item of payload.items) {
@@ -19,7 +19,7 @@ const validateSummary = (payload) => {
 };
 
 const validateDetail = (payload, expectedId) => {
-  if (!payload || payload.schemaVersion !== 2 || !payload.match) {
+  if (!payload || ![2, 3].includes(payload.schemaVersion) || !payload.match) {
     throw new Error(`External match detail ${expectedId} has an unsupported schema`);
   }
   if (String(payload.match.id) !== String(expectedId)) {

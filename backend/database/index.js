@@ -12,6 +12,7 @@ const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
 const MapGame = require('../models/MapGame'); // eslint-disable-line no-unused-vars
 const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-unused-vars
 const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-line no-unused-vars
+const MapGameTimeline = require('../models/MapGameTimeline'); // eslint-disable-line no-unused-vars
 const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
@@ -36,6 +37,14 @@ const ensureIncrementalSyncSchema = async () => {
       allowNull: false,
       defaultValue: 1,
       comment: 'External match statistics schema version'
+    });
+  }
+  if (!columns.externalRoundIndex) {
+    const { DataTypes } = require('sequelize');
+    await queryInterface.addColumn('map_games', 'externalRoundIndex', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Stable zero-based MatchWeb round index; supports repeated map names'
     });
   }
 };
@@ -69,12 +78,43 @@ const ensureMediaSchema = async () => {
   }
 };
 
+const ensureTimelineAggregationSchema = async () => {
+  const queryInterface = sequelize.getQueryInterface();
+  const tables = (await queryInterface.showAllTables()).map(lowerTableName);
+  const { DataTypes } = require('sequelize');
+  if (tables.includes('heroes')) {
+    const columns = await queryInterface.describeTable('heroes');
+    if (!columns.externalId) {
+      await queryInterface.addColumn('heroes', 'externalId', {
+        type: DataTypes.STRING(80), allowNull: true, unique: true,
+        comment: 'Stable OWCS analyzer hero slug'
+      });
+    }
+  }
+  if (tables.includes('player_hero_stats')) {
+    const columns = await queryInterface.describeTable('player_hero_stats');
+    if (!columns.heroExternalId) {
+      await queryInterface.addColumn('player_hero_stats', 'heroExternalId', {
+        type: DataTypes.STRING(80), allowNull: true
+      });
+    }
+  }
+};
+
 const ensureMembershipSourceSchema = async () => {
   const queryInterface = sequelize.getQueryInterface();
   const tables = (await queryInterface.showAllTables()).map(lowerTableName);
   if (!tables.includes('players')) return;
   const { DataTypes } = require('sequelize');
   const columns = await queryInterface.describeTable('players');
+  if (!columns.externalId) {
+    await queryInterface.addColumn('players', 'externalId', {
+      type: DataTypes.STRING(160),
+      allowNull: true,
+      unique: true,
+      comment: 'Authoritative MatchWeb playerId'
+    });
+  }
   if (!columns.identityOrigin) {
     await queryInterface.addColumn('players', 'identityOrigin', {
       type: DataTypes.STRING(16),
@@ -97,6 +137,7 @@ const initDatabase = async () => {
     // 测试数据库连接
     await sequelize.authenticate();
     await ensureIncrementalSyncSchema();
+    await ensureTimelineAggregationSchema();
     await ensureMediaSchema();
     await ensureMembershipSourceSchema();
     console.log('数据库连接成功');
@@ -159,6 +200,7 @@ const setupAssociations = () => {
   const MapGame = require('../models/MapGame');
   const PlayerStat = require('../models/PlayerStat');
   const PlayerHeroStat = require('../models/PlayerHeroStat');
+  const MapGameTimeline = require('../models/MapGameTimeline');
   const SeasonStage = require('../models/SeasonStage');
 
   Team.hasMany(TeamAlias, { foreignKey: 'teamId', as: 'aliasRecords', onDelete: 'CASCADE' });
@@ -188,6 +230,7 @@ const setupAssociations = () => {
 
   // MapGame 关联
   MapGame.hasMany(PlayerStat, { foreignKey: 'mapGameId', as: 'playerStats' });
+  MapGame.hasOne(MapGameTimeline, { foreignKey: 'mapGameId', as: 'timeline', onDelete: 'CASCADE' });
   PlayerStat.hasMany(PlayerHeroStat, { foreignKey: 'playerStatId', as: 'heroStats', onDelete: 'CASCADE' });
 
   SeasonStage.belongsTo(Season, { foreignKey: 'seasonId', as: 'season' });

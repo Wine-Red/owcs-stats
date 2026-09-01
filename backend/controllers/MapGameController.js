@@ -1,6 +1,7 @@
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
+const MapGameTimeline = require('../models/MapGameTimeline');
 const Team = require('../models/Team');
 const Map = require('../models/Map');
 const Player = require('../models/Player');
@@ -239,7 +240,9 @@ const MapGameController = {
     try {
       const { id } = req.params;
       
-      const mapGame = await MapGame.findByPk(id);
+      const mapGame = await MapGame.findByPk(id, {
+        include: [{ model: MapGameTimeline, as: 'timeline' }]
+      });
       if (!mapGame) {
         return res.status(404).json({ error: 'MapGame not found' });
       }
@@ -409,7 +412,12 @@ const MapGameController = {
         where,
         include: [
           { model: Team, as: 'winner' },
-          { model: Map }
+          { model: Map },
+          {
+            model: MapGameTimeline,
+            as: 'timeline',
+            attributes: { exclude: ['payload'] }
+          }
         ],
         order: [['createdAt', 'DESC']],
         limit: parseInt(pageSize),
@@ -428,7 +436,7 @@ const MapGameController = {
     try {
       const { id } = req.params;
       const mapGame = await MapGame.findByPk(id, {
-        include: ['winner', 'map']
+        include: ['winner', 'map', 'timeline']
       });
       if (!mapGame) {
         return res.status(404).json({ error: 'MapGame not found' });
@@ -531,6 +539,7 @@ const MapGameController = {
         await PlayerHeroStat.destroy({ where: { playerStatId: { [Op.in]: playerStatIds } } });
       }
       await PlayerStat.destroy({ where: { mapGameId: id } });
+      await MapGameTimeline.destroy({ where: { mapGameId: id } });
       // 删除地图局
       await mapGame.destroy();
       res.status(200).json({ message: 'MapGame deleted successfully' });

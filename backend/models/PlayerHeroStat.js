@@ -18,6 +18,7 @@ const PlayerHeroStat = sequelize.define('PlayerHeroStat', {
     onDelete: 'SET NULL'
   },
   heroName: { type: DataTypes.STRING, allowNull: false },
+  heroExternalId: { type: DataTypes.STRING(80), allowNull: true },
   usageSeconds: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   usagePercentage: { type: DataTypes.FLOAT, allowNull: false, defaultValue: 0 },
   finalBlows: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

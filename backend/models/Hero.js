@@ -12,6 +12,12 @@ const Hero = sequelize.define('Hero', {
     allowNull: false,
     unique: true
   },
+  externalId: {
+    type: DataTypes.STRING(80),
+    allowNull: true,
+    unique: true,
+    comment: 'Stable OWCS analyzer hero slug'
+  },
   role: {
     type: DataTypes.ENUM('tank', 'damage', 'support'),
     allowNull: false

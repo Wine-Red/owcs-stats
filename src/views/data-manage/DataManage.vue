@@ -437,9 +437,26 @@
             </template>
           </el-table-column>
           <el-table-column label="操作" :width="actionColWidth" fixed="right">
-            <template #default>
+            <template #default="scope">
               <div class="action-buttons">
-                <el-button type="primary" plain size="small" @click="openMatchweb">
+                <el-button
+                  type="primary"
+                  size="small"
+                  aria-label="查看比赛数据"
+                  title="查看比赛数据"
+                  @click="openMatchData(scope.row)"
+                >
+                  <el-icon><View /></el-icon>
+                  <span v-if="!isMobile">查看数据</span>
+                </el-button>
+                <el-button
+                  type="primary"
+                  plain
+                  size="small"
+                  aria-label="前往 Matchweb"
+                  title="前往 Matchweb"
+                  @click="openMatchweb"
+                >
                   <el-icon><Edit /></el-icon>
                   <span v-if="!isMobile">前往 Matchweb</span>
                 </el-button>
@@ -1274,6 +1291,11 @@
         </span>
       </template>
     </el-dialog>
+
+    <MatchDataDrawer
+      v-model="matchDataVisible"
+      :match="matchDataMatch"
+    />
   </div>
 </template>
 
@@ -1283,13 +1305,14 @@ import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { 
-  ArrowRight, Search, Refresh, Edit, Delete, Plus, Download
+  ArrowRight, Search, Refresh, Edit, Delete, Plus, Download, View
 } from '@element-plus/icons-vue';
 import apiService from '../../services/api';
 import MapDataImport from './components/MapDataImport.vue';
 import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
 import MediaUploadField from './components/MediaUploadField.vue';
 import EntityContextDrawer from './components/EntityContextDrawer.vue';
+import MatchDataDrawer from './components/MatchDataDrawer.vue';
 import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
   isValidLiquipediaTournamentUrl,
@@ -1306,10 +1329,12 @@ export default {
     Delete,
     Plus,
     Download,
+    View,
     MapDataImport,
     PlayerStatsEditor,
     MediaUploadField,
-    EntityContextDrawer
+    EntityContextDrawer,
+    MatchDataDrawer
   },
   setup() {
     // 页面标题映射
@@ -1359,7 +1384,7 @@ export default {
     };
 
     // 操作栏宽度
-    const actionColWidth = computed(() => isMobile.value ? 100 : 180);
+    const actionColWidth = computed(() => isMobile.value ? 112 : 285);
     const deleteActionColWidth = computed(() => isMobile.value ? 70 : 100);
     
     // 监听路由参数来决定激活的 tab
@@ -1863,6 +1888,12 @@ export default {
     const total = ref(0);
     const currentPage = ref(1);
     const pageSize = ref(10);
+    const matchDataVisible = ref(false);
+    const matchDataMatch = ref(null);
+    const openMatchData = match => {
+      matchDataMatch.value = match;
+      matchDataVisible.value = true;
+    };
     
 
     
@@ -3556,6 +3587,9 @@ export default {
       rosterAddPlayerIds,
       relationSaving,
       matches,
+      matchDataVisible,
+      matchDataMatch,
+      openMatchData,
       loading,
       total,
       currentPage,

@@ -16,6 +16,9 @@ router.post('/sync-external', MatchController.syncExternalMatches);
 router.post('/export', MatchController.exportMatches);
 
 // 获取单个比赛
+router.get('/:id/data', MatchController.getData);
+
+// 获取单个比赛
 router.get('/:id', MatchController.getById);
 
 // 创建比赛

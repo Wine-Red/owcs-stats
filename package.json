@@ -17,6 +17,7 @@
     "test:embedded-webview": "node --test src/utils/embeddedWebView.test.mjs",
     "test:season-selection": "node --test src/utils/seasonSelection.test.mjs",
     "test:api-base-url": "node --test src/services/apiBaseUrl.test.mjs",
+    "qa:match-data": "node scripts/visual-qa-match-data.mjs",
     "verify:static-bundle": "node scripts/verify-static-bundle.mjs",
     "verify:embedded-webview": "node scripts/verify-embedded-webview.mjs",
     "smoke:static": "node scripts/smoke-static.mjs",
