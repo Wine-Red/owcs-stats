@@ -402,6 +402,8 @@ async function capturePublic(context, output, mobile = false) {
   await page.getByRole('button', { name: /R2/u }).click();
   const allMarkerCount = await page.locator('.lane-marker').count();
   assert.ok(allMarkerCount >= 10, String(allMarkerCount));
+  const persistentLastBlowCount = await page.locator('.last-blow-marker').count();
+  assert.ok(persistentLastBlowCount > 0, String(persistentLastBlowCount));
 
   const viewport = page.locator('.map-timeline__viewport');
   const canvas = page.locator('.map-timeline__canvas');
@@ -442,6 +444,13 @@ async function capturePublic(context, output, mobile = false) {
   };
   assert.ok(Math.abs(afterTwoFingerGesture.width - defaultScale.width) < 1, JSON.stringify({ defaultScale, afterTwoFingerGesture }));
   assert.ok(Math.abs(afterTwoFingerGesture.laneHeight - defaultScale.laneHeight) < 1, JSON.stringify({ defaultScale, afterTwoFingerGesture }));
+  for (const filterName of ['击杀', '大招', '英雄', '死亡']) {
+    const filterButton = page.getByRole('button', { name: filterName, exact: true });
+    if (await filterButton.count()) {
+      await filterButton.click();
+      assert.equal(await page.locator('.last-blow-marker').count(), persistentLastBlowCount, filterName);
+    }
+  }
   await page.getByRole('button', { name: '大招', exact: true }).click();
   assert.ok(await page.locator('.lane-marker.ultimate').count() >= 3);
   assert.equal(await page.locator('.lane-marker:not(.ultimate)').count(), 0);

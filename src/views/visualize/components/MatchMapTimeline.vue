@@ -273,7 +273,7 @@ const playerLanes = computed(() => {
 
 const lastBlowEvents = computed(() => (activeRound.value?.events || [])
   .filter(event => sourceCategory(event) === 'kill'));
-const visibleLastBlows = computed(() => ['all', 'kill'].includes(activeFilter.value) ? lastBlowEvents.value : []);
+const visibleLastBlows = computed(() => lastBlowEvents.value);
 
 const baseCanvasWidth = computed(() => {
   const durationSeconds = Math.max(1, Number(activeRound.value?.durationMs || 0) / 1000);
