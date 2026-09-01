@@ -436,7 +436,11 @@ const MapGameController = {
     try {
       const { id } = req.params;
       const mapGame = await MapGame.findByPk(id, {
-        include: ['winner', 'map', 'timeline']
+        include: [
+          { model: Team, as: 'winner' },
+          { model: Map },
+          { model: MapGameTimeline, as: 'timeline' }
+        ]
       });
       if (!mapGame) {
         return res.status(404).json({ error: 'MapGame not found' });

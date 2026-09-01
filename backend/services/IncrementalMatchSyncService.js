@@ -481,6 +481,29 @@ const persistJsonConfig = async (key, value, description, transaction) => {
 };
 
 const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncClient() } = {}) => ({
+  async syncMatch(externalId, { source = 'targeted' } = {}) {
+    const normalizedExternalId = String(externalId || '').trim();
+    if (!normalizedExternalId) throw new Error('External match id is required');
+
+    const detail = await client.fetchMatch(normalizedExternalId);
+    const data = await sequelize.transaction(async transaction => {
+      const caches = await buildCaches(transaction);
+      const result = await upsertMatchDetail(detail, caches, transaction);
+      const membershipResult = await reconcileMemberships(result.touchedMemberships, transaction);
+      const { touchedMemberships, ...summary } = result;
+      return {
+        source,
+        externalId: normalizedExternalId,
+        ...summary,
+        removedSeasonTeamsCount: membershipResult.removedSeasonTeamIds.length,
+        removedSeasonTeamPlayersCount: membershipResult.removedSeasonTeamPlayerIds.length,
+        syncedAt: new Date().toISOString()
+      };
+    });
+
+    return { message: 'Targeted match sync completed', data };
+  },
+
   async run({ source = 'manual', maxPages = Number.POSITIVE_INFINITY } = {}) {
     const cursorConfig = await Config.findByPk(SYNC_CURSOR_CONFIG_KEY);
     let cursor = cursorConfig?.value?.cursor || null;

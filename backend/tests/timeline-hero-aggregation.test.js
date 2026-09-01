@@ -29,7 +29,7 @@ test('timeline mirror keeps the canonical MatchWeb payload losslessly', () => {
   });
 });
 
-test('timeline aggregation derives hero usage, combat and ultimate detail', () => {
+test('timeline aggregation derives only hero detail and preserves source player statistics', () => {
   const timeline = {
     schemaVersion: 1,
     media: { durationMs: 100_000 },
@@ -48,14 +48,15 @@ test('timeline aggregation derives hero usage, combat and ultimate detail', () =
     ]
   };
   const result = aggregateTimeline(timeline, {
-    playersA: [{ playerId: 'PINEAPPLE', name: 'Pineapple old', role: 'T', kad: '9/2/8', damage: 1234 }],
+    playersA: [{ playerId: 'PINEAPPLE', name: 'Pineapple source', role: 'T', kad: '9/2/8', damage: 1234, finalBlows: 7 }],
     playersB: [{ playerId: 'LIGE', name: 'Lige old', role: 'T', kad: '2/3/9' }]
   });
   const pineapple = result.playersA[0];
   assert.equal(pineapple.playerId, 'PINEAPPLE');
-  assert.equal(pineapple.name, 'PINEAPPLE');
-  assert.equal(pineapple.kad, '1/2/0');
+  assert.equal(pineapple.name, 'Pineapple source');
+  assert.equal(pineapple.kad, '9/2/8');
   assert.equal(pineapple.damage, 1234);
+  assert.equal(pineapple.finalBlows, 7);
   assert.deepEqual(pineapple.heroes.map(hero => [hero.heroId, hero.usageSeconds, hero.usagePercentage]), [
     ['winston', 60, 60],
     ['dva', 40, 40]

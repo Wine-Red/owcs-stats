@@ -133,12 +133,10 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       return heroIdentity(prior);
     };
 
-    let kills = 0;
     const deathKeys = new Set();
     for (const event of playerEvents) {
       const identity = heroAt(event);
       if (event.type === 'kill' && event.killerId === playerId) {
-        kills++;
         if (identity) rowFor(identity).finalBlows++;
       }
       if ((event.type === 'kill' && event.victimId === playerId)
@@ -184,17 +182,15 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       };
       return result;
     }).sort((left, right) => right.usageSeconds - left.usageSeconds || left.heroId.localeCompare(right.heroId));
-    const fallbackKad = parseKad(fallback.kad);
-    const hasCombatEvents = playerEvents.some(event => event.type === 'kill' || event.type === 'death');
     const result = {
       ...fallback,
       playerId,
-      name: player.displayName,
-      role: player.role || fallback.role,
-      kad: hasCombatEvents
-        ? `${kills}/${fallbackKad.assists}/${deathKeys.size}`
-        : (fallback.kad || '0/0/0'),
-      finalBlows: hasCombatEvents ? kills : (fallback.finalBlows || 0),
+      name: fallback.name || player.displayName,
+      role: fallback.role || player.role,
+      // MatchWeb's source scoreboard is authoritative for every player-level
+      // statistic. Timeline events only enrich the per-hero breakdown below.
+      kad: fallback.kad || '0/0/0',
+      finalBlows: integer(fallback.finalBlows),
       heroes
     };
     if (player.teamSide === 'A') results.playersA.push(result);
