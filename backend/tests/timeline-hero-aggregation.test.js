@@ -81,3 +81,32 @@ test('timeline aggregation keeps legacy rows when a roster slot is absent', () =
   assert.equal(result.playersA[0].kad, '1/2/3');
   assert.deepEqual(result.playersA[0].heroes, []);
 });
+
+test('round-local aggregation resets hero state when every round restarts at zero', () => {
+  const result = aggregateTimeline({
+    schemaVersion: 2,
+    timebase: { kind: 'round-local' },
+    media: { durationMs: 20_000 },
+    players: [{ playerId: 'TANK', displayName: 'TANK', teamSide: 'A', role: 'tank', slot: 0 }],
+    rounds: [
+      { roundId: 'round-1', index: 1, startMs: 0, endMs: 10_000, durationMs: 10_000 },
+      { roundId: 'round-2', index: 2, startMs: 0, endMs: 10_000, durationMs: 10_000 }
+    ],
+    // Deliberately interleaved by local timestamp: ordering must still follow round index.
+    events: [
+      { eventId: 'r2-select', timeMs: 0, type: 'hero_selected', status: 'confirmed', roundId: 'round-2', playerId: 'TANK', heroId: 'dva', heroName: 'D.Va' },
+      { eventId: 'r1-select', timeMs: 0, type: 'hero_selected', status: 'confirmed', roundId: 'round-1', playerId: 'TANK', heroId: 'winston', heroName: '温斯顿' },
+      { eventId: 'r2-kill', timeMs: 3_000, type: 'kill', status: 'confirmed', roundId: 'round-2', killerId: 'TANK', victimId: 'OTHER' },
+      { eventId: 'r1-kill', timeMs: 4_000, type: 'kill', status: 'confirmed', roundId: 'round-1', killerId: 'TANK', victimId: 'OTHER' }
+    ]
+  }, {
+    playersA: [{ playerId: 'TANK', name: 'TANK', kad: '8/2/3' }],
+    playersB: []
+  });
+  const tank = result.playersA[0];
+  assert.equal(tank.kad, '8/2/3');
+  assert.deepEqual(tank.heroes.map(hero => [hero.heroId, hero.usageSeconds, hero.finalBlows]), [
+    ['dva', 10, 1],
+    ['winston', 10, 1]
+  ]);
+});

@@ -79,7 +79,7 @@
               <div>
                 <span>原始时间线</span>
                 <b>schema {{ selectedMap.timeline.schemaVersion }} · revision {{ selectedMap.timeline.revision }}</b>
-                <small>{{ shortDigest(selectedMap.timeline.digest) }} · {{ selectedMap.timeline.sourceTaskId || '未知任务' }}</small>
+                <small>{{ timelineClockLabel(selectedMap.timeline) }} · {{ shortDigest(selectedMap.timeline.digest) }} · {{ selectedMap.timeline.sourceTaskId || '未知任务' }}</small>
               </div>
               <div class="timeline-counts">
                 <span><b>{{ selectedMap.timeline.counts?.rounds || 0 }}</b>回合</span>
@@ -140,6 +140,13 @@
 
   <el-dialog v-model="rawVisible" title="原始时间线 JSON" width="min(960px, 94vw)" append-to-body>
     <div class="raw-timeline-meta"><span>{{ mapName(selectedMap) }}</span><b>{{ rawTimeline?.events?.length || 0 }} 个事件</b></div>
+    <div v-if="rawRounds.length" class="raw-round-clock" aria-label="有效回合时间刻度">
+      <article v-for="round in rawRounds" :key="round.roundId">
+        <b>R{{ round.index }}</b>
+        <span>从 0:00 计时</span>
+        <time>0:00 — {{ formatMilliseconds(round.durationMs) }}</time>
+      </article>
+    </div>
     <pre class="raw-timeline-json">{{ rawTimelineText }}</pre>
     <template #footer><el-button @click="rawVisible = false">关闭</el-button></template>
   </el-dialog>
@@ -184,6 +191,13 @@ const metrics = computed(() => [
   { label: '时间线覆盖', value: `${detail.value?.summary?.timelineMaps || 0}/${detail.value?.summary?.mapGames || 0}` }
 ]);
 const rawTimelineText = computed(() => rawTimeline.value ? JSON.stringify(rawTimeline.value, null, 2) : '');
+const rawRounds = computed(() => Array.isArray(rawTimeline.value?.rounds)
+  ? rawTimeline.value.rounds.map((round, index) => ({
+    roundId: round.roundId || `round-${index + 1}`,
+    index: Number(round.index) || index + 1,
+    durationMs: Number(round.durationMs) || Number(round.endMs) || 0
+  }))
+  : []);
 
 const loadDetail = async () => {
   if (!props.match?.id) return;
@@ -241,6 +255,10 @@ const formatDuration = value => {
   const seconds = Math.max(0, Math.round(Number(value) || 0));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
+const formatMilliseconds = value => formatDuration((Number(value) || 0) / 1000);
+const timelineClockLabel = timeline => timeline?.timebase?.kind === 'round-local'
+  ? '仅有效回合 · 每回合从 0:00 计时'
+  : '旧版视频时间';
 const percent = value => `${Math.round((Number(value) || 0) * 100) / 100}%`;
 const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(value).slice(-6)}` : '无摘要';
 </script>
@@ -314,6 +332,11 @@ const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(v
 .hero-detail-grid header span,.hero-detail-grid div span,.hero-detail-grid small { color: #7e878e; font-size: 9px; }
 .hero-detail-grid div { margin-top: 6px; }
 .raw-timeline-meta { display: flex; justify-content: space-between; margin-bottom: 8px; color: #5d656d; font-size: 11px; }
+.raw-round-clock { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 7px; margin-bottom: 10px; }
+.raw-round-clock article { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid #b9deeb; border-radius: 7px; color: #526b77; background: #f1fbfe; }
+.raw-round-clock b { color: #116d91; font: 800 11px 'Oxanium',sans-serif; }
+.raw-round-clock span { font-size: 9px; }
+.raw-round-clock time { color: #164e65; font: 700 10px 'Oxanium',sans-serif; }
 .raw-timeline-json { max-height: 65vh; margin: 0; overflow: auto; padding: 16px; border-radius: 8px; color: #cde8f2; background: #111a20; font: 11px/1.65 Consolas,monospace; white-space: pre; }
 @media (max-width: 820px) {
   .round-inspector { grid-template-columns: 1fr; }

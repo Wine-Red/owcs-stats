@@ -81,9 +81,14 @@ const mapGames = maps.map((map, index) => ({
   duration: [658, 744, 615][index],
   playerStats: statsForMap(11 + index),
   timeline: index === 1 ? null : {
-    schemaVersion: 1, revision: index + 1,
+    schemaVersion: 2, revision: index + 1,
     digest: 'ac08201d6b4407b9914cfb762f992e1f91d57b76c20a54f4a739694fdbe906bb',
     sourceTaskId: `studio-task-${index + 1}`,
+    timebase: { kind: 'round-local', nonGameplay: 'excluded', segmentJoin: 'seamless', resetAtRoundStart: true },
+    rounds: [
+      { roundId: 'round-1', index: 1, durationMs: 385_000 },
+      { roundId: 'round-2', index: 2, durationMs: 273_000 }
+    ],
     counts: { players: 10, segments: 4, rounds: 2, phases: 7, events: 186 + index * 12, evidence: 54 },
     eventTypes: { kill: 38, hero_switch: 24, ultimate_used: 31 }
   }
@@ -115,7 +120,7 @@ async function installMocks(page) {
     else if (url.pathname === '/api/heroes') body = heroNames.map((name, index) => ({ id: index + 1, name, role: ['tank', 'damage', 'damage', 'support', 'support'][index] }));
     else if (url.pathname === '/api/matches') body = { total: 1, list: [match] };
     else if (url.pathname === '/api/matches/7/data') body = matchDetail;
-    else if (url.pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: { schemaVersion: 1, source: { taskId: 'studio-task-1' }, players: [], rounds: [], phases: [], events: [{ eventId: 'event-1', type: 'hero_selected' }], evidence: [] } } };
+    else if (url.pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: { schemaVersion: 2, timebase: { kind: 'round-local', nonGameplay: 'excluded', segmentJoin: 'seamless', resetAtRoundStart: true }, source: { taskId: 'studio-task-1' }, players: [], rounds: [{ roundId: 'round-1', index: 1, startMs: 0, endMs: 385_000, durationMs: 385_000 }, { roundId: 'round-2', index: 2, startMs: 0, endMs: 273_000, durationMs: 273_000 }], phases: [], events: [{ eventId: 'event-1', roundId: 'round-1', timeMs: 14_000, type: 'hero_selected' }], evidence: [] } } };
     else if (url.pathname.startsWith('/api/config/')) body = {};
     else body = [];
     await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
@@ -151,6 +156,8 @@ async function capture(context, output, mobile = false) {
   if (!mobile) {
     await page.getByRole('button', { name: '查看原始时间线' }).click();
     await page.getByText('原始时间线 JSON').waitFor();
+    assert.equal(await page.locator('.raw-round-clock article').count(), 2);
+    assert.equal(await page.locator('.raw-round-clock span').filter({ hasText: '从 0:00 计时' }).count(), 2);
     assert.match(await page.locator('.raw-timeline-json').innerText(), /hero_selected/u);
   }
   await page.close();

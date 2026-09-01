@@ -4,15 +4,16 @@ const { buildMatchDataDetail, timelineSummary } = require('../services/MatchData
 
 test('timeline summary exposes coverage without returning the raw payload', () => {
   const summary = timelineSummary({
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: 2,
     digest: 'a'.repeat(64),
     sourceTaskId: 'task-1',
     payload: {
       source: { system: 'owcs-studio' },
+      timebase: { kind: 'round-local' },
       players: [{}, {}],
       segments: [{}],
-      rounds: [{}],
+      rounds: [{ roundId: 'round-1', index: 1, durationMs: 12_000 }],
       phases: [{}, {}],
       events: [{ type: 'kill' }, { type: 'kill' }, { type: 'ultimate_used' }],
       evidence: [{}, {}, {}]
@@ -22,6 +23,9 @@ test('timeline summary exposes coverage without returning the raw payload', () =
     players: 2, segments: 1, rounds: 1, phases: 2, events: 3, evidence: 3
   });
   assert.deepEqual(summary.eventTypes, { kill: 2, ultimate_used: 1 });
+  assert.deepEqual(summary.timebase, { kind: 'round-local' });
+  assert.equal(summary.effectiveDurationMs, 12_000);
+  assert.deepEqual(summary.rounds, [{ roundId: 'round-1', index: 1, durationMs: 12_000, eventCount: 0 }]);
   assert.equal(Object.hasOwn(summary, 'payload'), false);
 });
 

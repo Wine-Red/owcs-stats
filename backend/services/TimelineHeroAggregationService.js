@@ -39,16 +39,25 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
     return { playersA: fallbackRound.playersA || [], playersB: fallbackRound.playersB || [] };
   }
   const durationMs = integer(timeline.media?.durationMs);
-  const events = timeline.events
-    .filter(event => event && event.status !== 'rejected' && Number.isFinite(Number(event.timeMs)))
-    .sort((left, right) => Number(left.timeMs) - Number(right.timeMs));
+  const isRoundLocal = integer(timeline.schemaVersion) >= 2
+    && timeline.timebase?.kind === 'round-local';
   const windows = Array.isArray(timeline.rounds) && timeline.rounds.length
     ? timeline.rounds.map((round, index) => ({
       roundId: round.roundId || `round-${index + 1}`,
+      order: Number.isFinite(Number(round.index)) ? Number(round.index) : index + 1,
       startMs: integer(round.startMs),
-      endMs: Math.max(integer(round.startMs), integer(round.endMs))
-    }))
-    : [{ roundId: null, startMs: 0, endMs: durationMs }];
+      endMs: Math.max(integer(round.startMs), integer(round.durationMs || round.endMs))
+    })).sort((left, right) => left.order - right.order)
+    : [{ roundId: null, order: 1, startMs: 0, endMs: durationMs }];
+  const roundOrder = new Map(windows.map(window => [window.roundId, window.order]));
+  const eventRoundOrder = event => roundOrder.get(event?.roundId) ?? Number.MAX_SAFE_INTEGER;
+  const sameRound = (leftRoundId, rightRoundId) => isRoundLocal
+    ? leftRoundId != null && leftRoundId === rightRoundId
+    : leftRoundId == null || rightRoundId == null || leftRoundId === rightRoundId;
+  const events = timeline.events
+    .filter(event => event && event.status !== 'rejected' && Number.isFinite(Number(event.timeMs)))
+    .sort((left, right) => eventRoundOrder(left) - eventRoundOrder(right)
+      || Number(left.timeMs) - Number(right.timeMs));
   const fallbackPlayers = [...(fallbackRound.playersA || []), ...(fallbackRound.playersB || [])];
   const fallbackById = new Map(fallbackPlayers.flatMap(player => [
     player.playerId, player.name
@@ -108,7 +117,7 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
 
     for (const window of windows) {
       const changes = heroEvents.filter(event => (
-        (event.roundId == null || window.roundId == null || event.roundId === window.roundId)
+        sameRound(event.roundId, window.roundId)
         && Number(event.timeMs) >= window.startMs
         && Number(event.timeMs) <= window.endMs
       ));
@@ -124,11 +133,14 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
     }
 
     const heroAt = event => {
-      const direct = heroIdentity(event);
+      // A kill event's hero belongs to the killer, not the victim.
+      const direct = (event.playerId === playerId || event.killerId === playerId)
+        ? heroIdentity(event)
+        : null;
       if (direct) return direct;
       const prior = heroEvents.filter(candidate => (
         Number(candidate.timeMs) <= Number(event.timeMs)
-        && (event.roundId == null || candidate.roundId == null || candidate.roundId === event.roundId)
+        && sameRound(candidate.roundId, event.roundId)
       )).at(-1);
       return heroIdentity(prior);
     };
@@ -154,7 +166,7 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
         const boundary = playerEvents.filter(candidate => (
           candidate.playerId === playerId
           && Number(candidate.timeMs) < Number(event.timeMs)
-          && (event.roundId == null || candidate.roundId == null || candidate.roundId === event.roundId)
+          && sameRound(candidate.roundId, event.roundId)
           && ['hero_selected', 'hero_switch', 'ultimate_used'].includes(candidate.type)
         )).at(-1);
         const window = windows.find(candidate => event.roundId && candidate.roundId === event.roundId);
