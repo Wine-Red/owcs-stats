@@ -2,7 +2,7 @@ import axios from 'axios';
 /* global globalThis */
 import { trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
-import { resolveRuntimeApiBaseUrl } from './apiBaseUrl.mjs';
+import { resolveRuntimeApiBaseUrl, routeRuntimeApiRequest } from './apiBaseUrl.mjs';
 
 // 创建axios实例
 const isStaticExport = import.meta.env.MODE === 'static';
@@ -17,8 +17,9 @@ const api = isStaticExport ? createStaticApi() : axios.create({
 // 请求拦截器
 if (!isStaticExport) api.interceptors.request.use(
   config => {
-    // 可以在这里添加认证token
-    return config;
+    // The SPA can move between public visualization and protected admin routes
+    // without reloading this module, so choose the boundary per request.
+    return routeRuntimeApiRequest(config, globalThis.location?.pathname);
   },
   error => {
     return Promise.reject(error);
