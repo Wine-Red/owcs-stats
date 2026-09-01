@@ -98,6 +98,29 @@ const matchDetail = {
   summary: { mapGames: 3, totalDurationSeconds: 2017, playerStats: 30, heroStats: 30, timelineMaps: 2 },
   mapGames
 };
+const timelinePayload = {
+  schemaVersion: 2,
+  timebase: { kind: 'round-local', nonGameplay: 'excluded', segmentJoin: 'seamless', resetAtRoundStart: true },
+  source: { taskId: 'studio-task-1' },
+  media: { durationMs: 658_000 },
+  players,
+  rounds: [
+    { roundId: 'round-1', index: 1, startMs: 0, endMs: 385_000, durationMs: 385_000 },
+    { roundId: 'round-2', index: 2, startMs: 0, endMs: 273_000, durationMs: 273_000 }
+  ],
+  phases: [
+    { phaseId: 'phase-1', roundId: 'round-1', kind: 'gameplay', startMs: 0, endMs: 210_000 },
+    { phaseId: 'phase-2', roundId: 'round-1', kind: 'pause', startMs: 210_000, endMs: 225_000 },
+    { phaseId: 'phase-3', roundId: 'round-1', kind: 'gameplay', startMs: 225_000, endMs: 385_000 },
+    { phaseId: 'phase-4', roundId: 'round-2', kind: 'gameplay', startMs: 0, endMs: 273_000 }
+  ],
+  events: [
+    { eventId: 'event-1', roundId: 'round-1', timeMs: 14_000, type: 'hero_selected', status: 'confirmed', playerId: 'PINEAPPLE', heroId: 'winston', heroName: '温斯顿' },
+    { eventId: 'event-2', roundId: 'round-1', timeMs: 58_000, type: 'kill', status: 'confirmed', killerId: 'KANEKI', victimId: 'LIGE', heroName: '猎空' },
+    { eventId: 'event-3', roundId: 'round-2', timeMs: 91_000, type: 'ultimate_used', status: 'confirmed', playerId: 'MMONK', heroName: '安娜' }
+  ],
+  evidence: []
+};
 
 const port = await freePort();
 const vite = spawn(process.execPath, [join(projectRoot, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', String(port)], {
@@ -120,7 +143,8 @@ async function installMocks(page) {
     else if (url.pathname === '/api/heroes') body = heroNames.map((name, index) => ({ id: index + 1, name, role: ['tank', 'damage', 'damage', 'support', 'support'][index] }));
     else if (url.pathname === '/api/matches') body = { total: 1, list: [match] };
     else if (url.pathname === '/api/matches/7/data') body = matchDetail;
-    else if (url.pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: { schemaVersion: 2, timebase: { kind: 'round-local', nonGameplay: 'excluded', segmentJoin: 'seamless', resetAtRoundStart: true }, source: { taskId: 'studio-task-1' }, players: [], rounds: [{ roundId: 'round-1', index: 1, startMs: 0, endMs: 385_000, durationMs: 385_000 }, { roundId: 'round-2', index: 2, startMs: 0, endMs: 273_000, durationMs: 273_000 }], phases: [], events: [{ eventId: 'event-1', roundId: 'round-1', timeMs: 14_000, type: 'hero_selected' }], evidence: [] } } };
+    else if (url.pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: timelinePayload } };
+    else if (url.pathname === '/api/map-games/13') body = { ...mapGames[2], timeline: { payload: timelinePayload } };
     else if (url.pathname.startsWith('/api/config/')) body = {};
     else body = [];
     await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
@@ -150,6 +174,8 @@ async function capture(context, output, mobile = false) {
     ].join('\n'));
   }
   await page.getByText('选手与英雄数据').waitFor();
+  await page.getByText('Studio 原始时间线').waitFor();
+  await page.getByText('hero_selected').waitFor();
   await page.waitForTimeout(450);
   if (!mobile) {
     const roles = await page.locator('.player-cell small').allTextContents();
@@ -180,17 +206,19 @@ async function capture(context, output, mobile = false) {
     assert.equal(layout.tableFits, true, JSON.stringify(layout));
     assert.ok(layout.drawerLeft <= layout.viewportWidth * 0.1, JSON.stringify(layout));
     assert.ok(layout.lastRowBottom <= layout.viewportHeight, JSON.stringify(layout));
+    assert.equal(await page.getByRole('button', { name: '查看原始时间线' }).count(), 0);
+    assert.equal(await page.locator('.timeline-round-block').count(), 2);
+    assert.equal(await page.locator('.timeline-round-reset').filter({ hasText: '从 0:00 计时' }).count(), 2);
+    assert.equal(await page.locator('.timeline-track i').count(), 4);
   }
   await page.screenshot({ path: output, fullPage: true });
   await page.locator('.player-data-table .el-table__expand-icon').first().click();
   await page.getByText('平均充能').first().waitFor();
-  if (!mobile) {
-    await page.getByRole('button', { name: '查看原始时间线' }).click();
-    await page.getByText('原始时间线 JSON').waitFor();
-    assert.equal(await page.locator('.raw-round-clock article').count(), 2);
-    assert.equal(await page.locator('.raw-round-clock span').filter({ hasText: '从 0:00 计时' }).count(), 2);
-    assert.match(await page.locator('.raw-timeline-json').innerText(), /hero_selected/u);
-  }
+  await page.getByRole('button', { name: /好莱坞/u }).click();
+  await page.getByText('这张地图尚未同步 OWCS Studio 时间线。').waitFor();
+  await page.getByRole('button', { name: /伊利奥斯/u }).click();
+  await page.locator('.timeline-inspector-head code').filter({ hasText: 'r3' }).waitFor();
+  assert.match(await page.locator('.timeline-event-row').first().innerText(), /hero_selected/u);
   await page.close();
 }
 

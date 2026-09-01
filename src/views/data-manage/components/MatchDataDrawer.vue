@@ -75,19 +75,12 @@
               </div>
             </header>
 
-            <section v-if="selectedMap.timeline" class="timeline-receipt">
-              <div>
-                <span>原始时间线</span>
-                <b>schema {{ selectedMap.timeline.schemaVersion }} · revision {{ selectedMap.timeline.revision }}</b>
-                <small>{{ timelineClockLabel(selectedMap.timeline) }} · {{ shortDigest(selectedMap.timeline.digest) }} · {{ selectedMap.timeline.sourceTaskId || '未知任务' }}</small>
-              </div>
-              <div class="timeline-counts">
-                <span><b>{{ selectedMap.timeline.counts?.rounds || 0 }}</b>回合</span>
-                <span><b>{{ selectedMap.timeline.counts?.events || 0 }}</b>事件</span>
-                <span><b>{{ selectedMap.timeline.counts?.evidence || 0 }}</b>证据</span>
-              </div>
-              <el-button size="small" plain :loading="rawLoading" @click="openRawTimeline">查看原始时间线</el-button>
-            </section>
+            <MatchTimelineInspector
+              :map-game="selectedMap"
+              :payload="selectedTimelinePayload"
+              :loading="selectedTimelineLoading"
+              :error="selectedTimelineError"
+            />
 
             <section class="player-data-section">
               <div class="section-heading">
@@ -138,26 +131,14 @@
     </main>
   </el-drawer>
 
-  <el-dialog v-model="rawVisible" title="原始时间线 JSON" width="min(960px, 94vw)" append-to-body>
-    <div class="raw-timeline-meta"><span>{{ mapName(selectedMap) }}</span><b>{{ rawTimeline?.events?.length || 0 }} 个事件</b></div>
-    <div v-if="rawRounds.length" class="raw-round-clock" aria-label="有效回合时间刻度">
-      <article v-for="round in rawRounds" :key="round.roundId">
-        <b>R{{ round.index }}</b>
-        <span>从 0:00 计时</span>
-        <time>0:00 — {{ formatMilliseconds(round.durationMs) }}</time>
-      </article>
-    </div>
-    <pre class="raw-timeline-json">{{ rawTimelineText }}</pre>
-    <template #footer><el-button @click="rawVisible = false">关闭</el-button></template>
-  </el-dialog>
 </template>
 
 <script setup>
 /* global defineProps, defineEmits */
 import { computed, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
 import { resolveMediaUrl } from '@/utils/media';
+import MatchTimelineInspector from './MatchTimelineInspector.vue';
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -169,9 +150,9 @@ const loading = ref(false);
 const error = ref('');
 const detail = ref(null);
 const selectedMapId = ref(null);
-const rawVisible = ref(false);
-const rawLoading = ref(false);
-const rawTimeline = ref(null);
+const timelinePayloads = ref({});
+const timelineLoadStates = ref({});
+const timelineErrors = ref({});
 const drawerSize = computed(() => window.innerWidth < 768 ? '100%' : 'min(1480px, 96vw)');
 const matchData = computed(() => detail.value?.match || props.match || null);
 const mapGames = computed(() => detail.value?.mapGames || []);
@@ -190,22 +171,45 @@ const metrics = computed(() => [
   { label: '英雄明细', value: detail.value?.summary?.heroStats || 0 },
   { label: '时间线覆盖', value: `${detail.value?.summary?.timelineMaps || 0}/${detail.value?.summary?.mapGames || 0}` }
 ]);
-const rawTimelineText = computed(() => rawTimeline.value ? JSON.stringify(rawTimeline.value, null, 2) : '');
-const rawRounds = computed(() => Array.isArray(rawTimeline.value?.rounds)
-  ? rawTimeline.value.rounds.map((round, index) => ({
-    roundId: round.roundId || `round-${index + 1}`,
-    index: Number(round.index) || index + 1,
-    durationMs: Number(round.durationMs) || Number(round.endMs) || 0
-  }))
-  : []);
+const selectedTimelineKey = computed(() => String(selectedMap.value?.id || ''));
+const selectedTimelinePayload = computed(() => timelinePayloads.value[selectedTimelineKey.value]?.payload || null);
+const selectedTimelineLoading = computed(() => timelineLoadStates.value[selectedTimelineKey.value] === 'loading');
+const selectedTimelineError = computed(() => timelineErrors.value[selectedTimelineKey.value] || '');
+
+const loadTimeline = async map => {
+  if (!map?.id || !map.timeline) return;
+  const key = String(map.id);
+  const revision = Number(map.timeline.revision) || 1;
+  if (timelinePayloads.value[key]?.revision === revision || timelineLoadStates.value[key] === 'loading') return;
+  timelineLoadStates.value = { ...timelineLoadStates.value, [key]: 'loading' };
+  timelineErrors.value = { ...timelineErrors.value, [key]: '' };
+  try {
+    const fullMap = await apiService.getMapGameById(map.id);
+    const payload = fullMap?.timeline?.payload || null;
+    if (!payload) throw new Error('该地图局没有可读取的时间线');
+    timelinePayloads.value = { ...timelinePayloads.value, [key]: { revision, payload } };
+    timelineLoadStates.value = { ...timelineLoadStates.value, [key]: 'ready' };
+  } catch (reason) {
+    timelineLoadStates.value = { ...timelineLoadStates.value, [key]: 'error' };
+    timelineErrors.value = {
+      ...timelineErrors.value,
+      [key]: reason?.response?.data?.error || reason?.message || '未知错误'
+    };
+  }
+};
 
 const loadDetail = async () => {
   if (!props.match?.id) return;
   loading.value = true;
   error.value = '';
+  timelinePayloads.value = {};
+  timelineLoadStates.value = {};
+  timelineErrors.value = {};
   try {
     detail.value = await apiService.getMatchData(props.match.id);
-    selectedMapId.value = detail.value?.mapGames?.[0]?.id || null;
+    const firstMap = detail.value?.mapGames?.[0] || null;
+    selectedMapId.value = firstMap?.id || null;
+    void loadTimeline(firstMap);
   } catch (reason) {
     error.value = reason?.response?.data?.error || reason?.message || '未知错误';
     detail.value = null;
@@ -218,28 +222,16 @@ watch(() => [props.modelValue, props.match?.id], ([visible]) => {
   if (visible) void loadDetail();
   else {
     detail.value = null;
-    rawTimeline.value = null;
-    rawVisible.value = false;
+    timelinePayloads.value = {};
+    timelineLoadStates.value = {};
+    timelineErrors.value = {};
   }
 });
 
 const selectMap = id => {
   selectedMapId.value = id;
-  rawTimeline.value = null;
-};
-const openRawTimeline = async () => {
-  if (!selectedMap.value?.id) return;
-  rawLoading.value = true;
-  try {
-    const map = await apiService.getMapGameById(selectedMap.value.id);
-    rawTimeline.value = map?.timeline?.payload || null;
-    if (!rawTimeline.value) return ElMessage.warning('该地图局没有原始时间线');
-    rawVisible.value = true;
-  } catch (reason) {
-    ElMessage.error('原始时间线读取失败: ' + (reason?.response?.data?.error || reason?.message || '未知错误'));
-  } finally {
-    rawLoading.value = false;
-  }
+  const map = mapGames.value.find(candidate => Number(candidate.id) === Number(id));
+  void loadTimeline(map);
 };
 
 const initials = name => String(name || '?').split(/\s+/u).map(word => word[0]).join('').slice(0, 2).toUpperCase();
@@ -255,12 +247,7 @@ const formatDuration = value => {
   const seconds = Math.max(0, Math.round(Number(value) || 0));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
-const formatMilliseconds = value => formatDuration((Number(value) || 0) / 1000);
-const timelineClockLabel = timeline => timeline?.timebase?.kind === 'round-local'
-  ? '仅有效回合 · 每回合从 0:00 计时'
-  : '旧版视频时间';
 const percent = value => `${Math.round((Number(value) || 0) * 100) / 100}%`;
-const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(value).slice(-6)}` : '无摘要';
 </script>
 
 <style scoped>
@@ -306,13 +293,6 @@ const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(v
 .map-data-bans { display: grid; grid-template-columns: auto auto; gap: 4px 6px; text-align: right; }
 .map-data-bans span { grid-column: 1/-1; color: #8199a7; }
 .map-data-bans b { padding: 5px 7px; border: 1px solid #3b5361; border-radius: 5px; color: #d5e0e5; font-size: 10px; }
-.timeline-receipt { display: grid; flex: 0 0 auto; grid-template-columns: minmax(210px,1fr) auto auto; gap: 12px; align-items: center; margin: 7px 9px; padding: 7px 9px; border: 1px solid #b9deeb; border-left: 4px solid #1d9aca; border-radius: 8px; background: #f1fbfe; }
-.timeline-receipt>div:first-child { display: flex; min-width: 0; flex-direction: column; }
-.timeline-receipt span,.timeline-receipt small { color: #6e7f88; font-size: 9px; }
-.timeline-receipt b { color: #164e65; font-size: 11px; }
-.timeline-counts { display: flex; gap: 12px; }
-.timeline-counts span { display: flex; flex-direction: column; align-items: center; }
-.timeline-counts b { font: 800 16px 'Oxanium',sans-serif; }
 .player-data-section { display: flex; flex: 1 1 auto; min-height: 0; padding: 0 9px 8px; flex-direction: column; }
 .section-heading { display: flex; flex: 0 0 auto; justify-content: space-between; gap: 12px; align-items: end; padding: 2px 2px 5px; }
 .section-heading>div { display: flex; align-items: baseline; gap: 8px; }
@@ -337,13 +317,6 @@ const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(v
 .hero-detail-grid header b { color: #182026; font-size: 12px; }
 .hero-detail-grid header span,.hero-detail-grid div span,.hero-detail-grid small { color: #7e878e; font-size: 9px; }
 .hero-detail-grid div { margin-top: 6px; }
-.raw-timeline-meta { display: flex; justify-content: space-between; margin-bottom: 8px; color: #5d656d; font-size: 11px; }
-.raw-round-clock { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 7px; margin-bottom: 10px; }
-.raw-round-clock article { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid #b9deeb; border-radius: 7px; color: #526b77; background: #f1fbfe; }
-.raw-round-clock b { color: #116d91; font: 800 11px 'Oxanium',sans-serif; }
-.raw-round-clock span { font-size: 9px; }
-.raw-round-clock time { color: #164e65; font: 700 10px 'Oxanium',sans-serif; }
-.raw-timeline-json { max-height: 65vh; margin: 0; overflow: auto; padding: 16px; border-radius: 8px; color: #cde8f2; background: #111a20; font: 11px/1.65 Consolas,monospace; white-space: pre; }
 @media (max-width: 820px) {
   :global(.match-data-drawer .el-drawer__body) { overflow: auto; }
   .match-data-shell { height: auto; min-height: 100dvh; overflow: visible; }
@@ -352,8 +325,6 @@ const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(v
   .round-rail { flex-direction: row; overflow-x: auto; }
   .map-data-panel { min-height: auto; }
   .round-rail button { min-width: 210px; border-right: 1px solid #edf0f2; border-bottom: 0; }
-  .timeline-receipt { grid-template-columns: 1fr auto; }
-  .timeline-counts { grid-column: 1/-1; justify-content: flex-start; }
 }
 @media (max-width: 600px) {
   .match-data-header { padding: 15px; }
@@ -366,7 +337,5 @@ const shortDigest = value => value ? `${String(value).slice(0, 10)}…${String(v
   .match-data-metrics>div { border-bottom: 1px solid #e8ebee; }
   .round-inspector { margin: 10px; }
   .map-data-titlebar,.section-heading { align-items: flex-start; flex-direction: column; }
-  .timeline-receipt { grid-template-columns: 1fr; }
-  .timeline-counts { grid-column: auto; }
 }
 </style>
