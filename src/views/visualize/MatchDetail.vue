@@ -363,7 +363,10 @@
                                   />
                                   <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
                                   <span class="player-hero-usage" :title="`使用占比 ${hero.usagePct}%`">{{ hero.usagePct }}%</span>
-                                  <b>{{ hero.heroName }}</b>
+                                  <b
+                                    class="player-hero-name"
+                                    :class="{ 'is-long': (hero.heroName || '').length >= 4 }"
+                                  >{{ hero.heroName }}</b>
                                 </div>
                                 <dl class="player-hero-metrics">
                                   <div><dt>最后一击</dt><dd>{{ hero.finalBlows }}</dd></div>
@@ -2804,6 +2807,13 @@ export default {
   white-space: nowrap;
 }
 
+.player-hero-portrait .player-hero-name.is-long {
+  padding-right: 1px;
+  padding-left: 1px;
+  font-size: 7px;
+  letter-spacing: -.05em;
+}
+
 .player-hero-usage {
   position: absolute;
   top: 2px;
@@ -2816,7 +2826,7 @@ export default {
   box-shadow: 0 1px 3px rgba(19, 22, 26, .2);
   font: 800 7px/1 var(--vis-font-numeric);
   font-variant-numeric: tabular-nums;
-  transform: scale(.5);
+  transform: scale(.55);
   transform-origin: top right;
 }
 

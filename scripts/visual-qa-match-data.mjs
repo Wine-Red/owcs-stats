@@ -52,7 +52,7 @@ const match = {
   matchDate: '2026-09-01', boFormat: 'BO5',
   Season: { id: 1, name: 'OWCS 2026 中国赛区 第一赛季' }, team1: teams[0], team2: teams[1], winner: teams[0]
 };
-const heroNames = ['温斯顿', '猎空', '源氏', '安娜', '禅雅塔'];
+const heroNames = ['末日铁拳', '猎空', '源氏', '安娜', '禅雅塔'];
 const statsForMap = mapGameId => players.map((player, index) => ({
   id: mapGameId * 100 + index,
   mapGameId,
@@ -358,6 +358,10 @@ async function capturePublic(context, output, mobile = false) {
     return { width: rect.width, height: rect.height };
   }));
   assert.ok(heroPortraitRects.every(rect => Math.abs(rect.width - rect.height) < 1), JSON.stringify(heroPortraitRects));
+  const longHeroName = firstHeroDrawer.locator('.player-hero-name.is-long').first();
+  assert.equal(await longHeroName.innerText(), '末日铁拳');
+  assert.equal(await longHeroName.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
+  assert.ok(Number.parseFloat(await longHeroName.evaluate(element => getComputedStyle(element).fontSize)) < 8);
   assert.equal(await firstHeroDrawer.getByText('最后一击').count(), 4);
   assert.equal(await firstHeroDrawer.getByText('死亡', { exact: true }).count(), 4);
   assert.equal(await firstHeroDrawer.getByText('大招释放').count(), 0);
@@ -370,7 +374,7 @@ async function capturePublic(context, output, mobile = false) {
     const rect = badge.getBoundingClientRect();
     return { width: rect.width, height: rect.height };
   }));
-  assert.ok(usageBadgeRects.every(rect => rect.width <= 14 && rect.height <= 7), JSON.stringify(usageBadgeRects));
+  assert.ok(usageBadgeRects.every(rect => rect.width <= 16 && rect.height <= 8), JSON.stringify(usageBadgeRects));
   assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*平均充能\s*128s/u);
   const averageChargePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
     const label = element.querySelector('dt');
