@@ -381,6 +381,8 @@ async function capturePublic(context, output, mobile = false) {
 
   await page.getByRole('radio', { name: '地图分析' }).click();
   await page.getByRole('heading', { name: '时间线' }).waitFor();
+  const initialZoomSlider = page.getByRole('slider', { name: '时间线缩放' });
+  assert.equal(Number(await initialZoomSlider.inputValue()), Number(await initialZoomSlider.getAttribute('max')));
   await page.getByRole('button', { name: /R2/u }).click();
   const allMarkerCount = await page.locator('.lane-marker').count();
   assert.ok(allMarkerCount >= 10, String(allMarkerCount));

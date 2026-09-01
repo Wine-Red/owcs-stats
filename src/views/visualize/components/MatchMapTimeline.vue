@@ -311,7 +311,8 @@ watch(availableFilters, filters => {
 });
 
 watch(minZoom, (nextMinimum, previousMinimum) => {
-  const wasAtMinimum = Math.abs(zoom.value - previousMinimum) < 0.006;
+  const wasAtMinimum = previousMinimum < maxZoom - 0.005
+    && Math.abs(zoom.value - previousMinimum) < 0.006;
   if (zoom.value < nextMinimum || wasAtMinimum) zoom.value = nextMinimum;
 });
 
@@ -490,7 +491,8 @@ const clock = milliseconds => {
 
 const markerStyle = (event, durationValue) => {
   const duration = Math.max(1, Number(durationValue) || 0);
-  const position = Math.max(0.35, Math.min(99.65, (Number(event?.timeMs) || 0) / duration * 100));
+  const edgeInset = Math.min(5, 6 / Math.max(1, canvasWidth.value) * 100);
+  const position = Math.max(edgeInset, Math.min(100 - edgeInset, (Number(event?.timeMs) || 0) / duration * 100));
   return { left: `${position.toFixed(3)}%` };
 };
 
