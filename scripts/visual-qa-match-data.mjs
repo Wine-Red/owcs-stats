@@ -358,6 +358,10 @@ async function capturePublic(context, output, mobile = false) {
   assert.equal(await firstHeroDrawer.getByText('死亡', { exact: true }).count(), 4);
   assert.equal(await firstHeroDrawer.getByText('大招释放').count(), 0);
   assert.equal(await firstHeroDrawer.getByText('平均充能').count(), 4);
+  assert.deepEqual(
+    await firstHeroDrawer.locator('.player-hero-usage').allInnerTexts(),
+    ['66%', '20%', '10%', '4%']
+  );
   assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*平均充能\s*128s/u);
   const averageChargePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
     const label = element.querySelector('dt');
@@ -393,7 +397,7 @@ async function capturePublic(context, output, mobile = false) {
     max: Number(await zoomSlider.getAttribute('max'))
   };
   assert.equal(defaultScale.value, defaultScale.max, JSON.stringify(defaultScale));
-  assert.ok(defaultScale.min < defaultScale.max, JSON.stringify(defaultScale));
+  assert.ok(defaultScale.min <= defaultScale.max, JSON.stringify(defaultScale));
 
   // Two touch pointers must not change the time scale now that zoom is an explicit slider.
   await viewport.evaluate(element => {
@@ -451,11 +455,18 @@ async function capturePublic(context, output, mobile = false) {
   await page.waitForTimeout(80);
   const compactScale = {
     width: await canvas.evaluate(element => Number.parseFloat(element.style.width)),
+    renderedWidth: await canvas.evaluate(element => element.getBoundingClientRect().width),
     laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height),
-    value: Number(await zoomSlider.inputValue())
+    value: Number(await zoomSlider.inputValue()),
+    viewportWidth: await viewport.evaluate(element => element.clientWidth),
+    hasOverflow: await viewport.evaluate(element => element.scrollWidth > element.clientWidth + 1)
   };
   assert.equal(compactScale.value, defaultScale.min, JSON.stringify({ defaultScale, compactScale }));
-  assert.ok(compactScale.width < defaultScale.width * 0.6, JSON.stringify({ defaultScale, compactScale }));
+  if (defaultScale.min < defaultScale.max) {
+    assert.ok(compactScale.width < defaultScale.width, JSON.stringify({ defaultScale, compactScale }));
+  }
+  assert.ok(compactScale.renderedWidth <= compactScale.viewportWidth + 1, JSON.stringify({ defaultScale, compactScale }));
+  assert.equal(compactScale.hasOverflow, false, JSON.stringify({ defaultScale, compactScale }));
   assert.ok(Math.abs(compactScale.laneHeight - defaultScale.laneHeight) < 1, JSON.stringify({ defaultScale, compactScale }));
 
   await page.locator('.lane-marker.ultimate').first().evaluate(element => element.click());
@@ -503,6 +514,7 @@ async function capturePublic(context, output, mobile = false) {
       axisLabel: document.querySelector('.lane-label--axis')?.textContent?.trim() || '',
       zoomControlCount: document.querySelectorAll('.map-timeline__zoom').length,
       zoomValueText: document.querySelector('.map-timeline__zoom output')?.textContent?.trim() || '',
+      zoomMinimum: Number(document.querySelector('.map-timeline__zoom input')?.min || 0),
       viewportLabel: document.querySelector('.map-timeline__viewport')?.getAttribute('aria-label') || ''
     };
   });
@@ -523,7 +535,7 @@ async function capturePublic(context, output, mobile = false) {
   assert.equal(layout.tickLaneCount, 1, JSON.stringify(layout));
   assert.equal(layout.axisLabel, 'R2', JSON.stringify(layout));
   assert.equal(layout.zoomControlCount, 1, JSON.stringify(layout));
-  assert.equal(layout.zoomValueText, '45%', JSON.stringify(layout));
+  assert.equal(layout.zoomValueText, `${Math.round(layout.zoomMinimum * 100)}%`, JSON.stringify(layout));
   assert.doesNotMatch(layout.viewportLabel, /双指|缩放/u, JSON.stringify(layout));
   if (mobile) assert.ok(layout.timelineWidth >= layout.viewportWidth - 2, JSON.stringify(layout));
   assert.equal(await page.getByText('ROUND TELEMETRY').count(), 0);

@@ -351,7 +351,7 @@
                                 v-for="hero in player.heroes"
                                 :key="hero.heroId ?? hero.heroName"
                                 class="player-hero-card"
-                                :aria-label="`${hero.heroName}本局统计`"
+                                :aria-label="`${hero.heroName}本局统计，使用占比${hero.usagePct}%`"
                               >
                                 <div class="player-hero-portrait">
                                   <img
@@ -362,6 +362,7 @@
                                     @error="handleHeroIconError(hero)"
                                   />
                                   <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
+                                  <span class="player-hero-usage" :title="`使用占比 ${hero.usagePct}%`">{{ hero.usagePct }}%</span>
                                   <b>{{ hero.heroName }}</b>
                                 </div>
                                 <dl class="player-hero-metrics">
@@ -2794,6 +2795,20 @@ export default {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.player-hero-usage {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #fff;
+  background: rgba(255, 106, 0, .92);
+  box-shadow: 0 1px 3px rgba(19, 22, 26, .2);
+  font: 800 7px/1 var(--vis-font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 .player-hero-fallback {

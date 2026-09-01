@@ -39,6 +39,7 @@
         </div>
         <label
           class="map-timeline__zoom"
+          :class="{ 'is-disabled': !canZoomOut }"
           :style="{ '--zoom-progress': `${zoomProgress}%` }"
         >
           <span>缩放</span>
@@ -48,6 +49,7 @@
             :max="maxZoom"
             :step="zoomStep"
             :value="zoom"
+            :disabled="!canZoomOut"
             aria-label="时间线缩放"
             :aria-valuetext="`${zoomPercent}%`"
             @input="handleZoomInput"
@@ -133,7 +135,7 @@
 
 <script setup>
 /* global defineProps */
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
   mapGame: { type: Object, default: null },
@@ -142,15 +144,15 @@ const props = defineProps({
   error: { type: String, default: '' }
 });
 
-const minZoom = 0.45;
 const maxZoom = 1;
-const zoomStep = 0.05;
+const zoomStep = 0.01;
 const activeRoundId = ref('');
 const activeFilter = ref('all');
 const selectedEvent = ref(null);
 const zoom = ref(maxZoom);
 const isDragging = ref(false);
 const trackViewport = ref(null);
+const viewportWidth = ref(0);
 
 let activePointerId = null;
 let dragOrigin = null;
@@ -159,6 +161,8 @@ let dragVelocity = 0;
 let lastDragAt = 0;
 let zoomFrame = 0;
 let momentumFrame = 0;
+let viewportObserver = null;
+let observedViewport = null;
 
 const hasTimeline = computed(() => Boolean(props.mapGame?.timeline));
 const players = computed(() => Array.isArray(props.payload?.players) ? props.payload.players : []);
@@ -276,11 +280,17 @@ const baseCanvasWidth = computed(() => {
   const densityWidth = Math.max(durationSeconds * 4.2, normalizedLaneEvents.value.length * 24);
   return Math.round(Math.min(4200, Math.max(820, densityWidth)));
 });
+const minZoom = computed(() => {
+  if (!viewportWidth.value || !baseCanvasWidth.value) return maxZoom;
+  const fitRatio = Math.min(maxZoom, viewportWidth.value / baseCanvasWidth.value);
+  return Math.max(0.02, Math.floor(fitRatio * 100) / 100);
+});
+const canZoomOut = computed(() => minZoom.value < maxZoom - 0.005);
 const canvasWidth = computed(() => Math.round(baseCanvasWidth.value * zoom.value));
 const zoomPercent = computed(() => Math.round(zoom.value * 100));
-const zoomProgress = computed(() => (
-  (zoom.value - minZoom) / Math.max(0.01, maxZoom - minZoom) * 100
-));
+const zoomProgress = computed(() => canZoomOut.value
+  ? (zoom.value - minZoom.value) / (maxZoom - minZoom.value) * 100
+  : 100);
 const tickViews = computed(() => {
   const duration = Math.max(1, Number(activeRound.value?.durationMs || 0));
   const divisions = Math.max(4, Math.min(8, Math.round(canvasWidth.value / 180)));
@@ -298,6 +308,11 @@ watch(() => props.mapGame?.id, () => resetView(true));
 
 watch(availableFilters, filters => {
   if (!filters.some(filter => filter.value === activeFilter.value)) activeFilter.value = 'all';
+});
+
+watch(minZoom, (nextMinimum, previousMinimum) => {
+  const wasAtMinimum = Math.abs(zoom.value - previousMinimum) < 0.006;
+  if (zoom.value < nextMinimum || wasAtMinimum) zoom.value = nextMinimum;
 });
 
 const selectRound = roundId => {
@@ -324,7 +339,7 @@ function resetView(resetRound = false) {
   nextTick(() => { if (trackViewport.value) trackViewport.value.scrollLeft = 0; });
 }
 
-const clampZoom = value => Math.max(minZoom, Math.min(maxZoom, Number(value) || minZoom));
+const clampZoom = value => Math.max(minZoom.value, Math.min(maxZoom, Number(value) || minZoom.value));
 
 const setZoomAround = (value, clientX) => {
   const viewport = trackViewport.value;
@@ -344,6 +359,29 @@ const setZoomAround = (value, clientX) => {
 const handleZoomInput = event => {
   setZoomAround(Number(event.target?.value), Number.NaN);
 };
+
+const measureViewport = () => {
+  if (trackViewport.value) viewportWidth.value = trackViewport.value.clientWidth;
+};
+
+const observeViewport = () => {
+  const viewport = trackViewport.value;
+  if (!viewport) return;
+  measureViewport();
+  if (observedViewport === viewport) return;
+  viewportObserver?.disconnect();
+  observedViewport = viewport;
+  if (typeof ResizeObserver !== 'undefined') {
+    viewportObserver = new ResizeObserver(measureViewport);
+    viewportObserver.observe(viewport);
+  }
+};
+
+watch([activeRoundId, () => props.payload, () => props.loading], () => {
+  nextTick(observeViewport);
+}, { flush: 'post' });
+
+onMounted(() => nextTick(observeViewport));
 
 const prefersReducedMotion = () => (
   typeof window !== 'undefined'
@@ -483,6 +521,7 @@ const eventSummary = event => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(zoomFrame);
   cancelMomentum();
+  viewportObserver?.disconnect();
 });
 </script>
 
@@ -541,6 +580,8 @@ onBeforeUnmount(() => {
 .map-timeline__zoom input::-moz-range-thumb { width: 13px; height: 13px; border: 2px solid #fff; border-radius: 50%; background: #ff6a00; box-shadow: 0 1px 4px rgba(31, 36, 41, .28); }
 .map-timeline__zoom input:focus-visible { outline: 2px solid rgba(255, 106, 0, .45); outline-offset: -8px; border-radius: 99px; }
 .map-timeline__zoom output { min-width: 28px; color: #444b52; font: 800 8px/1 var(--vis-font-numeric); text-align: right; }
+.map-timeline__zoom.is-disabled { opacity: .55; }
+.map-timeline__zoom input:disabled { cursor: default; }
 
 .map-timeline__board { display: grid; grid-template-columns: var(--lane-label-width) minmax(0, 1fr); overflow: hidden; border: 1px solid #dce2e7; border-radius: 7px; background: #fff; box-shadow: 0 6px 18px rgba(24, 31, 38, .055); }
 .map-timeline__labels { z-index: 3; color: #626b74; background: #f5f7f9; box-shadow: 4px 0 10px rgba(29, 38, 46, .07); }
