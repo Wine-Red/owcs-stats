@@ -62,11 +62,28 @@ const statsForMap = mapGameId => players.map((player, index) => ({
   damage: 10240 + index * 640, healing: player.role === 'support' ? 11900 + index * 90 : 0,
   mitigation: player.role === 'tank' ? 13800 : 0, finalBlows: 7 + (index % 5), ultsUsed: 4,
   player, team: index < 5 ? teams[0] : teams[1],
-  heroStats: [{
-    id: mapGameId * 1000 + index, heroName: heroNames[index % 5], usageSeconds: 540,
-    usagePercentage: 100, finalBlows: 7 + (index % 5), deathsByFinalBlow: 5,
-    ultReady: 5, ultUsed: 4, avgUltChargeSeconds: 78.4
-  }]
+  heroStats: [
+    {
+      id: mapGameId * 1000 + index, heroName: heroNames[index % 5], usageSeconds: 395,
+      usagePercentage: 73, finalBlows: 7 + (index % 5), deathsByFinalBlow: 5,
+      ultReady: 5, ultUsed: 4, avgUltChargeSeconds: 128.4
+    },
+    {
+      id: mapGameId * 2000 + index, heroName: heroNames[(index + 1) % 5], usageSeconds: 120,
+      usagePercentage: 22, finalBlows: 2, deathsByFinalBlow: 1,
+      ultReady: 2, ultUsed: 1, avgUltChargeSeconds: 71.2
+    },
+    {
+      id: mapGameId * 3000 + index, heroName: heroNames[(index + 2) % 5], usageSeconds: 60,
+      usagePercentage: 11, finalBlows: 1, deathsByFinalBlow: 1,
+      ultReady: 0, ultUsed: 0, avgUltChargeSeconds: null
+    },
+    {
+      id: mapGameId * 4000 + index, heroName: heroNames[(index + 3) % 5], usageSeconds: 25,
+      usagePercentage: 5, finalBlows: 0, deathsByFinalBlow: 0,
+      ultReady: 0, ultUsed: 0, avgUltChargeSeconds: null
+    }
+  ]
 }));
 const mapGames = maps.map((map, index) => ({
   id: 11 + index,
@@ -112,12 +129,24 @@ const timelinePayload = {
     { phaseId: 'phase-1', roundId: 'round-1', kind: 'gameplay', startMs: 0, endMs: 210_000 },
     { phaseId: 'phase-2', roundId: 'round-1', kind: 'pause', startMs: 210_000, endMs: 225_000 },
     { phaseId: 'phase-3', roundId: 'round-1', kind: 'gameplay', startMs: 225_000, endMs: 385_000 },
-    { phaseId: 'phase-4', roundId: 'round-2', kind: 'gameplay', startMs: 0, endMs: 273_000 }
+    { phaseId: 'phase-4', roundId: 'round-2', kind: 'gameplay', startMs: 0, endMs: 130_000 },
+    { phaseId: 'phase-5', roundId: 'round-2', kind: 'pause', startMs: 130_000, endMs: 145_000 },
+    { phaseId: 'phase-6', roundId: 'round-2', kind: 'gameplay', startMs: 145_000, endMs: 240_000 },
+    { phaseId: 'phase-7', roundId: 'round-2', kind: 'replay', startMs: 240_000, endMs: 273_000 }
   ],
   events: [
     { eventId: 'event-1', roundId: 'round-1', timeMs: 14_000, type: 'hero_selected', status: 'confirmed', playerId: 'PINEAPPLE', heroId: 'winston', heroName: '温斯顿' },
     { eventId: 'event-2', roundId: 'round-1', timeMs: 58_000, type: 'kill', status: 'confirmed', killerId: 'KANEKI', victimId: 'LIGE', heroName: '猎空' },
-    { eventId: 'event-3', roundId: 'round-2', timeMs: 91_000, type: 'ultimate_used', status: 'confirmed', playerId: 'MMONK', heroName: '安娜' }
+    { eventId: 'event-3', roundId: 'round-2', timeMs: 12_000, type: 'hero_selected', status: 'confirmed', playerId: 'ALPHARI', heroName: '源氏' },
+    { eventId: 'event-4', roundId: 'round-2', timeMs: 37_000, type: 'kill', status: 'confirmed', killerId: 'EZHAN', victimId: 'BELOSREA', heroName: '猎空' },
+    { eventId: 'event-5', roundId: 'round-2', timeMs: 62_000, type: 'kill', status: 'confirmed', killerId: 'PINEAPPLE', victimId: 'ALPHARI', heroName: '温斯顿' },
+    { eventId: 'event-6', roundId: 'round-2', timeMs: 91_000, type: 'ultimate_used', status: 'confirmed', playerId: 'MMONK', heroName: '安娜' },
+    { eventId: 'event-7', roundId: 'round-2', timeMs: 118_000, type: 'kill', status: 'confirmed', killerId: 'KANEKI', victimId: 'LIGE', heroName: '猎空' },
+    { eventId: 'event-8', roundId: 'round-2', timeMs: 136_000, type: 'hero_selected', status: 'confirmed', playerId: 'LIGE', heroName: 'D.Va' },
+    { eventId: 'event-9', roundId: 'round-2', timeMs: 161_000, type: 'ultimate_used', status: 'confirmed', playerId: 'RECALL', heroName: '雾子' },
+    { eventId: 'event-10', roundId: 'round-2', timeMs: 189_000, type: 'kill', status: 'confirmed', killerId: 'LENGSA', victimId: 'MMONK', heroName: '卢西奥' },
+    { eventId: 'event-11', roundId: 'round-2', timeMs: 214_000, type: 'death', status: 'confirmed', playerId: 'MEWTWO', heroName: '禅雅塔' },
+    { eventId: 'event-12', roundId: 'round-2', timeMs: 241_000, type: 'ultimate_used', status: 'confirmed', playerId: 'LENGSA', heroName: '卢西奥' }
   ],
   evidence: []
 };
@@ -133,19 +162,26 @@ vite.stderr.on('data', chunk => { viteLog += String(chunk); });
 let browser;
 
 async function installMocks(page) {
-  await page.route('**/api/**', async route => {
+  await page.route(/\/(?:api|public-api)\//u, async route => {
     const url = new URL(route.request().url());
+    const pathname = url.pathname.replace(/^\/public-api(?=\/)/u, '/api');
     let body = {};
-    if (url.pathname === '/api/seasons') body = [{ id: 1, name: match.Season.name }];
-    else if (url.pathname === '/api/teams') body = teams;
-    else if (url.pathname === '/api/players') body = players;
-    else if (url.pathname === '/api/maps') body = maps;
-    else if (url.pathname === '/api/heroes') body = heroNames.map((name, index) => ({ id: index + 1, name, role: ['tank', 'damage', 'damage', 'support', 'support'][index] }));
-    else if (url.pathname === '/api/matches') body = { total: 1, list: [match] };
-    else if (url.pathname === '/api/matches/7/data') body = matchDetail;
-    else if (url.pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: timelinePayload } };
-    else if (url.pathname === '/api/map-games/13') body = { ...mapGames[2], timeline: { payload: timelinePayload } };
-    else if (url.pathname.startsWith('/api/config/')) body = {};
+    if (pathname === '/api/seasons') body = [{ id: 1, name: match.Season.name }];
+    else if (pathname === '/api/teams') body = teams;
+    else if (pathname === '/api/players') body = players;
+    else if (pathname === '/api/maps') body = maps;
+    else if (pathname === '/api/heroes') body = heroNames.map((name, index) => ({ id: index + 1, name, role: ['tank', 'damage', 'damage', 'support', 'support'][index] }));
+    else if (pathname === '/api/matches') body = { total: 1, list: [match] };
+    else if (pathname === '/api/matches/7') body = match;
+    else if (pathname === '/api/matches/7/data') body = matchDetail;
+    else if (pathname === '/api/matches/7/map-games') body = mapGames;
+    else if (/^\/api\/map-games\/\d+\/player-stats$/u.test(pathname)) {
+      const mapGameId = Number(pathname.split('/')[3]);
+      body = statsForMap(mapGameId);
+    }
+    else if (pathname === '/api/map-games/11') body = { ...mapGames[0], timeline: { payload: timelinePayload } };
+    else if (pathname === '/api/map-games/13') body = { ...mapGames[2], timeline: { payload: timelinePayload } };
+    else if (pathname.startsWith('/api/config/')) body = {};
     else body = [];
     await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
   });
@@ -175,7 +211,7 @@ async function capture(context, output, mobile = false) {
   }
   await page.getByText('选手与英雄数据').waitFor();
   await page.getByText('Studio 原始时间线').waitFor();
-  await page.getByText('hero_selected').waitFor();
+  await page.getByText('hero_selected').first().waitFor();
   await page.waitForTimeout(450);
   if (!mobile) {
     const roles = await page.locator('.player-cell small').allTextContents();
@@ -238,7 +274,7 @@ async function capture(context, output, mobile = false) {
     assert.equal(await page.getByRole('button', { name: '查看原始时间线' }).count(), 0);
     assert.equal(await page.locator('.timeline-round-block').count(), 2);
     assert.equal(await page.locator('.timeline-round-reset').filter({ hasText: '从 0:00 计时' }).count(), 2);
-    assert.equal(await page.locator('.timeline-track i').count(), 4);
+    assert.equal(await page.locator('.timeline-track i').count(), 7);
   }
   await page.screenshot({ path: output, fullPage: true });
   const timelineOutput = output.replace(/\.png$/u, '-timeline.png');
@@ -256,6 +292,222 @@ async function capture(context, output, mobile = false) {
   return timelineOutput;
 }
 
+async function capturePublic(context, output, mobile = false) {
+  const page = await context.newPage();
+  const browserErrors = [];
+  page.on('pageerror', error => browserErrors.push(error.stack || error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') browserErrors.push(message.text());
+  });
+  await installMocks(page);
+  const query = new URLSearchParams({
+    matchId: '7', seasonId: '1', team1Id: '1', team2Id: '2',
+    team1: 'WBG', team2: 'JDG', tournament: 'OWCS 2026 中国赛区', from: 'visualize'
+  });
+  await page.goto(`http://127.0.0.1:${port}/visualize/match-detail?${query}`, { waitUntil: 'networkidle' });
+  try {
+    await page.locator('.tab-nav-item').filter({ hasText: '努巴尼' }).click();
+  } catch (error) {
+    const diagnostic = join(outputDirectory, `public-match-detail-${mobile ? 'mobile' : 'desktop'}-failure.png`);
+    await page.screenshot({ path: diagnostic, fullPage: true });
+    throw new Error([
+      error.message,
+      `URL: ${page.url()}`,
+      `BODY: ${(await page.locator('body').innerText()).slice(0, 2400)}`,
+      `BROWSER ERRORS: ${browserErrors.join('\n')}`,
+      `SCREENSHOT: ${diagnostic}`
+    ].join('\n'));
+  }
+  assert.equal(await page.locator('.stat-player-row').count(), 10);
+  assert.equal(await page.locator('.stat-player-summary').count(), 10);
+  assert.equal(await page.locator('.sp-expand').count(), 10);
+  assert.equal(await page.locator('.player-hero-drawer, .player-hero-card').count(), 0);
+
+  const firstPlayerSummary = page.locator('.stat-player-summary').first();
+  const collapsedPlayerHeight = await firstPlayerSummary.evaluate(element => element.getBoundingClientRect().height);
+  await firstPlayerSummary.click();
+  const firstHeroDrawer = page.locator('.player-hero-drawer').first();
+  await firstHeroDrawer.waitFor();
+  const expandedPlayerHeight = await firstPlayerSummary.evaluate(element => element.getBoundingClientRect().height);
+  assert.ok(Math.abs(expandedPlayerHeight - collapsedPlayerHeight) < 1, JSON.stringify({ collapsedPlayerHeight, expandedPlayerHeight }));
+  assert.equal(await firstPlayerSummary.getAttribute('aria-expanded'), 'true');
+  const playerSummaryLayout = await firstPlayerSummary.evaluate(element => {
+    const kda = element.querySelector('.sp-kda')?.getBoundingClientRect();
+    const expand = element.querySelector('.sp-expand')?.getBoundingClientRect();
+    return {
+      expandBelowKda: Boolean(kda && expand && expand.top >= kda.bottom - 1),
+      expandCenteredUnderKda: Boolean(kda && expand && expand.left + expand.width / 2 >= kda.left && expand.left + expand.width / 2 <= kda.right)
+    };
+  });
+  assert.deepEqual(playerSummaryLayout, { expandBelowKda: true, expandCenteredUnderKda: true });
+  assert.equal(await firstHeroDrawer.locator('.player-hero-card').count(), 4);
+  const heroCardRects = await firstHeroDrawer.locator('.player-hero-card').evaluateAll(cards => cards.map(card => {
+    const rect = card.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }));
+  assert.ok(heroCardRects.slice(0, 3).every(rect => Math.abs(rect.width - heroCardRects[0].width) < 1), JSON.stringify(heroCardRects));
+  assert.ok(heroCardRects.slice(0, 3).every(rect => Math.abs(rect.y - heroCardRects[0].y) < 1), JSON.stringify(heroCardRects));
+  assert.ok(heroCardRects[3].y > heroCardRects[0].y, JSON.stringify(heroCardRects));
+  assert.ok(heroCardRects.every(rect => rect.height <= (mobile ? 48 : 54)), JSON.stringify(heroCardRects));
+  const heroPortraitRects = await firstHeroDrawer.locator('.player-hero-portrait').evaluateAll(portraits => portraits.map(portrait => {
+    const rect = portrait.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  assert.ok(heroPortraitRects.every(rect => Math.abs(rect.width - rect.height) < 1), JSON.stringify(heroPortraitRects));
+  assert.equal(await firstHeroDrawer.getByText('最后一击').count(), 4);
+  assert.equal(await firstHeroDrawer.getByText('死亡', { exact: true }).count(), 4);
+  assert.equal(await firstHeroDrawer.getByText('大招释放').count(), 0);
+  assert.equal(await firstHeroDrawer.getByText('平均充能').count(), 4);
+  assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*平均充能\s*128s/u);
+  const averageChargePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
+    const label = element.querySelector('dt');
+    const value = element.querySelector('dd');
+    return Boolean(
+      label && value
+      && label.scrollWidth <= label.clientWidth + 1
+      && value.scrollWidth <= value.clientWidth + 1
+    );
+  });
+  assert.equal(averageChargePartsFit, true);
+  assert.equal(await firstHeroDrawer.locator('.player-hero-metrics').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 1);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1), false);
+  if (mobile) await firstHeroDrawer.screenshot({ path: output.replace(/\.png$/u, '-heroes.png') });
+  await page.waitForTimeout(450);
+  await page.screenshot({ path: output, fullPage: true });
+
+  await page.getByRole('radio', { name: '地图分析' }).click();
+  await page.getByRole('heading', { name: '时间线' }).waitFor();
+  await page.getByRole('button', { name: /R2/u }).click();
+  const allMarkerCount = await page.locator('.lane-marker').count();
+  assert.ok(allMarkerCount >= 10, String(allMarkerCount));
+
+  const viewport = page.locator('.map-timeline__viewport');
+  const canvas = page.locator('.map-timeline__canvas');
+  const lane = page.locator('.player-event-lane').first();
+  const beforePinch = {
+    width: await canvas.evaluate(element => element.getBoundingClientRect().width),
+    laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height)
+  };
+  await viewport.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const fire = (type, pointerId, x) => element.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + x,
+      clientY: rect.top + 90,
+      pointerId,
+      pointerType: 'touch',
+      isPrimary: pointerId === 101
+    }));
+    fire('pointerdown', 101, 80);
+    fire('pointerdown', 102, 180);
+    fire('pointermove', 102, 270);
+    fire('pointerup', 102, 270);
+    fire('pointerup', 101, 80);
+  });
+  await page.waitForTimeout(180);
+  const afterPinch = {
+    width: await canvas.evaluate(element => element.getBoundingClientRect().width),
+    laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height)
+  };
+  assert.ok(afterPinch.width > beforePinch.width * 1.2, JSON.stringify({ beforePinch, afterPinch }));
+  assert.ok(Math.abs(afterPinch.laneHeight - beforePinch.laneHeight) < 1, JSON.stringify({ beforePinch, afterPinch }));
+  await page.getByRole('button', { name: '大招', exact: true }).click();
+  assert.ok(await page.locator('.lane-marker.ultimate').count() >= 3);
+  assert.equal(await page.locator('.lane-marker:not(.ultimate)').count(), 0);
+  await page.getByRole('button', { name: '全部', exact: true }).click();
+
+  assert.equal(await viewport.evaluate(element => element.scrollWidth > element.clientWidth), true);
+
+  await viewport.evaluate(element => { element.scrollLeft = Math.min(220, element.scrollWidth - element.clientWidth); });
+  const scrollBeforeDrag = await viewport.evaluate(element => element.scrollLeft);
+  const viewportBox = await viewport.boundingBox();
+  assert.ok(viewportBox);
+  await page.mouse.move(viewportBox.x + viewportBox.width * 0.55, viewportBox.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(viewportBox.x + viewportBox.width * 0.72, viewportBox.y + 80, { steps: 5 });
+  await page.mouse.up();
+  const scrollAfterDrag = await viewport.evaluate(element => element.scrollLeft);
+  assert.ok(scrollAfterDrag < scrollBeforeDrag, JSON.stringify({ scrollBeforeDrag, scrollAfterDrag }));
+  await page.waitForTimeout(180);
+  await page.locator('.lane-marker.ultimate').first().evaluate(element => element.click());
+  await page.locator('.map-timeline__selection').waitFor();
+  const timelineOutput = output.replace(/\.png$/u, '-timeline.png');
+  await page.locator('.map-timeline').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: timelineOutput, fullPage: true });
+
+  const layout = await page.evaluate(() => {
+    const timeline = document.querySelector('.map-timeline');
+    const radar = document.querySelector('.map-player-radar');
+    const timelineRect = timeline?.getBoundingClientRect();
+    const radarRect = radar?.getBoundingClientRect();
+    const board = document.querySelector('.map-timeline__board');
+    const boardRect = board?.getBoundingClientRect();
+    const boardRgb = getComputedStyle(board).backgroundColor.match(/\d+/gu)?.slice(0, 3).map(Number) || [];
+    const roundButtons = [...document.querySelectorAll('.map-timeline__rounds button')];
+    const activeRoundLabel = document.querySelector('.map-timeline__rounds button.active b');
+    const eventMarkers = [...document.querySelectorAll('.lane-marker')];
+    const playerLabels = [...document.querySelectorAll('.lane-label--player')];
+    const playerLanes = [...document.querySelectorAll('.player-event-lane')];
+    const toolbarRect = document.querySelector('.map-timeline__toolbar')?.getBoundingClientRect();
+    const roundsRect = document.querySelector('.map-timeline__rounds')?.getBoundingClientRect();
+    const filtersRect = document.querySelector('.map-timeline__filters')?.getBoundingClientRect();
+    return {
+      horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+      timelineBelowRadar: Boolean(timelineRect && radarRect && timelineRect.top >= radarRect.bottom - 1),
+      roundCount: roundButtons.length,
+      eventMarkers: eventMarkers.length,
+      playerLabelCount: playerLabels.length,
+      playerLaneCount: playerLanes.length,
+      roundCanvasCount: document.querySelectorAll('.map-timeline__canvas').length,
+      boardHeight: boardRect?.height || 0,
+      boardIsLight: boardRgb.length === 3 && boardRgb.reduce((sum, channel) => sum + channel, 0) / 3 > 220,
+      minRoundWidth: Math.min(...roundButtons.map(button => button.getBoundingClientRect().width)),
+      viewportWidth: window.innerWidth,
+      timelineWidth: timelineRect?.width || 0,
+      toolbarHeight: toolbarRect?.height || 0,
+      roundToFilterGap: roundsRect && filtersRect ? filtersRect.top - roundsRect.bottom : 0,
+      roundLabelBottomGap: roundsRect && activeRoundLabel
+        ? roundsRect.bottom - activeRoundLabel.getBoundingClientRect().bottom
+        : 0,
+      phaseLaneCount: document.querySelectorAll('.phase-lane').length,
+      tickLaneCount: document.querySelectorAll('.tick-lane').length,
+      axisLabel: document.querySelector('.lane-label--axis')?.textContent?.trim() || '',
+      zoomControlCount: document.querySelectorAll('.map-timeline__zoom').length
+    };
+  });
+  assert.equal(layout.horizontalOverflow, false, JSON.stringify(layout));
+  assert.equal(layout.timelineBelowRadar, true, JSON.stringify(layout));
+  assert.equal(layout.roundCount, 2, JSON.stringify(layout));
+  assert.ok(layout.eventMarkers >= 10, JSON.stringify(layout));
+  assert.equal(layout.playerLabelCount, 10, JSON.stringify(layout));
+  assert.equal(layout.playerLaneCount, 10, JSON.stringify(layout));
+  assert.equal(layout.roundCanvasCount, 1, JSON.stringify(layout));
+  assert.ok(layout.boardHeight > 200 && layout.boardHeight <= 255, JSON.stringify(layout));
+  assert.equal(layout.boardIsLight, true, JSON.stringify(layout));
+  assert.ok(layout.minRoundWidth >= 50, JSON.stringify(layout));
+  assert.ok(layout.toolbarHeight <= 36, JSON.stringify(layout));
+  assert.ok(layout.roundToFilterGap <= 6, JSON.stringify(layout));
+  assert.ok(layout.roundLabelBottomGap <= 12, JSON.stringify(layout));
+  assert.equal(layout.phaseLaneCount, 0, JSON.stringify(layout));
+  assert.equal(layout.tickLaneCount, 1, JSON.stringify(layout));
+  assert.equal(layout.axisLabel, 'R2', JSON.stringify(layout));
+  assert.equal(layout.zoomControlCount, 0, JSON.stringify(layout));
+  if (mobile) assert.ok(layout.timelineWidth >= layout.viewportWidth - 2, JSON.stringify(layout));
+  assert.equal(await page.getByText('ROUND TELEMETRY').count(), 0);
+  assert.equal(await page.getByText('每个有效回合独立从 0:00 计时').count(), 0);
+
+  await page.locator('.tab-nav-item').filter({ hasText: '好莱坞' }).click();
+  await page.locator('.stat-player-row').first().waitFor();
+  assert.equal(await page.locator('.sp-expand, .player-hero-drawer, .player-hero-card').count(), 0);
+  await page.getByRole('radio', { name: '地图分析' }).click();
+  await page.locator('.map-player-radar').waitFor();
+  assert.equal(await page.locator('.map-timeline').count(), 0);
+  assert.deepEqual(browserErrors, []);
+  await page.close();
+  return timelineOutput;
+}
+
 try {
   for (let attempt = 0; attempt < 100; attempt++) {
     try { if ((await fetch(`http://127.0.0.1:${port}`)).ok) break; } catch { /* startup */ }
@@ -268,7 +520,14 @@ try {
   const mobile = join(outputDirectory, 'match-data-mobile.png');
   const desktopTimeline = await capture(await browser.newContext({ viewport: { width: 1600, height: 1000 } }), desktop);
   const mobileTimeline = await capture(await browser.newContext({ viewport: { width: 700, height: 1050 } }), mobile, true);
-  process.stdout.write(JSON.stringify({ desktop, desktopTimeline, mobile, mobileTimeline }, null, 2) + '\n');
+  const publicDesktop = join(outputDirectory, 'public-match-detail-desktop.png');
+  const publicMobile = join(outputDirectory, 'public-match-detail-mobile.png');
+  const publicDesktopTimeline = await capturePublic(await browser.newContext({ viewport: { width: 1366, height: 900 } }), publicDesktop);
+  const publicMobileTimeline = await capturePublic(await browser.newContext({ viewport: { width: 390, height: 844 } }), publicMobile, true);
+  process.stdout.write(JSON.stringify({
+    desktop, desktopTimeline, mobile, mobileTimeline,
+    publicDesktop, publicDesktopTimeline, publicMobile, publicMobileTimeline
+  }, null, 2) + '\n');
 } finally {
   await browser?.close();
   vite.kill();

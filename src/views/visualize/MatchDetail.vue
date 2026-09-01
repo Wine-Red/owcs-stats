@@ -226,8 +226,8 @@
               />
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
-                <div v-if="contentMode === 'analysis' && activeMapRadarCard" key="map-analysis" class="map-analysis-simple mode-panel">
-                  <div class="map-analysis-grid">
+                <div v-if="contentMode === 'analysis' && (activeMapRadarCard || currentMapGame?.timeline)" key="map-analysis" class="map-analysis-simple mode-panel">
+                  <div v-if="activeMapRadarCard" class="map-analysis-grid">
                     <div class="map-analysis-card map-player-radar-card analysis-grid-span-2">
                       <ContentChoiceGroup
                         class="map-role-filter"
@@ -270,6 +270,14 @@
                       <div :key="activeMapRadarCard.key" :ref="(el) => setMapPlayerRadarRef(activeMapRadarCard, el)" class="map-player-radar"></div>
                     </div>
                   </div>
+
+                  <MatchMapTimeline
+                    v-if="hasCurrentMapTimeline"
+                    :map-game="currentMapGame"
+                    :payload="currentMapTimeline.payload"
+                    :loading="currentMapTimeline.loading"
+                    :error="currentMapTimeline.error"
+                  />
                 </div>
 
                 <div v-else-if="currentStatsRows.length" key="map-data" class="stats-list mode-panel">
@@ -307,17 +315,61 @@
                         <span class="stats-team-name">{{ grp.name }}</span>
                       </header>
                       <div class="stats-rows">
-                        <div v-for="player in grp.players" :key="player.playerId || player.name" class="stat-player-row">
-                          <img :src="getRoleIconUrl(player.role)" class="sp-role-icon" :alt="player.role" />
-                          <div class="sp-body">
-                            <div class="sp-line1">
-                              <span class="sp-name">{{ player.name }}</span>
-                              <span class="sp-kda">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
+                        <div v-for="player in grp.players" :key="player.playerId || player.name" class="stat-player-entry">
+                          <component
+                            :is="canExpandMapPlayer(player) ? 'button' : 'div'"
+                            class="stat-player-row stat-player-summary"
+                            :class="{ 'is-expandable': canExpandMapPlayer(player), 'is-expanded': isMapPlayerExpanded(player) }"
+                            :type="canExpandMapPlayer(player) ? 'button' : null"
+                            :aria-expanded="canExpandMapPlayer(player) ? isMapPlayerExpanded(player) : null"
+                            :aria-controls="canExpandMapPlayer(player) ? mapPlayerDrawerId(player) : null"
+                            :aria-label="canExpandMapPlayer(player) ? `${isMapPlayerExpanded(player) ? '收起' : '展开'}${player.name}的英雄统计` : null"
+                            @click="toggleMapPlayerHeroes(player)"
+                          >
+                            <img :src="getRoleIconUrl(player.role)" class="sp-role-icon" :alt="player.role" />
+                            <div class="sp-body">
+                              <div class="sp-line1">
+                                <span class="sp-name">{{ player.name }}</span>
+                                <span class="sp-kda">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
+                              </div>
+                              <div class="sp-line2">
+                                <span class="sp-stat"><em>伤害</em>{{ formatNumber(player.damage) }}</span>
+                                <span class="sp-stat"><em>治疗</em>{{ formatNumber(player.healing) }}</span>
+                                <span class="sp-stat"><em>抵挡</em>{{ formatNumber(player.mitigation) }}</span>
+                              </div>
                             </div>
-                            <div class="sp-line2">
-                              <span class="sp-stat"><em>伤害</em>{{ formatNumber(player.damage) }}</span>
-                              <span class="sp-stat"><em>治疗</em>{{ formatNumber(player.healing) }}</span>
-                              <span class="sp-stat"><em>抵挡</em>{{ formatNumber(player.mitigation) }}</span>
+                            <span v-if="canExpandMapPlayer(player)" class="sp-expand" aria-hidden="true"><i></i></span>
+                          </component>
+
+                          <div
+                            v-if="canExpandMapPlayer(player) && isMapPlayerExpanded(player)"
+                            :id="mapPlayerDrawerId(player)"
+                            class="player-hero-drawer"
+                          >
+                            <div class="player-hero-grid">
+                              <article
+                                v-for="hero in player.heroes"
+                                :key="hero.heroId ?? hero.heroName"
+                                class="player-hero-card"
+                                :aria-label="`${hero.heroName}本局统计`"
+                              >
+                                <div class="player-hero-portrait">
+                                  <img
+                                    v-if="hero.iconUrl && !hero.iconFailed"
+                                    :src="hero.iconUrl"
+                                    :alt="hero.heroName"
+                                    loading="lazy"
+                                    @error="handleHeroIconError(hero)"
+                                  />
+                                  <span v-else class="player-hero-fallback">{{ hero.heroName.slice(0, 1) }}</span>
+                                  <b>{{ hero.heroName }}</b>
+                                </div>
+                                <dl class="player-hero-metrics">
+                                  <div><dt>最后一击</dt><dd>{{ hero.finalBlows }}</dd></div>
+                                  <div><dt>死亡</dt><dd>{{ hero.deathsByFinalBlow }}</dd></div>
+                                  <div><dt>平均充能</dt><dd>{{ formatHeroCharge(hero.avgUltChargeSeconds) }}</dd></div>
+                                </dl>
+                              </article>
                             </div>
                           </div>
                         </div>
@@ -349,12 +401,13 @@ import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import DetailTopbar from './components/DetailTopbar.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
+import MatchMapTimeline from './components/MatchMapTimeline.vue';
 
 const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 
 export default {
   name: 'MatchDetail',
-  components: { DetailTopbar, ContentChoiceGroup },
+  components: { DetailTopbar, ContentChoiceGroup, MatchMapTimeline },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -372,6 +425,8 @@ export default {
       { value: 'analysis', label: '地图分析' }
     ];
     const matchDetails = ref({ mapGames: [], playerStats: [] });
+    const mapTimelineCache = ref({});
+    const expandedMapPlayerKeys = ref([]);
     const teamAnalysisRadarRef = ref(null);
     const mapPlayerRadarRefs = ref({});
     let teamAnalysisRadarInstance = null;
@@ -588,6 +643,7 @@ export default {
           ...h,
           avgUltChargeSeconds: h.ultWeight > 0 ? h.ultWeightedSum / h.ultWeight : null
         }))
+        .filter(h => h.usageSeconds > 0)
         .sort((a, b) => b.usageSeconds - a.usageSeconds);
       const totalUsage = heroes.reduce((sum, h) => sum + h.usageSeconds, 0);
       player.heroes = heroes.map(h => ({
@@ -755,6 +811,68 @@ export default {
       return matchDetails.value.mapGames.find(mapGame => String(mapGame.id) === String(activeTab.value)) || null;
     });
 
+    const currentMapTimeline = computed(() => {
+      const key = String(currentMapGame.value?.id || '');
+      return mapTimelineCache.value[key] || { payload: null, loading: false, error: '', revision: 0 };
+    });
+
+    const hasCurrentMapTimeline = computed(() => Boolean(currentMapGame.value?.timeline));
+    const mapPlayerExpansionKey = (player) => `${currentMapGame.value?.id || 'map'}:${player?.playerId ?? player?.name ?? 'player'}`;
+    const mapPlayerDrawerId = (player) => `map-player-heroes-${mapPlayerExpansionKey(player).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+    const canExpandMapPlayer = (player) => hasCurrentMapTimeline.value && Array.isArray(player?.heroes) && player.heroes.length > 0;
+    const isMapPlayerExpanded = (player) => expandedMapPlayerKeys.value.includes(mapPlayerExpansionKey(player));
+    const toggleMapPlayerHeroes = (player) => {
+      if (!canExpandMapPlayer(player)) return;
+      const key = mapPlayerExpansionKey(player);
+      expandedMapPlayerKeys.value = isMapPlayerExpanded(player)
+        ? expandedMapPlayerKeys.value.filter(item => item !== key)
+        : [...expandedMapPlayerKeys.value, key];
+    };
+    const handleHeroIconError = (hero) => { hero.iconFailed = true; };
+    const formatHeroCharge = (value) => (
+      value === null || value === undefined || !Number.isFinite(Number(value))
+        ? '—'
+        : `${Math.round(Number(value))}s`
+    );
+
+    const loadMapTimeline = async (mapGame = currentMapGame.value) => {
+      if (!mapGame?.id || !mapGame.timeline) return;
+      const key = String(mapGame.id);
+      const revision = Number(mapGame.timeline.revision) || 1;
+      const cached = mapTimelineCache.value[key];
+      if (cached?.loading || (cached?.payload && cached.revision === revision)) return;
+
+      if (mapGame.timeline.payload) {
+        mapTimelineCache.value = {
+          ...mapTimelineCache.value,
+          [key]: { payload: mapGame.timeline.payload, loading: false, error: '', revision }
+        };
+        return;
+      }
+
+      mapTimelineCache.value = {
+        ...mapTimelineCache.value,
+        [key]: { payload: cached?.payload || null, loading: true, error: '', revision }
+      };
+      try {
+        const fullMap = await apiService.getMapGameById(mapGame.id);
+        const payload = fullMap?.timeline?.payload || null;
+        if (!payload) throw new Error('该地图尚未生成有效回合时间线');
+        mapTimelineCache.value = {
+          ...mapTimelineCache.value,
+          [key]: { payload, loading: false, error: '', revision }
+        };
+      } catch (error) {
+        const message = error?.response?.status
+          ? `请求失败（${error.response.status}）`
+          : (error instanceof Error ? error.message : String(error));
+        mapTimelineCache.value = {
+          ...mapTimelineCache.value,
+          [key]: { payload: null, loading: false, error: message, revision }
+        };
+      }
+    };
+
     const currentMapPlayers = computed(() => {
       if (!currentMapGame.value) return [];
 
@@ -798,14 +916,6 @@ export default {
 
       return withPercents;
     });
-
-    // 新指标门控：该图没有任何对应数据时整块不显示（旧比赛保持原样）
-    const currentMapHasFinalBlows = computed(() =>
-      currentMapPlayers.value.some(p => p.heroes?.some(h => h.finalBlows > 0 || h.deathsByFinalBlow > 0))
-    );
-    const currentMapHasUltCharge = computed(() =>
-      currentMapPlayers.value.some(p => p.heroes?.some(h => h.avgUltChargeSeconds !== null && h.avgUltChargeSeconds !== undefined))
-    );
 
     // 该图双方的 ban（有才显示）
     const mapBanChips = computed(() => {
@@ -1481,6 +1591,9 @@ export default {
     watch([activeTab, contentMode], () => {
       ensureCurrentMapSelections();
       renderVisibleCharts();
+      if (activeTab.value !== 'overall' && contentMode.value === 'analysis') {
+        void loadMapTimeline();
+      }
     });
 
     watch(teamAnalysis, () => {
@@ -1497,6 +1610,10 @@ export default {
       ensureCurrentMapSelections();
       renderVisibleCharts();
     }, { deep: true });
+
+    watch(() => currentMapGame.value?.id, () => {
+      expandedMapPlayerKeys.value = [];
+    });
 
     watch(currentMapPlayerRadarCards, () => {
       renderVisibleCharts();
@@ -1536,13 +1653,20 @@ export default {
       selectedMapRole,
       mapRoleTabs,
       activeMapRadarCard,
+      currentMapGame,
+      currentMapTimeline,
+      hasCurrentMapTimeline,
+      canExpandMapPlayer,
+      isMapPlayerExpanded,
+      toggleMapPlayerHeroes,
+      mapPlayerDrawerId,
+      handleHeroIconError,
+      formatHeroCharge,
       selectMapRole,
       currentMapPlayerRadarCards,
       isSelectedMapRadarPlayer,
       selectMapRadarPlayer,
       currentStatsRows,
-      currentMapHasFinalBlows,
-      currentMapHasUltCharge,
       mapBanChips,
       mapPlayerGroups,
       getBanIconUrl,
@@ -2539,16 +2663,179 @@ export default {
   flex-direction: column;
 }
 
-.stat-player-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 2px;
+.stat-player-entry {
+  min-width: 0;
   border-bottom: 1px solid #eef1f4;
 }
 
-.stat-player-row:last-child {
+.stat-player-entry:last-child {
   border-bottom: 0;
+}
+
+.overall-team-section .stat-player-row {
+  border-bottom: 1px solid #eef1f4;
+}
+
+.overall-team-section .stat-player-row:last-child {
+  border-bottom: 0;
+}
+
+.overall-team-section.is-team2 .stat-player-row {
+  border-bottom-color: #f7ece1;
+}
+
+.stat-player-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 2px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+}
+
+.stat-player-summary.is-expandable {
+  position: relative;
+  cursor: pointer;
+}
+
+.stat-player-summary.is-expandable:hover {
+  background: #fafbfc;
+}
+
+.stat-player-summary.is-expandable:focus-visible {
+  outline: 2px solid rgba(255, 106, 0, .55);
+  outline-offset: -2px;
+}
+
+.sp-expand {
+  position: absolute;
+  right: 2px;
+  bottom: 3px;
+  display: grid;
+  width: 20px;
+  height: 12px;
+  place-items: center;
+  color: #8e959d;
+}
+
+.sp-expand i {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform .16s ease;
+}
+
+.stat-player-summary.is-expanded .sp-expand i {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.player-hero-drawer {
+  padding: 6px 2px 9px;
+  background: #f8f9fb;
+}
+
+.player-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.player-hero-card {
+  display: grid;
+  min-width: 0;
+  min-height: 50px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid #e5e8ec;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.player-hero-portrait {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  aspect-ratio: 1;
+  align-self: center;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 3px;
+  background: #eceff2;
+}
+
+.player-hero-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.player-hero-portrait b {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 2px 3px;
+  color: #fff;
+  background: rgba(18, 20, 23, .76);
+  font-size: 8px;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-hero-fallback {
+  color: #747c85;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.player-hero-metrics {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 3px;
+  margin: 0;
+}
+
+.player-hero-metrics div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3px;
+}
+
+.player-hero-metrics dt {
+  overflow: hidden;
+  color: #969da5;
+  font-size: 8px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-hero-metrics dd {
+  margin: 0;
+  color: #25292e;
+  font-family: var(--vis-font-numeric);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .sp-body {
@@ -2584,7 +2871,7 @@ export default {
   color: var(--vis-accent, #ff6a00);
 }
 
-.is-team2 .stat-player-row {
+.is-team2 .stat-player-entry {
   border-bottom-color: #f7ece1;
 }
 
@@ -2860,6 +3147,12 @@ export default {
   grid-column: 1 / -1;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .sp-expand i {
+    transition: none;
+  }
+}
+
 @media (max-width: 768px) {
   .match-banner {
     gap: 8px;
@@ -2970,6 +3263,23 @@ export default {
   .stat-player-row {
     padding-right: var(--sc-pad, 12px);
     padding-left: var(--sc-pad, 12px);
+  }
+
+  .player-hero-drawer {
+    padding: 6px var(--sc-pad, 12px) 9px;
+  }
+
+  .player-hero-card {
+    min-height: 44px;
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .player-hero-portrait {
+    height: 34px;
+  }
+
+  .sp-expand {
+    right: var(--sc-pad, 12px);
   }
 
   .seamless-content {
