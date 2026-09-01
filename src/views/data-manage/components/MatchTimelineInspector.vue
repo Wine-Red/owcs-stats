@@ -1,11 +1,19 @@
 <template>
   <section class="timeline-inspector" :class="{ empty: !hasTimeline }" aria-label="Studio 原始时间线">
     <header class="timeline-inspector-head">
-      <span class="signal" aria-hidden="true"></span>
-      <strong>Studio 原始时间线</strong>
-      <small v-if="hasTimeline">{{ isRoundLocal ? '只读 · 仅有效回合 · 回合内独立计时' : '只读 · 旧版视频时间' }}</small>
-      <span class="spacer"></span>
-      <code v-if="hasTimeline">r{{ revision }}<template v-if="digest"> · {{ digest }}</template></code>
+      <div class="timeline-title">
+        <span class="section-index">02</span>
+        <span class="raw-badge">RAW</span>
+        <div>
+          <strong>Studio 原始时间线</strong>
+          <small v-if="hasTimeline">{{ isRoundLocal ? '只读审计 · 仅有效回合 · 回合内独立计时' : '只读审计 · 旧版视频时间' }}</small>
+          <small v-else>Studio 数据镜像状态</small>
+        </div>
+      </div>
+      <div v-if="hasTimeline" class="timeline-revision">
+        <span>REVISION</span>
+        <code>r{{ revision }}<template v-if="digest"> · {{ digest }}</template></code>
+      </div>
     </header>
 
     <div v-if="!hasTimeline" class="timeline-state">
@@ -21,12 +29,19 @@
       时间线数据不可用。
     </div>
     <template v-else>
-      <div class="timeline-kpis">
-        <span><b>{{ timelineClock(durationMs) }}</b><em>{{ isRoundLocal ? '有效比赛时长' : '媒体时长' }}</em></span>
-        <span><b>{{ players.length }}</b><em>选手</em></span>
-        <span><b>{{ rounds.length }}</b><em>回合</em></span>
-        <span><b>{{ phases.length }}</b><em>语义区间</em></span>
-        <span><b>{{ events.length }}</b><em>事件</em></span>
+      <div class="timeline-kpis" aria-label="时间线摘要">
+        <span><em>{{ isRoundLocal ? '有效比赛时长' : '媒体时长' }}</em><b>{{ timelineClock(durationMs) }}</b></span>
+        <span><em>选手</em><b>{{ players.length }}</b></span>
+        <span><em>回合</em><b>{{ rounds.length }}</b></span>
+        <span><em>语义区间</em><b>{{ phases.length }}</b></span>
+        <span><em>事件</em><b>{{ events.length }}</b></span>
+      </div>
+
+      <div class="timeline-legend" aria-label="语义区间图例">
+        <span><i class="gameplay"></i>有效比赛</span>
+        <span><i class="pause"></i>暂停</span>
+        <span><i class="intermission"></i>局间</span>
+        <span><i class="replay"></i>回放</span>
       </div>
 
       <div class="timeline-inspector-body">
@@ -34,11 +49,17 @@
           <section v-for="round in roundViews" :key="round.roundId" class="timeline-round-block">
             <header class="timeline-round-head">
               <b>R{{ round.index }}</b>
-              <span class="timeline-round-reset">从 0:00 计时</span>
-              <span>{{ round.phases.length }} 个无缝有效区间 · {{ round.events.length }} 个事件</span>
+              <div>
+                <strong>有效回合</strong>
+                <span>{{ round.phases.length }} 个连续区间 · {{ round.events.length }} 个事件</span>
+              </div>
               <time>0:00 — {{ timelineClock(round.durationMs) }}</time>
             </header>
             <div class="timeline-round-body">
+              <div class="timeline-track-label">
+                <span class="timeline-round-reset">从 0:00 计时</span>
+                <span>回合内时间</span>
+              </div>
               <div class="timeline-track" :aria-label="`R${round.index} 语义区间`">
                 <i
                   v-for="(phase, index) in round.phases"
@@ -157,63 +178,109 @@ const TimelineEvents = defineComponent({
 </script>
 
 <style scoped>
-.timeline-inspector { display: flex; flex: 0 1 23%; min-height: 155px; margin: 0 9px 7px; overflow: hidden; flex-direction: column; border: 1px solid #294559; border-radius: 8px; color: #91a9b6; background: #101923; }
-.timeline-inspector.empty { flex: 0 0 auto; min-height: 0; border-style: dashed; background: #f7f9fa; }
-.timeline-inspector-head { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; padding: 6px 9px; border-bottom: 1px solid #294559; background: linear-gradient(90deg,rgba(41,176,227,.12),transparent 68%); }
-.empty .timeline-inspector-head { border-bottom-color: #d9e1e6; background: linear-gradient(90deg,rgba(41,176,227,.08),transparent 68%); }
-.signal { width: 8px; height: 8px; border-radius: 50%; background: #43d7ff; box-shadow: 0 0 0 4px rgba(67,215,255,.12),0 0 18px rgba(67,215,255,.55); }
-.timeline-inspector-head strong { color: #d9f6ff; font-size: 11px; }
-.empty .timeline-inspector-head strong { color: #25576c; }
-.timeline-inspector-head small { color: #7393a6; font-size: 9px; }
-.timeline-inspector-head .spacer { flex: 1; }
-.timeline-inspector-head code { color: #78dffb; font: 9px/1.4 Consolas,monospace; }
-.timeline-state { padding: 14px 12px; color: #71838d; font-size: 10px; }
+.timeline-inspector {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 0;
+  margin: 0 9px 8px;
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid var(--admin-border, #e4e7ed);
+  border-radius: 10px;
+  color: var(--admin-text, #303133);
+  background: var(--admin-surface-subtle, #f8f9fa);
+}
+.timeline-inspector.empty { min-height: 72px; border-style: dashed; background: #fafbfc; }
+.timeline-inspector-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--admin-border-soft, #ebeef5);
+  background: #fff;
+}
+.timeline-title { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.timeline-title>div { display: flex; min-width: 0; flex-direction: column; }
+.section-index { color: #a1a6ad; font: 700 8px/1 'Orbitron',sans-serif; letter-spacing: .08em; }
+.raw-badge { padding: 4px 6px; border-radius: 4px; color: #9c4308; background: #fff0e6; font: 800 8px/1 'Orbitron',sans-serif; letter-spacing: .08em; }
+.timeline-inspector-head strong { color: var(--admin-text-strong, #111); font-size: 12px; }
+.timeline-inspector-head small { overflow: hidden; color: var(--admin-text-soft, #909399); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-revision { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.timeline-revision span { color: #a1a6ad; font: 700 8px/1 'Orbitron',sans-serif; letter-spacing: .08em; }
+.timeline-revision code { padding: 5px 8px; border: 1px solid #eadfd7; border-radius: 5px; color: #93410d; background: #fffaf6; font: 9px/1.25 Consolas,monospace; }
+.timeline-state { padding: 12px; color: #7d838a; font-size: 10px; }
 .timeline-state--loading { display: flex; align-items: center; gap: 9px; }
-.timeline-state--loading span { width: 9px; height: 9px; border: 2px solid #31556a; border-top-color: #43d7ff; border-radius: 50%; animation: timeline-spin .8s linear infinite; }
-.timeline-state--error { color: #f09aa9; }
-.timeline-kpis { display: grid; flex: 0 0 auto; grid-template-columns: repeat(5,minmax(66px,1fr)); border-bottom: 1px solid #223747; }
-.timeline-kpis span { padding: 4px 9px; border-right: 1px solid #223747; }
+.timeline-state--loading span { width: 9px; height: 9px; border: 2px solid #eadfd7; border-top-color: var(--admin-orange, #ff6a00); border-radius: 50%; animation: timeline-spin .8s linear infinite; }
+.timeline-state--error { color: var(--admin-danger, #d92d20); }
+.timeline-kpis {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(5,minmax(66px,1fr));
+  padding: 0 12px;
+  border-bottom: 1px solid var(--admin-border-soft, #ebeef5);
+  background: #fff;
+}
+.timeline-kpis span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 9px 11px; border-right: 1px solid var(--admin-border-soft, #ebeef5); }
 .timeline-kpis span:last-child { border-right: 0; }
-.timeline-kpis b { display: block; color: #e8f7fb; font: 700 11px/1.1 Consolas,monospace; }
-.timeline-kpis em { color: #6f8999; font-size: 8px; font-style: normal; }
-.timeline-inspector-body { min-height: 0; overflow: auto; scrollbar-color: #345467 #101923; }
-.timeline-round-stack { display: grid; gap: 6px; padding: 5px; }
-.timeline-round-block { overflow: hidden; border: 1px solid #294559; border-radius: 6px; background: #0c141c; }
-.timeline-round-head { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-bottom: 1px solid #223747; background: rgba(41,176,227,.055); }
-.timeline-round-head b { color: #d9f6ff; font: 700 10px/1 Consolas,monospace; }
-.timeline-round-head span { color: #6f8999; font-size: 8px; }
-.timeline-round-head time { margin-left: auto; color: #78dffb; font: 9px/1 Consolas,monospace; }
-.timeline-round-reset { padding: 2px 5px; border: 1px solid #2d7f98; border-radius: 99px; color: #70dffb !important; background: rgba(40,186,223,.09); }
-.timeline-round-body { padding: 4px 6px 5px; }
-.timeline-telemetry { padding: 9px; }
-.timeline-telemetry-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: #7191a2; font-size: 9px; }
-.timeline-track { position: relative; height: 16px; overflow: hidden; border: 1px solid #2c4555; border-radius: 4px; background: #0b1118; }
-.timeline-track i { position: absolute; top: 3px; bottom: 3px; min-width: 2px; border-radius: 2px; opacity: .9; }
-.timeline-track i.gameplay { background: #28badf; }
-.timeline-track i.pause { background: #e3a329; }
-.timeline-track i.intermission { background: #7969d9; }
-.timeline-track i.replay { background: #e15a7a; }
-.timeline-track i.unknown { background: #617481; }
-:deep(.timeline-event-list) { display: grid; gap: 3px; max-height: 112px; margin-top: 4px; overflow: auto; }
-:deep(.timeline-event-row) { display: grid; grid-template-columns: 52px 110px minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 3px 6px; border-left: 2px solid #2a9fc4; background: rgba(255,255,255,.025); font-size: 9px; }
-:deep(.timeline-event-row time) { color: #79daf4; font: 9px Consolas,monospace; }
-:deep(.timeline-event-row b) { color: #cceaf3; font-size: 9px; letter-spacing: .2px; }
-:deep(.timeline-event-row span) { min-width: 0; overflow: hidden; color: #91a9b6; text-overflow: ellipsis; white-space: nowrap; }
-:deep(.timeline-event-row em) { color: #657d8b; font-size: 8px; font-style: normal; }
-:deep(.timeline-event-more) { padding: 6px 7px; color: #6f8999; font-size: 9px; text-align: center; }
+.timeline-kpis b { color: #1c1d20; font: 750 13px/1.1 'Oxanium',sans-serif; }
+.timeline-kpis em { color: #92979e; font-size: 9px; font-style: normal; }
+.timeline-legend { display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 7px 14px; border-bottom: 1px solid var(--admin-border-soft, #ebeef5); color: #777d84; background: #fbfbfc; font-size: 9px; }
+.timeline-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.timeline-legend i { width: 14px; height: 5px; border-radius: 99px; }
+.timeline-legend i.gameplay { background: var(--admin-orange, #ff6a00); }
+.timeline-legend i.pause { background: #e8ac2c; }
+.timeline-legend i.intermission { background: #8d94a0; }
+.timeline-legend i.replay { background: #8d6ba8; }
+.timeline-inspector-body { min-height: 0; overflow: visible; }
+.timeline-round-stack {
+  display: grid;
+  grid-template-columns: minmax(0,1fr);
+  gap: 12px;
+  padding: 12px;
+}
+.timeline-round-block { min-width: 0; overflow: hidden; border: 1px solid #dfe3e7; border-radius: 9px; background: #fff; box-shadow: 0 3px 12px rgba(17,17,17,.025); }
+.timeline-round-head { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 9px 12px; border-bottom: 1px solid #eceff2; background: #fbfbfc; }
+.timeline-round-head>b { display: grid; place-items: center; width: 40px; height: 34px; border-radius: 7px; color: #fff; background: #202124; font: 750 12px/1 'Oxanium',sans-serif; }
+.timeline-round-head>div { display: flex; min-width: 0; flex-direction: column; }
+.timeline-round-head strong { color: #303236; font-size: 11px; }
+.timeline-round-head span { overflow: hidden; color: #92979e; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-round-head time { color: #9c4308; font: 10px/1 Consolas,monospace; }
+.timeline-round-body { padding: 10px 12px 12px; }
+.timeline-track-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #9aa0a6; font-size: 9px; }
+.timeline-round-reset { color: #9c4308 !important; font-weight: 700; }
+.timeline-telemetry { padding: 14px; }
+.timeline-telemetry-label { display: flex; justify-content: space-between; margin-bottom: 8px; color: #81868c; font-size: 10px; }
+.timeline-track { position: relative; height: 19px; overflow: hidden; border: 1px solid #e0e3e6; border-radius: 5px; background-color: #f1f3f5; background-image: linear-gradient(90deg,rgba(123,128,134,.12) 1px,transparent 1px); background-size: 10% 100%; }
+.timeline-track i { position: absolute; top: 3px; bottom: 3px; min-width: 2px; border-radius: 3px; opacity: .95; }
+.timeline-track i.gameplay { background: var(--admin-orange, #ff6a00); }
+.timeline-track i.pause { background: #e8ac2c; }
+.timeline-track i.intermission { background: #8d94a0; }
+.timeline-track i.replay { background: #8d6ba8; }
+.timeline-track i.unknown { background: #b6bbc1; }
+:deep(.timeline-event-list) { display: grid; gap: 4px; margin-top: 9px; overflow: visible; }
+:deep(.timeline-event-row) { display: grid; grid-template-columns: 54px 122px minmax(0,1fr) auto; gap: 10px; align-items: center; min-height: 30px; padding: 5px 9px; border-left: 3px solid var(--admin-orange, #ff6a00); background: #fafafa; font-size: 10px; }
+:deep(.timeline-event-row time) { color: #9c4308; font: 10px Consolas,monospace; }
+:deep(.timeline-event-row b) { color: #34363a; font-size: 10px; letter-spacing: .1px; }
+:deep(.timeline-event-row span) { min-width: 0; overflow: hidden; color: #767b81; text-overflow: ellipsis; white-space: nowrap; }
+:deep(.timeline-event-row em) { padding: 2px 6px; border-radius: 99px; color: #62676d; background: #eceff1; font-size: 8px; font-style: normal; }
+:deep(.timeline-event-more) { padding: 9px; color: #8d9298; font-size: 9px; text-align: center; }
 @keyframes timeline-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .timeline-state--loading span { animation: none; } }
 @media (max-width: 820px) {
-  .timeline-inspector { flex: none; min-height: 300px; }
-  .timeline-inspector.empty { min-height: 0; }
-  .timeline-inspector-body { max-height: 60vh; }
+  .timeline-inspector { flex: none; min-height: 0; }
+  .timeline-round-stack { height: auto; overflow: visible; }
 }
 @media (max-width: 600px) {
-  .timeline-kpis { grid-template-columns: repeat(2,1fr); }
-  .timeline-kpis span { border-bottom: 1px solid #223747; }
-  .timeline-round-head { align-items: flex-start; flex-wrap: wrap; }
-  .timeline-round-head time { width: 100%; margin-left: 0; }
-  :deep(.timeline-event-row) { grid-template-columns: 48px 94px minmax(0,1fr); }
+  .timeline-inspector-head { align-items: flex-start; flex-direction: column; }
+  .timeline-kpis { grid-template-columns: repeat(3,1fr); padding: 0; }
+  .timeline-kpis span { border-bottom: 1px solid var(--admin-border-soft, #ebeef5); }
+  .timeline-round-stack { grid-auto-rows: auto; }
+  .timeline-round-head { grid-template-columns: 28px minmax(0,1fr); }
+  .timeline-round-head time { grid-column: 2; }
+  :deep(.timeline-event-row) { grid-template-columns: 40px 86px minmax(0,1fr); }
   :deep(.timeline-event-row em) { display: none; }
 }
 </style>

@@ -184,12 +184,25 @@ async function capture(context, output, mobile = false) {
       const body = document.querySelector('.match-data-drawer .el-drawer__body');
       const drawer = document.querySelector('.match-data-drawer');
       const table = document.querySelector('.player-data-table .el-table__inner-wrapper');
+      const playerSection = document.querySelector('.player-data-section');
+      const timeline = document.querySelector('.timeline-inspector');
+      const mapTitle = document.querySelector('.map-data-titlebar');
       const rows = [...document.querySelectorAll('.player-data-table .el-table__row')]
         .filter(row => !row.classList.contains('el-table__expanded-row'));
       const last = rows.at(-1)?.getBoundingClientRect();
       const drawerRect = drawer?.getBoundingClientRect();
+      const tableRect = table?.getBoundingClientRect();
+      const timelineRect = timeline?.getBoundingClientRect();
+      const roundRects = [...document.querySelectorAll('.timeline-round-block')].map(round => round.getBoundingClientRect());
+      const eventRect = document.querySelector('.timeline-event-row')?.getBoundingClientRect();
+      const bodyOverflowY = body ? getComputedStyle(body).overflowY : '';
+      const isLight = element => {
+        const rgb = getComputedStyle(element).backgroundColor.match(/\d+/gu)?.slice(0, 3).map(Number) || [];
+        return rgb.length === 3 && rgb.reduce((sum, channel) => sum + channel, 0) / 3 > 220;
+      };
       return {
-        bodyFits: body ? body.scrollHeight <= body.clientHeight + 1 : false,
+        bodyScrollable: body ? body.scrollHeight > body.clientHeight + 1 : false,
+        bodyOverflowY,
         bodyScrollHeight: body?.scrollHeight || 0,
         bodyClientHeight: body?.clientHeight || 0,
         drawerLeft: drawerRect?.left || 0,
@@ -198,20 +211,40 @@ async function capture(context, output, mobile = false) {
         tableScrollWidth: table?.scrollWidth || 0,
         tableClientWidth: table?.clientWidth || 0,
         lastRowBottom: last?.bottom || Number.POSITIVE_INFINITY,
+        timelineAfterPlayers: Boolean(playerSection && timeline && (playerSection.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        timelineBelowTable: Boolean(tableRect && timelineRect && timelineRect.top >= tableRect.bottom - 1),
+        roundsStacked: roundRects.length > 1 && roundRects[1].top >= roundRects[0].bottom + 8,
+        roundWidth: roundRects[0]?.width || 0,
+        timelineWidth: timelineRect?.width || 0,
+        eventRowHeight: eventRect?.height || 0,
+        timelineIsLight: Boolean(timeline && isLight(timeline)),
+        mapTitleIsLight: Boolean(mapTitle && isLight(mapTitle)),
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight
       };
     });
-    assert.equal(layout.bodyFits, true, JSON.stringify(layout));
+    assert.equal(layout.bodyScrollable, true, JSON.stringify(layout));
+    assert.ok(['auto', 'scroll'].includes(layout.bodyOverflowY), JSON.stringify(layout));
     assert.equal(layout.tableFits, true, JSON.stringify(layout));
     assert.ok(layout.drawerLeft <= layout.viewportWidth * 0.1, JSON.stringify(layout));
     assert.ok(layout.lastRowBottom <= layout.viewportHeight, JSON.stringify(layout));
+    assert.equal(layout.timelineAfterPlayers, true, JSON.stringify(layout));
+    assert.equal(layout.timelineBelowTable, true, JSON.stringify(layout));
+    assert.equal(layout.roundsStacked, true, JSON.stringify(layout));
+    assert.ok(layout.roundWidth >= layout.timelineWidth * 0.9, JSON.stringify(layout));
+    assert.ok(layout.eventRowHeight >= 28, JSON.stringify(layout));
+    assert.equal(layout.timelineIsLight, true, JSON.stringify(layout));
+    assert.equal(layout.mapTitleIsLight, true, JSON.stringify(layout));
     assert.equal(await page.getByRole('button', { name: '查看原始时间线' }).count(), 0);
     assert.equal(await page.locator('.timeline-round-block').count(), 2);
     assert.equal(await page.locator('.timeline-round-reset').filter({ hasText: '从 0:00 计时' }).count(), 2);
     assert.equal(await page.locator('.timeline-track i').count(), 4);
   }
   await page.screenshot({ path: output, fullPage: true });
+  const timelineOutput = output.replace(/\.png$/u, '-timeline.png');
+  await page.locator('.timeline-inspector').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  await page.screenshot({ path: timelineOutput, fullPage: true });
   await page.locator('.player-data-table .el-table__expand-icon').first().click();
   await page.getByText('平均充能').first().waitFor();
   await page.getByRole('button', { name: /好莱坞/u }).click();
@@ -220,6 +253,7 @@ async function capture(context, output, mobile = false) {
   await page.locator('.timeline-inspector-head code').filter({ hasText: 'r3' }).waitFor();
   assert.match(await page.locator('.timeline-event-row').first().innerText(), /hero_selected/u);
   await page.close();
+  return timelineOutput;
 }
 
 try {
@@ -232,9 +266,9 @@ try {
   await mkdir(outputDirectory, { recursive: true });
   const desktop = join(outputDirectory, 'match-data-desktop.png');
   const mobile = join(outputDirectory, 'match-data-mobile.png');
-  await capture(await browser.newContext({ viewport: { width: 1600, height: 1000 } }), desktop);
-  await capture(await browser.newContext({ viewport: { width: 700, height: 1050 } }), mobile, true);
-  process.stdout.write(JSON.stringify({ desktop, mobile }, null, 2) + '\n');
+  const desktopTimeline = await capture(await browser.newContext({ viewport: { width: 1600, height: 1000 } }), desktop);
+  const mobileTimeline = await capture(await browser.newContext({ viewport: { width: 700, height: 1050 } }), mobile, true);
+  process.stdout.write(JSON.stringify({ desktop, desktopTimeline, mobile, mobileTimeline }, null, 2) + '\n');
 } finally {
   await browser?.close();
   vite.kill();
