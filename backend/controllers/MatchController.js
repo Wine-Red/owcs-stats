@@ -324,7 +324,12 @@ const MatchController = {
           { model: Team, as: 'winner' },
           { model: Map },
           { model: Hero, as: 'team1BanHero' },
-          { model: Hero, as: 'team2BanHero' }
+          { model: Hero, as: 'team2BanHero' },
+          {
+            model: MapGameTimeline,
+            as: 'timeline',
+            attributes: { exclude: ['payload'] }
+          }
         ]
       });
       res.status(200).json(mapGames);
