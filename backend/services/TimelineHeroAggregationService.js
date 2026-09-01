@@ -1,5 +1,6 @@
 const integer = value => Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0;
 const lower = value => String(value || '').trim().toLocaleLowerCase('en-US');
+const MIN_HERO_USAGE_MS = 30_000;
 
 const parseKad = value => {
   const [kills = 0, assists = 0, deaths = 0] = String(value || '').split('/').map(integer);
@@ -177,23 +178,27 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
     }
 
     const totalUsageMs = [...heroRows.values()].reduce((sum, hero) => sum + hero._usageMs, 0);
-    const heroes = [...heroRows.values()].map(row => {
-      const charge = row._chargeSamples.length
-        ? row._chargeSamples.reduce((sum, value) => sum + value, 0) / row._chargeSamples.length
-        : null;
-      const result = {
-        heroId: row.heroId,
-        hero: row.hero,
-        usageSeconds: Math.round(row._usageMs / 1000),
-        usagePercentage: totalUsageMs ? Math.round(row._usageMs / totalUsageMs * 10_000) / 100 : 0,
-        ultReady: row.ultReady,
-        ultUsed: row.ultUsed,
-        avgUltChargeSeconds: charge === null ? null : Math.round(charge * 100) / 100,
-        finalBlows: row.finalBlows,
-        deathsByFinalBlow: row.deathsByFinalBlow
-      };
-      return result;
-    }).sort((left, right) => right.usageSeconds - left.usageSeconds || left.heroId.localeCompare(right.heroId));
+    const playerFinalBlows = [...heroRows.values()]
+      .reduce((sum, hero) => sum + integer(hero.finalBlows), 0);
+    const heroes = [...heroRows.values()]
+      .filter(row => row._usageMs > MIN_HERO_USAGE_MS)
+      .map(row => {
+        const charge = row._chargeSamples.length
+          ? row._chargeSamples.reduce((sum, value) => sum + value, 0) / row._chargeSamples.length
+          : null;
+        const result = {
+          heroId: row.heroId,
+          hero: row.hero,
+          usageSeconds: Math.round(row._usageMs / 1000),
+          usagePercentage: totalUsageMs ? Math.round(row._usageMs / totalUsageMs * 10_000) / 100 : 0,
+          ultReady: row.ultReady,
+          ultUsed: row.ultUsed,
+          avgUltChargeSeconds: charge === null ? null : Math.round(charge * 100) / 100,
+          finalBlows: row.finalBlows,
+          deathsByFinalBlow: row.deathsByFinalBlow
+        };
+        return result;
+      }).sort((left, right) => right.usageSeconds - left.usageSeconds || left.heroId.localeCompare(right.heroId));
     const result = {
       ...fallback,
       playerId,
@@ -202,7 +207,7 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       // MatchWeb's source scoreboard is authoritative for every player-level
       // statistic except final blows, which are only present in the timeline.
       kad: fallback.kad || '0/0/0',
-      finalBlows: heroes.reduce((sum, hero) => sum + integer(hero.finalBlows), 0),
+      finalBlows: playerFinalBlows,
       heroes
     };
     if (player.teamSide === 'A') results.playersA.push(result);
@@ -222,5 +227,6 @@ module.exports = {
   buildTimelineMirrorAttributes,
   clearTimelineDerivedPlayerData,
   heroIdentity,
+  MIN_HERO_USAGE_MS,
   parseKad
 };

@@ -87,11 +87,11 @@ test('round-local aggregation resets hero state when every round restarts at zer
   const result = aggregateTimeline({
     schemaVersion: 2,
     timebase: { kind: 'round-local' },
-    media: { durationMs: 20_000 },
+    media: { durationMs: 80_000 },
     players: [{ playerId: 'TANK', displayName: 'TANK', teamSide: 'A', role: 'tank', slot: 0 }],
     rounds: [
-      { roundId: 'round-1', index: 1, startMs: 0, endMs: 10_000, durationMs: 10_000 },
-      { roundId: 'round-2', index: 2, startMs: 0, endMs: 10_000, durationMs: 10_000 }
+      { roundId: 'round-1', index: 1, startMs: 0, endMs: 40_000, durationMs: 40_000 },
+      { roundId: 'round-2', index: 2, startMs: 0, endMs: 40_000, durationMs: 40_000 }
     ],
     // Deliberately interleaved by local timestamp: ordering must still follow round index.
     events: [
@@ -107,10 +107,33 @@ test('round-local aggregation resets hero state when every round restarts at zer
   const tank = result.playersA[0];
   assert.equal(tank.kad, '8/2/3');
   assert.deepEqual(tank.heroes.map(hero => [hero.heroId, hero.usageSeconds, hero.finalBlows]), [
-    ['dva', 10, 1],
-    ['winston', 10, 1]
+    ['dva', 40, 1],
+    ['winston', 40, 1]
   ]);
   assert.equal(tank.finalBlows, 2);
+});
+
+test('hero aggregation keeps only usage strictly over 30 seconds without reducing player final blows', () => {
+  const result = aggregateTimeline({
+    schemaVersion: 1,
+    media: { durationMs: 61_000 },
+    players: [{ playerId: 'DPS', displayName: 'DPS', teamSide: 'A', role: 'damage', slot: 0 }],
+    rounds: [{ roundId: 'round-1', startMs: 0, endMs: 61_000 }],
+    events: [
+      { eventId: 'select-tracer', timeMs: 0, type: 'hero_selected', status: 'confirmed', roundId: 'round-1', playerId: 'DPS', heroId: 'tracer', heroName: '猎空' },
+      { eventId: 'tracer-kill', timeMs: 10_000, type: 'kill', status: 'confirmed', roundId: 'round-1', killerId: 'DPS', victimId: 'OTHER' },
+      { eventId: 'switch-ana', timeMs: 30_000, type: 'hero_switch', status: 'confirmed', roundId: 'round-1', playerId: 'DPS', heroId: 'ana', heroName: '安娜' },
+      { eventId: 'ana-kill', timeMs: 50_000, type: 'kill', status: 'confirmed', roundId: 'round-1', killerId: 'DPS', victimId: 'OTHER' }
+    ]
+  }, {
+    playersA: [{ playerId: 'DPS', name: 'DPS', kad: '2/0/0' }],
+    playersB: []
+  });
+
+  assert.equal(result.playersA[0].finalBlows, 2);
+  assert.deepEqual(result.playersA[0].heroes.map(hero => [hero.heroId, hero.usageSeconds, hero.finalBlows]), [
+    ['ana', 31, 1]
+  ]);
 });
 
 test('deleting a timeline clears hero and final-blow aggregates only', () => {
