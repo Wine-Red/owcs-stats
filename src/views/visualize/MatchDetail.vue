@@ -1807,6 +1807,13 @@ export default {
   color: #ff6a00;
 }
 
+.left-team .team-name,
+.left-team .team-name.winner {
+  color: #111;
+  background: none;
+  -webkit-text-fill-color: #111;
+}
+
 .team-name.winner {
   background: var(--vis-primary-gradient);
   -webkit-background-clip: text;
@@ -2809,6 +2816,8 @@ export default {
   box-shadow: 0 1px 3px rgba(19, 22, 26, .2);
   font: 800 7px/1 var(--vis-font-numeric);
   font-variant-numeric: tabular-nums;
+  transform: scale(.5);
+  transform-origin: top right;
 }
 
 .player-hero-fallback {

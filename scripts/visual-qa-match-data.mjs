@@ -322,6 +322,10 @@ async function capturePublic(context, output, mobile = false) {
   assert.equal(await page.locator('.stat-player-summary').count(), 10);
   assert.equal(await page.locator('.sp-expand').count(), 10);
   assert.equal(await page.locator('.player-hero-drawer, .player-hero-card').count(), 0);
+  assert.deepEqual(
+    await page.locator('.match-banner .team-name').evaluateAll(names => names.map(name => getComputedStyle(name).color)),
+    ['rgb(17, 17, 17)', 'rgb(255, 106, 0)']
+  );
 
   const firstPlayerSummary = page.locator('.stat-player-summary').first();
   const collapsedPlayerHeight = await firstPlayerSummary.evaluate(element => element.getBoundingClientRect().height);
@@ -362,6 +366,11 @@ async function capturePublic(context, output, mobile = false) {
     await firstHeroDrawer.locator('.player-hero-usage').allInnerTexts(),
     ['66%', '20%', '10%', '4%']
   );
+  const usageBadgeRects = await firstHeroDrawer.locator('.player-hero-usage').evaluateAll(badges => badges.map(badge => {
+    const rect = badge.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  assert.ok(usageBadgeRects.every(rect => rect.width <= 14 && rect.height <= 7), JSON.stringify(usageBadgeRects));
   assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*平均充能\s*128s/u);
   const averageChargePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
     const label = element.querySelector('dt');
@@ -381,6 +390,13 @@ async function capturePublic(context, output, mobile = false) {
 
   await page.getByRole('radio', { name: '地图分析' }).click();
   await page.getByRole('heading', { name: '时间线' }).waitFor();
+  assert.deepEqual(
+    await page.locator('.lane-label--player i').evaluateAll(indicators => [
+      getComputedStyle(indicators[0]).backgroundColor,
+      getComputedStyle(indicators.at(-1)).backgroundColor
+    ]),
+    ['rgb(17, 17, 17)', 'rgb(255, 106, 0)']
+  );
   const initialZoomSlider = page.getByRole('slider', { name: '时间线缩放' });
   assert.equal(Number(await initialZoomSlider.inputValue()), Number(await initialZoomSlider.getAttribute('max')));
   await page.getByRole('button', { name: /R2/u }).click();

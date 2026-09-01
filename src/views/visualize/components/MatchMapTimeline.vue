@@ -591,8 +591,8 @@ onBeforeUnmount(() => {
 .lane-label--axis { height: 20px; color: #626b74; font-weight: 800; }
 .lane-label--last-blow { height: 18px; color: #8b939b; }
 .lane-label--player { height: var(--lane-height); gap: 6px; }
-.lane-label--player i { width: 3px; height: 9px; flex: 0 0 3px; background: #38b9dc; }
-.lane-label--player.is-team2 i { background: #ff7a2f; }
+.lane-label--player i { width: 3px; height: 9px; flex: 0 0 3px; background: var(--vis-team-left, #111); }
+.lane-label--player.is-team2 i { background: var(--vis-team-right, #ff6a00); }
 .lane-label--player span { min-width: 0; overflow: hidden; color: #626b74; font: 700 7px/1 var(--vis-font-numeric); text-overflow: ellipsis; white-space: nowrap; }
 
 .map-timeline__viewport { min-width: 0; overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-color: #aab2b9 #f1f3f5; scrollbar-width: thin; touch-action: pan-y pinch-zoom; overscroll-behavior-x: contain; user-select: none; }
