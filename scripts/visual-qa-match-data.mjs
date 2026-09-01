@@ -384,10 +384,18 @@ async function capturePublic(context, output, mobile = false) {
   const viewport = page.locator('.map-timeline__viewport');
   const canvas = page.locator('.map-timeline__canvas');
   const lane = page.locator('.player-event-lane').first();
-  const beforePinch = {
-    width: await canvas.evaluate(element => element.getBoundingClientRect().width),
-    laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height)
+  const zoomSlider = page.getByRole('slider', { name: '时间线缩放' });
+  const defaultScale = {
+    width: await canvas.evaluate(element => Number.parseFloat(element.style.width)),
+    laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height),
+    value: Number(await zoomSlider.inputValue()),
+    min: Number(await zoomSlider.getAttribute('min')),
+    max: Number(await zoomSlider.getAttribute('max'))
   };
+  assert.equal(defaultScale.value, defaultScale.max, JSON.stringify(defaultScale));
+  assert.ok(defaultScale.min < defaultScale.max, JSON.stringify(defaultScale));
+
+  // Two touch pointers must not change the time scale now that zoom is an explicit slider.
   await viewport.evaluate(element => {
     const rect = element.getBoundingClientRect();
     const fire = (type, pointerId, x) => element.dispatchEvent(new PointerEvent(type, {
@@ -406,30 +414,50 @@ async function capturePublic(context, output, mobile = false) {
     fire('pointerup', 101, 80);
   });
   await page.waitForTimeout(180);
-  const afterPinch = {
-    width: await canvas.evaluate(element => element.getBoundingClientRect().width),
+  const afterTwoFingerGesture = {
+    width: await canvas.evaluate(element => Number.parseFloat(element.style.width)),
     laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height)
   };
-  assert.ok(afterPinch.width > beforePinch.width * 1.2, JSON.stringify({ beforePinch, afterPinch }));
-  assert.ok(Math.abs(afterPinch.laneHeight - beforePinch.laneHeight) < 1, JSON.stringify({ beforePinch, afterPinch }));
+  assert.ok(Math.abs(afterTwoFingerGesture.width - defaultScale.width) < 1, JSON.stringify({ defaultScale, afterTwoFingerGesture }));
+  assert.ok(Math.abs(afterTwoFingerGesture.laneHeight - defaultScale.laneHeight) < 1, JSON.stringify({ defaultScale, afterTwoFingerGesture }));
   await page.getByRole('button', { name: '大招', exact: true }).click();
   assert.ok(await page.locator('.lane-marker.ultimate').count() >= 3);
   assert.equal(await page.locator('.lane-marker:not(.ultimate)').count(), 0);
   await page.getByRole('button', { name: '全部', exact: true }).click();
 
-  assert.equal(await viewport.evaluate(element => element.scrollWidth > element.clientWidth), true);
+  const hasHorizontalOverflow = await viewport.evaluate(element => element.scrollWidth > element.clientWidth);
+  if (hasHorizontalOverflow) {
+    await viewport.evaluate(element => {
+      element.scrollLeft = Math.max(120, (element.scrollWidth - element.clientWidth) * 0.35);
+    });
+    const scrollBeforeDrag = await viewport.evaluate(element => element.scrollLeft);
+    const viewportBox = await viewport.boundingBox();
+    assert.ok(viewportBox);
+    await page.mouse.move(viewportBox.x + viewportBox.width * 0.72, viewportBox.y + 80);
+    await page.mouse.down();
+    await page.mouse.move(viewportBox.x + viewportBox.width * 0.45, viewportBox.y + 80, { steps: 4 });
+    await page.mouse.up();
+    const scrollAfterRelease = await viewport.evaluate(element => element.scrollLeft);
+    assert.ok(scrollAfterRelease > scrollBeforeDrag, JSON.stringify({ scrollBeforeDrag, scrollAfterRelease }));
+    await page.waitForTimeout(180);
+    const scrollAfterMomentum = await viewport.evaluate(element => element.scrollLeft);
+    assert.ok(scrollAfterMomentum > scrollAfterRelease + 1, JSON.stringify({ scrollBeforeDrag, scrollAfterRelease, scrollAfterMomentum }));
+  }
 
-  await viewport.evaluate(element => { element.scrollLeft = Math.min(220, element.scrollWidth - element.clientWidth); });
-  const scrollBeforeDrag = await viewport.evaluate(element => element.scrollLeft);
-  const viewportBox = await viewport.boundingBox();
-  assert.ok(viewportBox);
-  await page.mouse.move(viewportBox.x + viewportBox.width * 0.55, viewportBox.y + 80);
-  await page.mouse.down();
-  await page.mouse.move(viewportBox.x + viewportBox.width * 0.72, viewportBox.y + 80, { steps: 5 });
-  await page.mouse.up();
-  const scrollAfterDrag = await viewport.evaluate(element => element.scrollLeft);
-  assert.ok(scrollAfterDrag < scrollBeforeDrag, JSON.stringify({ scrollBeforeDrag, scrollAfterDrag }));
-  await page.waitForTimeout(180);
+  await zoomSlider.evaluate(element => {
+    element.value = element.min;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(80);
+  const compactScale = {
+    width: await canvas.evaluate(element => Number.parseFloat(element.style.width)),
+    laneHeight: await lane.evaluate(element => element.getBoundingClientRect().height),
+    value: Number(await zoomSlider.inputValue())
+  };
+  assert.equal(compactScale.value, defaultScale.min, JSON.stringify({ defaultScale, compactScale }));
+  assert.ok(compactScale.width < defaultScale.width * 0.6, JSON.stringify({ defaultScale, compactScale }));
+  assert.ok(Math.abs(compactScale.laneHeight - defaultScale.laneHeight) < 1, JSON.stringify({ defaultScale, compactScale }));
+
   await page.locator('.lane-marker.ultimate').first().evaluate(element => element.click());
   await page.locator('.map-timeline__selection').waitFor();
   const timelineOutput = output.replace(/\.png$/u, '-timeline.png');
@@ -473,7 +501,9 @@ async function capturePublic(context, output, mobile = false) {
       phaseLaneCount: document.querySelectorAll('.phase-lane').length,
       tickLaneCount: document.querySelectorAll('.tick-lane').length,
       axisLabel: document.querySelector('.lane-label--axis')?.textContent?.trim() || '',
-      zoomControlCount: document.querySelectorAll('.map-timeline__zoom').length
+      zoomControlCount: document.querySelectorAll('.map-timeline__zoom').length,
+      zoomValueText: document.querySelector('.map-timeline__zoom output')?.textContent?.trim() || '',
+      viewportLabel: document.querySelector('.map-timeline__viewport')?.getAttribute('aria-label') || ''
     };
   });
   assert.equal(layout.horizontalOverflow, false, JSON.stringify(layout));
@@ -486,13 +516,15 @@ async function capturePublic(context, output, mobile = false) {
   assert.ok(layout.boardHeight > 200 && layout.boardHeight <= 255, JSON.stringify(layout));
   assert.equal(layout.boardIsLight, true, JSON.stringify(layout));
   assert.ok(layout.minRoundWidth >= 50, JSON.stringify(layout));
-  assert.ok(layout.toolbarHeight <= 36, JSON.stringify(layout));
+  assert.ok(layout.toolbarHeight >= 44 && layout.toolbarHeight <= 48, JSON.stringify(layout));
   assert.ok(layout.roundToFilterGap <= 6, JSON.stringify(layout));
   assert.ok(layout.roundLabelBottomGap <= 12, JSON.stringify(layout));
   assert.equal(layout.phaseLaneCount, 0, JSON.stringify(layout));
   assert.equal(layout.tickLaneCount, 1, JSON.stringify(layout));
   assert.equal(layout.axisLabel, 'R2', JSON.stringify(layout));
-  assert.equal(layout.zoomControlCount, 0, JSON.stringify(layout));
+  assert.equal(layout.zoomControlCount, 1, JSON.stringify(layout));
+  assert.equal(layout.zoomValueText, '45%', JSON.stringify(layout));
+  assert.doesNotMatch(layout.viewportLabel, /双指|缩放/u, JSON.stringify(layout));
   if (mobile) assert.ok(layout.timelineWidth >= layout.viewportWidth - 2, JSON.stringify(layout));
   assert.equal(await page.getByText('ROUND TELEMETRY').count(), 0);
   assert.equal(await page.getByText('每个有效回合独立从 0:00 计时').count(), 0);

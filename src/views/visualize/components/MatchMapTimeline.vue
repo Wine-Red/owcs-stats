@@ -37,6 +37,23 @@
             <i></i>{{ filter.label }}
           </button>
         </div>
+        <label
+          class="map-timeline__zoom"
+          :style="{ '--zoom-progress': `${zoomProgress}%` }"
+        >
+          <span>缩放</span>
+          <input
+            type="range"
+            :min="minZoom"
+            :max="maxZoom"
+            :step="zoomStep"
+            :value="zoom"
+            aria-label="时间线缩放"
+            :aria-valuetext="`${zoomPercent}%`"
+            @input="handleZoomInput"
+          />
+          <output>{{ zoomPercent }}%</output>
+        </label>
       </div>
 
       <div class="map-timeline__board">
@@ -57,7 +74,7 @@
           ref="trackViewport"
           class="map-timeline__viewport"
           :class="{ dragging: isDragging }"
-          aria-label="可左右拖动、双指水平缩放的回合时间线"
+          aria-label="可左右拖动的回合时间线"
           @pointerdown="handlePointerDown"
           @pointermove="handlePointerMove"
           @pointerup="handlePointerEnd"
@@ -125,21 +142,23 @@ const props = defineProps({
   error: { type: String, default: '' }
 });
 
-const minZoom = 1;
-const maxZoom = 3.5;
-const zoomStep = 0.25;
+const minZoom = 0.45;
+const maxZoom = 1;
+const zoomStep = 0.05;
 const activeRoundId = ref('');
 const activeFilter = ref('all');
 const selectedEvent = ref(null);
-const zoom = ref(1);
+const zoom = ref(maxZoom);
 const isDragging = ref(false);
 const trackViewport = ref(null);
 
-const pointers = new Map();
+let activePointerId = null;
 let dragOrigin = null;
-let pinchOrigin = null;
+let dragSample = null;
+let dragVelocity = 0;
 let lastDragAt = 0;
 let zoomFrame = 0;
+let momentumFrame = 0;
 
 const hasTimeline = computed(() => Boolean(props.mapGame?.timeline));
 const players = computed(() => Array.isArray(props.payload?.players) ? props.payload.players : []);
@@ -258,6 +277,10 @@ const baseCanvasWidth = computed(() => {
   return Math.round(Math.min(4200, Math.max(820, densityWidth)));
 });
 const canvasWidth = computed(() => Math.round(baseCanvasWidth.value * zoom.value));
+const zoomPercent = computed(() => Math.round(zoom.value * 100));
+const zoomProgress = computed(() => (
+  (zoom.value - minZoom) / Math.max(0.01, maxZoom - minZoom) * 100
+));
 const tickViews = computed(() => {
   const duration = Math.max(1, Number(activeRound.value?.durationMs || 0));
   const divisions = Math.max(4, Math.min(8, Math.round(canvasWidth.value / 180)));
@@ -290,11 +313,13 @@ const selectFilter = value => {
 
 function resetView(resetRound = false) {
   if (resetRound) activeRoundId.value = '';
-  zoom.value = 1;
+  zoom.value = maxZoom;
   selectedEvent.value = null;
-  pointers.clear();
+  cancelMomentum();
+  activePointerId = null;
   dragOrigin = null;
-  pinchOrigin = null;
+  dragSample = null;
+  dragVelocity = 0;
   isDragging.value = false;
   nextTick(() => { if (trackViewport.value) trackViewport.value.scrollLeft = 0; });
 }
@@ -305,6 +330,7 @@ const setZoomAround = (value, clientX) => {
   const viewport = trackViewport.value;
   const nextZoom = clampZoom(value);
   if (!viewport || nextZoom === zoom.value) return;
+  cancelMomentum();
   const rect = viewport.getBoundingClientRect();
   const offset = Number.isFinite(clientX) ? clientX - rect.left : viewport.clientWidth / 2;
   const ratio = (viewport.scrollLeft + offset) / Math.max(1, canvasWidth.value);
@@ -315,53 +341,58 @@ const setZoomAround = (value, clientX) => {
   });
 };
 
-const pointerDistance = values => Math.abs(values[0].x - values[1].x);
-const pointerMidpoint = values => (values[0].x + values[1].x) / 2;
+const handleZoomInput = event => {
+  setZoomAround(Number(event.target?.value), Number.NaN);
+};
+
+const prefersReducedMotion = () => (
+  typeof window !== 'undefined'
+  && typeof window.matchMedia === 'function'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+);
+
+function cancelMomentum() {
+  cancelAnimationFrame(momentumFrame);
+  momentumFrame = 0;
+}
+
+const startMomentum = initialVelocity => {
+  const viewport = trackViewport.value;
+  if (!viewport || prefersReducedMotion() || Math.abs(initialVelocity) < 0.06) return;
+  cancelMomentum();
+  let velocity = Math.max(-2.4, Math.min(2.4, initialVelocity));
+  let previousTime = performance.now();
+  const glide = currentTime => {
+    const deltaTime = Math.min(32, Math.max(1, currentTime - previousTime));
+    previousTime = currentTime;
+    const previousScroll = viewport.scrollLeft;
+    viewport.scrollLeft += velocity * deltaTime;
+    const actualDelta = viewport.scrollLeft - previousScroll;
+    velocity *= Math.pow(0.94, deltaTime / 16.67);
+    if (Math.abs(velocity) < 0.025 || Math.abs(actualDelta) < 0.1) {
+      momentumFrame = 0;
+      return;
+    }
+    momentumFrame = requestAnimationFrame(glide);
+  };
+  momentumFrame = requestAnimationFrame(glide);
+};
 
 const handlePointerDown = event => {
   const viewport = trackViewport.value;
-  if (!viewport) return;
-  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (!viewport || activePointerId !== null) return;
+  cancelMomentum();
+  activePointerId = event.pointerId;
   try { viewport.setPointerCapture(event.pointerId); } catch { /* synthetic pointers do not support capture */ }
-
-  if (pointers.size === 1) {
-    dragOrigin = { x: event.clientX, y: event.clientY, scrollLeft: viewport.scrollLeft, axis: event.pointerType === 'mouse' ? 'x' : '' };
-    isDragging.value = event.pointerType === 'mouse';
-  } else if (pointers.size === 2) {
-    const values = [...pointers.values()];
-    const rect = viewport.getBoundingClientRect();
-    const midpoint = pointerMidpoint(values);
-    pinchOrigin = {
-      distance: Math.max(20, pointerDistance(values)),
-      zoom: zoom.value,
-      contentRatio: (viewport.scrollLeft + midpoint - rect.left) / Math.max(1, canvasWidth.value)
-    };
-    isDragging.value = true;
-  }
+  dragOrigin = { x: event.clientX, y: event.clientY, scrollLeft: viewport.scrollLeft, axis: event.pointerType === 'mouse' ? 'x' : '' };
+  dragSample = { scrollLeft: viewport.scrollLeft, time: performance.now() };
+  dragVelocity = 0;
+  isDragging.value = event.pointerType === 'mouse';
 };
 
 const handlePointerMove = event => {
   const viewport = trackViewport.value;
-  if (!viewport || !pointers.has(event.pointerId)) return;
-  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
-  if (pointers.size >= 2 && pinchOrigin) {
-    event.preventDefault();
-    const values = [...pointers.values()].slice(0, 2);
-    const distance = Math.max(20, pointerDistance(values));
-    const nextZoom = clampZoom(pinchOrigin.zoom * distance / pinchOrigin.distance);
-    const midpoint = pointerMidpoint(values);
-    const rect = viewport.getBoundingClientRect();
-    const contentRatio = pinchOrigin.contentRatio;
-    zoom.value = nextZoom;
-    cancelAnimationFrame(zoomFrame);
-    zoomFrame = requestAnimationFrame(() => {
-      viewport.scrollLeft = contentRatio * canvasWidth.value - (midpoint - rect.left);
-    });
-    lastDragAt = Date.now();
-    return;
-  }
-
+  if (!viewport || event.pointerId !== activePointerId) return;
   if (!dragOrigin) return;
   const dx = event.clientX - dragOrigin.x;
   const dy = event.clientY - dragOrigin.y;
@@ -371,29 +402,40 @@ const handlePointerMove = event => {
   if (dragOrigin.axis !== 'x') return;
   event.preventDefault();
   viewport.scrollLeft = dragOrigin.scrollLeft - dx;
+  const now = performance.now();
+  if (dragSample) {
+    const deltaTime = Math.max(1, now - dragSample.time);
+    const instantVelocity = (viewport.scrollLeft - dragSample.scrollLeft) / deltaTime;
+    dragVelocity = dragVelocity * 0.62 + instantVelocity * 0.38;
+  }
+  dragSample = { scrollLeft: viewport.scrollLeft, time: now };
   isDragging.value = true;
   if (Math.abs(dx) > 4) lastDragAt = Date.now();
 };
 
 const handlePointerEnd = event => {
-  pointers.delete(event.pointerId);
-  if (pointers.size === 1) {
-    const [remaining] = pointers.values();
-    dragOrigin = { x: remaining.x, y: remaining.y, scrollLeft: trackViewport.value?.scrollLeft || 0, axis: '' };
-    pinchOrigin = null;
-  } else if (pointers.size === 0) {
-    dragOrigin = null;
-    pinchOrigin = null;
-    isDragging.value = false;
+  if (event.pointerId !== activePointerId) return;
+  const shouldGlide = event.type !== 'pointercancel' && dragOrigin?.axis === 'x';
+  const releaseDelay = dragSample ? performance.now() - dragSample.time : Number.POSITIVE_INFINITY;
+  const releaseVelocity = releaseDelay < 100
+    ? dragVelocity * Math.max(0, 1 - releaseDelay / 140)
+    : 0;
+  try { trackViewport.value?.releasePointerCapture(event.pointerId); } catch { /* pointer capture may already be released */ }
+  activePointerId = null;
+  dragOrigin = null;
+  dragSample = null;
+  isDragging.value = false;
+  if (shouldGlide) {
+    lastDragAt = Date.now();
+    startMomentum(releaseVelocity);
   }
+  dragVelocity = 0;
 };
 
 const handleWheel = event => {
-  if (event.ctrlKey || event.metaKey) {
+  if (event.shiftKey && !event.ctrlKey && !event.metaKey && trackViewport.value) {
     event.preventDefault();
-    setZoomAround(zoom.value + (event.deltaY < 0 ? zoomStep : -zoomStep), event.clientX);
-  } else if (event.shiftKey && trackViewport.value) {
-    event.preventDefault();
+    cancelMomentum();
     trackViewport.value.scrollLeft += event.deltaY;
   }
 };
@@ -438,7 +480,10 @@ const eventSummary = event => {
   return [actor, String(event?.type || '').replaceAll('_', ' ')].filter(Boolean).join(' · ') || '比赛事件';
 };
 
-onBeforeUnmount(() => cancelAnimationFrame(zoomFrame));
+onBeforeUnmount(() => {
+  cancelAnimationFrame(zoomFrame);
+  cancelMomentum();
+});
 </script>
 
 <style scoped>
@@ -475,16 +520,27 @@ onBeforeUnmount(() => cancelAnimationFrame(zoomFrame));
 .map-timeline__rounds b { font: 900 12px/1 var(--vis-font-display); }
 .map-timeline__rounds span { font: 700 9px/1 var(--vis-font-numeric); }
 
-.map-timeline__toolbar { display: flex; min-height: 34px; align-items: center; gap: 12px; }
-.map-timeline__filters { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+.map-timeline__toolbar { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 10px; }
+.map-timeline__filters { display: flex; min-width: 0; flex: 1 1 auto; gap: 5px; overflow-x: auto; scrollbar-width: none; }
 .map-timeline__filters::-webkit-scrollbar { display: none; }
-.map-timeline__filters button { display: inline-flex; min-height: 26px; flex: 0 0 auto; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; color: #7c828b; background: #f5f6f8; cursor: pointer; font-size: 9px; font-weight: 700; }
+.map-timeline__filters button { display: inline-flex; min-height: 34px; flex: 0 0 auto; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; color: #7c828b; background: #f5f6f8; cursor: pointer; font-size: 9px; font-weight: 700; }
 .map-timeline__filters button i { width: 6px; height: 6px; border-radius: 50%; background: #9299a2; }
 .map-timeline__filters button.kill i { border-radius: 1px; background: var(--event-kill); transform: rotate(45deg); }
 .map-timeline__filters button.ultimate i { border-radius: 1px; background: var(--event-ultimate); }
 .map-timeline__filters button.hero i { background: var(--event-hero); }
 .map-timeline__filters button.death i { background: var(--event-death); }
 .map-timeline__filters button.active { border-color: #dfe3e7; color: #26292e; background: #fff; }
+
+.map-timeline__zoom { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 6px; color: #747c84; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.map-timeline__zoom > span { color: #858c94; }
+.map-timeline__zoom input { width: 92px; height: 44px; margin: 0; appearance: none; background: transparent; cursor: pointer; touch-action: manipulation; }
+.map-timeline__zoom input::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: linear-gradient(90deg, #ff7a2f 0 var(--zoom-progress), #dfe3e7 var(--zoom-progress) 100%); }
+.map-timeline__zoom input::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6.5px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #ff6a00; box-shadow: 0 1px 4px rgba(31, 36, 41, .28); }
+.map-timeline__zoom input::-moz-range-track { height: 3px; border: 0; border-radius: 99px; background: #dfe3e7; }
+.map-timeline__zoom input::-moz-range-progress { height: 3px; border-radius: 99px; background: #ff7a2f; }
+.map-timeline__zoom input::-moz-range-thumb { width: 13px; height: 13px; border: 2px solid #fff; border-radius: 50%; background: #ff6a00; box-shadow: 0 1px 4px rgba(31, 36, 41, .28); }
+.map-timeline__zoom input:focus-visible { outline: 2px solid rgba(255, 106, 0, .45); outline-offset: -8px; border-radius: 99px; }
+.map-timeline__zoom output { min-width: 28px; color: #444b52; font: 800 8px/1 var(--vis-font-numeric); text-align: right; }
 
 .map-timeline__board { display: grid; grid-template-columns: var(--lane-label-width) minmax(0, 1fr); overflow: hidden; border: 1px solid #dce2e7; border-radius: 7px; background: #fff; box-shadow: 0 6px 18px rgba(24, 31, 38, .055); }
 .map-timeline__labels { z-index: 3; color: #626b74; background: #f5f7f9; box-shadow: 4px 0 10px rgba(29, 38, 46, .07); }
@@ -496,12 +552,12 @@ onBeforeUnmount(() => cancelAnimationFrame(zoomFrame));
 .lane-label--player.is-team2 i { background: #ff7a2f; }
 .lane-label--player span { min-width: 0; overflow: hidden; color: #626b74; font: 700 7px/1 var(--vis-font-numeric); text-overflow: ellipsis; white-space: nowrap; }
 
-.map-timeline__viewport { min-width: 0; overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-color: #aab2b9 #f1f3f5; scrollbar-width: thin; touch-action: pan-y; overscroll-behavior-x: contain; user-select: none; }
+.map-timeline__viewport { min-width: 0; overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-color: #aab2b9 #f1f3f5; scrollbar-width: thin; touch-action: pan-y pinch-zoom; overscroll-behavior-x: contain; user-select: none; }
 .map-timeline__viewport.dragging { cursor: grabbing; }
 .map-timeline__viewport::-webkit-scrollbar { height: 7px; }
 .map-timeline__viewport::-webkit-scrollbar-track { background: #f1f3f5; }
 .map-timeline__viewport::-webkit-scrollbar-thumb { border: 2px solid #f1f3f5; border-radius: 99px; background: #aab2b9; }
-.map-timeline__canvas { position: relative; min-width: 100%; color: #4c555e; background: #fff; transition: width .12s ease-out; }
+.map-timeline__canvas { position: relative; min-width: 100%; color: #4c555e; background: #fff; }
 
 .tick-lane { position: relative; height: 20px; border-bottom: 1px solid #e1e6ea; background: #fafbfc; }
 .tick-lane span { position: absolute; top: 0; bottom: 0; padding-top: 7px; border-left: 1px solid #e1e6ea; color: #8c949c; font: 6px/1 var(--vis-font-numeric); transform: translateX(-50%); }
@@ -544,7 +600,6 @@ onBeforeUnmount(() => cancelAnimationFrame(zoomFrame));
 @keyframes timeline-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .map-timeline__spinner { animation: none; }
-  .map-timeline__canvas,
   .lane-marker { transition: none; }
 }
 
@@ -553,9 +608,13 @@ onBeforeUnmount(() => cancelAnimationFrame(zoomFrame));
   .map-timeline__topline { min-height: 40px; }
   .map-timeline__topline h3 { font-size: 14px; }
   .map-timeline__rounds button { min-width: 56px; padding-right: 7px; padding-left: 7px; }
-  .map-timeline__toolbar { min-height: 34px; }
+  .map-timeline__toolbar { min-height: 44px; gap: 7px; }
   .map-timeline__filters { margin-right: -4px; }
   .map-timeline__filters button { padding-right: 7px; padding-left: 7px; }
+  .map-timeline__zoom { gap: 4px; }
+  .map-timeline__zoom > span { display: none; }
+  .map-timeline__zoom input { width: 72px; }
+  .map-timeline__zoom output { min-width: 26px; }
   .lane-label { padding-right: 7px; padding-left: 7px; }
   .lane-label--player { gap: 5px; }
   .lane-label--player span { font-size: 7px; }
