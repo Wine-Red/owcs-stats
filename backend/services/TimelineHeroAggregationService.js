@@ -200,9 +200,9 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       name: fallback.name || player.displayName,
       role: fallback.role || player.role,
       // MatchWeb's source scoreboard is authoritative for every player-level
-      // statistic. Timeline events only enrich the per-hero breakdown below.
+      // statistic except final blows, which are only present in the timeline.
       kad: fallback.kad || '0/0/0',
-      finalBlows: integer(fallback.finalBlows),
+      finalBlows: heroes.reduce((sum, hero) => sum + integer(hero.finalBlows), 0),
       heroes
     };
     if (player.teamSide === 'A') results.playersA.push(result);
@@ -211,4 +211,16 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
   return results;
 };
 
-module.exports = { aggregateTimeline, buildTimelineMirrorAttributes, heroIdentity, parseKad };
+/** Remove every field derived from a deleted timeline while preserving raw scoreboard values. */
+const clearTimelineDerivedPlayerData = round => ({
+  playersA: (round?.playersA || []).map(player => ({ ...player, finalBlows: 0, heroes: [] })),
+  playersB: (round?.playersB || []).map(player => ({ ...player, finalBlows: 0, heroes: [] }))
+});
+
+module.exports = {
+  aggregateTimeline,
+  buildTimelineMirrorAttributes,
+  clearTimelineDerivedPlayerData,
+  heroIdentity,
+  parseKad
+};

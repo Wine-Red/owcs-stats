@@ -1,4 +1,24 @@
 const plain = value => value?.toJSON ? value.toJSON() : value;
+const roleRank = role => ({
+  t: 0, tank: 0,
+  d: 1, damage: 1, dps: 1,
+  s: 2, support: 2
+}[String(role || '').trim().toLowerCase()] ?? 3);
+
+const orderPlayerStats = (stats, match) => {
+  const teamRank = teamId => Number(teamId) === Number(match?.team1Id)
+    ? 0
+    : Number(teamId) === Number(match?.team2Id) ? 1 : 2;
+  return stats.slice().sort((left, right) => (
+    teamRank(left.teamId) - teamRank(right.teamId)
+    || roleRank(left.player?.role) - roleRank(right.player?.role)
+    || String(left.player?.name || left.playerId || '').localeCompare(
+      String(right.player?.name || right.playerId || ''),
+      'en-US',
+      { sensitivity: 'base' }
+    )
+  ));
+};
 
 const timelineSummary = timelineInput => {
   const timelineRow = plain(timelineInput);
@@ -58,7 +78,7 @@ const buildMatchDataDetail = ({ match, mapGames, playerStats }) => {
     const timeline = timelineSummary(mapGame.timeline);
     if (timeline) timelineMaps++;
     const { timeline: _timeline, ...withoutTimeline } = mapGame;
-    return { ...withoutTimeline, timeline, playerStats: stats };
+    return { ...withoutTimeline, timeline, playerStats: orderPlayerStats(stats, matchValue) };
   });
   return {
     match: matchValue,
@@ -73,4 +93,4 @@ const buildMatchDataDetail = ({ match, mapGames, playerStats }) => {
   };
 };
 
-module.exports = { buildMatchDataDetail, timelineSummary };
+module.exports = { buildMatchDataDetail, orderPlayerStats, roleRank, timelineSummary };

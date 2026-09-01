@@ -13,7 +13,11 @@ const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
-const { aggregateTimeline, buildTimelineMirrorAttributes } = require('./TimelineHeroAggregationService');
+const {
+  aggregateTimeline,
+  buildTimelineMirrorAttributes,
+  clearTimelineDerivedPlayerData
+} = require('./TimelineHeroAggregationService');
 const { normalizeTeamIdentity, buildTeamIdentityMap } = require('./TeamAliasService');
 const {
   SOURCE_TYPES,
@@ -401,7 +405,9 @@ const upsertMatchDetail = async (source, caches, transaction) => {
     } else {
       await MapGameTimeline.destroy({ where: { mapGameId: mapGame.id }, transaction });
     }
-    const aggregated = round.timeline ? aggregateTimeline(round.timeline, round) : round;
+    const aggregated = round.timeline
+      ? aggregateTimeline(round.timeline, round)
+      : clearTimelineDerivedPlayerData(round);
     const counts = await replacePlayerStats({
       mapGame,
       round: { ...round, ...aggregated },

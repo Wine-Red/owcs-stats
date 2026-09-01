@@ -31,19 +31,23 @@ test('timeline summary exposes coverage without returning the raw payload', () =
 
 test('match detail groups player and hero rows by map in round order', () => {
   const payload = buildMatchDataDetail({
-    match: { id: 7, matchDate: '2026-09-01' },
+    match: { id: 7, matchDate: '2026-09-01', team1Id: 10, team2Id: 20 },
     mapGames: [
       { id: 11, duration: 60, externalRoundIndex: 0, timeline: { schemaVersion: 1, revision: 1, payload: { events: [] } } },
       { id: 12, duration: 90, externalRoundIndex: 1, timeline: null }
     ],
     playerStats: [
-      { id: 101, mapGameId: 11, heroStats: [{ heroName: '温斯顿' }] },
+      { id: 101, mapGameId: 11, teamId: 20, player: { name: 'Support B', role: 'support' }, heroStats: [{ heroName: '温斯顿' }] },
+      { id: 103, mapGameId: 11, teamId: 10, player: { name: 'Damage A', role: 'damage' }, heroStats: [] },
+      { id: 104, mapGameId: 11, teamId: 10, player: { name: 'Tank A', role: 'tank' }, heroStats: [] },
+      { id: 105, mapGameId: 11, teamId: 20, player: { name: 'Tank B', role: 'T' }, heroStats: [] },
       { id: 102, mapGameId: 12, heroStats: [{ heroName: '安娜' }, { heroName: '禅雅塔' }] }
     ]
   });
   assert.equal(payload.summary.totalDurationSeconds, 150);
   assert.equal(payload.summary.timelineMaps, 1);
   assert.equal(payload.summary.heroStats, 3);
-  assert.equal(payload.mapGames[0].playerStats[0].id, 101);
+  assert.equal(payload.summary.playerStats, 5);
+  assert.deepEqual(payload.mapGames[0].playerStats.map(item => item.id), [104, 103, 105, 101]);
   assert.equal(payload.mapGames[1].playerStats[0].id, 102);
 });

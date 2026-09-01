@@ -150,9 +150,40 @@ async function capture(context, output, mobile = false) {
     ].join('\n'));
   }
   await page.getByText('选手与英雄数据').waitFor();
+  await page.waitForTimeout(450);
+  if (!mobile) {
+    const roles = await page.locator('.player-cell small').allTextContents();
+    assert.deepEqual(roles, ['坦克', '输出', '输出', '辅助', '辅助', '坦克', '输出', '输出', '辅助', '辅助']);
+    const layout = await page.evaluate(() => {
+      const body = document.querySelector('.match-data-drawer .el-drawer__body');
+      const drawer = document.querySelector('.match-data-drawer');
+      const table = document.querySelector('.player-data-table .el-table__inner-wrapper');
+      const rows = [...document.querySelectorAll('.player-data-table .el-table__row')]
+        .filter(row => !row.classList.contains('el-table__expanded-row'));
+      const last = rows.at(-1)?.getBoundingClientRect();
+      const drawerRect = drawer?.getBoundingClientRect();
+      return {
+        bodyFits: body ? body.scrollHeight <= body.clientHeight + 1 : false,
+        bodyScrollHeight: body?.scrollHeight || 0,
+        bodyClientHeight: body?.clientHeight || 0,
+        drawerLeft: drawerRect?.left || 0,
+        drawerRight: drawerRect?.right || 0,
+        tableFits: table ? table.scrollWidth <= table.clientWidth + 1 : false,
+        tableScrollWidth: table?.scrollWidth || 0,
+        tableClientWidth: table?.clientWidth || 0,
+        lastRowBottom: last?.bottom || Number.POSITIVE_INFINITY,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight
+      };
+    });
+    assert.equal(layout.bodyFits, true, JSON.stringify(layout));
+    assert.equal(layout.tableFits, true, JSON.stringify(layout));
+    assert.ok(layout.drawerLeft <= layout.viewportWidth * 0.1, JSON.stringify(layout));
+    assert.ok(layout.lastRowBottom <= layout.viewportHeight, JSON.stringify(layout));
+  }
+  await page.screenshot({ path: output, fullPage: true });
   await page.locator('.player-data-table .el-table__expand-icon').first().click();
   await page.getByText('平均充能').first().waitFor();
-  await page.screenshot({ path: output, fullPage: true });
   if (!mobile) {
     await page.getByRole('button', { name: '查看原始时间线' }).click();
     await page.getByText('原始时间线 JSON').waitFor();

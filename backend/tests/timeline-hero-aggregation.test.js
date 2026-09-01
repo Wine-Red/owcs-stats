@@ -2,7 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   aggregateTimeline,
-  buildTimelineMirrorAttributes
+  buildTimelineMirrorAttributes,
+  clearTimelineDerivedPlayerData
 } = require('../services/TimelineHeroAggregationService');
 
 test('timeline mirror keeps the canonical MatchWeb payload losslessly', () => {
@@ -56,7 +57,7 @@ test('timeline aggregation derives only hero detail and preserves source player 
   assert.equal(pineapple.name, 'Pineapple source');
   assert.equal(pineapple.kad, '9/2/8');
   assert.equal(pineapple.damage, 1234);
-  assert.equal(pineapple.finalBlows, 7);
+  assert.equal(pineapple.finalBlows, 1);
   assert.deepEqual(pineapple.heroes.map(hero => [hero.heroId, hero.usageSeconds, hero.usagePercentage]), [
     ['winston', 60, 60],
     ['dva', 40, 40]
@@ -109,4 +110,16 @@ test('round-local aggregation resets hero state when every round restarts at zer
     ['dva', 10, 1],
     ['winston', 10, 1]
   ]);
+  assert.equal(tank.finalBlows, 2);
+});
+
+test('deleting a timeline clears hero and final-blow aggregates only', () => {
+  const cleared = clearTimelineDerivedPlayerData({
+    playersA: [{ playerId: 'A', kad: '9/2/8', damage: 1234, finalBlows: 6, heroes: [{ hero: '温斯顿' }] }],
+    playersB: [{ playerId: 'B', kad: '4/3/1', healing: 4321, finalBlows: 2, heroes: [{ hero: '安娜' }] }]
+  });
+  assert.deepEqual(cleared, {
+    playersA: [{ playerId: 'A', kad: '9/2/8', damage: 1234, finalBlows: 0, heroes: [] }],
+    playersB: [{ playerId: 'B', kad: '4/3/1', healing: 4321, finalBlows: 0, heroes: [] }]
+  });
 });
