@@ -42,6 +42,7 @@ jobs:
           npm run test:static-export
           npm run test:liquipedia-url
           npm run test:match-schedule
+          npm run test:recent-team-form
           npm run test:team-roster
           npm run test:embedded-webview
           npm run test:season-selection

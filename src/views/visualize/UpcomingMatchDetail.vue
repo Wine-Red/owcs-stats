@@ -37,6 +37,11 @@
         />
 
         <div class="tab-content-area">
+          <p class="form-note">双方各取最近 10 场已完赛比赛，不限赛季或阶段；不足 10 场按实际场数统计。</p>
+          <p v-if="loadError" class="form-note" role="alert">{{ loadError }}</p>
+          <p v-else class="form-note">{{ queryParams.team1 }}：{{ recentMatches.team1.length }} 场 · {{ queryParams.team2 }}：{{ recentMatches.team2.length }} 场</p>
+          <p v-if="!loadError && !recentMatches.team1.length && !recentMatches.team2.length" class="form-note">暂无已录入的近期完赛记录。</p>
+          <p v-else-if="!loadError && !teamStats.team1 && !teamStats.team2" class="form-note">近期比赛暂无选手统计，暂无法生成雷达和选手对位。</p>
           <!-- 战队对比 Tab -->
           <div v-show="activeTab === 'team'" class="seamless-content">
             <div class="team-radar-wrapper" v-if="teamStats.team1 || teamStats.team2">
@@ -53,7 +58,7 @@
             </div>
 
             <!-- 战绩对比（双方近 10 场已完赛比赛） -->
-            <div class="team-extra-stats" v-if="teamStats.team1 && teamStats.team2">
+            <div class="team-extra-stats" v-if="recentMatches.team1.length || recentMatches.team2.length">
               <div class="analysis-card-header stats-card-header">
                 <div class="analysis-card-title">
                   近10场战绩
@@ -62,54 +67,54 @@
 
               <div class="stat-item">
                 <div class="stat-header">
-                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.matchWin }}W - {{ teamStats.team1.scoreStat.matchLoss }}L</span>
+                  <span class="stat-val t1-val">{{ recentScores.team1.matchWin }}W - {{ recentScores.team1.matchLoss }}L</span>
                   <span class="stat-label">大场战绩</span>
-                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.matchWin }}W - {{ teamStats.team2.scoreStat.matchLoss }}L</span>
+                  <span class="stat-val t2-val">{{ recentScores.team2.matchWin }}W - {{ recentScores.team2.matchLoss }}L</span>
                 </div>
                 <div class="stat-bars">
                   <div class="bar-track left-track">
-                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(teamStats.team1.scoreStat.matchWin, teamStats.team1.scoreStat.matchWin + teamStats.team1.scoreStat.matchLoss) }"></div>
+                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(recentScores.team1.matchWin, recentScores.team1.matchWin + recentScores.team1.matchLoss) }"></div>
                   </div>
                   <div class="bar-track right-track">
-                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(teamStats.team2.scoreStat.matchWin, teamStats.team2.scoreStat.matchWin + teamStats.team2.scoreStat.matchLoss) }"></div>
+                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(recentScores.team2.matchWin, recentScores.team2.matchWin + recentScores.team2.matchLoss) }"></div>
                   </div>
                 </div>
               </div>
 
               <div class="stat-item">
                 <div class="stat-header">
-                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapWin }}W - {{ teamStats.team1.scoreStat.mapLoss }}L</span>
+                  <span class="stat-val t1-val">{{ recentScores.team1.mapWin }}W - {{ recentScores.team1.mapLoss }}L</span>
                   <span class="stat-label">小局战绩</span>
-                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapWin }}W - {{ teamStats.team2.scoreStat.mapLoss }}L</span>
+                  <span class="stat-val t2-val">{{ recentScores.team2.mapWin }}W - {{ recentScores.team2.mapLoss }}L</span>
                 </div>
                 <div class="stat-bars">
                   <div class="bar-track left-track">
-                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(teamStats.team1.scoreStat.mapWin, teamStats.team1.scoreStat.mapWin + teamStats.team1.scoreStat.mapLoss) }"></div>
+                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(recentScores.team1.mapWin, recentScores.team1.mapWin + recentScores.team1.mapLoss) }"></div>
                   </div>
                   <div class="bar-track right-track">
-                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(teamStats.team2.scoreStat.mapWin, teamStats.team2.scoreStat.mapWin + teamStats.team2.scoreStat.mapLoss) }"></div>
+                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(recentScores.team2.mapWin, recentScores.team2.mapWin + recentScores.team2.mapLoss) }"></div>
                   </div>
                 </div>
               </div>
 
               <div class="stat-item">
                 <div class="stat-header">
-                  <span class="stat-val t1-val">{{ teamStats.team1.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team1.scoreStat.mapDiff }}</span>
+                  <span class="stat-val t1-val">{{ recentScores.team1.mapDiff > 0 ? '+' : '' }}{{ recentScores.team1.mapDiff }}</span>
                   <span class="stat-label">净胜局</span>
-                  <span class="stat-val t2-val">{{ teamStats.team2.scoreStat.mapDiff > 0 ? '+' : '' }}{{ teamStats.team2.scoreStat.mapDiff }}</span>
+                  <span class="stat-val t2-val">{{ recentScores.team2.mapDiff > 0 ? '+' : '' }}{{ recentScores.team2.mapDiff }}</span>
                 </div>
                 <div class="stat-bars">
                   <div class="bar-track left-track">
-                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(Math.max(0, teamStats.team1.scoreStat.mapDiff), Math.max(0, teamStats.team1.scoreStat.mapDiff, teamStats.team2.scoreStat.mapDiff)) }"></div>
+                    <div class="bar-fill t1-bg" :style="{ width: getPercentage(Math.max(0, recentScores.team1.mapDiff), Math.max(0, recentScores.team1.mapDiff, recentScores.team2.mapDiff)) }"></div>
                   </div>
                   <div class="bar-track right-track">
-                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(Math.max(0, teamStats.team2.scoreStat.mapDiff), Math.max(0, teamStats.team1.scoreStat.mapDiff, teamStats.team2.scoreStat.mapDiff)) }"></div>
+                    <div class="bar-fill t2-bg" :style="{ width: getPercentage(Math.max(0, recentScores.team2.mapDiff), Math.max(0, recentScores.team1.mapDiff, recentScores.team2.mapDiff)) }"></div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 模式胜率：两队各自按全赛季统计 -->
+            <!-- 模式胜率：两队各自最近 10 场已完赛比赛 -->
             <div class="team-analysis-block" v-if="showTeam1ModeWinRate || showTeam2ModeWinRate">
               <div class="analysis-card-header stats-card-header">
                 <div class="analysis-card-title">
@@ -120,7 +125,7 @@
               <div v-if="showTeam1ModeWinRate" class="mode-team-group">
                 <div class="mode-team-label team-dark">{{ queryParams.team1 }}</div>
                 <MapWinRateAnalysis
-                  :map-games="seasonMapGames"
+                  :map-games="team1MapGames"
                   :primary-team-id="team1ResolvedId"
                   :primary-team-name="queryParams.team1"
                   :show-map-sample="false"
@@ -133,7 +138,7 @@
               <div v-if="showTeam2ModeWinRate" class="mode-team-group">
                 <div class="mode-team-label team-accent">{{ queryParams.team2 }}</div>
                 <MapWinRateAnalysis
-                  :map-games="seasonMapGames"
+                  :map-games="team2MapGames"
                   :primary-team-id="team2ResolvedId"
                   :primary-team-name="queryParams.team2"
                   :show-map-sample="false"
@@ -236,6 +241,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
+import { rowsOf, resolvePreviewTeam, recentTeamMatches, teamScore, aggregateRecentPlayers, mapWithConcurrency } from '@/utils/recentTeamForm.mjs';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import MapWinRateAnalysis from './components/MapWinRateAnalysis.vue';
@@ -279,7 +285,11 @@ export default {
     }
 
     const h2hMatches = ref([]);
-    const seasonMapGames = ref([]);
+    const team1MapGames = ref([]);
+    const team2MapGames = ref([]);
+    const recentMatches = ref({ team1: [], team2: [] });
+    const recentScores = ref({ team1: teamScore([], null), team2: teamScore([], null) });
+    const loadError = ref('');
     const teamStats = ref({ team1: null, team2: null });
 
     const rolePlayers = ref({
@@ -308,27 +318,8 @@ export default {
       return name;
     });
 
-    const team1ResolvedId = computed(() => {
-      const target = String(queryParams.value.team1 || '').toLowerCase();
-      if (!target) return '';
-      const found = store.state.teams.find(t => {
-        const name = String(t.name || '').toLowerCase();
-        const abbr = String(t.abbreviation || '').toLowerCase();
-        return name === target || abbr === target || name.includes(target) || target.includes(name);
-      });
-      return found?.id ? String(found.id) : '';
-    });
-
-    const team2ResolvedId = computed(() => {
-      const target = String(queryParams.value.team2 || '').toLowerCase();
-      if (!target) return '';
-      const found = store.state.teams.find(t => {
-        const name = String(t.name || '').toLowerCase();
-        const abbr = String(t.abbreviation || '').toLowerCase();
-        return name === target || abbr === target || name.includes(target) || target.includes(name);
-      });
-      return found?.id ? String(found.id) : '';
-    });
+    const team1ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team1)?.id || '');
+    const team2ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team2)?.id || '');
 
     const activeTab = ref('team');
     const detailTabs = computed(() => {
@@ -374,17 +365,17 @@ export default {
       return Boolean(sel.t1?.hasStats || sel.t2?.hasStats);
     });
 
-    const teamParticipates = (teamId) => {
+    const teamParticipates = (teamId, games) => {
       const normalized = String(teamId || '');
       if (!normalized) return false;
-      return seasonMapGames.value.some(g =>
+      return games.some(g =>
         g && g.winnerId && g.mapId &&
         (String(g.team1Id) === normalized || String(g.team2Id) === normalized)
       );
     };
 
-    const showTeam1ModeWinRate = computed(() => teamParticipates(team1ResolvedId.value));
-    const showTeam2ModeWinRate = computed(() => teamParticipates(team2ResolvedId.value));
+    const showTeam1ModeWinRate = computed(() => teamParticipates(team1ResolvedId.value, team1MapGames.value));
+    const showTeam2ModeWinRate = computed(() => teamParticipates(team2ResolvedId.value, team2MapGames.value));
 
     const getPreferredSelectedPlayer = (players) => {
       if (!players.length) return null;
@@ -660,31 +651,12 @@ export default {
       return season ? season.name : '';
     };
 
-    const isMatchBetweenTeams = (match, t1Name, t2Name) => {
-      const mTeam1 = getTeamName(match.team1Id).toLowerCase();
-      const mTeam2 = getTeamName(match.team2Id).toLowerCase();
-      const target1 = t1Name.toLowerCase();
-      const target2 = t2Name.toLowerCase();
-
-      const isMatch = (mTeam1 === target1 && mTeam2 === target2) ||
-                      (mTeam1 === target2 && mTeam2 === target1) ||
-                      (match.teamA?.short?.toLowerCase() === target1 && match.teamB?.short?.toLowerCase() === target2) ||
-                      (match.teamA?.short?.toLowerCase() === target2 && match.teamB?.short?.toLowerCase() === target1);
-
-      if (!isMatch && target1.length > 2 && target2.length > 2) {
-         return (mTeam1.includes(target1) && mTeam2.includes(target2)) ||
-                (mTeam1.includes(target2) && mTeam2.includes(target1));
-      }
-
-      return isMatch;
-    };
-
     const processTeamStats = (allStats, teamName, teamId) => {
       const targetLower = String(teamName || '').toLowerCase();
       const teamPlayers = allStats.filter(p => {
-        if (teamId != null && Number(p.teamId) === Number(teamId)) return true;
+        if (teamId != null) return String(p.teamId) === String(teamId);
         const pTeamName = (p.teamName || p.team?.name || '').toLowerCase();
-        return pTeamName === targetLower || pTeamName.includes(targetLower) || targetLower.includes(pTeamName);
+        return Boolean(pTeamName && targetLower && pTeamName === targetLower);
       });
 
       if (teamPlayers.length === 0) return null;
@@ -740,24 +712,8 @@ export default {
       const t1Lower = team1Name.toLowerCase();
       const t2Lower = team2Name.toLowerCase();
 
-      let actualTeam1 = store.state.teams.find(t => {
-         const tNameLower = t.name.toLowerCase();
-         const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
-         return tNameLower === t1Lower || tAbbrLower === t1Lower || tNameLower.includes(t1Lower) || t1Lower.includes(tNameLower);
-      });
-
-      let actualTeam2 = store.state.teams.find(t => {
-         const tNameLower = t.name.toLowerCase();
-         const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
-         return tNameLower === t2Lower || tAbbrLower === t2Lower || tNameLower.includes(t2Lower) || t2Lower.includes(tNameLower);
-      });
-
-      const team1Roster = [];
-      const team2Roster = [];
-      const seasonId = queryParams.value.seasonId;
-      const team1Id = team1ResolvedId.value ? Number(team1ResolvedId.value) : null;
-      const team2Id = team2ResolvedId.value ? Number(team2ResolvedId.value) : null;
-      const playerStatMap = new Map();
+      const actualTeam1 = resolvePreviewTeam(store.state.teams, team1Name);
+      const actualTeam2 = resolvePreviewTeam(store.state.teams, team2Name);
 
       const buildPlayerObj = (source = {}, fallback = {}) => {
         const duration = Number(source.gameTime || source.totalDuration || fallback.gameTime || 0);
@@ -815,63 +771,20 @@ export default {
         }
       };
 
-      if (seasonId && (team1Id || team2Id)) {
-        const seasonNumericId = Number(seasonId);
-        const seasonTeam1 = team1Id ? store.getters.getSeasonTeamBySeasonAndTeam(seasonNumericId, team1Id) : null;
-        const seasonTeam2 = team2Id ? store.getters.getSeasonTeamBySeasonAndTeam(seasonNumericId, team2Id) : null;
-
-        if (seasonTeam1?.id) {
-          store.getters.getPlayersBySeasonTeamId(seasonTeam1.id).forEach(player => {
-            team1Roster.push({
-              id: player.id,
-              name: player.name,
-              role: player.role || 'damage'
-            });
-          });
-        }
-
-        if (seasonTeam2?.id) {
-          store.getters.getPlayersBySeasonTeamId(seasonTeam2.id).forEach(player => {
-            team2Roster.push({
-              id: player.id,
-              name: player.name,
-              role: player.role || 'damage'
-            });
-          });
-        }
-      }
-
       allStats.forEach(p => {
         const pTeamName = (p.teamName || p.team?.name || '').toLowerCase();
         const playerObj = buildPlayerObj(p);
         const role = ['tank', 'damage', 'support'].includes(playerObj.role) ? playerObj.role : 'damage';
-        const playerMapKey = playerObj.id ? String(playerObj.id) : `${role}:${playerObj.name}`;
 
-        if ((actualTeam1 && p.teamId === actualTeam1.id) || pTeamName.includes(t1Lower) || (actualTeam1 && pTeamName.includes(actualTeam1.name.toLowerCase()))) {
-          playerStatMap.set(`t1:${playerMapKey}`, playerObj);
+        if (actualTeam1 ? String(p.teamId) === String(actualTeam1.id) : pTeamName === t1Lower) {
           appendUniquePlayer(rolePlayers.value[role].t1, playerObj);
-        } else if ((actualTeam2 && p.teamId === actualTeam2.id) || pTeamName.includes(t2Lower) || (actualTeam2 && pTeamName.includes(actualTeam2.name.toLowerCase()))) {
-          playerStatMap.set(`t2:${playerMapKey}`, playerObj);
+        } else if (actualTeam2 ? String(p.teamId) === String(actualTeam2.id) : pTeamName === t2Lower) {
           appendUniquePlayer(rolePlayers.value[role].t2, playerObj);
         }
       });
 
-      team1Roster.forEach(player => {
-        const role = ['tank', 'damage', 'support'].includes(player.role) ? player.role : 'damage';
-        const playerMapKey = player.id ? String(player.id) : `${role}:${player.name}`;
-        const mergedPlayer = playerStatMap.get(`t1:${playerMapKey}`) || buildPlayerObj({}, player);
-        appendUniquePlayer(rolePlayers.value[role].t1, mergedPlayer);
-      });
-
-      team2Roster.forEach(player => {
-        const role = ['tank', 'damage', 'support'].includes(player.role) ? player.role : 'damage';
-        const playerMapKey = player.id ? String(player.id) : `${role}:${player.name}`;
-        const mergedPlayer = playerStatMap.get(`t2:${playerMapKey}`) || buildPlayerObj({}, player);
-        appendUniquePlayer(rolePlayers.value[role].t2, mergedPlayer);
-      });
-
       comparisonRoles.forEach(r => {
-         // 只保留本赛段有实际统计的选手参与对位
+         // 只保留近期比赛有实际统计的选手参与对位
          rolePlayers.value[r].t1 = rolePlayers.value[r].t1.filter(p => p.hasStats).sort((a, b) => b.gameTime - a.gameTime);
          rolePlayers.value[r].t2 = rolePlayers.value[r].t2.filter(p => p.hasStats).sort((a, b) => b.gameTime - a.gameTime);
 
@@ -1078,117 +991,53 @@ export default {
           await store.dispatch('loadBaseData');
         }
 
-        const seasonId = queryParams.value.seasonId;
-        if (seasonId) {
-          await store.dispatch('getSeasonTeams', Number(seasonId));
+        loadError.value = '';
+        const firstPage = await apiService.getMatches({ pageSize: 2000 });
+        const allMatches = [...rowsOf(firstPage)];
+        for (let page = 2; allMatches.length < Number(firstPage.total || 0); page++) {
+          const rows = rowsOf(await apiService.getMatches({ pageSize: 2000, page }));
+          if (!rows.length) break;
+          allMatches.push(...rows);
         }
-
-        const [allGlobalMatchesRes, statsRes, seasonMapGamesRes] = await Promise.all([
-          apiService.getMatches({ pageSize: 2000 }),
-          apiService.getSeasonPlayerStats(seasonId),
-          apiService.getMapGames({ seasonId, pageSize: 2000 })
-        ]);
-
-        const allMatches = Array.isArray(allGlobalMatchesRes) ? allGlobalMatchesRes : allGlobalMatchesRes.data || allGlobalMatchesRes.list || [];
-        seasonMapGames.value = Array.isArray(seasonMapGamesRes) ? seasonMapGamesRes : seasonMapGamesRes.data || seasonMapGamesRes.list || [];
-        const t1Name = queryParams.value.team1;
-        const t2Name = queryParams.value.team2;
-
-        h2hMatches.value = allMatches
-          .filter(m => isMatchBetweenTeams(m, t1Name, t2Name))
-          .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
-
-        const allPlayerStats = statsRes || [];
-
-        let team1MatchStr = t1Name;
-        let team2MatchStr = t2Name;
-
-        const team1 = store.state.teams.find(t => {
-           const tNameLower = t.name.toLowerCase();
-           const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
-           const searchLower = t1Name.toLowerCase();
-           return tNameLower === searchLower ||
-                  tAbbrLower === searchLower ||
-                  tNameLower.includes(searchLower) ||
-                  searchLower.includes(tNameLower);
-        });
-
-        const team2 = store.state.teams.find(t => {
-           const tNameLower = t.name.toLowerCase();
-           const tAbbrLower = t.abbreviation ? t.abbreviation.toLowerCase() : '';
-           const searchLower = t2Name.toLowerCase();
-           return tNameLower === searchLower ||
-                  tAbbrLower === searchLower ||
-                  tNameLower.includes(searchLower) ||
-                  searchLower.includes(tNameLower);
-        });
-
-        if (team1) team1MatchStr = team1.name;
-        if (team2) team2MatchStr = team2.name;
-
-        // 近 10 场已完赛战绩（跨赛季，按比赛时间倒序取前 10 场）
-        const getTeamRecentStats = (teamId, searchName) => {
-          const target = String(searchName || '').toLowerCase();
-          const nameOf = (id) => getTeamName(id).toLowerCase();
-          const sideOf = (m) => {
-            const a = nameOf(m.team1Id);
-            const b = nameOf(m.team2Id);
-            const shortA = (m.teamA?.short || '').toLowerCase();
-            const shortB = (m.teamB?.short || '').toLowerCase();
-            const hitA = a === target || shortA === target || (teamId != null && Number(m.team1Id) === Number(teamId))
-              || (target.length > 2 && (a.includes(target) || shortA.includes(target)));
-            const hitB = b === target || shortB === target || (teamId != null && Number(m.team2Id) === Number(teamId))
-              || (target.length > 2 && (b.includes(target) || shortB.includes(target)));
-            if (hitA && !hitB) return 1;
-            if (hitB && !hitA) return 2;
-            return 0;
-          };
-          const recent = allMatches
-            .filter(m => m.winnerId != null && m.team1Score != null && m.team2Score != null && sideOf(m))
-            .sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate))
-            .slice(0, 10);
-          const stat = { matchWin: 0, matchLoss: 0, matchDiff: 0, mapWin: 0, mapLoss: 0, mapDiff: 0 };
-          recent.forEach(m => {
-            const side = sideOf(m);
-            const myScore = Number(side === 1 ? m.team1Score : m.team2Score) || 0;
-            const oppScore = Number(side === 1 ? m.team2Score : m.team1Score) || 0;
-            stat.mapWin += myScore;
-            stat.mapLoss += oppScore;
-            const winnerIsTeam1 = Number(m.winnerId) === Number(m.team1Id);
-            const iWon = side === 1 ? winnerIsTeam1 : !winnerIsTeam1;
-            if (iWon) stat.matchWin += 1;
-            else stat.matchLoss += 1;
-          });
-          stat.matchDiff = stat.matchWin - stat.matchLoss;
-          stat.mapDiff = stat.mapWin - stat.mapLoss;
-          return stat;
+        const team1 = resolvePreviewTeam(store.state.teams, queryParams.value.team1);
+        const team2 = resolvePreviewTeam(store.state.teams, queryParams.value.team2);
+        const before = Math.min(Date.now(), queryParams.value.time || Date.now());
+        recentMatches.value = {
+          team1: recentTeamMatches(allMatches, team1?.id, before),
+          team2: recentTeamMatches(allMatches, team2?.id, before)
         };
-
-        const t1ScoreStat = getTeamRecentStats(team1?.id, team1MatchStr || t1Name);
-        const t2ScoreStat = getTeamRecentStats(team2?.id, team2MatchStr || t2Name);
-
-        teamStats.value.team1 = processTeamStats(allPlayerStats, team1MatchStr, team1?.id);
-        if (teamStats.value.team1) teamStats.value.team1.scoreStat = t1ScoreStat;
-
-        teamStats.value.team2 = processTeamStats(allPlayerStats, team2MatchStr, team2?.id);
-        if (teamStats.value.team2) teamStats.value.team2.scoreStat = t2ScoreStat;
-
-        if (!teamStats.value.team1) {
-          teamStats.value.team1 = processTeamStats(allPlayerStats, t1Name, team1?.id);
-          if (teamStats.value.team1) teamStats.value.team1.scoreStat = t1ScoreStat;
-        }
-        if (!teamStats.value.team2) {
-          teamStats.value.team2 = processTeamStats(allPlayerStats, t2Name, team2?.id);
-          if (teamStats.value.team2) teamStats.value.team2.scoreStat = t2ScoreStat;
-        }
-
-        processPlayerMatchups(allPlayerStats, team1MatchStr, team2MatchStr);
-        if (!hasAnyPlayers.value) {
-           processPlayerMatchups(allPlayerStats, t1Name, t2Name);
-        }
+        recentScores.value = {
+          team1: teamScore(recentMatches.value.team1, team1?.id),
+          team2: teamScore(recentMatches.value.team2, team2?.id)
+        };
+        h2hMatches.value = allMatches.filter(match => team1 && team2 &&
+          [match.team1Id, match.team2Id].some(id => String(id) === String(team1.id)) &&
+          [match.team1Id, match.team2Id].some(id => String(id) === String(team2.id)) &&
+          new Date(match.matchDate).getTime() <= before
+        ).sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
+        const matchIds = [...new Set([...recentMatches.value.team1, ...recentMatches.value.team2].map(match => match.id))];
+        const gameLists = await mapWithConcurrency(matchIds, async id => rowsOf(await apiService.getMatchMapGames(id)));
+        const games = gameLists.flat();
+        const selectGames = matches => {
+          const ids = new Set(matches.map(match => String(match.id)));
+          return games.filter(game => ids.has(String(game.matchId)));
+        };
+        team1MapGames.value = selectGames(recentMatches.value.team1);
+        team2MapGames.value = selectGames(recentMatches.value.team2);
+        const stats = (await mapWithConcurrency(games, async game => rowsOf(await apiService.getMapGamePlayerStats(game.id)))).flat();
+        const allPlayerStats = [
+          ...aggregateRecentPlayers(team1MapGames.value, stats, team1?.id),
+          ...aggregateRecentPlayers(team2MapGames.value, stats, team2?.id)
+        ];
+        teamStats.value = {
+          team1: processTeamStats(allPlayerStats, team1?.name || queryParams.value.team1, team1?.id),
+          team2: processTeamStats(allPlayerStats, team2?.name || queryParams.value.team2, team2?.id)
+        };
+        processPlayerMatchups(allPlayerStats, team1?.name || queryParams.value.team1, team2?.name || queryParams.value.team2);
 
       } catch (err) {
         console.error('Failed to load detail data:', err);
+        loadError.value = '部分近期比赛数据加载失败，请刷新重试。';
       } finally {
         isLoading.value = false;
         trackPerformance('未开赛详情加载', performance.now() - startTime, {
@@ -1253,7 +1102,11 @@ export default {
       team1ResolvedId,
       team2ResolvedId,
       h2hMatches,
-      seasonMapGames,
+      team1MapGames,
+      team2MapGames,
+      recentMatches,
+      recentScores,
+      loadError,
       teamStats,
       rolePlayers,
       selectedPlayers,
@@ -1289,6 +1142,13 @@ export default {
 </script>
 
 <style scoped>
+.form-note {
+  margin: 12px 16px;
+  color: var(--vis-text-secondary, #606266);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .upcoming-detail-page {
   min-height: 100vh;
   background: var(--vis-bg-page, #f4f5f8);
