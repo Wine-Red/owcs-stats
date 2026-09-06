@@ -151,12 +151,6 @@
           <!-- 选手对位 Tab：单一合并雷达 + 顶部职责筛选 -->
           <div v-show="activeTab === 'players'" class="seamless-content player-comparison-body">
             <div v-if="hasAnyPlayers" class="player-radar-block">
-              <div class="analysis-card-header stats-card-header">
-                <div class="analysis-card-title">
-                  选手对位
-                </div>
-              </div>
-
               <ContentChoiceGroup
                 class="role-filter"
                 :model-value="selectedRole"
@@ -1542,13 +1536,17 @@ export default {
 }
 
 /* 选手对位：职责筛选 + 合并雷达 */
+.seamless-content.player-comparison-body {
+  padding: 0;
+}
+
 .player-radar-block {
   display: flex;
   flex-direction: column;
 }
 
 .role-filter {
-  padding: 12px 4px 0;
+  padding: 0;
 }
 
 .player-selectors {
