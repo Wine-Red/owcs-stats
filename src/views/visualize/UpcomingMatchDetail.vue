@@ -37,9 +37,7 @@
         />
 
         <div class="tab-content-area">
-          <p class="form-note">双方各取最近 10 场已完赛比赛，不限赛季或阶段；不足 10 场按实际场数统计。</p>
           <p v-if="loadError" class="form-note" role="alert">{{ loadError }}</p>
-          <p v-else class="form-note">{{ queryParams.team1 }}：{{ recentMatches.team1.length }} 场 · {{ queryParams.team2 }}：{{ recentMatches.team2.length }} 场</p>
           <p v-if="!loadError && !recentMatches.team1.length && !recentMatches.team2.length" class="form-note">暂无已录入的近期完赛记录。</p>
           <p v-else-if="!loadError && !teamStats.team1 && !teamStats.team2" class="form-note">近期比赛暂无选手统计，暂无法生成雷达和选手对位。</p>
           <!-- 战队对比 Tab -->
