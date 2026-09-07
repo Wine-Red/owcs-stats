@@ -130,7 +130,7 @@
           </el-form-item>
           <el-form-item
             label="Liquipedia赛事页面"
-            title="仅使用赛事页面 URL 关联后续赛程"
+            title="使用赛事页面 URL 关联赛程和参赛阵容"
             :error="liquipediaTournamentUrlError"
           >
             <el-input
@@ -142,7 +142,8 @@
               @input="liquipediaTournamentUrlError = ''"
               @blur="validateLiquipediaTournamentUrl"
             />
-            <div class="form-hint">用于精确关联该赛事页面的 Upcoming 比赛，不再按赛事名称模糊匹配。</div>
+            <div class="form-hint">用于关联该赛事的 Upcoming 比赛和参赛阵容。修改后请先保存配置，再自动匹配。</div>
+            <LiquipediaRosterImport :season-id="seasonVisualForm.seasonId" :draft-url="seasonVisualForm.liquipediaTournamentUrl" @applied="refreshLiquipediaMemberships" />
           </el-form-item>
           <el-form-item label="地图池">
             <el-select
@@ -685,6 +686,7 @@
     <!-- 赛季-队伍关联管理 -->
     <div v-if="activeTab === 'season-teams'">
       <section class="relation-workspace">
+        <LiquipediaRosterImport :season-id="seasonTeamFilter.seasonId" @applied="refreshLiquipediaMemberships" />
         <div class="relation-commandbar">
           <div><strong>参赛队伍配置</strong><span>先选赛季，再批量加入；同步证据会继续保留。</span></div>
           <el-select v-model="seasonTeamFilter.seasonId" filterable clearable placeholder="搜索赛季" @change="loadSeasonTeams">
@@ -710,6 +712,7 @@
     <!-- 赛季-队伍-选手关联管理 -->
     <div v-if="activeTab === 'season-team-players'">
       <section class="relation-workspace">
+        <LiquipediaRosterImport :season-id="seasonTeamPlayerFilter.seasonId" @applied="refreshLiquipediaMemberships" />
         <div class="relation-commandbar roster-commandbar">
           <div><strong>赛季阵容工作台</strong><span>来源标签说明为什么关系仍然存在；移除只撤销手工来源。</span></div>
           <el-select v-model="seasonTeamPlayerFilter.seasonId" filterable clearable placeholder="搜索赛季" @change="loadSeasonTeamsForPlayers">
@@ -1313,6 +1316,7 @@ import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
 import MediaUploadField from './components/MediaUploadField.vue';
 import EntityContextDrawer from './components/EntityContextDrawer.vue';
 import MatchDataDrawer from './components/MatchDataDrawer.vue';
+import LiquipediaRosterImport from './components/LiquipediaRosterImport.vue';
 import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
   isValidLiquipediaTournamentUrl,
@@ -1334,7 +1338,8 @@ export default {
     PlayerStatsEditor,
     MediaUploadField,
     EntityContextDrawer,
-    MatchDataDrawer
+    MatchDataDrawer,
+    LiquipediaRosterImport
   },
   setup() {
     // 页面标题映射
@@ -3039,6 +3044,21 @@ export default {
       dialogVisible.value = true;
     };
 
+    const refreshLiquipediaMemberships = async (seasonId, options = {}) => {
+      if (options.refreshCatalog) {
+        try {
+          const [updatedTeams, updatedPlayers] = await Promise.all([apiService.getTeams(), apiService.getPlayers()]);
+          store.commit('setTeams', updatedTeams);
+          store.commit('setPlayers', updatedPlayers);
+        } catch {
+          ElMessage.warning('手工关联已保存，基础列表刷新失败，请刷新页面查看新记录');
+        }
+      }
+      if (activeTab.value === 'season-teams') await loadSeasonTeams();
+      else if (activeTab.value === 'season-team-players') await loadSeasonTeamsForPlayers(true);
+      else await loadSeasonTeamsForVisualConfig(seasonId);
+    };
+
     const membershipSourceLabel = sourceType => ({
       manual: '手工配置',
       match: '比赛出场',
@@ -3667,6 +3687,7 @@ export default {
       deleteSeasonTeam,
       deleteSeasonTeamPlayer,
       loadSeasonTeams,
+      refreshLiquipediaMemberships,
       loadSeasonTeamPlayers,
       loadSeasonTeamsForPlayers,
       handleSeasonChangeForTeams,

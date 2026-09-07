@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const SeasonController = require('../controllers/SeasonController');
 const SeasonTeamController = require('../controllers/SeasonTeamController');
+const LiquipediaRosterController = require('../controllers/LiquipediaRosterController');
+const ManualSeasonRosterController = require('../controllers/ManualSeasonRosterController');
+
+// POST keeps both preview and apply behind the existing protected admin API.
+router.post('/:id/liquipedia-roster/preview', LiquipediaRosterController.preview);
+router.post('/:id/liquipedia-roster/apply', LiquipediaRosterController.apply);
+router.post('/:id/manual-roster', ManualSeasonRosterController.save);
 
 // 获取所有赛季
 router.get('/', SeasonController.getAll);

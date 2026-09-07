@@ -51,6 +51,9 @@ const apiService = {
   updateSeason: (id, data) => api.put(`/seasons/${id}`, data),
   deleteSeason: (id) => api.delete(`/seasons/${id}`),
   getSeasonDeletePreview: (id) => api.get(`/seasons/${id}/pre-delete-check`),
+  previewLiquipediaRoster: (id) => api.post(`/seasons/${id}/liquipedia-roster/preview`, {}, { timeout: 120000 }),
+  applyLiquipediaRoster: (id, previewToken, excludedTeamLinks = [], excludedPlayers = []) => api.post(`/seasons/${id}/liquipedia-roster/apply`, { previewToken, ...(excludedTeamLinks.length ? { excludedTeamLinks } : {}), ...(excludedPlayers.length ? { excludedPlayers } : {}) }, { timeout: 120000 }),
+  saveManualSeasonRoster: (id, data) => api.post(`/seasons/${id}/manual-roster`, data),
 
   // 队伍相关
   getTeams: () => api.get('/teams'),
@@ -146,6 +149,7 @@ const apiService = {
   deleteSeasonTeam: (id) => api.delete(`/season-teams/${id}`),
   
   // SeasonTeamPlayer相关
+  getAllSeasonTeamPlayers: () => api.get('/season-team-players'),
   getSeasonTeamPlayers: (seasonTeamId) => api.get(`/season-teams/${seasonTeamId}/players`),
   createSeasonTeamPlayer: (data) => api.post('/season-team-players', data),
   bulkCreateSeasonTeamPlayers: (data) => api.post('/season-team-players/bulk', data),
