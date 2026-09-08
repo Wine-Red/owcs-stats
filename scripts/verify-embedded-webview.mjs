@@ -253,6 +253,10 @@ try {
     await responsivePage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
     await responsivePage.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
     await responsivePage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
+    // The shell can precede the live schedule. Its arrival resets the selected
+    // date and scroll position, so finish loading before testing touch scrolling.
+    await responsivePage.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
+    await responsivePage.waitForLoadState('networkidle', { timeout: 60_000 })
     await responsivePage.waitForTimeout(300)
     const responsiveCdp = await responsivePage.context().newCDPSession(responsivePage)
     const touchStartY = viewport.height - 55
