@@ -25,6 +25,9 @@ const app = express();
 app.set('trust proxy', ['loopback', 'uniquelocal']);
 
 // 中间件配置
+// The partner contract handles methods/errors itself, before body parsing and
+// the management API's global CORS preflight. Importing never starts sync jobs.
+app.use('/data/v1', helmet(), require('./routes/data-v1').createDataRouter());
 app.use(cors());
 app.use(helmet());
 app.use(morgan('combined'));
@@ -52,9 +55,7 @@ const { initDatabase } = require('./database');
 
 // 路由配置
 const apiRoutes = require('./routes/api');
-const agentApiRoutes = require('./routes/agent-v1');
 app.use('/api', apiRoutes);
-app.use('/agent/v1', agentApiRoutes);
 app.use('/poll-api', require('./routes/polls').createPollRouter());
 
 // 健康检查

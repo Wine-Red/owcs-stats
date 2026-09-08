@@ -1,0 +1,42 @@
+{
+  "data": {
+    "id": 27301,
+    "match_id": 5445,
+    "number": 1,
+    "map": {
+      "id": 20,
+      "name": "尼泊尔",
+      "mode": "control"
+    },
+    "team1": {
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "score": 2,
+      "banned_hero": {
+        "id": 26,
+        "name": "堡垒"
+      }
+    },
+    "team2": {
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "score": 0,
+      "banned_hero": {
+        "id": 53,
+        "name": "D.Mon"
+      }
+    },
+    "winner_team_id": 53,
+    "duration_seconds": 599,
+    "replay_code": null,
+    "player_stats_coverage": {
+      "status": "recorded",
+      "recorded_players": 10,
+      "expected_players": 10
+    }
+  }
+}

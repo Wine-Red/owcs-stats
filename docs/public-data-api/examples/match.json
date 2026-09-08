@@ -1,0 +1,27 @@
+{
+  "data": {
+    "id": 5445,
+    "competition": {
+      "id": 24,
+      "name": "2026 守望先锋世界杯 小组赛"
+    },
+    "stage": null,
+    "date": "2026-08-23",
+    "format": "BO5",
+    "team1": {
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "score": 3
+    },
+    "team2": {
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "score": 2
+    },
+    "winner_team_id": 53
+  }
+}

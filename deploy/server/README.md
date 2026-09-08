@@ -40,6 +40,17 @@ you want the first post-migration build to be warm. Do not archive `releases`,
 its static assets use the unauthenticated, GET-only `/public-api` prefix; the
 normal `/api` prefix stays protected.
 
+The separate partner contract uses public `/data/v1` routes. Both the Docker
+Nginx config and this host-managed OpenResty include must be applied for external
+access; deploying backend code alone does not update the host include. The
+application returns JSON 405 for unsupported methods. See
+[implementation and release checks](../../docs/design/public-data-api-implementation.md).
+
+The former `/agent/v1` implementation is removed. Its URLs are rejected with
+404 in the proxy templates. Backend startup retires only the ten named legacy
+views; back up their definitions with `backend/scripts/retire-legacy-agent-views.js`
+before upgrading the target database. This migration never drops base tables.
+
 The `auth-openresty-*` includes proxy TinyAuth itself. The cookie migration
 include clears host-only cookies created before shared-subdomain sessions were
 enabled, preventing `/continue` redirect loops without deleting valid shared

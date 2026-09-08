@@ -11,6 +11,7 @@ const normalizeWhitespace = value => String(value || '').replace(/\s+/g, ' ').tr
 
 const fetchLiquipediaUpcomingHtml = async () => {
   const result = await fetchParsedHtml({ text: LIQUIPEDIA_UPCOMING_WIKITEXT });
+  if (typeof result.html !== 'string' || !result.html.trim()) throw new Error('Upcoming source did not return parsed HTML');
   return result.html;
 };
 
@@ -22,11 +23,12 @@ const extractUpcomingMatchesFromMatchesPage = pageHtml => {
     const matchNode = $(element);
     const tournamentLinkEl = matchNode.find('.match-info-tournament-name a').first();
     const tournamentHref = tournamentLinkEl.attr('href') || '';
-    const timestampRaw = Number(matchNode.find('.timer-object').first().attr('data-timestamp'));
+    const timestampText = matchNode.find('.timer-object').first().attr('data-timestamp');
+    const timestampRaw = timestampText?.trim() ? Number(timestampText) : NaN;
 
     upcomingMatches.push({
       tournamentName: normalizeWhitespace(tournamentLinkEl.text()),
-      timestamp: Number.isFinite(timestampRaw) ? timestampRaw * 1000 : null,
+      timestamp: Number.isFinite(timestampRaw) && timestampRaw > 0 ? timestampRaw * 1000 : null,
       link: tournamentHref ? `${LIQUIPEDIA_SITE_BASE}${tournamentHref}` : '',
       team1: {
         name: normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD',
@@ -60,8 +62,18 @@ const upcomingMatchesResource = createCachedResource({
 
 const getUpcomingMatches = () => upcomingMatchesResource.get('upcoming');
 
+// The data contract needs only the schedule, not additional identity lookups
+// used by voting. Keep its last successful source observation independently.
+const upcomingScheduleResource = createCachedResource({
+  ttlMs: LIQUIPEDIA_CACHE_TTL,
+  maxWaitMs: 60000,
+  loader: async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml())
+});
+const getUpcomingSchedule = () => upcomingScheduleResource.get('schedule');
+
 module.exports = {
   extractUpcomingMatchesFromMatchesPage,
   getUpcomingMatches,
+  getUpcomingSchedule,
   normalizeWhitespace
 };

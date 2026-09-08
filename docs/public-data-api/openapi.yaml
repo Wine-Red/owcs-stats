@@ -1,0 +1,3631 @@
+openapi: 3.1.1
+info:
+  title: OWCS Public Data API
+  version: 1.0.0
+  description: 对外赛事数据 API 契约。旧 /agent/v1 已移除，不提供兼容转发。只提供赛事事实、名单、统计和必要的覆盖信息，不提供 AI 问答、SQL 执行、排行榜推断或系统管理数据。详见 README.md、data-dictionary.md
+    与 integration.md。
+servers:
+- url: /data/v1
+  description: 同源服务路径。
+- url: https://stats.owmini.xyz/data/v1
+  description: 生产服务。
+security: []
+tags:
+- name: 基础目录
+  description: 稳定实体目录。
+- name: 赛事
+  description: 独立赛事、赛事内部阶段及覆盖。
+- name: 名单
+  description: 赛事参赛队伍及名单归属。
+- name: 比赛
+  description: 已收录系列赛结果。
+- name: 地图与统计
+  description: 比赛子资源及完整数据包。
+- name: 赛程
+  description: 独立于结果库的近期赛程提示。
+paths:
+  /competitions:
+    get:
+      tags:
+      - 赛事
+      operationId: listCompetitions
+      summary: 查询赛事目录
+      description: 按 id 升序；不按名称拆分、合并赛事，不根据标题自动生成赛区或年度字段。
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: status
+        in: query
+        description: 按赛事目录状态筛选。
+        schema:
+          type: string
+          description: 赛事目录状态；不保证该赛事全部比赛已收录。
+          enum:
+          - in_progress
+          - completed
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 赛事
+      operationId: listCompetitionsHeaders
+      summary: 查询赛事目录（仅响应头）
+      description: 按 id 升序；不按名称拆分、合并赛事，不根据标题自动生成赛区或年度字段。
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: status
+        in: query
+        description: 按赛事目录状态筛选。
+        schema:
+          type: string
+          description: 赛事目录状态；不保证该赛事全部比赛已收录。
+          enum:
+          - in_progress
+          - completed
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /competitions/{competition_id}:
+    get:
+      tags:
+      - 赛事
+      operationId: getCompetition
+      summary: 获取赛事
+      description: 获取赛事
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 赛事
+      operationId: getCompetitionHeaders
+      summary: 获取赛事（仅响应头）
+      description: 获取赛事
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /competitions/{competition_id}/stages:
+    get:
+      tags:
+      - 赛事
+      operationId: listCompetitionStages
+      summary: 获取赛事内部阶段
+      description: 完整列表，按 sequence 升序。合法但尚无阶段配置的赛事返回空数组。
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 赛事
+      operationId: listCompetitionStagesHeaders
+      summary: 获取赛事内部阶段（仅响应头）
+      description: 完整列表，按 sequence 升序。合法但尚无阶段配置的赛事返回空数组。
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /competitions/{competition_id}/teams:
+    get:
+      tags:
+      - 名单
+      operationId: listCompetitionTeams
+      summary: 查询赛事参赛队伍
+      description: 查询赛事参赛队伍
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 名单
+      operationId: listCompetitionTeamsHeaders
+      summary: 查询赛事参赛队伍（仅响应头）
+      description: 查询赛事参赛队伍
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /competitions/{competition_id}/teams/{team_id}/players:
+    get:
+      tags:
+      - 名单
+      operationId: getCompetitionTeamRoster
+      summary: 获取赛事队伍名单
+      description: 完整名单，按 player.id 升序。合法参赛队伍无名单时 players=[]；未参赛队伍返回 404。名单不证明实际登场。
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/team_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 名单
+      operationId: getCompetitionTeamRosterHeaders
+      summary: 获取赛事队伍名单（仅响应头）
+      description: 完整名单，按 player.id 升序。合法参赛队伍无名单时 players=[]；未参赛队伍返回 404。名单不证明实际登场。
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - $ref: '#/components/parameters/team_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /competitions/{competition_id}/coverage:
+    get:
+      tags:
+      - 赛事
+      operationId: getCompetitionCoverage
+      summary: 获取已收录赛事数据覆盖
+      description: 获取已收录赛事数据覆盖
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - name: stage_id
+        in: query
+        description: 必须属于路径中的赛事；否则返回 404。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 赛事
+      operationId: getCompetitionCoverageHeaders
+      summary: 获取已收录赛事数据覆盖（仅响应头）
+      description: 获取已收录赛事数据覆盖
+      parameters:
+      - $ref: '#/components/parameters/competition_id'
+      - name: stage_id
+        in: query
+        description: 必须属于路径中的赛事；否则返回 404。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /teams:
+    get:
+      tags:
+      - 基础目录
+      operationId: listTeams
+      summary: 检索队伍及已确认别名
+      description: 检索队伍及已确认别名
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: listTeamsHeaders
+      summary: 检索队伍及已确认别名（仅响应头）
+      description: 检索队伍及已确认别名
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /teams/{team_id}:
+    get:
+      tags:
+      - 基础目录
+      operationId: getTeam
+      summary: 获取队伍
+      description: 获取队伍
+      parameters:
+      - $ref: '#/components/parameters/team_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: getTeamHeaders
+      summary: 获取队伍（仅响应头）
+      description: 获取队伍
+      parameters:
+      - $ref: '#/components/parameters/team_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /players:
+    get:
+      tags:
+      - 基础目录
+      operationId: listPlayers
+      summary: 检索选手
+      description: 检索选手
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: competition_id
+        in: query
+        description: 按赛事名单归属筛选；与 team_id 同时提供时须在同一赛事队伍关系内满足。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: team_id
+        in: query
+        description: 按已记录名单中的队伍归属筛选；不表示目前仍在队。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: role
+        in: query
+        description: 目录位置。
+        schema:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: listPlayersHeaders
+      summary: 检索选手（仅响应头）
+      description: 检索选手
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: competition_id
+        in: query
+        description: 按赛事名单归属筛选；与 team_id 同时提供时须在同一赛事队伍关系内满足。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: team_id
+        in: query
+        description: 按已记录名单中的队伍归属筛选；不表示目前仍在队。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: role
+        in: query
+        description: 目录位置。
+        schema:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /players/{player_id}:
+    get:
+      tags:
+      - 基础目录
+      operationId: getPlayer
+      summary: 获取选手
+      description: 获取选手
+      parameters:
+      - $ref: '#/components/parameters/player_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: getPlayerHeaders
+      summary: 获取选手（仅响应头）
+      description: 获取选手
+      parameters:
+      - $ref: '#/components/parameters/player_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /maps:
+    get:
+      tags:
+      - 基础目录
+      operationId: listMaps
+      summary: 查询地图目录
+      description: 查询地图目录
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: mode
+        in: query
+        description: 地图模式。
+        schema:
+          type: string
+          description: 地图比赛模式。
+          enum:
+          - control
+          - escort
+          - hybrid
+          - push
+          - flashpoint
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: listMapsHeaders
+      summary: 查询地图目录（仅响应头）
+      description: 查询地图目录
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: mode
+        in: query
+        description: 地图模式。
+        schema:
+          type: string
+          description: 地图比赛模式。
+          enum:
+          - control
+          - escort
+          - hybrid
+          - push
+          - flashpoint
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /maps/{map_id}:
+    get:
+      tags:
+      - 基础目录
+      operationId: getMap
+      summary: 获取地图
+      description: 获取地图
+      parameters:
+      - $ref: '#/components/parameters/map_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: getMapHeaders
+      summary: 获取地图（仅响应头）
+      description: 获取地图
+      parameters:
+      - $ref: '#/components/parameters/map_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /heroes:
+    get:
+      tags:
+      - 基础目录
+      operationId: listHeroes
+      summary: 查询英雄目录
+      description: 查询英雄目录
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: role
+        in: query
+        description: 英雄职责分类。
+        schema:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeroList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: listHeroesHeaders
+      summary: 查询英雄目录（仅响应头）
+      description: 查询英雄目录
+      parameters:
+      - $ref: '#/components/parameters/q'
+      - name: role
+        in: query
+        description: 英雄职责分类。
+        schema:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /heroes/{hero_id}:
+    get:
+      tags:
+      - 基础目录
+      operationId: getHero
+      summary: 获取英雄
+      description: 获取英雄
+      parameters:
+      - $ref: '#/components/parameters/hero_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeroResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 基础目录
+      operationId: getHeroHeaders
+      summary: 获取英雄（仅响应头）
+      description: 获取英雄
+      parameters:
+      - $ref: '#/components/parameters/hero_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches:
+    get:
+      tags:
+      - 比赛
+      operationId: listMatches
+      summary: 查询已收录系列赛
+      description: 按 date 降序、id 降序。所有筛选条件为 AND；player_id 与 team_id 同时存在时，须有该选手代表该队的实际统计行；player_id 与 map_id 同时存在时，须在同一地图局统计行上满足；三者同时存在时在同一条选手地图统计上满足。用
+        EXISTS 避免关联展开造成重复比赛。未知资源筛选返回 404，合法资源无结果返回空列表。
+      parameters:
+      - name: competition_id
+        in: query
+        description: 按指定资源精确筛选。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: stage_id
+        in: query
+        description: 仅在同时提供 competition_id 时有效；必须属于该赛事。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: team_id
+        in: query
+        description: 匹配比赛任一队伍。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: opponent_id
+        in: query
+        description: 必须与 team_id 一同使用；两者不同，匹配两队直接交手，忽略队伍侧位。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: player_id
+        in: query
+        description: 仅匹配至少一张地图实际有该选手统计的比赛，不按赛事名单推断出场。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: map_id
+        in: query
+        description: 至少有一张该地图的比赛；使用 EXISTS 筛选，不重复返回系列赛。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: date_from
+        in: query
+        description: 比赛日期下界，包含当天。
+        schema:
+          type: string
+          format: date
+      - name: date_to
+        in: query
+        description: 比赛日期上界，包含当天；不得早于 date_from。
+        schema:
+          type: string
+          format: date
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 比赛
+      operationId: listMatchesHeaders
+      summary: 查询已收录系列赛（仅响应头）
+      description: 按 date 降序、id 降序。所有筛选条件为 AND；player_id 与 team_id 同时存在时，须有该选手代表该队的实际统计行；player_id 与 map_id 同时存在时，须在同一地图局统计行上满足；三者同时存在时在同一条选手地图统计上满足。用
+        EXISTS 避免关联展开造成重复比赛。未知资源筛选返回 404，合法资源无结果返回空列表。
+      parameters:
+      - name: competition_id
+        in: query
+        description: 按指定资源精确筛选。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: stage_id
+        in: query
+        description: 仅在同时提供 competition_id 时有效；必须属于该赛事。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: team_id
+        in: query
+        description: 匹配比赛任一队伍。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: opponent_id
+        in: query
+        description: 必须与 team_id 一同使用；两者不同，匹配两队直接交手，忽略队伍侧位。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: player_id
+        in: query
+        description: 仅匹配至少一张地图实际有该选手统计的比赛，不按赛事名单推断出场。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: map_id
+        in: query
+        description: 至少有一张该地图的比赛；使用 EXISTS 筛选，不重复返回系列赛。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: date_from
+        in: query
+        description: 比赛日期下界，包含当天。
+        schema:
+          type: string
+          format: date
+      - name: date_to
+        in: query
+        description: 比赛日期上界，包含当天；不得早于 date_from。
+        schema:
+          type: string
+          format: date
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/cursor'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches/{match_id}:
+    get:
+      tags:
+      - 比赛
+      operationId: getMatch
+      summary: 获取系列赛
+      description: 获取系列赛
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResponse'
+              example:
+                data:
+                  id: 5445
+                  competition:
+                    id: 24
+                    name: 2026 守望先锋世界杯 小组赛
+                  stage: null
+                  date: '2026-08-23'
+                  format: BO5
+                  team1:
+                    team:
+                      id: 53
+                      name: AUS
+                    score: 3
+                  team2:
+                    team:
+                      id: 65
+                      name: MEX
+                    score: 2
+                  winner_team_id: 53
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 比赛
+      operationId: getMatchHeaders
+      summary: 获取系列赛（仅响应头）
+      description: 获取系列赛
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches/{match_id}/games:
+    get:
+      tags:
+      - 地图与统计
+      operationId: listMatchGames
+      summary: 获取比赛地图局
+      description: 完整返回。number 已知项按 number、id 升序，未知项最后按 id 升序。ID 排序不代表真实比赛顺序。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameList'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 地图与统计
+      operationId: listMatchGamesHeaders
+      summary: 获取比赛地图局（仅响应头）
+      description: 完整返回。number 已知项按 number、id 升序，未知项最后按 id 升序。ID 排序不代表真实比赛顺序。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches/{match_id}/games/{game_id}:
+    get:
+      tags:
+      - 地图与统计
+      operationId: getGame
+      summary: 获取地图局
+      description: 获取地图局
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/game_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+              example:
+                data:
+                  id: 27301
+                  match_id: 5445
+                  number: 1
+                  map:
+                    id: 20
+                    name: 尼泊尔
+                    mode: control
+                  team1:
+                    team:
+                      id: 53
+                      name: AUS
+                    score: 2
+                    banned_hero:
+                      id: 26
+                      name: 堡垒
+                  team2:
+                    team:
+                      id: 65
+                      name: MEX
+                    score: 0
+                    banned_hero:
+                      id: 53
+                      name: D.Mon
+                  winner_team_id: 53
+                  duration_seconds: 599
+                  replay_code: null
+                  player_stats_coverage:
+                    status: recorded
+                    recorded_players: 10
+                    expected_players: 10
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 地图与统计
+      operationId: getGameHeaders
+      summary: 获取地图局（仅响应头）
+      description: 获取地图局
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/game_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches/{match_id}/games/{game_id}/player-stats:
+    get:
+      tags:
+      - 地图与统计
+      operationId: listGamePlayerStats
+      summary: 获取地图局选手及英雄统计
+      description: 完整返回过滤范围；按 team.id、player.id 升序。每行内包含 hero_stats。英雄项按已知 hero.id 升序，未知 id 项按名称排序。不暴露 player_stats
+        或 player_hero_stats 数据库行 ID。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/game_id'
+      - name: team_id
+        in: query
+        description: 只能是该地图参赛队伍；否则 404。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: player_id
+        in: query
+        description: 实际统计选手，可与 team_id 交集筛选。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerGameStatsList'
+              example:
+                data:
+                - game_id: 27301
+                  team:
+                    id: 53
+                    name: AUS
+                  player:
+                    id: 76
+                    name: Cuffa
+                    role: tank
+                  metrics:
+                    eliminations: 18
+                    assists: 2
+                    deaths: 5
+                    damage: 8860
+                    healing: 2003
+                    damage_mitigated: 4857
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 53
+                    name: AUS
+                  player:
+                    id: 262
+                    name: SGY
+                    role: damage
+                  metrics:
+                    eliminations: 14
+                    assists: 0
+                    deaths: 5
+                    damage: 5927
+                    healing: 0
+                    damage_mitigated: 200
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 53
+                    name: AUS
+                  player:
+                    id: 278
+                    name: COLOURHEX
+                    role: damage
+                  metrics:
+                    eliminations: 12
+                    assists: 1
+                    deaths: 7
+                    damage: 9787
+                    healing: 0
+                    damage_mitigated: 186
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 53
+                    name: AUS
+                  player:
+                    id: 280
+                    name: HAMSTER
+                    role: support
+                  metrics:
+                    eliminations: 12
+                    assists: 11
+                    deaths: 2
+                    damage: 5774
+                    healing: 9056
+                    damage_mitigated: 0
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 53
+                    name: AUS
+                  player:
+                    id: 314
+                    name: ACKYYY
+                    role: support
+                  metrics:
+                    eliminations: 14
+                    assists: 12
+                    deaths: 5
+                    damage: 4214
+                    healing: 4483
+                    damage_mitigated: 0
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 65
+                    name: MEX
+                  player:
+                    id: 273
+                    name: SANTANA
+                    role: tank
+                  metrics:
+                    eliminations: 15
+                    assists: 8
+                    deaths: 4
+                    damage: 6543
+                    healing: 1998
+                    damage_mitigated: 13361
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 65
+                    name: MEX
+                  player:
+                    id: 274
+                    name: ELEMENTALGUY
+                    role: damage
+                  metrics:
+                    eliminations: 12
+                    assists: 0
+                    deaths: 7
+                    damage: 6001
+                    healing: 596
+                    damage_mitigated: 2160
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 65
+                    name: MEX
+                  player:
+                    id: 275
+                    name: KARMEZ
+                    role: damage
+                  metrics:
+                    eliminations: 14
+                    assists: 1
+                    deaths: 7
+                    damage: 7660
+                    healing: 100
+                    damage_mitigated: 503
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 65
+                    name: MEX
+                  player:
+                    id: 276
+                    name: FERUSKY
+                    role: support
+                  metrics:
+                    eliminations: 8
+                    assists: 12
+                    deaths: 6
+                    damage: 3346
+                    healing: 10968
+                    damage_mitigated: 0
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+                - game_id: 27301
+                  team:
+                    id: 65
+                    name: MEX
+                  player:
+                    id: 277
+                    name: LAY
+                    role: support
+                  metrics:
+                    eliminations: 9
+                    assists: 10
+                    deaths: 7
+                    damage: 3676
+                    healing: 7954
+                    damage_mitigated: 0
+                    final_blows: null
+                    ultimates_used: null
+                  hero_stats:
+                    status: not_recorded
+                    items: []
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 地图与统计
+      operationId: listGamePlayerStatsHeaders
+      summary: 获取地图局选手及英雄统计（仅响应头）
+      description: 完整返回过滤范围；按 team.id、player.id 升序。每行内包含 hero_stats。英雄项按已知 hero.id 升序，未知 id 项按名称排序。不暴露 player_stats
+        或 player_hero_stats 数据库行 ID。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/game_id'
+      - name: team_id
+        in: query
+        description: 只能是该地图参赛队伍；否则 404。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - name: player_id
+        in: query
+        description: 实际统计选手，可与 team_id 交集筛选。
+        schema:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /matches/{match_id}/data:
+    get:
+      tags:
+      - 地图与统计
+      operationId: getMatchData
+      summary: 获取单场完整赛事数据包
+      description: 一次读取该场比赛及全部已收录地图局、选手统计和英雄统计。所有部分在同一只读一致性快照内构建。不得分页、静默截断或混入其他比赛；空 games 明确表示尚无已收录地图数据。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchDataResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 地图与统计
+      operationId: getMatchDataHeaders
+      summary: 获取单场完整赛事数据包（仅响应头）
+      description: 一次读取该场比赛及全部已收录地图局、选手统计和英雄统计。所有部分在同一只读一致性快照内构建。不得分页、静默截断或混入其他比赛；空 games 明确表示尚无已收录地图数据。
+      parameters:
+      - $ref: '#/components/parameters/match_id'
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+  /schedule:
+    get:
+      tags:
+      - 赛程
+      operationId: getSchedule
+      summary: 获取近期赛程提示
+      description: 完整返回当前来源提供的有限赛程列表，按 scheduled_at 升序，未知时刻最后。当前采集范围为选定 S/A 级赛事且最多 50 项，不是完整官方历史赛程。不返回源站内部标识、抓取参数或投票标识。成功旧缓存必须显式
+        stale=true；首次读取失败无缓存时返回 503。
+      parameters:
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '405':
+          $ref: '#/components/responses/Error405'
+        '410':
+          $ref: '#/components/responses/Error410'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '503':
+          $ref: '#/components/responses/Error503'
+    head:
+      tags:
+      - 赛程
+      operationId: getScheduleHeaders
+      summary: 获取近期赛程提示（仅响应头）
+      description: 完整返回当前来源提供的有限赛程列表，按 scheduled_at 升序，未知时刻最后。当前采集范围为选定 S/A 级赛事且最多 50 项，不是完整官方历史赛程。不返回源站内部标识、抓取参数或投票标识。成功旧缓存必须显式
+        stale=true；首次读取失败无缓存时返回 503。
+      parameters:
+      - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: 成功。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '304':
+          description: 当前公开表示未改变；无响应正文。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+        '400':
+          $ref: '#/components/responses/Error400Headers'
+        '404':
+          $ref: '#/components/responses/Error404Headers'
+        '405':
+          $ref: '#/components/responses/Error405Headers'
+        '410':
+          $ref: '#/components/responses/Error410Headers'
+        '429':
+          $ref: '#/components/responses/Error429Headers'
+        '500':
+          $ref: '#/components/responses/Error500Headers'
+        '503':
+          $ref: '#/components/responses/Error503Headers'
+components:
+  schemas:
+    EntityRef:
+      type: object
+      description: 稳定实体的简要引用。
+      additionalProperties: false
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 显示名称；可变且不保证全局唯一。
+          minLength: 1
+    Competition:
+      type: object
+      description: 一个独立赛事条目，不等同于自然年度或整届全球巡回赛。
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - status
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 独立收录的赛事名称。
+          minLength: 1
+        status:
+          type: string
+          description: 赛事目录状态；不保证该赛事全部比赛已收录。
+          enum:
+          - in_progress
+          - completed
+    Stage:
+      type: object
+      description: 比赛阶段归属以 Match.stage 为准；不返回内部阶段边界配置。
+      additionalProperties: false
+      required:
+      - id
+      - competition_id
+      - name
+      - sequence
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        competition_id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 赛事内部阶段名称。
+          minLength: 1
+        sequence:
+          type: integer
+          minimum: 1
+          description: 该赛事中的阶段顺序，从 1 开始。
+    Team:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - aliases
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 队伍显示名称。
+          minLength: 1
+        aliases:
+          type: array
+          items:
+            type: string
+            description: 已确认的队伍名称别称。
+            minLength: 1
+          description: 仅返回已确认别名；不自动推断战队历史继承关系。
+    Player:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - role
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 选手显示名称；同名不等于同人。
+          minLength: 1
+        role:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+    Map:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - mode
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 地图名称。
+          minLength: 1
+        mode:
+          type: string
+          description: 地图比赛模式。
+          enum:
+          - control
+          - escort
+          - hybrid
+          - push
+          - flashpoint
+    Hero:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - role
+      - sub_role
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        name:
+          type: string
+          description: 英雄名称。
+          minLength: 1
+        role:
+          type: string
+          description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
+          enum:
+          - tank
+          - damage
+          - support
+        sub_role:
+          anyOf:
+          - type: string
+            description: 目录中的细分职责；不是比赛时的英雄版本信息。
+          - type: 'null'
+    HeroRef:
+      type: object
+      description: id 为 null 不等于没有使用该英雄。
+      additionalProperties: false
+      required:
+      - id
+      - name
+      properties:
+        id:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+          - type: 'null'
+        name:
+          type: string
+          description: 英雄名称；未完成目录映射时保留已记录名称。
+          minLength: 1
+    TeamResult:
+      type: object
+      additionalProperties: false
+      required:
+      - team
+      - score
+      properties:
+        team:
+          $ref: '#/components/schemas/EntityRef'
+        score:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 该队已记录得分；缺失或不能可靠解释时为 null。
+          - type: 'null'
+    Match:
+      type: object
+      description: 结果库中的一场系列赛。team1/team2 是固定存储侧位，不表示主客场、攻守方或强弱。比分是系列赛大场比分。
+      additionalProperties: false
+      required:
+      - id
+      - competition
+      - stage
+      - date
+      - format
+      - team1
+      - team2
+      - winner_team_id
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        competition:
+          $ref: '#/components/schemas/EntityRef'
+        stage:
+          anyOf:
+          - $ref: '#/components/schemas/EntityRef'
+          - type: 'null'
+        date:
+          type: string
+          description: 已记录的比赛日历日期。没有开赛时刻，不转换成午夜时间戳。
+          format: date
+        format:
+          anyOf:
+          - type: string
+            description: BO 后接最多比赛局数，例如 BO5。未确认时 null。
+            pattern: ^BO[1-9][0-9]*$
+          - type: 'null'
+        team1:
+          $ref: '#/components/schemas/TeamResult'
+        team2:
+          $ref: '#/components/schemas/TeamResult'
+        winner_team_id:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+          - type: 'null'
+    GameTeamResult:
+      type: object
+      description: banned_hero=null 表示没有可用 Ban 记录，不证明没有 Ban。
+      additionalProperties: false
+      required:
+      - team
+      - score
+      - banned_hero
+      properties:
+        team:
+          $ref: '#/components/schemas/EntityRef'
+        score:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 单张地图已记录的模式相关成绩值。原始存储只保留整数，可能缺少推进距离等精度信息；不得据此重新推断胜方。
+          - type: 'null'
+        banned_hero:
+          anyOf:
+          - $ref: '#/components/schemas/EntityRef'
+          - type: 'null'
+    PlayerStatsCoverage:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      - recorded_players
+      - expected_players
+      properties:
+        status:
+          type: string
+          description: recorded=当前标准 5v5 地图双方各五名有效唯一选手统计；partial=有记录但未达完整结构；not_recorded=无记录。仅说明记录结构，不证明采集准确率。
+          enum:
+          - recorded
+          - partial
+          - not_recorded
+        recorded_players:
+          type: integer
+          minimum: 0
+          description: 本地图有效且唯一的选手统计记录数。
+        expected_players:
+          type: integer
+          minimum: 10
+          description: 本版仅覆盖标准 5v5 赛事，预期双方合计 10 人。
+          maximum: 10
+    Game:
+      type: object
+      description: 系列赛中的一张地图局。相同地图可以重复出现，必须按 id 区分。
+      additionalProperties: false
+      required:
+      - id
+      - match_id
+      - number
+      - map
+      - team1
+      - team2
+      - winner_team_id
+      - duration_seconds
+      - replay_code
+      - player_stats_coverage
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        match_id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        number:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 经确认的系列赛地图局序号，从 1 开始；无法恢复真实顺序时 null。
+          - type: 'null'
+        map:
+          $ref: '#/components/schemas/Map'
+        team1:
+          $ref: '#/components/schemas/GameTeamResult'
+        team2:
+          $ref: '#/components/schemas/GameTeamResult'
+        winner_team_id:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+          - type: 'null'
+        duration_seconds:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 地图游戏时长（秒）；内部分钟值乘 60 后四舍五入。不是视频长度。0/无效/未记录返回 null。
+          - type: 'null'
+        replay_code:
+          anyOf:
+          - type: string
+            description: 已记录的游戏内回放代码；不保证长期有效。
+            minLength: 1
+          - type: 'null'
+        player_stats_coverage:
+          $ref: '#/components/schemas/PlayerStatsCoverage'
+    PlayerMetrics:
+      type: object
+      description: 每个字段均存在。null=没有足够证据提供该值，0=有效记录中的零值；不得将解析失败强制写成零。
+      additionalProperties: false
+      required:
+      - eliminations
+      - assists
+      - deaths
+      - damage
+      - healing
+      - damage_mitigated
+      - final_blows
+      - ultimates_used
+      properties:
+        eliminations:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板淘汰数，可由多人共同获得；不是最后一击。
+          - type: 'null'
+        assists:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板助攻数。
+          - type: 'null'
+        deaths:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板死亡数。
+          - type: 'null'
+        damage:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板伤害量。
+          - type: 'null'
+        healing:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板治疗量。
+          - type: 'null'
+        damage_mitigated:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 记分板承受/阻挡统计中的伤害减免量。
+          - type: 'null'
+        final_blows:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 有独立有效采集证据的整局最后一击次数。默认值或空英雄表不能证明真实零。
+          - type: 'null'
+        ultimates_used:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 有完整采集证据的整局终极技能使用次数。不得用经过短时英雄过滤的汇总冒充完整总数。
+          - type: 'null'
+    HeroMetrics:
+      type: object
+      description: 没有英雄级伤害/治疗/淘汰字段；不得把整局记分板指标按使用比例分配到英雄。
+      additionalProperties: false
+      required:
+      - usage_seconds
+      - usage_percentage
+      - final_blows
+      - death_events
+      - ultimate_ready_events
+      - ultimates_used
+      - average_ultimate_charge_seconds
+      properties:
+        usage_seconds:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 该英雄已记录使用时长（秒）。
+          - type: 'null'
+        usage_percentage:
+          anyOf:
+          - type: number
+            minimum: 0
+            description: 占该选手本局已识别英雄总时长的百分比，范围 0–100。当前源汇总可能过滤短时英雄，返回项的百分比之和可小于 100。
+            maximum: 100
+          - type: 'null'
+        final_blows:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 归属于该英雄的已记录最后一击次数。
+          - type: 'null'
+        death_events:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 归属于该英雄的去重死亡事件数；可能包含独立 death 事件，不保证每次都有最后一击记录。
+          - type: 'null'
+        ultimate_ready_events:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 该英雄的终极技能就绪事件次数。
+          - type: 'null'
+        ultimates_used:
+          anyOf:
+          - type: integer
+            minimum: 0
+            description: 该英雄的已记录终极技能使用次数。
+          - type: 'null'
+        average_ultimate_charge_seconds:
+          anyOf:
+          - type: number
+            minimum: 0
+            description: 源数据对相邻选角、换英雄或上次使用等边界到就绪事件间隔的均值（秒）；非严格游戏机制充能效率。
+          - type: 'null'
+    HeroStatsItem:
+      type: object
+      additionalProperties: false
+      required:
+      - hero
+      - metrics
+      properties:
+        hero:
+          $ref: '#/components/schemas/HeroRef'
+        metrics:
+          $ref: '#/components/schemas/HeroMetrics'
+    HeroStats:
+      type: object
+      additionalProperties: false
+      required:
+      - status
+      - items
+      properties:
+        status:
+          type: string
+          description: recorded=存在可用英雄明细；not_recorded=没有可用记录。recorded 不保证包含短时英雄或完整时间线。
+          enum:
+          - recorded
+          - not_recorded
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeroStatsItem'
+          description: 未记录时必须为空数组；记录时至少一项。
+      allOf:
+      - if:
+          properties:
+            status:
+              const: not_recorded
+        then:
+          properties:
+            items:
+              maxItems: 0
+      - if:
+          properties:
+            status:
+              const: recorded
+        then:
+          properties:
+            items:
+              minItems: 1
+    PlayerGameStats:
+      type: object
+      description: 唯一键为 (game_id, team.id, player.id)。不暴露会在同步中重建的统计行 ID。player.role 仍为目录位置。
+      additionalProperties: false
+      required:
+      - game_id
+      - team
+      - player
+      - metrics
+      - hero_stats
+      properties:
+        game_id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        team:
+          $ref: '#/components/schemas/EntityRef'
+        player:
+          $ref: '#/components/schemas/Player'
+        metrics:
+          $ref: '#/components/schemas/PlayerMetrics'
+        hero_stats:
+          $ref: '#/components/schemas/HeroStats'
+    GameData:
+      type: object
+      additionalProperties: false
+      required:
+      - game
+      - player_stats
+      properties:
+        game:
+          $ref: '#/components/schemas/Game'
+        player_stats:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerGameStats'
+          description: 本地图全部有效统计行；不分页、不截断。
+    MatchData:
+      type: object
+      description: 一场比赛的完整已收录数据包；适合合作方入库并整体替换该比赛旧数据。没有原始识别时间线。
+      additionalProperties: false
+      required:
+      - match
+      - games
+      - result_consistency
+      properties:
+        match:
+          $ref: '#/components/schemas/Match'
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameData'
+          description: 该场所有已收录地图及选手、英雄统计。单次响应使用同一只读一致性快照。
+        result_consistency:
+          type: string
+          description: 仅比较已记录系列赛比分与地图胜方计数。consistent=全部已收录地图胜方明确且双方胜图数等于大场分数；conflicting=任一队已记录胜图数超出大场分数；其他为 insufficient_data。不能作为官方数据完整性或准确率证明。
+          enum:
+          - consistent
+          - conflicting
+          - insufficient_data
+    Roster:
+      type: object
+      description: 名单表达赛事内归属，可包含未登场选手。无加入/离开日期、首发推断或当前在队推断。
+      additionalProperties: false
+      required:
+      - competition
+      - team
+      - players
+      properties:
+        competition:
+          $ref: '#/components/schemas/EntityRef'
+        team:
+          $ref: '#/components/schemas/EntityRef'
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+          description: 该赛事队伍名单，按选手 ID 升序；完整返回。
+    Coverage:
+      type: object
+      description: 已收录数据范围的覆盖计数。不能据此声称已收录全部官方比赛或官方名单。
+      additionalProperties: false
+      required:
+      - competition_id
+      - stage_id
+      - matches
+      - games
+      - latest_match_date
+      - player_stats
+      - duration
+      - hero_stats
+      - bans
+      properties:
+        competition_id:
+          type: integer
+          minimum: 1
+          description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+        stage_id:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+          - type: 'null'
+        matches:
+          type: integer
+          minimum: 0
+          description: 筛选范围内已收录系列赛数。
+        games:
+          type: integer
+          minimum: 0
+          description: 筛选范围内已收录地图局数。
+        latest_match_date:
+          anyOf:
+          - type: string
+            description: 该范围已收录比赛的最晚日期；不是同步更新时间。
+            format: date
+          - type: 'null'
+        player_stats:
+          type: object
+          additionalProperties: false
+          required:
+          - recorded_games
+          - partial_games
+          - missing_games
+          - recorded_rows
+          properties:
+            recorded_games:
+              type: integer
+              minimum: 0
+              description: 双方各五条有效唯一选手统计的地图数。
+            partial_games:
+              type: integer
+              minimum: 0
+              description: 有选手统计但结构不完整的地图数。
+            missing_games:
+              type: integer
+              minimum: 0
+              description: 没有选手统计的地图数。
+            recorded_rows:
+              type: integer
+              minimum: 0
+              description: 选手地图局统计行数。
+        duration:
+          type: object
+          additionalProperties: false
+          required:
+          - recorded_games
+          - missing_games
+          properties:
+            recorded_games:
+              type: integer
+              minimum: 0
+              description: 有有效正时长的地图数。
+            missing_games:
+              type: integer
+              minimum: 0
+              description: 无有效时长的地图数。
+        hero_stats:
+          type: object
+          additionalProperties: false
+          required:
+          - games_with_records
+          - player_game_records_with_hero_stats
+          properties:
+            games_with_records:
+              type: integer
+              minimum: 0
+              description: 有至少一条可用英雄统计的地图数。
+            player_game_records_with_hero_stats:
+              type: integer
+              minimum: 0
+              description: 有至少一条可用英雄统计的选手地图局记录数。
+        bans:
+          type: object
+          additionalProperties: false
+          required:
+          - total_team_slots
+          - recorded_team_slots
+          properties:
+            total_team_slots:
+              type: integer
+              minimum: 0
+              description: 地图局数乘以 2。
+            recorded_team_slots:
+              type: integer
+              minimum: 0
+              description: 有有效 Ban 记录的队伍地图槽位数。
+    ScheduleEntity:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      properties:
+        id:
+          anyOf:
+          - type: integer
+            minimum: 1
+            description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+          - type: 'null'
+        name:
+          type: string
+          description: 已知显示名称；本地未匹配则 id=null。
+          minLength: 1
+    ScheduleItem:
+      type: object
+      description: 外部来源的赛程提示。未知队伍（TBD/TBA/BYE）用 null；不生成虚构本地实体。不承诺稳定单条赛程 ID，也不自动关联结果库比赛。
+      additionalProperties: false
+      required:
+      - competition
+      - scheduled_at
+      - team1
+      - team2
+      properties:
+        competition:
+          $ref: '#/components/schemas/ScheduleEntity'
+        scheduled_at:
+          anyOf:
+          - type: string
+            description: 已知开赛时刻，RFC 3339 UTC；原始时间未知则 null。
+            format: date-time
+          - type: 'null'
+        team1:
+          anyOf:
+          - $ref: '#/components/schemas/ScheduleEntity'
+          - type: 'null'
+        team2:
+          anyOf:
+          - $ref: '#/components/schemas/ScheduleEntity'
+          - type: 'null'
+    Pagination:
+      type: object
+      additionalProperties: false
+      required:
+      - next_cursor
+      properties:
+        next_cursor:
+          anyOf:
+          - type: string
+            description: 下一页不透明令牌。null 表示本次遍历结束；不是增量更新游标。
+            minLength: 1
+          - type: 'null'
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+              description: 稳定机器错误码。
+              enum:
+              - INVALID_ARGUMENT
+              - NOT_FOUND
+              - CURSOR_EXPIRED
+              - DATA_UNAVAILABLE
+              - RATE_LIMITED
+              - METHOD_NOT_ALLOWED
+              - INTERNAL_ERROR
+            message:
+              type: string
+              description: 可公开的简短错误说明；无 SQL、堆栈、上游地址或凭据。
+    CompetitionResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Competition'
+    TeamResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Team'
+    PlayerResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Player'
+    MapResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Map'
+    HeroResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Hero'
+    MatchResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Match'
+    GameResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Game'
+    MatchDataResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/MatchData'
+    RosterResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Roster'
+    CoverageResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Coverage'
+    CompetitionList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competition'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    TeamList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    PlayerList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    MapList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Map'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    HeroList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hero'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    MatchList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - pagination
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Match'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    StageList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stage'
+          description: 完整返回该父资源范围，不分页。
+    GameList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Game'
+          description: 完整返回该父资源范围，不分页。
+    PlayerGameStatsList:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerGameStats'
+          description: 完整返回该父资源范围，不分页。
+    ScheduleResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - data
+      - freshness
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleItem'
+        freshness:
+          type: object
+          additionalProperties: false
+          required:
+          - observed_at
+          - stale
+          properties:
+            observed_at:
+              type: string
+              description: 最后一次成功读取赛程来源的时间；不是响应时间。
+              format: date-time
+            stale:
+              type: boolean
+              description: true=当前为来源读取失败后的旧缓存；不得称为最新赛程。
+  parameters:
+    competition_id:
+      name: competition_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    team_id:
+      name: team_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    player_id:
+      name: player_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    match_id:
+      name: match_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    game_id:
+      name: game_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    hero_id:
+      name: hero_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    map_id:
+      name: map_id
+      in: path
+      required: true
+      description: 资源 ID；父子资源不匹配返回 404。
+      schema:
+        type: integer
+        minimum: 1
+        description: 当前数据集内稳定的赛事资源标识；不得按名称代替 ID，也不得假设跨环境 ID 一致。
+    limit:
+      name: limit
+      in: query
+      description: 每页条数。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    cursor:
+      name: cursor
+      in: query
+      description: 沿用上一页全部筛选参数和 limit，原样传入下一页令牌。令牌绑定查询条件与有效期，不保证跨页数据库快照。
+      schema:
+        type: string
+        maxLength: 4096
+    q:
+      name: q
+      in: query
+      description: 名称包含查询串，忽略大小写并规范空白；% 和 _ 按普通字符，不是通配符；规范后空字符串无效。按 ID 返回全部候选。队伍同时检索已确认 aliases；不自动合并同名实体。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      description: 上一次相同请求的 ETag，用于条件 GET/HEAD。
+      schema:
+        type: string
+  headers:
+    ETag:
+      description: 公开响应表示的验证器，涵盖所有公开子数据；不能只用父比赛的更新时间。
+      schema:
+        type: string
+    Cache-Control:
+      description: 普通赛事查询使用 public, max-age=0, must-revalidate。缓存复用前须验证。
+      schema:
+        type: string
+    X-Request-Id:
+      description: 仅用于问题定位的请求标识，放在响应头，不进入赛事对象。
+      schema:
+        type: string
+  responses:
+    Error400:
+      description: 无效参数、未知参数、无效游标或游标与筛选条件不匹配。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error400Headers:
+      description: 无效参数、未知参数、无效游标或游标与筛选条件不匹配。
+    Error404:
+      description: 资源不存在、父子不匹配或队伍不属于指定赛事。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error404Headers:
+      description: 资源不存在、父子不匹配或队伍不属于指定赛事。
+    Error405:
+      description: 只允许 GET 和 HEAD。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      headers:
+        Allow:
+          description: 允许的赛事读取方法。
+          schema:
+            type: string
+            enum:
+            - GET, HEAD
+    Error405Headers:
+      description: 只允许 GET 和 HEAD。
+      headers:
+        Allow:
+          description: 允许的赛事读取方法。
+          schema:
+            type: string
+            enum:
+            - GET, HEAD
+    Error410:
+      description: 列表游标已过期；从首页重新读取。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error410Headers:
+      description: 列表游标已过期；从首页重新读取。
+    Error429:
+      description: 请求过多。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      headers:
+        Retry-After:
+          description: 重试等待秒数。
+          schema:
+            type: integer
+            minimum: 1
+    Error429Headers:
+      description: 请求过多。
+      headers:
+        Retry-After:
+          description: 重试等待秒数。
+          schema:
+            type: integer
+            minimum: 1
+    Error500:
+      description: 服务器内部错误。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error500Headers:
+      description: 服务器内部错误。
+    Error503:
+      description: 来源不可用或该响应无法满足数据完整性约束。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Error503Headers:
+      description: 来源不可用或该响应无法满足数据完整性约束。

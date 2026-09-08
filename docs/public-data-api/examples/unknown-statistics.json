@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 76,
+        "name": "Cuffa",
+        "role": "tank"
+      },
+      "metrics": {
+        "eliminations": null,
+        "assists": null,
+        "deaths": null,
+        "damage": null,
+        "healing": null,
+        "damage_mitigated": null,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    }
+  ]
+}

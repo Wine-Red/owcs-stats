@@ -1,0 +1,264 @@
+{
+  "data": [
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 76,
+        "name": "Cuffa",
+        "role": "tank"
+      },
+      "metrics": {
+        "eliminations": 18,
+        "assists": 2,
+        "deaths": 5,
+        "damage": 8860,
+        "healing": 2003,
+        "damage_mitigated": 4857,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 262,
+        "name": "SGY",
+        "role": "damage"
+      },
+      "metrics": {
+        "eliminations": 14,
+        "assists": 0,
+        "deaths": 5,
+        "damage": 5927,
+        "healing": 0,
+        "damage_mitigated": 200,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 278,
+        "name": "COLOURHEX",
+        "role": "damage"
+      },
+      "metrics": {
+        "eliminations": 12,
+        "assists": 1,
+        "deaths": 7,
+        "damage": 9787,
+        "healing": 0,
+        "damage_mitigated": 186,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 280,
+        "name": "HAMSTER",
+        "role": "support"
+      },
+      "metrics": {
+        "eliminations": 12,
+        "assists": 11,
+        "deaths": 2,
+        "damage": 5774,
+        "healing": 9056,
+        "damage_mitigated": 0,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 53,
+        "name": "AUS"
+      },
+      "player": {
+        "id": 314,
+        "name": "ACKYYY",
+        "role": "support"
+      },
+      "metrics": {
+        "eliminations": 14,
+        "assists": 12,
+        "deaths": 5,
+        "damage": 4214,
+        "healing": 4483,
+        "damage_mitigated": 0,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "player": {
+        "id": 273,
+        "name": "SANTANA",
+        "role": "tank"
+      },
+      "metrics": {
+        "eliminations": 15,
+        "assists": 8,
+        "deaths": 4,
+        "damage": 6543,
+        "healing": 1998,
+        "damage_mitigated": 13361,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "player": {
+        "id": 274,
+        "name": "ELEMENTALGUY",
+        "role": "damage"
+      },
+      "metrics": {
+        "eliminations": 12,
+        "assists": 0,
+        "deaths": 7,
+        "damage": 6001,
+        "healing": 596,
+        "damage_mitigated": 2160,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "player": {
+        "id": 275,
+        "name": "KARMEZ",
+        "role": "damage"
+      },
+      "metrics": {
+        "eliminations": 14,
+        "assists": 1,
+        "deaths": 7,
+        "damage": 7660,
+        "healing": 100,
+        "damage_mitigated": 503,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "player": {
+        "id": 276,
+        "name": "FERUSKY",
+        "role": "support"
+      },
+      "metrics": {
+        "eliminations": 8,
+        "assists": 12,
+        "deaths": 6,
+        "damage": 3346,
+        "healing": 10968,
+        "damage_mitigated": 0,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    },
+    {
+      "game_id": 27301,
+      "team": {
+        "id": 65,
+        "name": "MEX"
+      },
+      "player": {
+        "id": 277,
+        "name": "LAY",
+        "role": "support"
+      },
+      "metrics": {
+        "eliminations": 9,
+        "assists": 10,
+        "deaths": 7,
+        "damage": 3676,
+        "healing": 7954,
+        "damage_mitigated": 0,
+        "final_blows": null,
+        "ultimates_used": null
+      },
+      "hero_stats": {
+        "status": "not_recorded",
+        "items": []
+      }
+    }
+  ]
+}

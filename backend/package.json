@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test \"tests/*.test.js\"",
+    "serve:data-api": "node scripts/serve-public-data-api.js",
+    "verify:data-api": "node scripts/verify-public-data-api.js",
+    "retire:agent-views": "node scripts/retire-legacy-agent-views.js",
     "media:migrate": "node scripts/migrate-media-assets.js",
     "membership:audit": "node scripts/audit-membership-evidence.js"
   },

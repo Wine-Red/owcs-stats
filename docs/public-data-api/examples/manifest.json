@@ -1,0 +1,30 @@
+{
+  "examples/match.json": {
+    "schema": "MatchResponse",
+    "source": "production projection, audited 2026-09-09"
+  },
+  "examples/game.json": {
+    "schema": "GameResponse",
+    "source": "production projection, audited 2026-09-09"
+  },
+  "examples/player-stats.json": {
+    "schema": "PlayerGameStatsList",
+    "source": "production projection, audited 2026-09-09"
+  },
+  "examples/match-data.json": {
+    "schema": "MatchDataResponse",
+    "source": "production projection, audited 2026-09-09"
+  },
+  "examples/empty-matches.json": {
+    "schema": "MatchList",
+    "source": "synthetic edge case"
+  },
+  "examples/unknown-statistics.json": {
+    "schema": "PlayerGameStatsList",
+    "source": "synthetic edge case"
+  },
+  "examples/error.json": {
+    "schema": "Error",
+    "source": "synthetic edge case"
+  }
+}

@@ -34,6 +34,12 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 8080,
     proxy: {
+      '/data/v1': {
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        proxyTimeout: 150000,
+        timeout: 150000
+      },
       '/poll-api': {
         target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,

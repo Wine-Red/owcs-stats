@@ -18,7 +18,7 @@ const Config = require('../models/Config'); // eslint-disable-line no-unused-var
 require('../models/ExternalMatchInbox'); // Created additively by the existing sequelize.sync().
 require('../models/MatchVote');
 const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
-const { ensureAgentViews } = require('./agentViews');
+const { retireLegacyAgentViews } = require('./legacyAgentViewRetirement');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
 const { runMembershipEvidenceMigration } = require('./membershipEvidenceMigration');
 
@@ -138,6 +138,8 @@ const initDatabase = async () => {
   try {
     // 测试数据库连接
     await sequelize.authenticate();
+    const retiredViews = await retireLegacyAgentViews(sequelize);
+    if (retiredViews.dropped.length) console.log(`[database-retirement] removed ${retiredViews.dropped.length} obsolete views`);
     await ensureIncrementalSyncSchema();
     await ensureTimelineAggregationSchema();
     await ensureMediaSchema();
@@ -171,15 +173,6 @@ const initDatabase = async () => {
       `legacyPlayers=${membershipMigration.legacyPlayerSources || 0} ` +
       `anomalies=${membershipMigration.anomalyCount || 0}`
     );
-
-    // Keep the assistant-facing views aligned with the deployed backend while
-    // allowing the website to start if this account lacks CREATE VIEW rights.
-    try {
-      const viewCount = await ensureAgentViews(sequelize);
-      console.log(`[agent-views] ${viewCount} views are ready`);
-    } catch (error) {
-      console.error(`[agent-views] initialization failed; website startup will continue: ${error.message}`);
-    }
 
     // 英雄和地图改由后台管理，不再在应用启动时写入或修正固定数据。
   } catch (error) {
