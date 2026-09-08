@@ -141,6 +141,7 @@ const getSummary = async (seasonId, token) => {
     const poll = polls.find(p => p.sourceId === source.sourceId && p.pairKey === source.pairKey);
     sources[source.sourceId] = { ...(poll ? summaries.get(poll.id) : { votes: {}, total: 0, myTeamId: null }),
       sourceId: source.sourceId, team1Id: source.team1Id, team2Id: source.team2Id,
+      team1Name: source.team1Name, team2Name: source.team2Name,
       closed: context.stale || source.timestamp <= Date.now() || !!poll?.matchId,
       timestamp: source.timestamp };
   }

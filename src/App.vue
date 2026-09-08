@@ -174,7 +174,8 @@ export default {
         items: [
           { to: '/data-manage/seasons', label: '赛季管理', icon: Calendar },
           { to: '/data-manage/matches', label: '比赛管理', icon: Timer },
-          { to: '/data-manage/season-visualize', label: '赛季可视化配置', icon: Monitor }
+          { to: '/data-manage/season-visualize', label: '赛季可视化配置', icon: Monitor },
+          { to: '/data-manage/polls', label: '赛前投票', icon: Monitor }
         ]
       },
       {

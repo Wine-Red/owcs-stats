@@ -7,7 +7,7 @@
           <span>{{ pageSectionMap[activeTab] || 'DATA OPERATIONS' }}</span>
         </div>
         <h1>{{ pageTitleMap[activeTab] || '数据管理' }}</h1>
-        <p>{{ pageDescriptionMap[activeTab] || '维护 OWCS Stats 的规范数据与展示配置。' }}</p>
+        <p v-if="activeTab !== 'polls'">{{ pageDescriptionMap[activeTab] || '维护 OWCS Stats 的规范数据与展示配置。' }}</p>
       </div>
       <div class="admin-page-hero-actions">
         <div class="admin-mode-chip">
@@ -22,6 +22,7 @@
     </header>
 
     <section class="admin-workbench" :aria-label="pageTitleMap[activeTab] || '数据管理'">
+    <UpcomingPolls v-if="activeTab === 'polls'" :seasons="seasons" />
 
     <!-- 图表管理 -->
     <div v-if="activeTab === 'charts'">
@@ -1317,6 +1318,7 @@ import MediaUploadField from './components/MediaUploadField.vue';
 import EntityContextDrawer from './components/EntityContextDrawer.vue';
 import MatchDataDrawer from './components/MatchDataDrawer.vue';
 import LiquipediaRosterImport from './components/LiquipediaRosterImport.vue';
+import UpcomingPolls from './components/UpcomingPolls.vue';
 import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
   isValidLiquipediaTournamentUrl,
@@ -1339,11 +1341,13 @@ export default {
     MediaUploadField,
     EntityContextDrawer,
     MatchDataDrawer,
-    LiquipediaRosterImport
+    LiquipediaRosterImport,
+    UpcomingPolls
   },
   setup() {
     // 页面标题映射
     const pageTitleMap = {
+      'polls': '赛前投票',
       'seasons': '赛季管理',
       'season-visualize': '赛季可视化配置',
       'teams': '队伍管理',
@@ -1356,6 +1360,7 @@ export default {
       'matches': '比赛管理'
     };
     const pageSectionMap = {
+      'polls': 'PRE-MATCH POLLS',
       'seasons': 'COMPETITION STRUCTURE',
       'season-visualize': 'PUBLIC PRESENTATION',
       'teams': 'TEAM DIRECTORY',
