@@ -15,6 +15,7 @@ const PlayerHeroStat = require('../models/PlayerHeroStat'); // eslint-disable-li
 const MapGameTimeline = require('../models/MapGameTimeline'); // eslint-disable-line no-unused-vars
 const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-unused-vars
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
+require('../models/ExternalMatchInbox'); // Created additively by the existing sequelize.sync().
 const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
 const { ensureAgentViews } = require('./agentViews');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');

@@ -44,7 +44,9 @@ const createExternalMatchSyncClient = ({
         method: 'GET', headers, signal: controller.signal
       });
       if (!response.ok) {
-        throw new Error(`External match API request failed: ${response.status} ${response.statusText}`);
+        const error = new Error(`External match API request failed: ${response.status} ${response.statusText}`);
+        error.statusCode = response.status;
+        throw error;
       }
       try {
         return await response.json();

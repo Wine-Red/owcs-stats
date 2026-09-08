@@ -13,6 +13,7 @@ const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
+const { createExternalMatchInboxService } = require('./ExternalMatchInboxService');
 const {
   aggregateTimeline,
   buildTimelineMirrorAttributes,
@@ -26,8 +27,6 @@ const {
   ensureSeasonTeam: ensureSeasonTeamWithSource,
   ensureSeasonTeamPlayer: ensureSeasonTeamPlayerWithSource,
   deactivateMatchSources,
-  createTouchedMemberships,
-  mergeTouchedMemberships,
   reconcileMemberships,
   reconcileOrphanPlayers
 } = require('./MembershipSourceService');
@@ -486,147 +485,140 @@ const persistJsonConfig = async (key, value, description, transaction) => {
   }
 };
 
-const createIncrementalMatchSyncService = ({ client = createExternalMatchSyncClient() } = {}) => ({
-  async syncMatch(externalId, { source = 'targeted' } = {}) {
-    const normalizedExternalId = String(externalId || '').trim();
-    if (!normalizedExternalId) throw new Error('External match id is required');
+const applyInboxChange = async (row, detail, transaction) => {
+  const result = row.operation === 'delete'
+    ? await deleteMatchByExternalId(row.externalId, transaction)
+    : await upsertMatchDetail(detail, await buildCaches(transaction), transaction);
+  const membershipResult = await reconcileMemberships(result.touchedMemberships, transaction);
+  const summary = {...result};
+  delete summary.touchedMemberships;
+  return {
+    ...summary,
+    removedSeasonTeamsCount: membershipResult.removedSeasonTeamIds.length,
+    removedSeasonTeamPlayersCount: membershipResult.removedSeasonTeamPlayerIds.length
+  };
+};
 
-    const detail = await client.fetchMatch(normalizedExternalId);
-    const data = await sequelize.transaction(async transaction => {
-      const caches = await buildCaches(transaction);
-      const result = await upsertMatchDetail(detail, caches, transaction);
-      const membershipResult = await reconcileMemberships(result.touchedMemberships, transaction);
-      const { touchedMemberships, ...summary } = result;
-      return {
-        source,
-        externalId: normalizedExternalId,
-        ...summary,
-        removedSeasonTeamsCount: membershipResult.removedSeasonTeamIds.length,
-        removedSeasonTeamPlayersCount: membershipResult.removedSeasonTeamPlayerIds.length,
-        syncedAt: new Date().toISOString()
-      };
-    });
-
-    return { message: 'Targeted match sync completed', data };
-  },
-
-  async run({ source = 'manual', maxPages = Number.POSITIVE_INFINITY } = {}) {
-    const cursorConfig = await Config.findByPk(SYNC_CURSOR_CONFIG_KEY);
-    let cursor = cursorConfig?.value?.cursor || null;
-    const totals = {
-      source,
-      lastSyncAt: null,
-      pagesProcessed: 0,
-      upsertedMatchesCount: 0,
-      deletedMatchesCount: 0,
-      playerStatsCount: 0,
-      heroStatsCount: 0,
-      newMatchesCount: 0,
-      updatedMatchesCount: 0,
-      newMapGamesCount: 0,
-      updatedMapGamesCount: 0,
-      newPlayerStatsCount: 0,
-      updatedPlayerStatsCount: 0,
-      newSeasonTeamsCount: 0,
-      newSeasonTeamPlayersCount: 0,
-      removedSeasonTeamsCount: 0,
-      removedSeasonTeamPlayersCount: 0,
-      orphanPlayersMarkedCount: 0,
-      orphanPlayersRestoredCount: 0,
-      orphanPlayersDeletedCount: 0,
-      protectedOrphanPlayersCount: 0,
-      updatedMatches: [],
-      seasonImportSummary: [],
-      affectedSeasonIds: [],
-      cursor: null,
-      errors: []
-    };
-    let fullyCaughtUp = false;
-
-    do {
-      const page = await client.fetchChanges({ cursor, limit: DEFAULT_PAGE_SIZE });
-      if (page.hasMore && page.nextCursor === cursor) {
-        throw new Error('External match sync cursor did not advance');
+const createIncrementalMatchSyncService = ({
+  client = createExternalMatchSyncClient(), inbox = createExternalMatchInboxService(),
+  applyChange = applyInboxChange,
+  saveSummary = totals => sequelize.transaction(transaction => persistJsonConfig(
+    SYNC_SUMMARY_CONFIG_KEY, totals, 'Latest external match sync and pending work', transaction)),
+  reconcileOrphans = () => sequelize.transaction(transaction => reconcileOrphanPlayers({transaction}))
+} = {}) => {
+  const prepare = async candidate => {
+    try {
+      const detail = await client.fetchMatch(candidate.externalId);
+      if (typeof detail.updatedAt !== 'string' || !Number.isFinite(Date.parse(detail.updatedAt))) {
+        throw new Error('Match detail is missing updatedAt; cannot verify its source version');
       }
-      const upserts = page.items.filter(item => item.operation === 'upsert');
-      const details = await mapWithConcurrency(upserts, DETAIL_CONCURRENCY, item => client.fetchMatch(item.id));
-      const detailsById = new Map(details.map(detail => [String(detail.id), detail]));
-
-      await sequelize.transaction(async transaction => {
-        const caches = await buildCaches(transaction);
-        const affectedSeasonIds = new Set();
-        const touchedMemberships = createTouchedMemberships();
-
-        for (const item of page.items) {
-          if (item.operation === 'delete') {
-            const result = await deleteMatchByExternalId(item.id, transaction);
-            mergeTouchedMemberships(touchedMemberships, result.touchedMemberships);
-            if (result.deleted) totals.deletedMatchesCount++;
-            if (result.seasonId) affectedSeasonIds.add(Number(result.seasonId));
-          } else {
-            const result = await upsertMatchDetail(detailsById.get(String(item.id)), caches, transaction);
-            mergeTouchedMemberships(touchedMemberships, result.touchedMemberships);
-            totals.upsertedMatchesCount++;
-            if (result.created) totals.newMatchesCount++;
-            else totals.updatedMatchesCount++;
-            totals.playerStatsCount += result.playerStatsCount;
-            totals.heroStatsCount += result.heroStatsCount;
-            totals.newMapGamesCount += result.newMapGamesCount;
-            totals.updatedMapGamesCount += result.updatedMapGamesCount;
-            totals.newPlayerStatsCount += result.newPlayerStatsCount;
-            totals.updatedPlayerStatsCount += result.updatedPlayerStatsCount;
-            totals.newSeasonTeamsCount += result.newSeasonTeamsCount;
-            totals.newSeasonTeamPlayersCount += result.newMembershipsCount;
-            if (!result.created) totals.updatedMatches.push(result.updatedMatch);
-            affectedSeasonIds.add(Number(result.seasonId));
-          }
+      if (detail.updatedAt < candidate.sourceUpdatedAt) throw new Error('Match detail is older than the captured change');
+      if (detail.updatedAt > candidate.sourceUpdatedAt) {
+        // Detail reads are live; replace an obsolete update/delete with the newer source state.
+        const newer = await inbox.enqueueOne({id: candidate.externalId, updatedAt: detail.updatedAt, operation: 'upsert'});
+        candidate = newer.get ? newer.get({plain: true}) : {...newer};
+        if (candidate.sourceUpdatedAt !== detail.updatedAt) {
+          throw new Error('Captured match changed again while reading detail; retrying the newer version');
         }
-
-        const membershipResult = await reconcileMemberships(touchedMemberships, transaction);
-        totals.removedSeasonTeamsCount += membershipResult.removedSeasonTeamIds.length;
-        totals.removedSeasonTeamPlayersCount += membershipResult.removedSeasonTeamPlayerIds.length;
-
-        // 赛季聚合统计改为读取接口实时计算，同步后不再重写预聚合表
-        const nextCursor = page.nextCursor ?? cursor;
-        await persistJsonConfig(SYNC_CURSOR_CONFIG_KEY, {
-          schemaVersion: page.schemaVersion,
-          cursor: nextCursor,
-          generatedAt: page.generatedAt,
-          savedAt: new Date().toISOString()
-        }, 'External match incremental sync cursor', transaction);
-        affectedSeasonIds.forEach(id => {
-          if (!totals.affectedSeasonIds.includes(id)) totals.affectedSeasonIds.push(id);
-        });
-        cursor = nextCursor;
-      });
-
-      totals.pagesProcessed++;
-      if (!page.hasMore) {
-        fullyCaughtUp = true;
-        break;
       }
-    } while (totals.pagesProcessed < maxPages);
-
-    if (fullyCaughtUp) {
-      const orphanSummary = await sequelize.transaction(transaction => reconcileOrphanPlayers({ transaction }));
-      totals.orphanPlayersMarkedCount = orphanSummary.marked.length;
-      totals.orphanPlayersRestoredCount = orphanSummary.restored.length;
-      totals.orphanPlayersDeletedCount = orphanSummary.deleted.length;
-      totals.protectedOrphanPlayersCount = orphanSummary.protectedLegacyOrManual.length;
+      if (candidate.operation === 'delete') throw new Error('Deleted match still exists at the source; waiting for a newer change');
+      return {candidate, detail};
+    } catch (error) {
+      if (candidate.operation === 'delete' && error.statusCode === 404) return {candidate, detail: null};
+      return {candidate, error};
     }
+  };
+  const processPrepared = prepared => inbox.apply(prepared.candidate, (row, transaction) => {
+    if (prepared.error) throw prepared.error;
+    return applyChange(row, prepared.detail, transaction);
+  });
 
-    totals.lastSyncAt = new Date().toISOString();
-    totals.cursor = cursor;
-    totals.updatedMatches = totals.updatedMatches.slice(-20);
-    await sequelize.transaction(transaction => persistJsonConfig(
-      SYNC_SUMMARY_CONFIG_KEY,
-      totals,
-      'Latest external match incremental sync summary',
-      transaction
-    ));
-    return { message: 'Incremental match sync completed', data: totals };
-  }
-});
+  return {
+    async syncMatch(externalId, {source = 'targeted'} = {}) {
+      const id = String(externalId || '').trim();
+      if (!id) throw new Error('External match id is required');
+      const detail = await client.fetchMatch(id);
+      const row = await inbox.enqueueOne({id, updatedAt: detail.updatedAt, operation: 'upsert'}, true);
+      const prepared = await prepare(row.get ? row.get({plain: true}) : {...row});
+      const outcome = await processPrepared(prepared);
+      if (outcome.error) throw new Error(outcome.error.message);
+      return {message: outcome.skipped ? 'Targeted match sync superseded' : 'Targeted match sync completed',
+        data: {source, externalId: id, ...outcome.result, skipped: outcome.skipped || false, syncedAt: new Date().toISOString()}};
+    },
+
+    async run({source = 'manual', maxPages = 100, maxItems = 200} = {}) {
+      const totals = {
+        source, pagesProcessed: 0, capturedChangesCount: 0,
+        upsertedMatchesCount: 0, deletedMatchesCount: 0,
+        playerStatsCount: 0, heroStatsCount: 0, newMatchesCount: 0, updatedMatchesCount: 0,
+        newMapGamesCount: 0, updatedMapGamesCount: 0, newPlayerStatsCount: 0, updatedPlayerStatsCount: 0,
+        newSeasonTeamsCount: 0, newSeasonTeamPlayersCount: 0,
+        removedSeasonTeamsCount: 0, removedSeasonTeamPlayersCount: 0,
+        orphanPlayersMarkedCount: 0, orphanPlayersRestoredCount: 0, orphanPlayersDeletedCount: 0,
+        protectedOrphanPlayersCount: 0, updatedMatches: [], seasonImportSummary: [], affectedSeasonIds: [],
+        errors: [], captureError: null, capturedThrough: null, appliedThrough: null, captureCaughtUp: false
+      };
+      try {
+        for (let pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+          const cursor = await inbox.cursor();
+          const page = await client.fetchChanges({cursor, limit: DEFAULT_PAGE_SIZE});
+          if ((page.hasMore || page.items.length > 0) && (!page.nextCursor || page.nextCursor === cursor)) {
+            throw new Error('External match sync cursor did not advance');
+          }
+          if (!await inbox.capture(page, cursor)) continue;
+          totals.capturedThrough = page.nextCursor ?? cursor;
+          totals.pagesProcessed++;
+          totals.capturedChangesCount += page.items.length;
+          if (!page.hasMore) { totals.captureCaughtUp = true; break; }
+        }
+      } catch (error) {
+        // Previously captured work remains processable when the feed is temporarily unavailable.
+        totals.captureError = error.message || String(error);
+      }
+
+      const candidates = (await inbox.pending(maxItems)).map(row => row.get ? row.get({plain: true}) : {...row});
+      const prepared = await mapWithConcurrency(candidates, DETAIL_CONCURRENCY, prepare);
+      for (const item of prepared) {
+        const outcome = await processPrepared(item);
+        if (outcome.error) { totals.errors.push(outcome.error); continue; }
+        if (outcome.skipped) continue;
+        const result = outcome.result;
+        if (item.candidate.operation === 'delete') {
+          if (result.deleted) totals.deletedMatchesCount++;
+        } else {
+          totals.upsertedMatchesCount++;
+          if (result.created) totals.newMatchesCount++; else totals.updatedMatchesCount++;
+          for (const key of ['playerStatsCount', 'heroStatsCount', 'newMapGamesCount', 'updatedMapGamesCount',
+            'newPlayerStatsCount', 'updatedPlayerStatsCount', 'newSeasonTeamsCount']) totals[key] += result[key] || 0;
+          totals.newSeasonTeamPlayersCount += result.newMembershipsCount || 0;
+          if (result.updatedMatch) totals.updatedMatches.push(result.updatedMatch);
+        }
+        totals.removedSeasonTeamsCount += result.removedSeasonTeamsCount || 0;
+        totals.removedSeasonTeamPlayersCount += result.removedSeasonTeamPlayersCount || 0;
+        if (result.seasonId && !totals.affectedSeasonIds.includes(Number(result.seasonId))) {
+          totals.affectedSeasonIds.push(Number(result.seasonId));
+        }
+      }
+      Object.assign(totals, await inbox.summary());
+      totals.fullyApplied = totals.captureCaughtUp && totals.pendingCount === 0;
+      if (totals.fullyApplied) totals.fullyApplied = await inbox.markApplied(totals.capturedThrough);
+      totals.capturedThrough = await inbox.cursor();
+      totals.appliedThrough = await inbox.appliedCursor();
+      totals.cursor = totals.appliedThrough; // Preserve the old, fully-applied cursor contract.
+      if (totals.fullyApplied) {
+        const orphanSummary = await reconcileOrphans();
+        totals.orphanPlayersMarkedCount = orphanSummary.marked.length;
+        totals.orphanPlayersRestoredCount = orphanSummary.restored.length;
+        totals.orphanPlayersDeletedCount = orphanSummary.deleted.length;
+        totals.protectedOrphanPlayersCount = orphanSummary.protectedLegacyOrManual.length;
+      }
+      totals.lastSyncAt = new Date().toISOString();
+      totals.updatedMatches = totals.updatedMatches.slice(-20);
+      await saveSummary(totals);
+      return {message: totals.fullyApplied ? 'Incremental match sync completed' : 'Changes captured; pending matches will retry independently', data: totals};
+    }
+  };
+};
 
 module.exports = {
   SYNC_CURSOR_CONFIG_KEY,

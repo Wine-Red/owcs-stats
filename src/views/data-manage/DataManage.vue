@@ -1450,8 +1450,8 @@ export default {
           extraText = ` [赛季聚合预导入: ` + data.seasonImportSummary.join('；') + `]`;
         }
 
-        if (data.errors && data.errors.length > 0) {
-          ElMessage.warning(`同步结束。${summaryText}。但有 ${data.errors.length} 场失败（请看控制台日志）。${extraText}`);
+        if (data.pendingCount > 0 || data.captureError || data.fullyApplied === false || data.errors?.length > 0) {
+          ElMessage.warning(`同步已处理。${summaryText}。待应用 ${data.pendingCount || 0} 场，失败项会独立重试。请在概览查看详情。${extraText}`);
           console.warn('同步失败的比赛详情:', data.errors);
         } else {
           ElMessage.success(`同步完成！${summaryText}${extraText}`);

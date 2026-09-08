@@ -105,6 +105,15 @@
         <div v-if="updatedMatches.length > 0" class="sync-summary">
           本次展示最近 {{ displayedUpdatedMatches.length }} 场，累计更新 {{ updatedMatches.length }} 场
         </div>
+        <div v-if="syncState" class="sync-summary" role="status">
+          {{ syncState.fullyApplied ? '已收到的变更均已应用' : `待应用 ${syncState.pendingCount || 0} 场，其中 ${syncState.failedCount || 0} 场等待重试` }}
+          <span v-if="syncState.captureError"> · 变更读取失败：{{ syncState.captureError }}</span>
+          <span v-else-if="syncState.captureCaughtUp === false"> · 仍有变更待读取</span>
+        </div>
+        <div v-for="failure in syncState?.failures || []" :key="failure.externalId" class="sync-summary">
+          比赛 {{ failure.externalId }}：{{ failure.lastError }}
+          <span> · 已尝试 {{ failure.attempts }} 次，下次 {{ formatDateTime(failure.nextAttemptAt) }}</span>
+        </div>
         <div class="sync-list">
           <div v-for="match in displayedUpdatedMatches" :key="`${match.matchId}-${match.syncedAt}`" class="sync-item">
             <div class="sync-top">
@@ -196,6 +205,7 @@ export default {
     const recentMatches = ref([]);
     const updatedMatches = ref([]);
     const latestSyncAt = ref('');
+    const syncState = ref(null);
     const syncing = ref(false);
     const displayedUpdatedMatches = computed(() => updatedMatches.value.slice(0, 7));
     
@@ -298,10 +308,12 @@ export default {
     const loadLatestSyncSummary = async () => {
       try {
         const result = await apiService.getConfig('latest_match_sync_updates');
+        syncState.value = typeof result?.pendingCount === 'number' ? result : null;
         updatedMatches.value = Array.isArray(result?.updatedMatches) ? result.updatedMatches : [];
         latestSyncAt.value = result?.lastSyncAt || '';
       } catch (error) {
         updatedMatches.value = [];
+        syncState.value = null;
         latestSyncAt.value = '';
       }
     };
@@ -325,8 +337,8 @@ export default {
           extraText = ` [赛季聚合预导入: ` + data.seasonImportSummary.join('；') + `]`;
         }
 
-        if (data.errors && data.errors.length > 0) {
-          ElMessage.warning(`同步结束。${summaryText}。但有 ${data.errors.length} 场失败（请看控制台日志）。${extraText}`);
+        if (data.pendingCount > 0 || data.captureError || data.fullyApplied === false || data.errors?.length > 0) {
+          ElMessage.warning(`同步已处理。${summaryText}。待应用 ${data.pendingCount || 0} 场，失败项会独立重试。${data.captureError ? '变更读取失败，请查看同步状态。' : ''}${extraText}`);
           console.warn('同步失败的比赛详情:', data.errors);
         } else {
           ElMessage.success(`同步完成！${summaryText}${extraText}`);
@@ -361,6 +373,7 @@ export default {
       updatedMatches,
       displayedUpdatedMatches,
       latestSyncAt,
+      syncState,
       formatDate,
       formatDateTime,
       getSeasonName,
