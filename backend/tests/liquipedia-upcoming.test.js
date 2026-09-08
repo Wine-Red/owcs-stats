@@ -14,7 +14,7 @@ test('upcoming endpoint requests S/A tiers before applying the 50-match limit', 
   });
 
   https.get = (options, callback) => {
-    requestedPath = options.path;
+    if (options.path.includes('action=parse')) requestedPath = options.path;
     const payload = JSON.stringify({
       parse: {
         text: {

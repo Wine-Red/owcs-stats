@@ -451,6 +451,7 @@ export default {
 
 <style scoped>
 .regular-season-container {
+  padding-top: 10px;
   margin-bottom: 12px;
 }
 
@@ -778,6 +779,9 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .regular-season-container {
+    padding-top: 8px;
+  }
   .section-header {
     gap: 8px;
     margin-bottom: 8px;

@@ -14,7 +14,7 @@ test('upcoming match parser keeps source names and converts timestamps to millis
     tournamentName: 'OWCS Test',
     timestamp: 1786600000000,
     link: 'https://liquipedia.net/overwatch/Test',
-    team1: { name: 'Team A' },
-    team2: { name: 'TBD' }
+    team1: { name: 'Team A', wikiName: '' },
+    team2: { name: 'TBD', wikiName: '' }
   }]);
 });

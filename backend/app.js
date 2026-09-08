@@ -21,6 +21,8 @@ const getMediaFallbackOrigin = () => {
 
 // 初始化Express应用
 const app = express();
+// Only explicitly trusted local/private proxy hops may supply the client IP.
+app.set('trust proxy', ['loopback', 'uniquelocal']);
 
 // 中间件配置
 app.use(cors());
@@ -53,6 +55,7 @@ const apiRoutes = require('./routes/api');
 const agentApiRoutes = require('./routes/agent-v1');
 app.use('/api', apiRoutes);
 app.use('/agent/v1', agentApiRoutes);
+app.use('/poll-api', require('./routes/polls').createPollRouter());
 
 // 健康检查
 app.get('/health', (req, res) => {
@@ -80,6 +83,7 @@ const PORT = process.env.PORT || 3000;
 const MATCH_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 const startMatchSyncPolling = () => {
+  if (process.env.MATCH_SYNC_DISABLED === '1') return;
   const runSync = async () => {
     try {
       const result = await MatchController.runExternalMatchSync({ source: 'scheduler' });

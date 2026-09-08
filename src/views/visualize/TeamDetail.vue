@@ -2,7 +2,7 @@
   <div class="team-detail-page">
     <div v-if="isLoading" class="page-loading">
       <div class="loading-panel">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner vis-loading-spinner"></div>
         <div class="loading-text">加载中...</div>
       </div>
     </div>
@@ -696,15 +696,6 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-}
-
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 106, 0, 0.14);
-  border-top-color: #ff6a00;
-  border-radius: 50%;
-  animation: spinner-rotate 0.8s linear infinite;
 }
 
 .loading-text {

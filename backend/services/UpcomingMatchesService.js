@@ -1,6 +1,7 @@
 const cheerio = require('cheerio');
 const { createCachedResource } = require('./CachedResource');
 const { fetchParsedHtml } = require('./LiquipediaClient');
+const { attachMatchIdentities } = require('./LiquipediaMatchIdentity');
 
 const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
 const LIQUIPEDIA_UPCOMING_WIKITEXT = '{{#invoke:Lua|invoke|module=MatchTicker/Custom|fn=mainPage|type=upcoming|limit=50|filterbuttons-liquipediatier=1,2}}';
@@ -28,10 +29,12 @@ const extractUpcomingMatchesFromMatchesPage = pageHtml => {
       timestamp: Number.isFinite(timestampRaw) ? timestampRaw * 1000 : null,
       link: tournamentHref ? `${LIQUIPEDIA_SITE_BASE}${tournamentHref}` : '',
       team1: {
-        name: normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD'
+        name: normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD',
+        wikiName: matchNode.find('.match-info-header-opponent-left .name a').first().attr('title') || ''
       },
       team2: {
-        name: normalizeWhitespace(matchNode.find('.match-info-header-opponent').last().find('.name').first().text()) || 'TBD'
+        name: normalizeWhitespace(matchNode.find('.match-info-header-opponent').last().find('.name').first().text()) || 'TBD',
+        wikiName: matchNode.find('.match-info-header-opponent').last().find('.name a').first().attr('title') || ''
       }
     });
   });
@@ -45,7 +48,14 @@ const extractUpcomingMatchesFromMatchesPage = pageHtml => {
 
 const upcomingMatchesResource = createCachedResource({
   ttlMs: LIQUIPEDIA_CACHE_TTL,
-  loader: async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml())
+  loader: async () => {
+    const matches = extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml());
+    try { return await attachMatchIdentities(matches); }
+    catch (error) {
+      console.warn('[match-identity]', error.message);
+      return matches.map(match => ({ ...match, sourceId: null }));
+    }
+  }
 });
 
 const getUpcomingMatches = () => upcomingMatchesResource.get('upcoming');

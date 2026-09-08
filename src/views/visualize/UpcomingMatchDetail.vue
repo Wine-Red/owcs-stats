@@ -2,7 +2,7 @@
   <div class="upcoming-detail-page">
     <div v-if="isLoading" class="page-loading">
       <div class="loading-panel">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner vis-loading-spinner"></div>
         <div class="loading-text">加载中...</div>
       </div>
     </div>
@@ -11,10 +11,10 @@
       <DetailTopbar :title="formattedTournament || '赛前详情'" @back="goBack" />
 
       <!-- 对阵横幅 -->
-      <div class="match-banner vis-arena-banner">
+      <div class="match-banner vis-arena-banner" :class="{ 'has-support': upcomingPoll }">
         <div class="team left-team team-link" @click="goToTeamDetail(team1ResolvedId)">
           <span class="team-name">{{ queryParams.team1 }}</span>
-          <img :src="queryParams.team1Logo" class="team-logo" alt="" />
+          <img :src="queryParams.team1Logo || getTeamLogo(team1ResolvedId)" class="team-logo" alt="" />
         </div>
         <div class="match-time-center">
           <div class="time-text">{{ formatTime(queryParams.time) }}</div>
@@ -23,9 +23,11 @@
           <div v-else class="match-status-badge">未开赛</div>
         </div>
         <div class="team right-team team-link" @click="goToTeamDetail(team2ResolvedId)">
-          <img :src="queryParams.team2Logo" class="team-logo" alt="" />
+          <img :src="queryParams.team2Logo || getTeamLogo(team2ResolvedId)" class="team-logo" alt="" />
           <span class="team-name">{{ queryParams.team2 }}</span>
         </div>
+        <MatchSupport :summary="upcomingPoll" :left-id="team1ResolvedId" :right-id="team2ResolvedId"
+          :left-name="queryParams.team1" :right-name="queryParams.team2" :submit="submitVote" :error="pollEntry.error" />
       </div>
 
       <div class="tabs-container">
@@ -43,13 +45,9 @@
           <!-- 战队对比 Tab -->
           <div v-show="activeTab === 'team'" class="seamless-content">
             <div class="team-radar-wrapper" v-if="teamStats.team1 || teamStats.team2">
-              <div class="analysis-card-header">
+              <div class="analysis-card-header stats-card-header">
                 <div class="analysis-card-title">
                   战队雷达
-                </div>
-                <div class="analysis-legend">
-                  <span class="legend-chip team1-chip">{{ queryParams.team1 }}</span>
-                  <span class="legend-chip team2-chip">{{ queryParams.team2 }}</span>
                 </div>
               </div>
               <div class="radar-container team-radar-container" ref="teamRadarRef"></div>
@@ -233,6 +231,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
+import { useMatchPolls } from '@/services/matchPolls';
+import MatchSupport from './components/MatchSupport.vue';
 import { rowsOf, resolvePreviewTeam, recentTeamMatches, teamScore, aggregateRecentPlayers, mapWithConcurrency } from '@/utils/recentTeamForm.mjs';
 import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
@@ -243,7 +243,7 @@ import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
 export default {
   name: 'UpcomingMatchDetail',
-  components: { DetailTopbar, DetailSectionTabs, MapWinRateAnalysis, ContentChoiceGroup },
+  components: { MatchSupport, DetailTopbar, DetailSectionTabs, MapWinRateAnalysis, ContentChoiceGroup },
   setup() {
     const comparisonRoles = ['tank', 'damage', 'support'];
     const route = useRoute();
@@ -252,6 +252,7 @@ export default {
 
     const isLoading = ref(true);
     const queryParams = ref({
+      sourceId: route.query.sourceId || '',
       seasonId: route.query.seasonId,
       team1: route.query.t1 || route.query.team1 || 'Team 1',
       team2: route.query.t2 || route.query.team2 || 'Team 2',
@@ -266,6 +267,7 @@ export default {
       try {
         const storedMatch = JSON.parse(storedMatchStr);
         if (storedMatch.team1 === queryParams.value.team1 && storedMatch.team2 === queryParams.value.team2) {
+           if (!queryParams.value.sourceId && String(storedMatch.seasonId) === String(queryParams.value.seasonId)) queryParams.value.sourceId = storedMatch.sourceId || '';
            if (!queryParams.value.team1Logo) queryParams.value.team1Logo = storedMatch.team1Logo;
            if (!queryParams.value.team2Logo) queryParams.value.team2Logo = storedMatch.team2Logo;
            if (!queryParams.value.time) queryParams.value.time = storedMatch.time;
@@ -1087,7 +1089,17 @@ export default {
       }
     });
 
+    const { entry: pollEntry, vote: submitVote } = useMatchPolls(computed(() => queryParams.value.seasonId));
+    const upcomingPoll = computed(() => {
+      const poll = pollEntry.value.sources[queryParams.value.sourceId];
+      const pair = [Number(team1ResolvedId.value), Number(team2ResolvedId.value)].sort().join(':');
+      return poll && !poll.matchId && [poll.team1Id, poll.team2Id].sort().join(':') === pair ? poll : null;
+    });
+
     return {
+      pollEntry,
+      upcomingPoll,
+      submitVote,
       isLoading,
       queryParams,
       formattedTournament,
@@ -1160,15 +1172,6 @@ export default {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-}
-
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 106, 0, 0.14);
-  border-top-color: #ff6a00;
-  border-radius: 50%;
-  animation: spinner-rotate 0.8s linear infinite;
 }
 
 .loading-text {
@@ -1540,6 +1543,11 @@ export default {
   padding: 0;
 }
 
+.match-banner.has-support { flex-wrap: wrap; row-gap: 0; padding: 26px 0 0; }
+.match-banner.has-support > .left-team { margin-left: 40px; }
+.match-banner.has-support > .right-team { margin-right: 40px; }
+.match-banner > .match-support { flex: 0 0 100%; margin-top: -12px; padding: 0; }
+
 .player-radar-block {
   display: flex;
   flex-direction: column;
@@ -1731,6 +1739,9 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .match-banner.has-support { padding-top: 18px; }
+  .match-banner.has-support > .left-team { margin-left: 12px; }
+  .match-banner.has-support > .right-team { margin-right: 12px; }
   .match-banner {
     gap: 8px;
     padding: 18px 12px 16px;

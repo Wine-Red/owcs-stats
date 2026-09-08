@@ -3,6 +3,7 @@ import axios from 'axios';
 import { trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
 import { resolveRuntimeApiBaseUrl, routeRuntimeApiRequest } from './apiBaseUrl.mjs';
+import { getLiveUpcomingMatches } from './matchPolls';
 
 // 创建axios实例
 const isStaticExport = import.meta.env.MODE === 'static';
@@ -98,7 +99,7 @@ const apiService = {
   clearMedia: (category, id) => api.delete(`/media/${category}/${id}`),
 
   // 比赛相关
-  getUpcomingMatches: () => api.get('/matches/upcoming'),
+  getUpcomingMatches: () => isStaticExport ? getLiveUpcomingMatches() : api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),
   getMatchById: (id) => api.get(`/matches/${id}`),
   getMatchData: (id) => api.get(`/matches/${id}/data`),

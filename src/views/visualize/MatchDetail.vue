@@ -2,7 +2,7 @@
   <div class="match-detail-page">
     <div v-if="isLoading" class="page-loading">
       <div class="loading-panel">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner vis-loading-spinner"></div>
         <div class="loading-text">加载中...</div>
       </div>
     </div>
@@ -1639,6 +1639,7 @@ export default {
       });
     });
 
+
     return {
       isLoading,
       queryParams,
@@ -1715,15 +1716,6 @@ export default {
   gap: 12px;
 }
 
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid rgba(255, 106, 0, 0.14);
-  border-top-color: #ff6a00;
-  border-radius: 50%;
-  animation: spinner-rotate 0.8s linear infinite;
-}
-
 .loading-text {
   color: #909399;
   font-size: 13px;
@@ -1763,6 +1755,7 @@ export default {
   align-items: center;
   padding: 26px 40px 18px;
 }
+
 
 .team {
   display: flex;

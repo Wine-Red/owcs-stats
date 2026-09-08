@@ -1,7 +1,7 @@
 <template>
   <div class="player-detail-page">
     <div v-if="isLoading" class="page-state" role="status" aria-live="polite">
-      <div class="loading-spinner" aria-hidden="true"></div>
+      <div class="loading-spinner vis-loading-spinner" aria-hidden="true"></div>
       <span>正在整理选手数据...</span>
     </div>
 
@@ -1673,6 +1673,7 @@ button {
 
 .page-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
@@ -1680,15 +1681,6 @@ button {
   color: var(--vis-text-secondary);
   font-size: 13px;
   font-weight: 650;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--vis-border);
-  border-top-color: var(--vis-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 .error-state {
@@ -1981,11 +1973,8 @@ button {
   .player-tab-panel {
     animation: none;
   }
-  .loading-spinner {
-    animation-duration: 1.8s;
-  }
 
-  .history-bar,
+.history-bar,
   .back-btn,
   .team-link,
   .season-button,

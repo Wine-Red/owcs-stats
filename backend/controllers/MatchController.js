@@ -44,7 +44,10 @@ const runExternalMatchSync = async ({ source = 'manual' } = {}) => {
   }
   syncInProgress = true;
   try {
-    return await incrementalMatchSyncService.run({ source });
+    const result = await incrementalMatchSyncService.run({ source });
+    try { await require('../services/MatchPollService').reconcilePolls(); }
+    catch (error) { console.error('[match-polls] 关联暂未完成，将在下次读取时重试:', error.message); }
+    return result;
   } finally {
     syncInProgress = false;
   }

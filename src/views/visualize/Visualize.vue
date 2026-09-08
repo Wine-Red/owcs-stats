@@ -48,7 +48,7 @@
     <main class="vis-content" :class="{ 'is-loading': isPageLoading }">
       <div v-if="isPageLoading" class="page-loading">
         <div class="loading-panel">
-          <div class="loading-spinner"></div>
+          <div class="loading-spinner vis-loading-spinner"></div>
           <div class="loading-text">加载中...</div>
         </div>
       </div>
@@ -972,23 +972,16 @@ export default {
 
 .loading-panel {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
 }
 
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  border: 2px solid rgba(0, 0, 0, 0.05);
-  border-top-color: #111;
-  animation: spin 0.8s linear infinite;
-}
-
 .loading-text {
-  font-size: 14px;
-  color: #111;
-  font-weight: 500;
+  font-size: 13px;
+  color: #909399;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 @keyframes spin {
@@ -997,12 +990,12 @@ export default {
 
 .page-fade-enter-active,
 .page-fade-leave-active {
-  transition: opacity 220ms ease, transform 220ms ease;
+  /* A transformed ancestor reanchors the schedule's fixed date rail. */
+  transition: opacity 220ms ease;
 }
 .page-fade-enter-from,
 .page-fade-leave-to {
   opacity: 0;
-  transform: translateY(6px);
 }
 
 .vis-grid {

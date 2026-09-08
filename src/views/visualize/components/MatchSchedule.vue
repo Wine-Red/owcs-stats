@@ -110,6 +110,7 @@
             <button
               type="button"
               class="match-main"
+              :class="{ 'has-support': supportForMatch(match) }"
               :aria-label="getMatchAriaLabel(match)"
               @click="openMatch(match)"
             >
@@ -158,6 +159,9 @@
               </div>
 
             </button>
+            <MatchSupport compact :summary="supportForMatch(match)"
+              :readonly="match.source === 'recorded' || match.state === 'ongoing'" :left-id="match.team1.id" :right-id="match.team2.id"
+              :left-name="match.team1.name" :right-name="match.team2.name" :submit="submitVote" :error="pollEntry.error" />
 
             <button
               v-if="match.state === 'completed' && getMapGamesInfo(match.id).length"
@@ -230,6 +234,8 @@ import { useStore } from 'vuex';
 import { ArrowDown, Calendar, DocumentCopy, VideoCamera } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import apiService from '@/services/api';
+import { useMatchPolls } from '@/services/matchPolls';
+import MatchSupport from './MatchSupport.vue';
 import { trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import {
@@ -271,6 +277,7 @@ const dateFromKey = key => {
 export default {
   name: 'MatchSchedule',
   components: {
+    MatchSupport,
     ArrowDown,
     Calendar,
     DocumentCopy,
@@ -401,6 +408,7 @@ export default {
           return {
             key: `upcoming-${timestamp || 'tbd'}-${apiTeam1Name}-${apiTeam2Name}-${index}`,
             id: null,
+            sourceId: match.sourceId || null,
             source: 'upcoming',
             state: ongoing ? 'ongoing' : 'upcoming',
             stateLabel: ongoing ? '比赛中' : '未开始',
@@ -694,6 +702,7 @@ export default {
       }, route);
 
       sessionStorage.setItem('current_upcoming_match', JSON.stringify({
+        sourceId: match.sourceId,
         seasonId: props.seasonId,
         team1: match.team1.name,
         team2: match.team2.name,
@@ -706,9 +715,12 @@ export default {
       router.push({
         path: '/visualize/upcoming-match',
         query: {
+          sourceId: match.sourceId,
           seasonId: props.seasonId,
           t1: match.team1.name,
-          t2: match.team2.name
+          t2: match.team2.name,
+          time: match.timestamp,
+          tournament: match.tournamentName
         }
       });
     };
@@ -759,7 +771,18 @@ export default {
       if (!isUpcomingLoading.value && !hasInitializedDate.value) initializeDate({ force: true });
     });
 
+    const { entry: pollEntry, vote: submitVote } = useMatchPolls(computed(() => props.seasonId));
+    const supportForMatch = match => {
+      if (match.source !== 'upcoming') return null;
+      const poll = match.source === 'upcoming' ? pollEntry.value.sources[match.sourceId] : pollEntry.value.matches[match.id];
+      const pair = [Number(match.team1.id), Number(match.team2.id)].sort().join(':');
+      return poll && !poll.matchId && [poll.team1Id, poll.team2Id].sort().join(':') === pair ? poll : null;
+    };
+
     return {
+      supportForMatch,
+      pollEntry,
+      submitVote,
       ALL_DATE,
       scheduleCount: computed(() => allScheduleMatches.value.length),
       recordedMatches,
@@ -2343,6 +2366,18 @@ export default {
     grid-template-columns: minmax(0, 1fr) 82px minmax(0, 1fr);
     gap: 4px;
   }
+}
+
+.match-main.has-support { max-width: none; padding-bottom: 0; padding-left: 24px; padding-right: 24px; row-gap: 8px; }
+.schedule-match > .match-support { position: relative; margin-top: -24px; padding: 0; pointer-events: none; }
+.schedule-match > .match-support :deep(.support-choice) { pointer-events: auto; }
+@media (max-width: 768px) {
+  /* Keep names and their navigation targets outside the 64px voting corners. */
+  .match-main.has-support .team-side--left { padding-left: 40px; }
+  .match-main.has-support .team-side--right { padding-right: 40px; }
+  .match-main.has-support .team-name { width: 100%; }
+  .match-main.has-support .match-summary { flex-wrap: wrap; row-gap: 0; max-width: 100%; }
+  .match-main.has-support .state-ongoing + .match-enter-indicator { display: none; }
 }
 </style>
 

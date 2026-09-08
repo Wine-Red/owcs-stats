@@ -34,21 +34,27 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 8080,
     proxy: {
+      '/poll-api': {
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        proxyTimeout: 60000,
+        timeout: 60000
+      },
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         proxyTimeout: 60000,
         timeout: 60000
       },
       '/public-api': {
-        target: 'http://localhost:3000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         rewrite: requestPath => requestPath.replace(/^\/public-api/, '/api'),
         proxyTimeout: 60000,
         timeout: 60000
       },
       '/media': {
-        target: 'http://localhost:3000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
         changeOrigin: true,
         proxyTimeout: 60000,
         timeout: 60000

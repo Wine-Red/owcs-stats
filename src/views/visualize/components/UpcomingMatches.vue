@@ -21,7 +21,7 @@
 
           <!-- 加载状态 -->
           <div class="panel-loading" v-if="isLoading">
-            <div class="loading-spinner"></div>
+            <div class="loading-spinner vis-loading-spinner"></div>
             <div class="loading-text">加载中...</div>
           </div>
 
@@ -317,6 +317,7 @@ export default {
 
         return {
           tournamentName: String(match?.tournamentName || '').trim(),
+          sourceId: match.sourceId || null,
           timestamp: Number.isFinite(match?.timestamp) ? match.timestamp : null,
           link: String(match?.link || '').trim(),
           team1: {
@@ -422,6 +423,7 @@ export default {
       }, route);
 
       const matchData = {
+        sourceId: match.sourceId,
         seasonId: props.seasonId,
         team1: match.team1.name,
         team2: match.team2.name,
@@ -435,9 +437,12 @@ export default {
       router.push({
         path: '/visualize/upcoming-match',
         query: {
+          sourceId: match.sourceId,
           seasonId: props.seasonId,
           t1: match.team1.name,
-          t2: match.team2.name
+          t2: match.team2.name,
+          time: match.timestamp,
+          tournament: match.tournamentName
         }
       });
     };
@@ -944,15 +949,6 @@ export default {
   justify-content: center;
   gap: 10px;
   padding: 28px 16px;
-}
-
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: var(--vis-accent);
-  border-radius: 50%;
-  animation: upcoming-spin 0.8s linear infinite;
 }
 
 .loading-text {

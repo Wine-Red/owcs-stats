@@ -372,3 +372,21 @@
     border-radius: 10px;
   }
 }
+
+/* Shared public-page loader, including teleported schedule panels. */
+.vis-loading-spinner {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border: 3px solid rgba(255, 106, 0, 0.14);
+  border-top-color: #ff6a00;
+  border-radius: 50%;
+  animation: vis-loading-rotate 0.8s linear infinite;
+}
+@keyframes vis-loading-rotate {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vis-loading-spinner { animation-duration: 1.8s; }
+}
