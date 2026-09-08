@@ -88,6 +88,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const apiRequests = [];
 const externalRequests = [];
+const livePollRequests = [];
 const staticDataMissing = [];
 const pageErrors = [];
 
@@ -95,7 +96,13 @@ page.on('request', request => {
   const url = new URL(request.url());
   const previewOrigin = new URL(baseUrl).origin;
   if (url.origin === previewOrigin && url.pathname.startsWith('/api/')) apiRequests.push(request.url());
-  if (url.origin !== previewOrigin && /^https?:$/.test(url.protocol)) externalRequests.push(request.url());
+  // Schedule presence and voting cannot come from a frozen export. Permit only
+  // the two intended public reads, not assets, protected APIs or vote writes.
+  const livePollRead = request.method() === 'GET'
+    && url.origin === 'https://stats.owmini.xyz'
+    && ['/poll-api/upcoming', '/poll-api/summary'].includes(url.pathname);
+  if (livePollRead) livePollRequests.push(request.url());
+  else if (url.origin !== previewOrigin && /^https?:$/.test(url.protocol)) externalRequests.push(request.url());
 });
 page.on('console', message => {
   if (message.type() === 'error' && message.text().includes('静态快照缺少接口数据')) {
@@ -290,7 +297,7 @@ try {
   if (externalRequests.length) throw new Error(`静态站仍请求外部资源:\n${externalRequests.join('\n')}`);
   if (staticDataMissing.length) throw new Error(staticDataMissing.join('\n'));
   if (pageErrors.length) throw new Error(`页面脚本错误:\n${pageErrors.join('\n')}`);
-  console.log(`[static-smoke] 完成：${pages.length} 个页面，0 个 /api 请求，0 个外部请求，0 个快照缺失`);
+  console.log(`[static-smoke] 完成：${pages.length} 个页面，0 个 /api 请求，${livePollRequests.length} 个实时赛程/投票只读请求，0 个非预期外部请求，0 个快照缺失`);
 } finally {
   await browser.close();
 }
