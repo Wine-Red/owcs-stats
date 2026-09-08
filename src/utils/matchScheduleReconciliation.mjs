@@ -24,7 +24,11 @@ const isSameTeam = (left, right) => {
 
 const isSameScheduledMatch = (upcoming, recorded) => {
   if (!upcoming?.dateKey || upcoming.dateKey === 'tbd') return false;
-  if (upcoming.dateKey !== recorded?.dateKey) return false;
+  // Compare calendar dates in UTC so browser timezone/DST cannot shift the window.
+  const upcomingDate = Date.parse(`${upcoming.dateKey}T00:00:00Z`);
+  const recordedDate = Date.parse(`${recorded?.dateKey}T00:00:00Z`);
+  if (!Number.isFinite(upcomingDate) || !Number.isFinite(recordedDate)
+    || Math.abs(upcomingDate - recordedDate) > 86400000) return false;
 
   return (
     isSameTeam(upcoming.team1, recorded.team1)

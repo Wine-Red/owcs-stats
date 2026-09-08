@@ -45,10 +45,10 @@ test('falls back to normalized names when an external team has no local id', () 
   assert.equal(isSameScheduledMatch(upcoming, completed), true);
 });
 
-test('keeps matches on a different date or against a different opponent', () => {
+test('keeps matches more than one day apart or against a different opponent', () => {
   const completed = scheduledMatch({ team1Id: 1, team1Name: 'CHN', team2Id: 2, team2Name: 'USA' });
   const differentDate = scheduledMatch({
-    dateKey: '2026-08-21',
+    dateKey: '2026-08-22',
     team1Id: 1,
     team1Name: 'CHN',
     team2Id: 2,
@@ -65,6 +65,17 @@ test('keeps matches on a different date or against a different opponent', () => 
     removeRecordedFromUpcoming([differentDate, differentOpponent], [completed]),
     [differentDate, differentOpponent]
   );
+});
+
+test('reconciles adjacent calendar dates in either direction, including month boundaries', () => {
+  const recorded = scheduledMatch({ dateKey: '2026-09-01', team1Id: 1, team2Id: 2 });
+  for (const dateKey of ['2026-08-31', '2026-09-01', '2026-09-02']) {
+    const upcoming = scheduledMatch({ dateKey, team1Id: 2, team2Id: 1 });
+    assert.deepEqual(removeRecordedFromUpcoming([upcoming], [recorded]), []);
+  }
+  for (const dateKey of ['2026-08-30', '2026-09-03', 'tbd', 'invalid']) {
+    assert.equal(isSameScheduledMatch(scheduledMatch({ dateKey, team1Id: 1, team2Id: 2 }), recorded), false);
+  }
 });
 
 test('consumes recorded matches once so a same-day rematch remains visible', () => {

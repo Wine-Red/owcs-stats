@@ -20,7 +20,7 @@
           </div>
 
           <div class="match-center">
-            <div class="match-meta-time">{{ formatDateTime(queryParams.matchDate) }}</div>
+            <div class="match-meta-time">{{ formatMatchDate(queryParams.matchDate) }}</div>
             <div class="match-score">
               <span :class="{ winner: queryParams.winnerId && String(queryParams.winnerId) === String(queryParams.team1Id) }">
                 {{ displayScore(queryParams.team1Score) }}
@@ -539,14 +539,9 @@ export default {
       return score === null || score === undefined ? '-' : score;
     };
 
-    const formatDateTime = (dateStr) => {
-      if (!dateStr) return '比赛时间未知';
-      const date = new Date(dateStr);
-      const month = `${date.getMonth() + 1}`.padStart(2, '0');
-      const day = `${date.getDate()}`.padStart(2, '0');
-      const hours = `${date.getHours()}`.padStart(2, '0');
-      const minutes = `${date.getMinutes()}`.padStart(2, '0');
-      return `${month}/${day} ${hours}:${minutes}`;
+    const formatMatchDate = (dateStr) => {
+      const date = String(dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return date ? `${date[1]}/${date[2]}/${date[3]}` : '比赛日期未知';
     };
 
     const formatDuration = (minutesFloat) => {
@@ -1686,7 +1681,7 @@ export default {
       getMapBannerUrl,
       getRoleIconUrl,
       formatNumber,
-      formatDateTime,
+      formatMatchDate,
       formatDuration,
       displayScore
     };

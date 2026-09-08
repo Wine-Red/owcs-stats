@@ -16,7 +16,7 @@ const hashToken = token => createHash('sha256').update(token).digest('hex');
 const positiveId = value => /^\d+$/.test(String(value || '')) && Number.isSafeInteger(Number(value)) && Number(value) > 0;
 const dateKey = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
 
-// A date narrows rematches; never choose the first candidate or the nearest
+// Allow one calendar day for source timezone differences; never choose the first candidate or the nearest
 // match from an unbounded history. Both sides of the association must be unique.
 const findPollLinks = (polls, matches, now = Date.now()) => {
   const proposals = new Map();
@@ -25,7 +25,8 @@ const findPollLinks = (polls, matches, now = Date.now()) => {
     if (poll.matchId || new Date(poll.scheduledAt).getTime() > now) continue;
     const candidates = matches.filter(match => (poll.scopeSeasonIds || [Number(poll.seasonId)]).includes(Number(match.seasonId))
       && pairKey(match.team1Id, match.team2Id) === poll.pairKey
-      && String(match.matchDate).slice(0, 10) === dateKey(poll.scheduledAt));
+      && Math.abs(Date.parse(`${String(match.matchDate).slice(0, 10)}T00:00:00Z`)
+        - Date.parse(`${dateKey(poll.scheduledAt)}T00:00:00Z`)) <= 86400000);
     if (candidates.length !== 1 || reserved.has(Number(candidates[0].id))) continue;
     const matchId = Number(candidates[0].id);
     proposals.set(matchId, [...(proposals.get(matchId) || []), poll.id]);

@@ -43,7 +43,20 @@ test('links reversed teams in the right season and Shanghai date, never a future
   assert.deepEqual(findPollLinks([poll], [match], now), [{ pollId: 1, matchId: 9 }]);
   assert.deepEqual(findPollLinks([poll], [match], 0), []);
   assert.deepEqual(findPollLinks([poll], [{ ...match, seasonId: 24 }], now), []);
-  assert.deepEqual(findPollLinks([poll], [{ ...match, matchDate: '2026-09-12' }], now), []);
+  assert.deepEqual(findPollLinks([poll], [{ ...match, matchDate: '2026-09-11' }], now), []);
+});
+test('links dates within one calendar day of Shanghai date in either direction', () => {
+  for (const matchDate of ['2026-09-12', '2026-09-14']) {
+    assert.deepEqual(findPollLinks([poll], [{ ...match, matchDate }], now), [{ pollId: 1, matchId: 9 }]);
+  }
+  for (const matchDate of ['2026-09-11', '2026-09-15', '', 'invalid']) {
+    assert.deepEqual(findPollLinks([poll], [{ ...match, matchDate }], now), []);
+  }
+  assert.deepEqual(findPollLinks([poll], [{ ...match, team2Id: 99 }], now), []);
+});
+test('adjacent-day rematches and competing polls remain ambiguous', () => {
+  assert.deepEqual(findPollLinks([poll], [match, { ...match, id: 10, matchDate: '2026-09-12' }], now), []);
+  assert.deepEqual(findPollLinks([poll, { ...poll, id: 2, scheduledAt: '2026-09-11T19:00:00Z' }], [match], now), []);
 });
 test('ambiguous rematches and competing polls never auto-link; established links are reserved', () => {
   assert.deepEqual(findPollLinks([poll], [match, { ...match, id: 10 }], now), []);
