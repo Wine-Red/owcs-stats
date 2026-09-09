@@ -42,6 +42,12 @@ const ensureVisitor = async () => {
 };
 
 export const useMatchPolls = season => {
+  // Static packages have no visitor identity, vote totals, polling or writes.
+  if (import.meta.env.MODE === 'static') return {
+    entry: computed(() => ({ sources: {}, matches: {}, error: '', loading: false })),
+    refresh: async () => {},
+    vote: async () => { throw new Error('静态展示版不支持投票'); }
+  };
   const seasonId = computed(() => String(unref(season) || ''));
   const entry = computed(() => state[seasonId.value] || { sources: {}, matches: {}, error: '', loading: true });
   const refresh = async (force = false) => {

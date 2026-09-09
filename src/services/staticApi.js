@@ -1,83 +1,36 @@
-const STATIC_ASSET_TOKEN = '__OWCS_STATIC_BASE__/';
-
-const canonicalKey = (path, params) => {
-  const [pathname, existingQuery = ''] = String(path).split('?');
-  const query = new URLSearchParams(existingQuery);
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
-    query.set(key, Array.isArray(value) ? value.join(',') : String(value));
-  });
-  query.sort();
-
-  const queryString = query.toString();
-  return queryString ? `${pathname}?${queryString}` : pathname;
+import { readStaticData, STATIC_SCHEMA_VERSION, staticError } from './staticSnapshot.mjs';
+const base = import.meta.env.BASE_URL;
+const token = '__OWCS_STATIC_BASE__/';
+const resources = new Map();
+const json = async path => {
+  const response = await fetch(`${base}static-data/${path}`, { cache: 'no-cache' });
+  if (!response.ok) throw staticError(`静态数据文件加载失败 (${response.status}): ${path}`);
+  return response.json();
 };
-
-const cloneWithLocalAssets = value => {
-  if (typeof value === 'string') {
-    return value.startsWith(STATIC_ASSET_TOKEN)
-      ? `${import.meta.env.BASE_URL}${value.slice(STATIC_ASSET_TOKEN.length)}`
-      : value;
-  }
-  if (Array.isArray(value)) return value.map(cloneWithLocalAssets);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, cloneWithLocalAssets(item)])
-    );
-  }
+let manifestPromise;
+export const loadStaticManifest = () => {
+  if (!manifestPromise) manifestPromise = json('manifest.json').then(manifest => {
+    if (manifest.schemaVersion !== STATIC_SCHEMA_VERSION || !manifest.files) throw staticError('静态数据格式不兼容，请更新完整部署包');
+    return manifest;
+  }).catch(error => { manifestPromise = null; throw error; });
+  return manifestPromise;
+};
+const localAssets = value => {
+  if (typeof value === 'string') return value.startsWith(token) ? `${base}${value.slice(token.length)}` : value;
+  if (Array.isArray(value)) return value.map(localAssets);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, localAssets(item)]));
   return value;
 };
-
-let snapshotPromise;
-
-const loadSnapshot = async () => {
-  if (!snapshotPromise) {
-    const snapshotUrl = `${import.meta.env.BASE_URL}static-data/api-cache.json`;
-    snapshotPromise = fetch(snapshotUrl, { cache: 'no-cache' }).then(async response => {
-      if (!response.ok) {
-        throw new Error(`静态数据快照加载失败 (${response.status}): ${snapshotUrl}`);
-      }
-      const snapshot = await response.json();
-      if (!snapshot || snapshot.schemaVersion !== 1 || !snapshot.responses) {
-        throw new Error('静态数据快照格式不受支持，请重新执行 npm run export:static');
-      }
-      return snapshot;
-    });
-  }
-  return snapshotPromise;
+const load = async name => {
+  if (!resources.has(name)) resources.set(name, loadStaticManifest().then(async manifest => {
+    const descriptor = manifest.files[name];
+    if (!descriptor || !/^data\/[a-zA-Z0-9._/-]+\.json$/.test(descriptor.path) || descriptor.path.includes('..')) throw staticError(`静态资源缺失: ${name}`);
+    return json(descriptor.path);
+  }).catch(error => { resources.delete(name); throw error; }));
+  return resources.get(name);
 };
-
-const createReadOnlyError = method => {
-  const error = new Error(`静态展示版不支持 ${method.toUpperCase()} 写操作`);
-  error.code = 'STATIC_READ_ONLY';
-  error.response = { status: 405 };
-  return error;
-};
-
+const readonly = () => Promise.reject(Object.assign(new Error('静态展示版不支持写操作'), { code: 'STATIC_READ_ONLY', response: { status: 405 } }));
 export default function createStaticApi() {
-  return {
-    async get(path, config = {}) {
-      const snapshot = await loadSnapshot();
-      const key = canonicalKey(path, config.params);
-      if (!Object.prototype.hasOwnProperty.call(snapshot.responses, key)) {
-        const error = new Error(`静态快照缺少接口数据: GET ${key}`);
-        error.code = 'STATIC_DATA_MISSING';
-        error.response = { status: 404 };
-        throw error;
-      }
-      return cloneWithLocalAssets(snapshot.responses[key]);
-    },
-    post() {
-      return Promise.reject(createReadOnlyError('post'));
-    },
-    put() {
-      return Promise.reject(createReadOnlyError('put'));
-    },
-    delete() {
-      return Promise.reject(createReadOnlyError('delete'));
-    }
-  };
+  return { get: async (path, config = {}) => localAssets(await readStaticData(load, path, config.params)),
+    post: readonly, put: readonly, patch: readonly, delete: readonly };
 }
-
-export { canonicalKey };

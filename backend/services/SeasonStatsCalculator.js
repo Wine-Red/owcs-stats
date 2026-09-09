@@ -352,24 +352,33 @@ const calculateSeasonMapPickStats = async (seasonId, options = {}) => {
 
 // 选手跨赛季履历：每赛季一行，结构对齐原 SeasonPlayerStat 查询（含嵌套 season / team），
 // 用于选手详情页 seasonHistory；同样从原始比赛表实时计算。
-const calculatePlayerSeasonHistory = async (playerId) => {
-  const player = await Player.findByPk(playerId, { raw: true });
-  if (!player) return [];
-  const playerStats = await PlayerStat.findAll({
-    where: { playerId },
-    order: [['id', 'ASC']],
-    raw: true
-  });
-  if (!playerStats.length) return [];
-  const mapGameIds = [...new Set(playerStats.map(stat => stat.mapGameId))];
-  const [mapGames, teams, seasons] = await Promise.all([
-    MapGame.findAll({ where: { id: { [Op.in]: mapGameIds } }, raw: true }),
-    Team.findAll({ raw: true }),
-    Season.findAll({ raw: true })
-  ]);
-  const gameById = new Map(mapGames.map(game => [Number(game.id), game]));
-  const teamById = new Map(teams.map(team => [Number(team.id), team]));
-  const seasonById = new Map(seasons.map(season => [Number(season.id), season]));
+const calculatePlayerSeasonHistory = async (playerId, { rawData } = {}) => {
+  let player, playerStats, gameById, teamById, seasonById;
+  if (rawData) {
+    player = rawData.playerById.get(Number(playerId));
+    if (!player) return [];
+    playerStats = rawData.playerStats.filter(stat => Number(stat.playerId) === Number(playerId))
+      .sort((a, b) => Number(a.id) - Number(b.id));
+    ({ gameById, teamById, seasonById } = rawData);
+  } else {
+    player = await Player.findByPk(playerId, { raw: true });
+    if (!player) return [];
+    playerStats = await PlayerStat.findAll({
+      where: { playerId },
+      order: [['id', 'ASC']],
+      raw: true
+    });
+    if (!playerStats.length) return [];
+    const mapGameIds = [...new Set(playerStats.map(stat => stat.mapGameId))];
+    const [mapGames, teams, seasons] = await Promise.all([
+      MapGame.findAll({ where: { id: { [Op.in]: mapGameIds } }, raw: true }),
+      Team.findAll({ raw: true }),
+      Season.findAll({ raw: true })
+    ]);
+    gameById = new Map(mapGames.map(game => [Number(game.id), game]));
+    teamById = new Map(teams.map(team => [Number(team.id), team]));
+    seasonById = new Map(seasons.map(season => [Number(season.id), season]));
+  }
 
   const bySeasonMap = new Map();
   for (const stat of playerStats) {

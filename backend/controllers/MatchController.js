@@ -125,7 +125,7 @@ const MatchController = {
         include: includeArr,
         limit,
         offset,
-        order: [['matchDate', 'DESC'], ['createdAt', 'DESC']],
+        order: [['matchDate', 'DESC'], ['createdAt', 'DESC'], ['id', 'DESC']],
         distinct: true
       });
 

@@ -108,7 +108,7 @@
         <div class="footer-row footer-copyright">
           <span class="trademark">© 2026 OWCS Stats</span>
           <span class="divider" style="margin: 0 8px;">|</span>
-          <span class="sync-time">最后同步时间：{{ latestSyncTime }}</span>
+          <span class="sync-time">{{ isStaticExport ? '数据快照生成时间' : '最后同步时间' }}：{{ latestSyncTime }}</span>
         </div>
       </footer>
     </div>
@@ -119,6 +119,7 @@
 import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
+import { loadStaticManifest } from '@/services/staticApi';
 import {
   ArrowRight,
   Avatar,
@@ -234,12 +235,13 @@ export default {
       document.documentElement.classList.toggle('admin-theme', showSidebar.value);
     };
 
+    const isStaticExport = import.meta.env.MODE === 'static';
     const latestSyncTime = ref('获取中...');
     let syncTimer = null;
 
     const fetchLatestSyncTime = async () => {
       try {
-        const result = await apiService.getConfig('latest_match_sync_updates');
+        const result = isStaticExport ? { lastSyncAt: (await loadStaticManifest()).generatedAt } : await apiService.getConfig('latest_match_sync_updates');
         if (result && result.lastSyncAt) {
           const date = new Date(result.lastSyncAt);
           latestSyncTime.value = date.toLocaleString('zh-CN', { hour12: false });
@@ -255,7 +257,7 @@ export default {
     onMounted(() => {
       updateTheme();
       fetchLatestSyncTime();
-      syncTimer = setInterval(fetchLatestSyncTime, 60000); // 1分钟刷新一次
+      if (!isStaticExport) syncTimer = setInterval(fetchLatestSyncTime, 60000); // 1分钟刷新一次
     });
 
     onUnmounted(() => {
@@ -269,6 +271,7 @@ export default {
       showFooter,
       sidebarGroups,
       latestSyncTime,
+      isStaticExport,
       mobileSidebarOpen,
       sidebarCollapsed,
       toggleSidebarCollapse,

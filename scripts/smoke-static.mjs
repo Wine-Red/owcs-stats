@@ -5,8 +5,10 @@ import path from 'node:path';
 
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/';
 const screenshotDirectory = process.env.OWCS_STATIC_SCREENSHOT_DIR || '';
-const snapshot = JSON.parse(await readFile('dist/static-data/api-cache.json', 'utf8'));
-const responses = snapshot.responses;
+import { readStaticData } from '../src/services/staticSnapshot.mjs';
+const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
+const load = async name => JSON.parse(await readFile(path.join('dist/static-data', manifest.files[name].path), 'utf8'));
+const get = (path, params) => readStaticData(load, path, params);
 const list = value => Array.isArray(value) ? value : value?.data || value?.list || [];
 
 const chromeCandidates = [
@@ -35,14 +37,16 @@ for (const candidate of chromeCandidates) {
 }
 if (!executablePath) throw new Error('未找到 Chrome/Edge；可通过 CHROME_PATH 指定浏览器');
 
-const seasons = list(responses['/seasons']);
-const seasonTeams = list(responses['/season-teams']);
-const matches = list(responses['/matches?pageSize=2000']);
-const upcoming = list(responses['/matches/upcoming']);
-const selectedSeasonTeam = seasonTeams[0];
-const selectedRelations = list(responses[`/season-teams/${selectedSeasonTeam.id}/players`]);
+const seasons = await get('/seasons');
+const seasonTeams = await get('/season-teams');
+const matches = list(await get('/matches', { pageSize: 1000000 }));
+const upcoming = list(await get('/matches/upcoming'));
+const selectedSeasonTeam = seasonTeams.find(team => team.seasonId === seasons[0]?.id) || seasonTeams[0];
+const selectedRelations = await get(`/season-teams/${selectedSeasonTeam.id}/players`);
 const selectedPlayer = selectedRelations[0];
-const selectedMatch = matches.find(match => responses[`/matches/${match.id}/map-games`]?.length) || matches[0];
+const games = await load('collections.mapGames');
+const selectedMatch = matches.find(match => games.some(game => game.matchId === match.id && game.timeline))
+  || matches.find(match => games.some(game => game.matchId === match.id));
 const selectedUpcoming = upcoming[0];
 const selectedSeason = seasons.find(season => String(season.id) === String(selectedSeasonTeam.seasonId)) || seasons[0];
 
@@ -88,24 +92,23 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const apiRequests = [];
 const externalRequests = [];
-const livePollRequests = [];
+
 const staticDataMissing = [];
 const pageErrors = [];
 
-page.on('request', request => {
-  const url = new URL(request.url());
-  const previewOrigin = new URL(baseUrl).origin;
-  if (url.origin === previewOrigin && url.pathname.startsWith('/api/')) apiRequests.push(request.url());
-  // Schedule presence and voting cannot come from a frozen export. Permit only
-  // the two intended public reads, not assets, protected APIs or vote writes.
-  const livePollRead = request.method() === 'GET'
-    && url.origin === 'https://stats.owmini.xyz'
-    && ['/poll-api/upcoming', '/poll-api/summary'].includes(url.pathname);
-  if (livePollRead) livePollRequests.push(request.url());
-  else if (url.origin !== previewOrigin && /^https?:$/.test(url.protocol)) externalRequests.push(request.url());
+// Fail closed: a static package must work with every external request blocked.
+await page.route('**/*', async route => {
+  const url = new URL(route.request().url());
+  if (/^https?:$/.test(url.protocol) && url.origin !== new URL(baseUrl).origin) {
+    externalRequests.push(url.href); return route.abort();
+  }
+  if (/\/(?:api|public-api|poll-api|data\/v1)\//.test(url.pathname)) {
+    apiRequests.push(url.href); return route.abort();
+  }
+  return route.continue();
 });
 page.on('console', message => {
-  if (message.type() === 'error' && message.text().includes('静态快照缺少接口数据')) {
+  if (message.type() === 'error' && (/静态数据|Content Security Policy|Failed to load resource/.test(message.text()))) {
     staticDataMissing.push(message.text());
   }
 });
@@ -286,10 +289,11 @@ try {
     }
     if (target.localLogo) {
       const src = await page.locator(target.localLogo).first().getAttribute('src');
-      if (!src?.includes('static-data/team-logos/')) {
+      if (!src?.includes('static-data/')) {
         throw new Error(`${target.name} 未使用本地队伍图标: ${src || '(empty)'}`);
       }
     }
+    if (await page.locator('.match-support').count()) throw new Error('静态包仍显示投票组件');
     console.log(`[static-smoke] PASS ${target.name}`);
   }
 
@@ -297,7 +301,7 @@ try {
   if (externalRequests.length) throw new Error(`静态站仍请求外部资源:\n${externalRequests.join('\n')}`);
   if (staticDataMissing.length) throw new Error(staticDataMissing.join('\n'));
   if (pageErrors.length) throw new Error(`页面脚本错误:\n${pageErrors.join('\n')}`);
-  console.log(`[static-smoke] 完成：${pages.length} 个页面，0 个 /api 请求，${livePollRequests.length} 个实时赛程/投票只读请求，0 个非预期外部请求，0 个快照缺失`);
+  console.log(`[static-smoke] 完成：${pages.length} 个页面，0 个 /api 请求，0 个投票请求，0 个外部请求，0 个快照缺失`);
 } finally {
   await browser.close();
 }

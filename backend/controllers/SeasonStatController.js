@@ -1,4 +1,4 @@
-const sequelize = require('../config/database');
+const PublicStatsService = require('../services/PublicStatsService');
 const SeasonStatsCalculator = require('../services/SeasonStatsCalculator');
 const SeasonStageService = require('../services/SeasonStageService');
 
@@ -65,28 +65,7 @@ const SeasonStatController = {
       if (!Number.isFinite(seasonIdNum)) {
         return res.status(400).json({ error: 'seasonId 不合法' });
       }
-      const [rows] = await sequelize.query(`
-        SELECT
-          COUNT(DISTINCT mg.id) AS totalMapGames,
-          COUNT(DISTINCT CASE WHEN mg.team1BanHeroId IS NOT NULL OR mg.team2BanHeroId IS NOT NULL THEN mg.id END) AS mapsWithBans,
-          COUNT(DISTINCT phs.id) AS heroStatRows,
-          SUM(CASE WHEN ps.finalBlows > 0 THEN 1 ELSE 0 END) AS finalBlowRows,
-          SUM(CASE WHEN phs.avgUltChargeSeconds IS NOT NULL OR phs.ultReady > 0 OR phs.ultUsed > 0 THEN 1 ELSE 0 END) AS ultRows
-        FROM map_games mg
-        LEFT JOIN player_stats ps ON ps.mapGameId = mg.id
-        LEFT JOIN player_hero_stats phs ON phs.playerStatId = ps.id
-        WHERE mg.seasonId = :seasonId
-      `, { replacements: { seasonId: seasonIdNum } });
-      const r = rows[0] || {};
-      const num = v => Number(v) || 0;
-      return res.json({
-        seasonId: seasonIdNum,
-        totalMapGames: num(r.totalMapGames),
-        hasBans: num(r.mapsWithBans) > 0,
-        hasHeroStats: num(r.heroStatRows) > 0,
-        hasFinalBlows: num(r.finalBlowRows) > 0,
-        hasUltCharge: num(r.ultRows) > 0
-      });
+      return res.json(await PublicStatsService.getSeasonFeatures(seasonIdNum));
     } catch (error) {
       console.error('获取赛季数据维度探测失败:', error);
       return res.status(500).json({ error: '获取数据失败' });

@@ -9,20 +9,6 @@ const parseId = value => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
-const serializeRange = range => ({
-  id: range.id,
-  seasonId: range.seasonId,
-  name: range.name,
-  startMatchId: range.startMatchId,
-  startMatch: range.startMatch,
-  endMatchId: range.endMatch?.id || null,
-  endMatch: range.endMatch,
-  matchCount: range.matchCount,
-  isCurrent: range.isCurrent,
-  createdAt: range.createdAt,
-  updatedAt: range.updatedAt
-});
-
 const validateStartMatch = async ({ seasonId, startMatchId, excludeStageId = null }) => {
   if (startMatchId === null) {
     const existing = await SeasonStage.findOne({ where: { seasonId, startMatchId: null } });
@@ -45,7 +31,7 @@ const SeasonStageController = {
       const seasonId = parseId(req.params.seasonId);
       if (!seasonId) return res.status(400).json({ error: 'seasonId 不合法' });
       const ranges = await SeasonStageService.listSeasonStageRanges(seasonId);
-      return res.json(ranges.map(serializeRange));
+      return res.json(ranges.map(SeasonStageService.serializeStageRange));
     } catch (error) {
       console.error('获取赛季阶段失败:', error);
       return res.status(500).json({ error: '获取赛季阶段失败' });
@@ -69,7 +55,7 @@ const SeasonStageController = {
 
       const stage = await SeasonStage.create({ seasonId, name, startMatchId });
       const range = await SeasonStageService.resolveStageRange(seasonId, stage.id);
-      return res.status(201).json(serializeRange(range));
+      return res.status(201).json(SeasonStageService.serializeStageRange(range));
     } catch (error) {
       console.error('创建赛季阶段失败:', error);
       return res.status(500).json({ error: '创建赛季阶段失败' });
@@ -99,7 +85,7 @@ const SeasonStageController = {
       stage.startMatchId = requestedStart;
       await stage.save();
       const range = await SeasonStageService.resolveStageRange(stage.seasonId, stage.id);
-      return res.json(serializeRange(range));
+      return res.json(SeasonStageService.serializeStageRange(range));
     } catch (error) {
       console.error('更新赛季阶段失败:', error);
       return res.status(500).json({ error: '更新赛季阶段失败' });

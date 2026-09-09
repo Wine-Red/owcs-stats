@@ -1,59 +1,17 @@
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const SeasonTeam = require('../models/SeasonTeam');
-const SeasonTeamSource = require('../models/SeasonTeamSource');
+const RosterReadService = require('../services/RosterReadService');
 const Season = require('../models/Season');
 const Team = require('../models/Team');
-const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const { addManualSeasonTeam, removeManualSeasonTeam } = require('../services/MembershipSourceService');
 
-const attachSourceTypes = async (rows, transaction) => {
-  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
-  if (!list.length) return Array.isArray(rows) ? [] : null;
-  const relationIds = list.map(row => Number(row.id));
-  const sourceRows = await SeasonTeamSource.findAll({
-    where: { seasonTeamId: { [Op.in]: relationIds }, active: true },
-    attributes: ['seasonTeamId', 'sourceType'],
-    group: ['seasonTeamId', 'sourceType'],
-    transaction,
-    raw: true
-  });
-  const sourceTypesById = new Map();
-  for (const source of sourceRows) {
-    const id = Number(source.seasonTeamId);
-    if (!sourceTypesById.has(id)) sourceTypesById.set(id, []);
-    sourceTypesById.get(id).push({ sourceType: source.sourceType });
-  }
-  const serialized = list.map(row => ({
-    ...row.toJSON(),
-    sources: sourceTypesById.get(Number(row.id)) || []
-  }));
-  return Array.isArray(rows) ? serialized : serialized[0];
-};
-
-const loadSeasonTeam = async (id, transaction) => {
-  const relation = await SeasonTeam.findByPk(id, {
-    include: [
-      { model: Season, attributes: ['id', 'name'], as: 'Season' },
-      { model: Team, attributes: ['id', 'name'], as: 'Team' },
-      { model: SeasonTeamPlayer, attributes: ['id'], as: 'players' }
-    ],
-    transaction
-  });
-  return attachSourceTypes(relation, transaction);
-};
+const loadSeasonTeam = (id, transaction) => RosterReadService.getSeasonTeams({ id, transaction });
 
 class SeasonTeamController {
   static async getAll(req, res) {
     try {
-      const seasonTeams = await SeasonTeam.findAll({
-        include: [
-          { model: Season, attributes: ['id', 'name'], as: 'Season' },
-          { model: Team, attributes: ['id', 'name'], as: 'Team' },
-          { model: SeasonTeamPlayer, attributes: ['id'], as: 'players' }
-        ]
-      });
-      res.json(await attachSourceTypes(seasonTeams));
+      res.json(await RosterReadService.getSeasonTeams());
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

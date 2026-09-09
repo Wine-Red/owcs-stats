@@ -92,6 +92,7 @@
 </template>
 
 <script>
+import { perTenMinutes, killDeathRatio, killAssistDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import * as echarts from 'echarts';
@@ -160,17 +161,15 @@ export default {
         const duration = item.gameTime || 0;
         if (duration === 0) return null;
         
-        const p10 = (val) => parseFloat(((val || 0) / duration * 10).toFixed(2));
+        const p10 = val => perTenMinutes(val, duration, 2);
         
         const kills = item.elims || 0;
         const deaths = item.deaths || 0;
         const assists = item.assists || 0;
         
-        let kd = kills;
-        if (deaths > 0) kd = parseFloat((kills / deaths).toFixed(2));
+        const kd = killDeathRatio(kills, deaths, 2);
         
-        let kad = kills + assists;
-        if (deaths > 0) kad = parseFloat(((kills + assists) / deaths).toFixed(2));
+        const kad = killAssistDeathRatio(kills, assists, deaths, 2);
         
         return {
             ...item,

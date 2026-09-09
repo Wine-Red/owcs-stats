@@ -6,8 +6,8 @@ const SeasonTeamPlayer = require('../models/SeasonTeamPlayer'); // eslint-disabl
 const SeasonTeamSource = require('../models/SeasonTeamSource'); // eslint-disable-line no-unused-vars
 const SeasonTeamPlayerSource = require('../models/SeasonTeamPlayerSource'); // eslint-disable-line no-unused-vars
 const Player = require('../models/Player'); // eslint-disable-line no-unused-vars
-const Map = require('../models/Map');
-const Hero = require('../models/Hero');
+require('../models/Map');
+require('../models/Hero');
 const Match = require('../models/Match'); // eslint-disable-line no-unused-vars
 const MapGame = require('../models/MapGame'); // eslint-disable-line no-unused-vars
 const PlayerStat = require('../models/PlayerStat'); // eslint-disable-line no-unused-vars
@@ -237,4 +237,4 @@ const setupAssociations = () => {
   });
 };
 
-module.exports = { initDatabase, ensureMediaSchema, ensureMembershipSourceSchema };
+module.exports = { initDatabase, setupAssociations, ensureMediaSchema, ensureMembershipSourceSchema };

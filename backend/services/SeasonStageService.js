@@ -57,7 +57,22 @@ const resolveStageRange = async (seasonId, stageId) => {
   return ranges.find(stage => Number(stage.id) === Number(stageId)) || null;
 };
 
+const serializeStageRange = range => ({
+  id: range.id,
+  seasonId: range.seasonId,
+  name: range.name,
+  startMatchId: range.startMatchId,
+  startMatch: range.startMatch,
+  endMatchId: range.endMatch?.id || null,
+  endMatch: range.endMatch,
+  matchCount: range.matchCount,
+  isCurrent: range.isCurrent,
+  createdAt: range.createdAt,
+  updatedAt: range.updatedAt
+});
+
 module.exports = {
+  serializeStageRange,
   buildStageRanges,
   listSeasonStageRanges,
   resolveStageRange

@@ -98,6 +98,7 @@
 </template>
 
 <script>
+import { perTenMinutes, killDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
@@ -183,15 +184,12 @@ export default {
             const duration = item.totalDuration || 0;
             if (duration === 0) return { ...item, kd: 0, damagePer10: 0, healingPer10: 0 };
 
-            const damagePer10 = parseFloat(((item.totalDamage / duration) * 10).toFixed(2));
-            const healingPer10 = parseFloat((((item.totalHealing || 0) / duration) * 10).toFixed(2));
+            const damagePer10 = perTenMinutes(item.totalDamage, duration, 2);
+            const healingPer10 = perTenMinutes(item.totalHealing, duration, 2);
             const kills = item.totalKills || 0;
             const deaths = item.totalDeaths || 0;
             
-            let kd = kills;
-            if (deaths > 0) {
-                kd = parseFloat((kills / deaths).toFixed(2));
-            }
+            const kd = killDeathRatio(kills, deaths, 2);
 
             return {
                 teamId: item.teamId,
@@ -304,17 +302,13 @@ export default {
             let kd = 0;
 
             if (durationMinutes > 0) {
-                damagePer10 = parseFloat(((item.totalDamage / durationMinutes) * 10).toFixed(2));
+                damagePer10 = perTenMinutes(item.totalDamage, durationMinutes, 2);
             }
 
             const deaths = item.totalDeaths || 0;
             const kills = item.totalKills || 0;
             
-            if (deaths > 0) {
-                kd = parseFloat((kills / deaths).toFixed(2));
-            } else {
-                kd = kills;
-            }
+            kd = killDeathRatio(kills, deaths, 2);
 
             if (damagePer10 > globalMaxDamage) globalMaxDamage = damagePer10;
             if (damagePer10 < globalMinDamage) globalMinDamage = damagePer10;
@@ -332,17 +326,13 @@ export default {
             let kd = 0;
 
             if (durationMinutes > 0) {
-                damagePer10 = parseFloat(((item.totalDamage / durationMinutes) * 10).toFixed(2));
+                damagePer10 = perTenMinutes(item.totalDamage, durationMinutes, 2);
             }
 
             const deaths = item.totalDeaths || 0;
             const kills = item.totalKills || 0;
             
-            if (deaths > 0) {
-                kd = parseFloat((kills / deaths).toFixed(2));
-            } else {
-                kd = kills; 
-            }
+            kd = killDeathRatio(kills, deaths, 2);
             
             const logo = item.team ? item.team.logo : null;
             const symbolSize = teamLogoSizes.value.get(item.teamId) || 20;
@@ -594,14 +584,11 @@ export default {
                 const duration = item.totalDuration || 0;
                 if (duration === 0) return { ...item, score: -Infinity };
 
-                const damagePer10 = (item.totalDamage / duration) * 10;
+                const damagePer10 = perTenMinutes(item.totalDamage, duration);
                 const kills = item.totalKills || 0;
                 const deaths = item.totalDeaths || 0;
                 
-                let kd = kills;
-                if (deaths > 0) {
-                    kd = kills / deaths;
-                }
+                const kd = killDeathRatio(kills, deaths);
 
                 // 队伍的伤害一般在 60000~90000 之间，而 KD 一般在 1~3 之间
                 // 为了让 KD 的权重更高，将 KD 的放大系数从 1000 提升到 30000，使其成为主要决定因素

@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { verifyResources } from './lib/static-package.mjs'
 import { fileURLToPath } from 'node:url'
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -13,7 +14,11 @@ const javascriptFiles = assetFiles.filter((file) => file.endsWith('.js'))
 const stylesheetFiles = assetFiles.filter((file) => file.endsWith('.css'))
 const fontFiles = assetFiles.filter((file) => /\.(?:woff2?|ttf|otf)$/i.test(file))
 
+const manifest = JSON.parse(await readFile(path.join(distDirectory, 'static-data/manifest.json'), 'utf8'))
+await verifyResources(path.join(distDirectory, 'static-data'), manifest)
 const failures = []
+
+if (!indexHtml.includes("connect-src 'self'")) failures.push('static package must restrict external connections')
 
 if (javascriptFiles.length !== 1) {
   failures.push(`expected one JavaScript bundle, found ${javascriptFiles.length}`)

@@ -39,7 +39,7 @@ try {
     isMobile: true,
     userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
   })
-  await page.route('**/static-data/api-cache.json', async route => {
+  await page.route('**/static-data/manifest.json', async route => {
     await new Promise(resolve => setTimeout(resolve, 350))
     await route.continue()
   })

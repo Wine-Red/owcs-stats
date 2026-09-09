@@ -265,6 +265,7 @@
 </template>
 
 <script>
+import { perTenMinutes, killDeathRatio, killAssistDeathRatio, profileTotalsStat } from '@/utils/statMetrics.mjs';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -357,7 +358,7 @@ export default {
       const minutes = number(stat.gameTime || stat.totalDuration);
       const per10 = (totalKey, perMinKey) => {
         if (stat[perMinKey] !== undefined && stat[perMinKey] !== null) return number(stat[perMinKey]) * 10;
-        return minutes > 0 ? number(stat[totalKey]) / minutes * 10 : 0;
+        return perTenMinutes(stat[totalKey], minutes);
       };
       const elims = number(stat.elims ?? stat.totalKills);
       const assists = number(stat.assists ?? stat.totalAssists);
@@ -366,8 +367,8 @@ export default {
         ...stat,
         role: stat.player?.role || stat.role || player.value?.role || 'damage',
         gameTime: minutes,
-        kd: stat.kd !== undefined && stat.kd !== null ? number(stat.kd) : (deaths > 0 ? elims / deaths : elims),
-        kad: stat.kad !== undefined && stat.kad !== null ? number(stat.kad) : (deaths > 0 ? (elims + assists) / deaths : elims + assists),
+        kd: stat.kd !== undefined && stat.kd !== null ? number(stat.kd) : killDeathRatio(elims, deaths),
+        kad: stat.kad !== undefined && stat.kad !== null ? number(stat.kad) : killAssistDeathRatio(elims, assists, deaths),
         elimsPer10: per10('elims', 'elimsPerMin'),
         assistsPer10: per10('assists', 'assistsPerMin'),
         deathsPer10: per10('deaths', 'deathsPerMin'),
@@ -377,21 +378,7 @@ export default {
       };
     };
 
-    const fallbackStat = computed(() => {
-      const totals = profile.value?.totals;
-      if (!totals) return null;
-      const minutes = number(totals.duration) / 60;
-      return normalizeStat({
-        role: role.value,
-        gameTime: minutes,
-        elims: totals.kills,
-        deaths: totals.deaths,
-        assists: totals.assists,
-        damage: totals.damage,
-        healing: totals.healing,
-        mitigation: totals.mitigation
-      });
-    });
+    const fallbackStat = computed(() => normalizeStat(profileTotalsStat(profile.value?.totals, role.value)));
 
     const activeStat = computed(() => normalizeStat(currentStat.value) || fallbackStat.value || normalizeStat({ role: role.value }));
 

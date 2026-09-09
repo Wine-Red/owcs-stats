@@ -396,16 +396,12 @@ const MapGameController = {
       if (mapId) {
         where.mapId = parseInt(mapId);
       }
-      if (startDate) {
-        where.createdAt = {
-          [Op.gte]: new Date(startDate)
-        };
-      }
-      if (endDate) {
-        where.createdAt = {
-          ...where.createdAt,
-          [Op.lte]: new Date(endDate)
-        };
+      const { timestampRange } = await import('../shared/dateRange.mjs');
+      const range = timestampRange({ startDate, endDate });
+      if (range.start !== null || range.end !== null) {
+        where.createdAt = {};
+        if (range.start !== null) where.createdAt[Op.gte] = new Date(range.start);
+        if (range.end !== null) where.createdAt[range.endExclusive ? Op.lt : Op.lte] = new Date(range.end);
       }
       
       const mapGames = await MapGame.findAll({
@@ -419,7 +415,7 @@ const MapGameController = {
             attributes: { exclude: ['payload'] }
           }
         ],
-        order: [['createdAt', 'DESC']],
+        order: [['createdAt', 'DESC'], ['id', 'DESC']],
         limit: parseInt(pageSize),
         offset: (parseInt(page) - 1) * parseInt(pageSize)
       });
@@ -427,7 +423,7 @@ const MapGameController = {
       res.status(200).json(mapGames);
     } catch (error) {
       console.error('获取地图局数据失败:', error);
-      res.status(500).json({ error: error.message });
+      res.status(error.statusCode || 500).json({ error: error.message });
     }
   },
 

@@ -1,454 +1,94 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 import { fetchJsonWithRetry } from './lib/fetch-json-with-retry.mjs';
+import { hash, mediaSources, replaceMedia, validateSnapshot, writeResources, verifyResources } from './lib/static-package.mjs';
 
-const projectRoot = process.cwd();
-const exportConfigPath = path.join(projectRoot, 'static-export.config.json');
-const exportConfig = JSON.parse(await readFile(exportConfigPath, 'utf8'));
-const productionMode = process.argv.includes('--production');
-const configuredApiBase = productionMode
-  ? process.env.OWCS_PRODUCTION_API_BASE || exportConfig.productionApiBase
-  : process.env.OWCS_EXPORT_API_BASE || 'http://localhost:3000/api';
+const root = process.cwd();
+const config = JSON.parse(await readFile(path.join(root, 'static-export.config.json'), 'utf8'));
+const production = process.argv.includes('--production');
+const api = String(production ? process.env.OWCS_PRODUCTION_API_BASE || config.productionApiBase : process.env.OWCS_EXPORT_API_BASE || 'http://localhost:3000/api').replace(/\/$/, '');
+const origin = new URL(api);
+if (!['http:', 'https:'].includes(origin.protocol) || (production && ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname))) throw new Error('Invalid export API origin');
+const sourceFile = process.env.OWCS_STATIC_SNAPSHOT_FILE;
+if (production && sourceFile) throw new Error('Production packages must fetch the configured production endpoint');
+const publicRoot = path.resolve(root, 'public');
+const destination = path.join(publicRoot, 'static-data');
+const staging = path.join(publicRoot, `.static-export-${randomUUID()}`);
+const backup = path.join(publicRoot, `.static-export-${randomUUID()}`);
+// Every rename/removal below is confined to these generated children of public/.
+for (const target of [destination, staging, backup]) if (path.dirname(path.resolve(target)) !== publicRoot) throw new Error('Unsafe export destination');
 
-if (productionMode && !configuredApiBase) {
-  throw new Error('生产导出必须设置 OWCS_PRODUCTION_API_BASE，例如 https://stats.example.com/api');
-}
-
-const API_BASE = String(configuredApiBase).replace(/\/$/, '');
-const apiUrl = new URL(API_BASE);
-if (!['http:', 'https:'].includes(apiUrl.protocol)) {
-  throw new Error(`不支持的 API 协议: ${apiUrl.protocol}`);
-}
-if (productionMode && ['localhost', '127.0.0.1', '::1'].includes(apiUrl.hostname)) {
-  throw new Error(`生产导出拒绝使用本机 API: ${API_BASE}`);
-}
-const publicRoot = path.resolve(projectRoot, 'public');
-const outputRoot = path.resolve(publicRoot, 'static-data');
-const logoRoot = path.join(outputRoot, 'team-logos');
-const entityMediaRoot = path.join(outputRoot, 'media');
-const STATIC_ASSET_TOKEN = '__OWCS_STATIC_BASE__/';
-const TBD_TEAM_LOGO_URL = 'https://owmini.xyz/images/tbd.png';
-const CONCURRENCY = Math.max(
-  1,
-  Number(process.env.OWCS_EXPORT_CONCURRENCY) || (productionMode ? 4 : 6)
-);
-const REQUEST_ATTEMPTS = Math.max(1, Number(process.env.OWCS_EXPORT_REQUEST_ATTEMPTS) || 5);
-const FORCE_LEGACY_EXPORT = process.env.OWCS_STATIC_EXPORT_LEGACY === '1';
-
-if (!outputRoot.startsWith(`${publicRoot}${path.sep}`)) {
-  throw new Error(`拒绝清理 public 目录以外的路径: ${outputRoot}`);
-}
-
-const canonicalPath = input => {
-  const url = new URL(input, 'http://snapshot.local');
-  url.searchParams.sort();
-  return `${url.pathname}${url.search}`;
-};
-
-const asArray = value => {
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value?.data)) return value.data;
-  if (Array.isArray(value?.list)) return value.list;
-  return [];
-};
-
-const responses = {};
-const warnings = [];
-let completedRequests = 0;
-
-const capture = async (requestPath, { optional = false } = {}) => {
-  const key = canonicalPath(requestPath);
-  if (Object.prototype.hasOwnProperty.call(responses, key)) return responses[key];
-
-  try {
-    const data = await fetchJsonWithRetry(`${API_BASE}${key}`, {
-      attempts: REQUEST_ATTEMPTS,
-      onRetry: ({ nextAttempt, maxAttempts, delayMs, error }) => {
-        console.warn(
-          `[static-export] 请求失败，${delayMs}ms 后重试 (${nextAttempt}/${maxAttempts})：GET ${key} - ${error.message}`
-        );
-      }
-    });
-    responses[key] = data;
-    completedRequests += 1;
-    if (completedRequests % 50 === 0) {
-      console.log(`[static-export] 已获取 ${completedRequests} 个数据接口`);
-    }
-    return data;
-  } catch (error) {
-    const message = `GET ${key}: ${error.message}`;
-    if (optional) {
-      warnings.push(message);
-      console.warn(`[static-export] 可选数据跳过：${message}`);
-      return null;
-    }
-    throw new Error(`[static-export] 数据导出失败：${message}`, { cause: error });
-  }
-};
-
-const runPool = async tasks => {
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(CONCURRENCY, tasks.length || 1) }, async () => {
-    while (cursor < tasks.length) {
-      const taskIndex = cursor++;
-      await tasks[taskIndex]();
-    }
-  });
-  await Promise.all(workers);
-};
-
-const queryPath = (pathname, params = {}) => {
-  const url = new URL(pathname, 'http://snapshot.local');
-  Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
-    url.searchParams.set(key, String(value));
-  });
-  return canonicalPath(`${url.pathname}${url.search}`);
-};
-
-const safeId = value => String(value).replace(/[^a-zA-Z0-9_-]/g, '_');
-
-const extensionFor = (url, contentType) => {
-  const types = {
-    'image/avif': '.avif',
-    'image/gif': '.gif',
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/svg+xml': '.svg',
-    'image/webp': '.webp'
-  };
-  const normalizedType = String(contentType || '').split(';')[0].trim().toLowerCase();
-  if (types[normalizedType]) return types[normalizedType];
-  try {
-    const ext = path.extname(new URL(url).pathname).toLowerCase();
-    if (['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'].includes(ext)) return ext === '.jpeg' ? '.jpg' : ext;
-  } catch {
-    // URL validation is handled by the caller.
-  }
-  return '.img';
-};
-
-const downloadEntityMedia = async ({ items, field, category, outputDir, urlPrefix }) => {
-  const replacements = new Map();
-  const manifest = [];
-
-  await runPool(items.map(item => async () => {
-    const sourceUrl = String(item?.[field] || '').trim();
-    if (!sourceUrl) return;
-
+const imageBytes = async url => {
+  for (let attempt = 1; ; attempt++) {
     try {
-      const remoteUrl = new URL(sourceUrl, apiUrl.origin);
-      if (!['http:', 'https:'].includes(remoteUrl.protocol)) return;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000);
-      let response;
-      try {
-        response = await fetch(remoteUrl, {
-          headers: { 'User-Agent': 'OWCS-Stats-Static-Exporter/1.0' },
-          redirect: 'follow',
-          signal: controller.signal
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.toLowerCase().startsWith('image/')) {
-        throw new Error(`返回类型不是图片: ${contentType || 'unknown'}`);
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length > 5 * 1024 * 1024) throw new Error('图片超过 5 MB 限制');
-
-      const fileName = `${category}-${safeId(item.id)}${extensionFor(remoteUrl, contentType)}`;
-      await writeFile(path.join(outputDir, fileName), bytes);
-      const localUrl = `${STATIC_ASSET_TOKEN}${urlPrefix}/${fileName}`;
-      replacements.set(sourceUrl, localUrl);
-      manifest.push({ entityId: item.id, sourceUrl, localUrl, bytes: bytes.length });
+      const response = await fetch(url, { signal: AbortSignal.timeout(45000) });
+      const type = (response.headers.get('content-type') || '').split(';')[0];
+      if (!response.ok || !type.startsWith('image/')) throw new Error(`Invalid image response ${response.status} ${type}: ${url}`);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new Error(`Invalid image size: ${url}`);
+      const extension = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/svg+xml': 'svg', 'image/gif': 'gif', 'image/avif': 'avif', 'image/x-icon': 'ico' }[type];
+      if (!extension) throw new Error(`Unsupported image type: ${type}`);
+      return { bytes, extension };
     } catch (error) {
-      warnings.push(`${category} ${item.id} 图片下载失败 (${sourceUrl}): ${error.message}`);
+      if (attempt >= 3) throw error;
+      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+    }
+  }
+};
+
+try {
+  const snapshot = validateSnapshot(sourceFile
+    ? JSON.parse(await readFile(sourceFile, 'utf8'))
+    : await fetchJsonWithRetry(`${api}/static-export/snapshot`, { attempts: 3, timeoutMs: 180000 }));
+  console.log(`[static-export] schema v2, ${snapshot.counts.matches} matches, ${snapshot.counts.mapGames} maps`);
+  await mkdir(path.join(staging, 'media'), { recursive: true });
+  await mkdir(path.join(staging, 'team-logos'), { recursive: true });
+  const tbd = 'https://owmini.xyz/images/tbd.png';
+  const sources = [...new Set([...mediaSources(snapshot), tbd])];
+  const replacements = new Map(), assets = [];
+  let next = 0;
+  const downloads = await Promise.allSettled(Array.from({ length: 4 }, async () => {
+    while (next < sources.length) {
+      const source = sources[next++];
+      const url = new URL(source, origin.origin);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error(`Unsupported asset URL: ${source}`);
+      const { bytes, extension } = await imageBytes(url);
+      const sha256 = hash(bytes);
+      const relative = source === tbd ? 'team-logos/team-tbd.png' : `media/${sha256}.${extension}`;
+      await writeFile(path.join(staging, relative), bytes);
+      replacements.set(source, `__OWCS_STATIC_BASE__/static-data/${relative}`);
+      assets.push({ path: relative, sha256, bytes: bytes.length });
     }
   }));
-
-  return { replacements, manifest };
-};
-
-const replaceAssetUrls = (value, replacements) => {
-  if (typeof value === 'string') return replacements.get(value) || value;
-  if (Array.isArray(value)) return value.map(item => replaceAssetUrls(item, replacements));
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, replaceAssetUrls(item, replacements)])
-    );
-  }
-  return value;
-};
-
-const main = async () => {
-  console.log(`[static-export] 模式：${productionMode ? 'production' : 'development'}`);
-  console.log(`[static-export] 数据源：${API_BASE}`);
-  await rm(outputRoot, { recursive: true, force: true });
-  const heroMediaRoot = path.join(entityMediaRoot, 'heroes');
-  const mapMediaRoot = path.join(entityMediaRoot, 'maps');
-  const seasonMediaRoot = path.join(entityMediaRoot, 'seasons');
-  await Promise.all([
-    mkdir(logoRoot, { recursive: true }),
-    mkdir(seasonMediaRoot, { recursive: true }),
-    mkdir(heroMediaRoot, { recursive: true }),
-    mkdir(mapMediaRoot, { recursive: true })
-  ]);
-
-  let serverSnapshot = null;
-  if (!FORCE_LEGACY_EXPORT) {
-    try {
-      serverSnapshot = await fetchJsonWithRetry(`${API_BASE}/static-export/snapshot`, {
-        attempts: 2,
-        timeoutMs: 180_000,
-        onRetry: ({ delayMs, error }) => {
-          console.warn(`[static-export] Batch snapshot failed; retrying in ${delayMs}ms: ${error.message}`);
-        }
-      });
-      if (serverSnapshot?.schemaVersion !== 1 || !serverSnapshot?.responses) {
-        throw new Error('Unsupported batch snapshot format');
-      }
-      Object.assign(responses, serverSnapshot.responses);
-      warnings.push(...(Array.isArray(serverSnapshot.warnings) ? serverSnapshot.warnings : []));
-      completedRequests = 1;
-      console.log(`[static-export] Batch snapshot loaded: ${Object.keys(responses).length} compatible responses in 1 HTTP request`);
-    } catch (error) {
-      serverSnapshot = null;
-      console.warn(`[static-export] Batch snapshot unavailable; falling back to legacy requests: ${error.message}`);
-    }
-  }
-
-  let seasonsData;
-  let teamsData;
-  let playersData;
-  let mapsData;
-  let heroesData;
-  let seasonTeamsData;
-  let matchesData;
-  let mapGamesData;
-
-  if (serverSnapshot) {
-    seasonsData = responses['/seasons'];
-    teamsData = responses['/teams'];
-    playersData = responses['/players'];
-    mapsData = responses['/maps'];
-    heroesData = responses['/heroes'];
-    seasonTeamsData = responses['/season-teams'];
-    matchesData = responses[queryPath('/matches', { pageSize: 2000 })];
-    mapGamesData = responses[queryPath('/map-games', { pageSize: 2000 })];
-  } else {
-    [seasonsData, teamsData, playersData, mapsData, heroesData, seasonTeamsData, matchesData, mapGamesData] = await Promise.all([
-      capture('/seasons'),
-      capture('/teams'),
-      capture('/players'),
-      capture('/maps'),
-      capture('/heroes'),
-      capture('/season-teams'),
-      capture(queryPath('/matches', { pageSize: 2000 })),
-      capture(queryPath('/map-games', { pageSize: 2000 }))
-    ]);
-  }
-
-  await capture('/matches/upcoming', { optional: true });
-
-  const seasons = asArray(seasonsData);
-  const teams = asArray(teamsData);
-  const players = asArray(playersData);
-  const maps = asArray(mapsData);
-  const heroes = asArray(heroesData);
-  const seasonTeams = asArray(seasonTeamsData);
-  const matches = asArray(matchesData);
-  const mapGames = asArray(mapGamesData);
-
-  console.log(`[static-export] 基础数据：${seasons.length} 赛季，${teams.length} 队伍，${players.length} 选手，${matches.length} 场比赛，${mapGames.length} 个地图局`);
-
-  const configKeys = [
-    'latest_match_sync_updates',
-    'visualize_chart_config',
-    'visualize_stage_season_order',
-    ...seasons.map(season => `visualize_season_${season.id}`)
-  ];
-  if (!serverSnapshot) {
-    await runPool(configKeys.map(key => () => capture(`/config/${encodeURIComponent(key)}`, { optional: true })));
-
-    const seasonStageIds = new Map();
-    const seasonTasks = [];
-    seasons.forEach(season => {
-      const seasonId = season.id;
-      seasonTasks.push(
-        () => capture(queryPath('/matches', { pageSize: 1000, seasonId })),
-        () => capture(queryPath('/map-games', { pageSize: 1000, seasonId })),
-        () => capture(queryPath('/map-games', { pageSize: 2000, seasonId })),
-        () => capture(`/season-stats/${seasonId}`),
-        () => capture(`/season-stats/${seasonId}/team-score`),
-        () => capture(`/season-stats/${seasonId}/map-picks`),
-        () => capture(`/season-stats/${seasonId}/features`),
-        async () => {
-          const stagesData = await capture(`/season-stats/${seasonId}/stages`);
-          seasonStageIds.set(String(seasonId), asArray(stagesData).map(stage => stage.id));
-        },
-        () => capture(queryPath('/stats/hero/overview', { seasonId }))
-      );
-    });
-    await runPool(seasonTasks);
-
-    const stageTasks = [];
-    seasonStageIds.forEach((stageIds, seasonId) => {
-      stageIds.forEach(stageId => {
-        stageTasks.push(() => capture(queryPath(`/season-stats/${seasonId}/team-score`, { stageId })));
-      });
-    });
-    await runPool(stageTasks);
-
-    const seasonTeamPlayers = new Map();
-    await runPool(seasonTeams.map(seasonTeam => async () => {
-      const relationData = await capture(`/season-teams/${seasonTeam.id}/players`);
-      seasonTeamPlayers.set(String(seasonTeam.id), asArray(relationData));
-    }));
-
-    const seasonTeamsBySeason = new Map();
-    seasonTeams.forEach(item => {
-      const key = String(item.seasonId);
-      if (!seasonTeamsBySeason.has(key)) seasonTeamsBySeason.set(key, []);
-      seasonTeamsBySeason.get(key).push(item);
-    });
-
-    const teamTasks = [];
-    seasons.forEach(season => {
-      const seasonId = season.id;
-      teamTasks.push(() => capture(`/seasons/${seasonId}/teams`));
-      (seasonTeamsBySeason.get(String(seasonId)) || []).forEach(seasonTeam => {
-        const teamId = seasonTeam.teamId;
-        teamTasks.push(
-          () => capture(queryPath('/map-games', { pageSize: 2000, seasonId, teamId })),
-          () => capture(`/season-stats/${seasonId}/teams/${teamId}/compositions`),
-          () => capture(`/season-stats/${seasonId}/teams/${teamId}/hero-stats`)
-        );
-      });
-    });
-    await runPool(teamTasks);
-
-    const playerSeasonPairs = new Set();
-    seasonTeams.forEach(seasonTeam => {
-      (seasonTeamPlayers.get(String(seasonTeam.id)) || []).forEach(relation => {
-        if (relation.playerId != null) playerSeasonPairs.add(`${relation.playerId}:${seasonTeam.seasonId}`);
-      });
-    });
-
-    const playerTasks = players.map(player => () => capture(`/stats/player/${player.id}/profile`));
-    playerSeasonPairs.forEach(pair => {
-      const [playerId, seasonId] = pair.split(':');
-      playerTasks.push(
-        () => capture(queryPath(`/stats/player/${playerId}/profile`, { seasonId })),
-        () => capture(queryPath('/stats/player/heroes', { playerId, seasonId }))
-      );
-    });
-    await runPool(playerTasks);
-
-    const heroTasks = [];
-    seasons.forEach(season => {
-      heroes.forEach(hero => {
-        heroTasks.push(() => capture(queryPath('/stats/hero/players', { heroId: hero.id, seasonId: season.id })));
-      });
-    });
-    await runPool(heroTasks);
-
-    const matchTasks = [];
-    matches.forEach(match => {
-      matchTasks.push(
-        () => capture(`/matches/${match.id}`),
-        () => capture(`/matches/${match.id}/map-games`)
-      );
-    });
-    mapGames.forEach(mapGame => {
-      matchTasks.push(() => capture(`/map-games/${mapGame.id}/player-stats`));
-    });
-    await runPool(matchTasks);
-  }
-
-  const [seasonMedia, teamMedia, heroMedia, mapMedia] = await Promise.all([
-    downloadEntityMedia({
-      items: seasons,
-      field: 'icon',
-      category: 'season',
-      outputDir: seasonMediaRoot,
-      urlPrefix: 'static-data/media/seasons'
-    }),
-    downloadEntityMedia({
-      items: [...teams, { id: 'tbd', logo: TBD_TEAM_LOGO_URL }],
-      field: 'logo',
-      category: 'team',
-      outputDir: logoRoot,
-      urlPrefix: 'static-data/team-logos'
-    }),
-    downloadEntityMedia({
-      items: heroes,
-      field: 'image',
-      category: 'hero',
-      outputDir: heroMediaRoot,
-      urlPrefix: 'static-data/media/heroes'
-    }),
-    downloadEntityMedia({
-      items: maps,
-      field: 'image',
-      category: 'map',
-      outputDir: mapMediaRoot,
-      urlPrefix: 'static-data/media/maps'
-    })
-  ]);
-  const replacements = new Map([
-    ...seasonMedia.replacements,
-    ...teamMedia.replacements,
-    ...heroMedia.replacements,
-    ...mapMedia.replacements
-  ]);
-  const logoManifest = teamMedia.manifest;
-  const localizedResponses = replaceAssetUrls(responses, replacements);
-  const snapshot = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    source: 'OWCS Stats read-only static snapshot',
-    exportMode: productionMode ? 'production' : 'development',
-    sourceApi: API_BASE,
-    counts: {
-      seasons: seasons.length,
-      teams: teams.length,
-      players: players.length,
-      maps: maps.length,
-      heroes: heroes.length,
-      matches: matches.length,
-      mapGames: mapGames.length,
-      responses: Object.keys(localizedResponses).length,
-      localizedSeasonIcons: seasonMedia.manifest.length,
-      localizedTeamLogos: logoManifest.filter(item => item.entityId !== 'tbd').length,
-      localizedHeroImages: heroMedia.manifest.length,
-      localizedMapImages: mapMedia.manifest.length
-    },
-    responses: localizedResponses
-  };
-
-  await writeFile(path.join(outputRoot, 'api-cache.json'), JSON.stringify(snapshot));
-  await writeFile(path.join(outputRoot, 'manifest.json'), JSON.stringify({
-    ...snapshot.counts,
+  const failed = downloads.find(result => result.status === 'rejected');
+  if (failed) throw failed.reason;
+  const localized = replaceMedia(snapshot, replacements);
+  const files = await writeResources(staging, localized);
+  const manifest = {
+    schemaVersion: 2,
     generatedAt: snapshot.generatedAt,
-    exportMode: snapshot.exportMode,
-    sourceApi: snapshot.sourceApi,
-    warnings,
-    teamLogos: logoManifest,
-    seasonIcons: seasonMedia.manifest,
-    heroImages: heroMedia.manifest,
-    mapImages: mapMedia.manifest
-  }, null, 2));
-
-  console.log(`[static-export] 完成：${snapshot.counts.responses} 个接口快照，赛季 ${snapshot.counts.localizedSeasonIcons}/${seasons.filter(season => season.icon).length}，队伍 ${snapshot.counts.localizedTeamLogos}/${teams.filter(team => team.logo).length}，英雄 ${snapshot.counts.localizedHeroImages}/${heroes.filter(hero => hero.image).length}，地图 ${snapshot.counts.localizedMapImages}/${maps.filter(map => map.image).length} 张图片已本地化`);
-  if (warnings.length) console.warn(`[static-export] ${warnings.length} 条警告，详见 public/static-data/manifest.json`);
-};
-
-main().catch(error => {
+    packagedAt: new Date().toISOString(),
+    exportMode: production ? 'production' : 'development',
+    sourceApi: sourceFile ? null : api,
+    dataSource: sourceFile ? snapshot.dataSource || { kind: 'snapshot-file' } : { kind: 'api', url: api },
+    assetOrigin: origin.origin,
+    capabilities: { voting: false, externalRequests: false },
+    scheduleObservedAt: new Date(snapshot.schedule.observedAt).toISOString(),
+    ...snapshot.counts, files, assets,
+    datasetId: hash(JSON.stringify(files)),
+    warnings: []
+  };
+  await writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  await verifyResources(staging, manifest);
+  let moved = false;
+  try { await rename(destination, backup); moved = true; } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  try { await rename(staging, destination); } catch (error) { if (moved) await rename(backup, destination); throw error; }
+  if (moved) await rm(backup, { recursive: true, force: true });
+  console.log(`[static-export] Complete: ${Object.keys(files).length} resources, ${assets.length} local images. No external runtime requests.`);
+} catch (error) {
+  await rm(staging, { recursive: true, force: true });
   console.error(error.message);
   process.exitCode = 1;
-});
+}

@@ -3,11 +3,7 @@ const PlayerStat = require('../models/PlayerStat');
 const Player = require('../models/Player');
 const Team = require('../models/Team');
 const MapGame = require('../models/MapGame');
-const Match = require('../models/Match');
-const Map = require('../models/Map');
-const Hero = require('../models/Hero');
-const sequelize = require('../config/database');
-const SeasonStatsCalculator = require('../services/SeasonStatsCalculator');
+const PublicStatsService = require('../services/PublicStatsService');
 
 const StatsController = {
   // Aggregate the data used by the public player profile page.
@@ -20,140 +16,9 @@ const StatsController = {
         return res.status(400).json({ error: 'Invalid player ID' });
       }
 
-      const player = await Player.findByPk(playerId);
-      if (!player) {
-        return res.status(404).json({ error: 'Player not found' });
-      }
-
-      const where = { playerId };
-      if (Number.isFinite(seasonId)) {
-        const mapGames = await MapGame.findAll({
-          where: { seasonId },
-          attributes: ['id']
-        });
-        where.mapGameId = { [Op.in]: mapGames.map(item => item.id) };
-      }
-
-      const [rows, seasonHistory] = await Promise.all([
-        PlayerStat.findAll({
-          where,
-          include: [
-            { model: Hero, as: 'hero', attributes: ['id', 'name', 'role', 'subRole'] },
-            { model: Team, as: 'team', attributes: ['id', 'name', 'logo', 'region'] },
-            {
-              model: MapGame,
-              attributes: ['id', 'seasonId', 'matchId', 'mapId', 'team1Id', 'team2Id', 'winnerId', 'duration', 'createdAt'],
-              include: [
-                { model: Match, attributes: ['id', 'matchDate', 'team1Id', 'team2Id', 'winnerId', 'team1Score', 'team2Score', 'boFormat'] },
-                { model: Map, attributes: ['id', 'name', 'type'] }
-              ]
-            }
-          ]
-        }),
-        // 赛季履历改为从原始比赛表实时计算，不再读预聚合表
-        SeasonStatsCalculator.calculatePlayerSeasonHistory(playerId)
-      ]);
-
-      const heroGroups = new global.Map();
-      const totals = {
-        mapsPlayed: rows.length,
-        duration: 0,
-        kills: 0,
-        deaths: 0,
-        assists: 0,
-        damage: 0,
-        healing: 0,
-        mitigation: 0,
-        finalBlows: 0
-      };
-
-      const appearances = rows.map(row => {
-        const data = row.get({ plain: true });
-        const mapGame = data.MapGame || {};
-        const match = mapGame.Match || {};
-        const map = mapGame.Map || {};
-        const duration = Number(mapGame.duration) || 0;
-
-        totals.duration += duration;
-        totals.kills += Number(data.kills) || 0;
-        totals.deaths += Number(data.deaths) || 0;
-        totals.assists += Number(data.assists) || 0;
-        totals.damage += Number(data.damage) || 0;
-        totals.healing += Number(data.healing) || 0;
-        totals.mitigation += Number(data.mitigation) || 0;
-        totals.finalBlows += Number(data.finalBlows) || 0;
-
-        const heroKey = data.heroId || 'unknown';
-        const heroEntry = heroGroups.get(heroKey) || {
-          heroId: data.heroId || null,
-          heroName: data.hero?.name || '未记录英雄',
-          subRole: data.hero?.subRole || '',
-          mapsPlayed: 0,
-          duration: 0,
-          kills: 0,
-          deaths: 0,
-          assists: 0
-        };
-        heroEntry.mapsPlayed += 1;
-        heroEntry.duration += duration;
-        heroEntry.kills += Number(data.kills) || 0;
-        heroEntry.deaths += Number(data.deaths) || 0;
-        heroEntry.assists += Number(data.assists) || 0;
-        heroGroups.set(heroKey, heroEntry);
-
-        const opponentId = String(mapGame.team1Id) === String(data.teamId)
-          ? mapGame.team2Id
-          : mapGame.team1Id;
-
-        return {
-          id: data.id,
-          matchId: mapGame.matchId || null,
-          matchDate: match.matchDate || mapGame.createdAt || null,
-          mapGameId: mapGame.id || data.mapGameId,
-          mapId: map.id || mapGame.mapId || null,
-          mapName: map.name || '未知地图',
-          mapType: map.type || '',
-          teamId: data.teamId,
-          team: data.team || null,
-          opponentId,
-          winnerId: mapGame.winnerId || match.winnerId || null,
-          matchWinnerId: match.winnerId || null,
-          matchTeam1Id: match.team1Id || null,
-          matchTeam2Id: match.team2Id || null,
-          matchTeam1Score: match.team1Score ?? null,
-          matchTeam2Score: match.team2Score ?? null,
-          boFormat: match.boFormat || '',
-          hero: data.hero || null,
-          duration,
-          kills: Number(data.kills) || 0,
-          deaths: Number(data.deaths) || 0,
-          assists: Number(data.assists) || 0,
-          damage: Number(data.damage) || 0,
-          healing: Number(data.healing) || 0,
-          mitigation: Number(data.mitigation) || 0
-        };
-      });
-
-      appearances.sort((a, b) => {
-        const dateDiff = new Date(b.matchDate || 0) - new Date(a.matchDate || 0);
-        return dateDiff || Number(b.mapGameId || 0) - Number(a.mapGameId || 0);
-      });
-
-      const heroPool = Array.from(heroGroups.values())
-        .map(item => ({
-          ...item,
-          usageRate: totals.duration > 0 ? Number((item.duration / totals.duration * 100).toFixed(1)) : 0,
-          kd: item.deaths > 0 ? Number((item.kills / item.deaths).toFixed(2)) : item.kills
-        }))
-        .sort((a, b) => b.duration - a.duration);
-
-      return res.status(200).json({
-        player,
-        totals,
-        heroPool,
-        recentMaps: appearances.slice(0, 12),
-        seasonHistory
-      });
+      const profile = await PublicStatsService.getPlayerProfile(playerId, { seasonId });
+      if (!profile) return res.status(404).json({ error: 'Player not found' });
+      return res.status(200).json(profile);
     } catch (error) {
       console.error('Failed to get player profile:', error);
       return res.status(500).json({ error: error.message });
@@ -430,88 +295,7 @@ const StatsController = {
         return res.status(400).json({ error: 'seasonId 不合法' });
       }
 
-      const [pickRows] = await sequelize.query(`
-        SELECT
-          phs.heroId AS heroId,
-          MAX(phs.heroName) AS heroName,
-          COUNT(DISTINCT ps.mapGameId) AS mapsAppeared,
-          COUNT(DISTINCT ps.id) AS pickCount,
-          SUM(phs.usageSeconds) AS usageSeconds,
-          SUM(phs.finalBlows) AS finalBlows,
-          SUM(phs.deathsByFinalBlow) AS deathsByFinalBlow,
-          SUM(phs.ultReady) AS ultReady,
-          SUM(phs.ultUsed) AS ultUsed,
-          AVG(phs.avgUltChargeSeconds) AS avgUltChargeSeconds,
-          SUM(CASE WHEN mg.winnerId = ps.teamId THEN 1 ELSE 0 END) AS winPicks
-        FROM player_hero_stats phs
-        JOIN player_stats ps ON ps.id = phs.playerStatId
-        JOIN map_games mg ON mg.id = ps.mapGameId
-        WHERE mg.seasonId = :seasonId AND phs.heroId IS NOT NULL
-        GROUP BY phs.heroId
-      `, { replacements: { seasonId: seasonIdNum } });
-
-      const [banRows] = await sequelize.query(`
-        SELECT heroId, COUNT(*) AS banCount FROM (
-          SELECT team1BanHeroId AS heroId FROM map_games WHERE seasonId = :seasonId AND team1BanHeroId IS NOT NULL
-          UNION ALL
-          SELECT team2BanHeroId AS heroId FROM map_games WHERE seasonId = :seasonId AND team2BanHeroId IS NOT NULL
-        ) bans GROUP BY heroId
-      `, { replacements: { seasonId: seasonIdNum } });
-
-      const [totalRows] = await sequelize.query(
-        'SELECT COUNT(*) AS total FROM map_games WHERE seasonId = :seasonId',
-        { replacements: { seasonId: seasonIdNum } }
-      );
-      const totalMapGames = Number(totalRows[0] && totalRows[0].total) || 0;
-
-      const heroes = await Hero.findAll({ raw: true });
-      // 注意：本文件顶部 Map 被 Sequelize 地图模型遮蔽，这里用普通对象做映射
-      const heroById = {};
-      heroes.forEach(h => { heroById[Number(h.id)] = h; });
-      const banById = {};
-      banRows.forEach(b => { banById[Number(b.heroId)] = Number(b.banCount) || 0; });
-
-      const num = v => Number(v) || 0;
-      const buildRow = (heroId, heroNameFallback, row, banCount) => {
-        const hero = heroById[heroId] || null;
-        const pickCount = num(row && row.pickCount);
-        const mapsAppeared = num(row && row.mapsAppeared);
-        const usageSeconds = num(row && row.usageSeconds);
-        const minutes = usageSeconds / 60;
-        const finalBlows = num(row && row.finalBlows);
-        const avgUlt = row ? row.avgUltChargeSeconds : null;
-        return {
-          heroId,
-          heroName: (hero && hero.name) || heroNameFallback || '未知英雄',
-          role: (hero && hero.role) || null,
-          subRole: (hero && hero.subRole) || null,
-          pickCount,
-          mapsAppeared,
-          pickRate: totalMapGames ? mapsAppeared / totalMapGames : 0,
-          banCount,
-          banRate: totalMapGames ? banCount / totalMapGames : 0,
-          winRate: pickCount ? num(row && row.winPicks) / pickCount : 0,
-          usageSeconds,
-          finalBlows,
-          finalBlowsPer10: minutes ? finalBlows / minutes * 10 : 0,
-          deathsByFinalBlow: num(row && row.deathsByFinalBlow),
-          ultReady: num(row && row.ultReady),
-          ultUsed: num(row && row.ultUsed),
-          avgUltChargeSeconds: avgUlt === null || avgUlt === undefined ? null : Number(avgUlt)
-        };
-      };
-
-      const data = pickRows.map(row =>
-        buildRow(Number(row.heroId), row.heroName, row, banById[Number(row.heroId)] || 0)
-      );
-      // 只有 ban、没有选用明细的英雄也列出来（选用指标全 0）
-      for (const [heroIdKey, banCount] of Object.entries(banById)) {
-        const heroId = Number(heroIdKey);
-        if (data.some(d => d.heroId === heroId)) continue;
-        data.push(buildRow(heroId, null, null, banCount));
-      }
-
-      res.json({ data, totalMapGames });
+      res.json(await PublicStatsService.getHeroOverview(seasonIdNum));
     } catch (error) {
       console.error('获取英雄总览数据失败:', error);
       res.status(500).json({ error: '获取数据失败' });
@@ -528,72 +312,7 @@ const StatsController = {
         return res.status(400).json({ error: 'seasonId / heroId 不合法' });
       }
 
-      const [rows] = await sequelize.query(`
-        SELECT
-          ps.playerId AS playerId,
-          ps.teamId AS teamId,
-          ps.mapGameId AS mapGameId,
-          phs.usageSeconds AS usageSeconds,
-          phs.finalBlows AS finalBlows,
-          phs.deathsByFinalBlow AS deathsByFinalBlow,
-          phs.avgUltChargeSeconds AS avgUltChargeSeconds
-        FROM player_hero_stats phs
-        JOIN player_stats ps ON ps.id = phs.playerStatId
-        JOIN map_games mg ON mg.id = ps.mapGameId
-        WHERE mg.seasonId = :seasonId AND phs.heroId = :heroId
-        ORDER BY ps.id ASC
-      `, { replacements: { seasonId: seasonIdNum, heroId: heroIdNum } });
-
-      // 按选手聚合（跨该赛季所有使用该英雄的地图局）
-      const byPlayer = {};
-      for (const r of rows) {
-        const pid = Number(r.playerId);
-        if (!byPlayer[pid]) {
-          byPlayer[pid] = {
-            playerId: pid,
-            teamId: Number(r.teamId),
-            usageSeconds: 0,
-            finalBlows: 0,
-            deathsByFinalBlow: 0,
-            ultWeightedSum: 0,
-            ultWeight: 0,
-            mapIds: new Set()
-          };
-        }
-        const agg = byPlayer[pid];
-        const usage = Number(r.usageSeconds) || 0;
-        agg.usageSeconds += usage;
-        agg.finalBlows += Number(r.finalBlows) || 0;
-        agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
-        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
-          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
-          agg.ultWeight += usage;
-        }
-        agg.mapIds.add(Number(r.mapGameId));
-        // 选手换队时归属最新一条记录的队伍
-        agg.teamId = Number(r.teamId);
-      }
-
-      const players = await Player.findAll({ raw: true });
-      const nameById = {};
-      players.forEach(pl => { nameById[Number(pl.id)] = pl.name; });
-
-      const data = Object.values(byPlayer).map(agg => {
-        const minutes = agg.usageSeconds / 60;
-        return {
-          playerId: agg.playerId,
-          playerName: nameById[agg.playerId] || `选手#${agg.playerId}`,
-          teamId: agg.teamId,
-          usageSeconds: agg.usageSeconds,
-          mapsPlayed: agg.mapIds.size,
-          finalBlows: agg.finalBlows,
-          finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
-          fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
-          avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
-        };
-      }).sort((a, b) => (b.finalBlowsPer10 - a.finalBlowsPer10) || (b.usageSeconds - a.usageSeconds));
-
-      res.json({ data });
+      res.json(await PublicStatsService.getHeroPlayers(seasonIdNum, heroIdNum));
     } catch (error) {
       console.error('获取英雄选手数据失败:', error);
       res.status(500).json({ error: '获取数据失败' });
@@ -609,62 +328,7 @@ const StatsController = {
         return res.status(400).json({ error: 'seasonId / playerId 不合法' });
       }
 
-      const [rows] = await sequelize.query(`
-        SELECT
-          phs.heroId AS heroId,
-          ps.mapGameId AS mapGameId,
-          phs.usageSeconds AS usageSeconds,
-          phs.finalBlows AS finalBlows,
-          phs.deathsByFinalBlow AS deathsByFinalBlow,
-          phs.avgUltChargeSeconds AS avgUltChargeSeconds
-        FROM player_hero_stats phs
-        JOIN player_stats ps ON ps.id = phs.playerStatId
-        JOIN map_games mg ON mg.id = ps.mapGameId
-        WHERE mg.seasonId = :seasonId AND ps.playerId = :playerId
-        ORDER BY phs.heroId ASC, ps.id ASC
-      `, { replacements: { seasonId: seasonIdNum, playerId: playerIdNum } });
-
-      // 按英雄聚合（跨该赛季该选手所有地图局）
-      const byHero = {};
-      for (const r of rows) {
-        const hid = Number(r.heroId);
-        if (!byHero[hid]) {
-          byHero[hid] = {
-            heroId: hid,
-            usageSeconds: 0,
-            finalBlows: 0,
-            deathsByFinalBlow: 0,
-            ultWeightedSum: 0,
-            ultWeight: 0,
-            mapIds: new Set()
-          };
-        }
-        const agg = byHero[hid];
-        const usage = Number(r.usageSeconds) || 0;
-        agg.usageSeconds += usage;
-        agg.finalBlows += Number(r.finalBlows) || 0;
-        agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
-        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
-          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
-          agg.ultWeight += usage;
-        }
-        agg.mapIds.add(Number(r.mapGameId));
-      }
-
-      const data = Object.values(byHero).map(agg => {
-        const minutes = agg.usageSeconds / 60;
-        return {
-          heroId: agg.heroId,
-          usageSeconds: agg.usageSeconds,
-          mapsPlayed: agg.mapIds.size,
-          finalBlows: agg.finalBlows,
-          finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
-          fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
-          avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
-        };
-      }).sort((a, b) => b.usageSeconds - a.usageSeconds);
-
-      res.json({ data });
+      res.json(await PublicStatsService.getPlayerHeroes(seasonIdNum, playerIdNum));
     } catch (error) {
       console.error('获取选手英雄数据失败:', error);
       res.status(500).json({ error: '获取数据失败' });

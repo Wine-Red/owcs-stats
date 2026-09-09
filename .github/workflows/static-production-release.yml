@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout master
+      - name: Checkout release commit
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -43,7 +43,9 @@ jobs:
         run: npm ci
 
       - name: Test static exporter resilience
-        run: npm run test:static-export
+        run: |
+          npm run test:static-export
+          npm run test:stat-metrics
 
       - name: Export production static site
         run: npm run export:static:production
@@ -64,22 +66,24 @@ jobs:
           if (manifest.warnings?.length) {
             throw new Error(`Export completed with ${manifest.warnings.length} warning(s)`);
           }
-          if (!manifest.responses || !manifest.seasons || !manifest.teams) {
+          if (manifest.schemaVersion !== 2 || !Object.keys(manifest.files || {}).length || !manifest.seasons || !manifest.teams) {
             throw new Error('Production snapshot is unexpectedly empty');
           }
-          console.log(JSON.stringify(manifest, null, 2));
+          console.log(JSON.stringify({ datasetId: manifest.datasetId, matches: manifest.matches, resources: Object.keys(manifest.files).length }));
           NODE
 
       - name: Verify portable static bundle
         run: npm run verify:static-bundle
 
       - name: Smoke test static pages
+        env:
+          OWCS_STATIC_PREVIEW_URL: http://127.0.0.1:4174/partner/owcs/
         run: |
-          npx vite preview --mode static --host 127.0.0.1 --port 4174 --strictPort > /tmp/owcs-static-preview.log 2>&1 &
+          node scripts/serve-static.mjs > /tmp/owcs-static-preview.log 2>&1 &
           preview_pid=$!
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:4174/ > /dev/null; then
+            if curl --fail --silent http://127.0.0.1:4174/partner/owcs/ > /dev/null; then
               break
             fi
             if [ "$attempt" -eq 30 ]; then
@@ -89,6 +93,7 @@ jobs:
             sleep 1
           done
           npm run smoke:static
+          npm run verify:static-timeline
           npm run verify:embedded-webview
 
       - name: Package release
@@ -100,15 +105,15 @@ jobs:
           release_name="OWCS Stats 生产静态站 $(date +'%Y-%m-%d %H:%M:%S')"
           target_sha="$(git rev-parse HEAD)"
           archive_name="owcs-stats-static-production.zip"
-          (
-            cd dist
-            zip -q -r "../$archive_name" .
-          )
+          zip -q -r "$archive_name" dist
+          unzip -tq "$archive_name"
+          unzip -p "$archive_name" dist/index.html > /dev/null
+          unzip -p "$archive_name" dist/static-data/manifest.json > /dev/null
           sha256sum "$archive_name" > "$archive_name.sha256"
           node --input-type=module <<'NODE' > release-notes.md
           import { readFile } from 'node:fs/promises';
           const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
-          console.log(`生产静态展示站自动构建。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 接口快照：${manifest.responses}\n- 队伍图标：${manifest.localizedTeamLogos}\n\n解压后将全部文件上传到纯静态网站平台。`);
+          console.log(`完整数据随包的静态展示站，共用主站页面，无在线接口依赖或投票功能。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 数据资源：${Object.keys(manifest.files).length}\n- 本地图片：${manifest.assets.length}\n\n解压后将 dist 内的全部文件上传到纯静态网站平台，保持目录结构。`);
           NODE
           {
             echo "tag=$release_tag"

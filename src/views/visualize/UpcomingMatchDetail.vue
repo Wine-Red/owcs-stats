@@ -226,6 +226,7 @@
 </template>
 
 <script>
+import { killDeathRatio, killAssistDeathRatio, perTenMinutes } from '@/utils/statMetrics.mjs';
 import { ref, onMounted, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -675,16 +676,11 @@ export default {
 
       const teamTrueDuration = sumOfAllPlayerDurations / 5;
 
-      let kd = totalKills;
-      if (totalDeaths > 0) kd = parseFloat((totalKills / totalDeaths).toFixed(2));
+      const kd = killDeathRatio(totalKills, totalDeaths, 2);
 
-      let kad = totalKills + totalAssists;
-      if (totalDeaths > 0) kad = parseFloat(((totalKills + totalAssists) / totalDeaths).toFixed(2));
+      const kad = killAssistDeathRatio(totalKills, totalAssists, totalDeaths, 2);
 
-      const p10 = (val) => {
-        if (!val || teamTrueDuration === 0) return 0;
-        return parseFloat(((val / teamTrueDuration) * 10).toFixed(2));
-      };
+      const p10 = val => perTenMinutes(val, teamTrueDuration, 2);
 
       return {
         avgDamage: p10(totalDamage),
@@ -720,9 +716,9 @@ export default {
         const playerId = source.playerId || source.player?.id || fallback.playerId || fallback.id || null;
         const role = source.role || source.player?.role || fallback.role || 'damage';
         const name = source.playerName || source.player?.name || fallback.name || '未知';
-        const p10 = (val) => (duration > 0 ? parseFloat(((Number(val || 0) / duration) * 10).toFixed(2)) : 0);
-        const kd = deaths > 0 ? parseFloat((elims / deaths).toFixed(2)) : elims;
-        const kad = deaths > 0 ? parseFloat(((elims + assists) / deaths).toFixed(2)) : elims + assists;
+        const p10 = val => perTenMinutes(val, duration, 2);
+        const kd = killDeathRatio(elims, deaths, 2);
+        const kad = killAssistDeathRatio(elims, assists, deaths, 2);
 
         return {
           id: playerId,

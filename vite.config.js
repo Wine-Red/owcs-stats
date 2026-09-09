@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
       name: 'owcs-static-html',
       transformIndexHtml(html) {
         return html.replace(/\s*<!-- external-analytics:start -->[\s\S]*?<!-- external-analytics:end -->/, '')
+          .replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'">`)
       }
     }
   ].filter(Boolean),

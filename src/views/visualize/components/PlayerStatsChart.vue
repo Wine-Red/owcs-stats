@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { perTenMinutes, killDeathRatio, killAssistDeathRatio, perMinute } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -348,17 +349,15 @@ export default {
             if (duration === 0) return null;
             
             // Helper for per 10min
-            const p10 = (val) => parseFloat(((val || 0) / duration * 10).toFixed(2));
+            const p10 = val => perTenMinutes(val, duration, 2);
             
             const deaths = item.deaths || 0;
             const kills = item.elims || 0;
             const assists = item.assists || 0;
             
-            let kd = kills;
-            if (deaths > 0) kd = parseFloat((kills / deaths).toFixed(2));
+            const kd = killDeathRatio(kills, deaths, 2);
             
-            let kad = kills + assists;
-            if (deaths > 0) kad = parseFloat(((kills + assists) / deaths).toFixed(2));
+            const kad = killAssistDeathRatio(kills, assists, deaths, 2);
 
             return {
                 ...item,
@@ -776,18 +775,16 @@ export default {
         // Pre-calculate stats from primary data (ignoring backend pre-calculated fields)
         const processedResponse = (response || []).map(item => {
             const duration = item.gameTime || 0;
-            const perMin = (val) => duration > 0 ? (val || 0) / duration : 0;
+            const perMin = val => perMinute(val, duration);
             
             // Calculate totals for KD/KAD
             const kills = item.elims || 0;
             const deaths = item.deaths || 0;
             const assists = item.assists || 0;
             
-            let kd = kills;
-            if (deaths > 0) kd = kills / deaths;
+            const kd = killDeathRatio(kills, deaths);
             
-            let kad = kills + assists;
-            if (deaths > 0) kad = (kills + assists) / deaths;
+            const kad = killAssistDeathRatio(kills, assists, deaths);
 
             return {
                 ...item,
