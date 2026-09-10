@@ -9,18 +9,22 @@ const get = async path => {
   assert.equal(response.status, 200, path);
   return response.json();
 };
-const teams = await get('/teams'), relations = await get('/season-teams');
+const teams = await get('/teams'), relations = await get('/season-teams'), seasons = await get('/seasons');
 const selected = relations.find(row => teams.some(team => team.id === row.teamId && team.logo));
 assert.ok(selected);
 const team = teams.find(row => row.id === selected.teamId);
+const season = seasons.find(row => row.id === selected.seasonId);
 const hash = `#/visualize/team-detail?seasonId=${selected.seasonId}&teamId=${team.id}`;
 const browser = await launchBrowser();
 const context = await browser.newContext();
 const page = await context.newPage();
 const errors = [], forbidden = [], failures = [];
+let apiReads = 0, documents = 0;
 page.on('pageerror', error => errors.push(error.message));
 page.on('request', request => {
   const url = new URL(request.url());
+  if (url.href.startsWith(`${config.apiBaseUrl}/`)) apiReads++;
+  if (request.resourceType() === 'document') documents++;
   if (/\/poll-api\//.test(url.pathname) || (/\/(?:api|public-api)\//.test(url.pathname) && !url.href.startsWith(`${config.apiBaseUrl}/`))) forbidden.push(url.href);
 });
 let injectingFailure = false;
@@ -55,44 +59,61 @@ try {
   }, config.apiBaseUrl);
   assert.equal(preflight.status, 200); assert.ok(preflight.etag && preflight.count);
 
-  // Capture real JSON, then serve controlled changes without inheriting upstream
-  // compression/cache headers or leaving a second network request in the mock.
-  const meta = await get('/meta');
+  // Backend changes must not interrupt the page. A normal browser refresh is
+  // what loads the new team/season names; no update prompt or background polling.
   const mockHeaders = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
-  await page.route(`${config.apiBaseUrl}/meta`, route => route.fulfill({ status: 200,
-    headers: mockHeaders, json: { ...meta, revision: 'fixture-new-revision' } }));
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.getByRole('button', { name: '刷新数据', exact: true }).waitFor({ timeout: 10000 });
-  await page.screenshot({ path: '.local/api-runtime-qa/update-mobile.png', fullPage: true });
   let refreshed = 0;
   await page.route(`${config.apiBaseUrl}/teams`, route => {
     refreshed++;
     return route.fulfill({ status: 200, headers: mockHeaders,
       json: teams.map(row => row.id === team.id ? { ...row, name: `${team.name} QA` } : row) });
   });
-  await page.getByRole('button', { name: '刷新数据', exact: true }).click();
-  await page.getByText(`${team.name} QA`, { exact: true }).first().waitFor({ timeout: 60000 });
-  assert.ok(refreshed > 0, 'refresh must reload base store as well as page data');
-  assert.ok(page.url().endsWith(hash), 'refresh must retain the current entity/season route');
-  await page.waitForLoadState('networkidle');
+  await page.route(`${config.apiBaseUrl}/seasons`, route => route.fulfill({ status: 200, headers: mockHeaders,
+    json: seasons.map(row => row.id === season.id ? { ...row, name: `${season.name} QA` } : row) }));
+  const before = { apiReads, documents };
+  await page.clock.install();
+  await page.clock.fastForward(65000);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('online'));
+  });
+  await page.waitForTimeout(500);
+  assert.deepEqual({ apiReads, documents }, before, 'idle/visibility/online must not poll or reload');
+  assert.equal(refreshed, 0);
+  assert.equal((await page.locator('.team-name-large').textContent()).trim(), team.name);
+  assert.equal(await page.locator('.site-data-status').count(), 0);
+  assert.equal(await page.getByRole('button', { name: '刷新数据', exact: true }).count(), 0);
 
-  await page.unroute(`${config.apiBaseUrl}/meta`);
+  await page.reload();
+  await page.getByText(`${team.name} QA`, { exact: true }).first().waitFor({ timeout: 60000 });
+  await page.locator('.season-dropdown-link .text').filter({ hasText: `${season.name} QA` }).waitFor({ timeout: 60000 });
+  await page.waitForLoadState('networkidle');
+  assert.equal(refreshed, 1, 'browser refresh must fetch current base data');
+  assert.ok(page.url().endsWith(hash));
+  assert.equal(await page.locator('.site-data-status').count(), 0);
+  await page.screenshot({ path: '.local/api-runtime-qa/refreshed-mobile.png', fullPage: true });
+
   injectingFailure = true;
   await context.setOffline(true);
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  const otherHash = `#/visualize?seasonId=${selected.seasonId}&tab=recent`;
+  await page.evaluate(hash => { window.location.hash = hash; }, otherHash);
   await page.getByRole('button', { name: '重试', exact: true }).waitFor({ timeout: 10000 });
-  assert.ok(await page.getByText(`${team.name} QA`, { exact: true }).count(), 'keep visible data during outage');
   await page.screenshot({ path: '.local/api-runtime-qa/offline-mobile.png', fullPage: true });
   await context.setOffline(false);
-  // The online listener can recover metadata before a click. The changed test
-  // revision then leaves the refresh action, which must work just like retry.
-  await page.locator('.site-data-status button').click();
-  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: '重试', exact: true }).click();
+  await page.locator('.vis-body').waitFor({ timeout: 60000 });
   await page.locator('.site-data-status').waitFor({ state: 'detached', timeout: 60000 });
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(hash => { window.location.hash = hash; }, hash);
+  await page.locator('.team-detail-page .detail-container').waitFor({ timeout: 60000 });
+  await page.waitForLoadState('networkidle');
+
   await page.unroute(`${config.apiBaseUrl}/teams`);
-  await page.route(`${config.apiBaseUrl}/teams`, route => route.fulfill({ status: 503, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }, body: '{"error":"fixture outage"}' }));
+  await page.unroute(`${config.apiBaseUrl}/seasons`);
+  await page.route(`${config.apiBaseUrl}/teams`, route => route.fulfill({ status: 503, headers: mockHeaders, json: { error: 'fixture outage' } }));
   await page.reload();
   await page.getByRole('button', { name: '重试', exact: true }).waitFor({ timeout: 10000 });
+  await page.waitForLoadState('networkidle');
   await page.unroute(`${config.apiBaseUrl}/teams`);
   await page.getByRole('button', { name: '重试', exact: true }).click();
   await page.locator('.team-detail-page .detail-container').waitFor({ timeout: 60000 });
@@ -100,7 +121,8 @@ try {
   await page.waitForLoadState('networkidle');
   injectingFailure = false;
   assert.deepEqual(errors, []); assert.deepEqual(forbidden, []); assert.deepEqual(failures, []);
-  console.log('API browser runtime passed: desktop/mobile, direct/refresh, real CORS preflight, media/canvas, data update, offline/retry, no voting or admin requests');
+  console.log('API browser runtime passed: desktop/mobile, real CORS/media/canvas, no update prompts/polling/auto-refresh, new team/season data after browser refresh, offline/503 retry, no voting or admin requests');
+
 } finally {
   // Let in-flight mock responses finish before closing their page.
   await page.unrouteAll({ behavior: 'wait' });

@@ -49,20 +49,22 @@ try {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     const errors = [], unexpected = [];
     const pendingHttp = new Set();
+    let lastHttpAt = Date.now();
     // Wait for actual HTTP work before navigating; local Blob URLs need no CDN
     // response and are checked separately by image.decode() and canvas export.
     const settleHttp = async () => {
       const deadline = Date.now() + 60000;
-      while (pendingHttp.size && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+      while ((pendingHttp.size || Date.now() - lastHttpAt < 500) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
       assert.deepEqual([...pendingHttp].map(request => request.url()), [], 'HTTP requests must finish before reload/close');
     };
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-    page.on('requestfinished', request => pendingHttp.delete(request));
-    page.on('requestfailed', request => { pendingHttp.delete(request); errors.push(`${request.url()} ${request.failure()?.errorText}`); });
+    page.on('requestfinished', request => { if (pendingHttp.delete(request)) lastHttpAt = Date.now(); });
+    page.on('requestfailed', request => { if (pendingHttp.delete(request)) lastHttpAt = Date.now(); errors.push(`${request.url()} ${request.failure()?.errorText}`); });
     page.on('request', request => {
       if (!/^https?:/.test(request.url())) return;
       pendingHttp.add(request);
+      lastHttpAt = Date.now();
       const url = new URL(request.url());
       if (url.origin === hostOrigin && request.resourceType() === 'document') return;
       if (live && (url.href.startsWith(`${config.apiBaseUrl}/`) || (url.origin === config.mediaOrigin && url.pathname.startsWith('/media/')))) return;
@@ -70,6 +72,7 @@ try {
     });
     await page.goto(`${hostOrigin}${prefix}index.html#/visualize`, { waitUntil: 'domcontentloaded' });
     await page.locator('.vis-body').waitFor({ timeout: 60000 });
+    await settleHttp();
     await page.getByRole('tab', { name: '赛程列表', exact: true }).click();
     await page.locator('.schedule-shell').waitFor({ timeout: 60000 });
     const image = page.locator('img[src^="blob:"]').first();

@@ -1,7 +1,7 @@
 <template>
-  <div v-if="status.error || status.updateAvailable || status.scheduleStale" class="site-data-status" role="status" aria-live="polite">
-    <span>{{ status.error ? status.error.includes('不兼容') ? status.error : '数据连接失败，当前内容可能未更新' : status.updateAvailable ? '赛事数据已更新' : '赛程来源暂不可用，当前显示上次数据' }}</span>
-    <button v-if="status.error || status.updateAvailable" type="button" @click="$emit('refresh')">{{ status.error ? '重试' : '刷新数据' }}</button>
+  <div v-if="status.error" class="site-data-status" role="status" aria-live="polite">
+    <span>{{ status.error.includes('不兼容') ? status.error : '数据连接失败，当前内容可能未更新' }}</span>
+    <button type="button" @click="$emit('refresh')">重试</button>
   </div>
 </template>
 <script setup>

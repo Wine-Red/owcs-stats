@@ -8,9 +8,7 @@ export const validateSiteConfig = config => {
     if (key === 'mediaOrigin' && url.pathname !== '/') throw failure('mediaOrigin 必须是源地址');
   }
   if (!/\/site\/v1\/?$/.test(new URL(config.apiBaseUrl).pathname)) throw failure('需要 v1 展示接口');
-  for (const [key, min, max] of [['refreshIntervalMs', 15000, 3600000], ['timeoutMs', 1000, 120000]]) {
-    if (!Number.isInteger(config[key]) || config[key] < min || config[key] > max) throw failure(`页面配置无效：${key}`);
-  }
+  if (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 1000 || config.timeoutMs > 120000) throw failure('页面配置无效：timeoutMs');
   return { ...config, apiBaseUrl: config.apiBaseUrl.replace(/\/$/, ''), mediaOrigin: new URL(config.mediaOrigin).origin };
 };
 

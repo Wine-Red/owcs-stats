@@ -122,7 +122,7 @@ import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
 import { loadStaticManifest } from '@/services/staticApi';
 import { isApiPackage } from '@/services/packageMode.mjs';
-import { resetSiteData, watchSiteUpdates } from '@/services/siteRuntime';
+import { resetSiteData } from '@/services/siteRuntime';
 import SiteDataStatus from '@/components/SiteDataStatus.vue';
 import store from '@/store';
 import {
@@ -158,13 +158,10 @@ export default {
   setup() {
     const route = useRoute();
     const dataGeneration = ref(0);
-    let stopSiteUpdates;
     const refreshSiteData = async () => {
-      stopSiteUpdates?.();
       resetSiteData();
       await store.dispatch('loadBaseData');
       dataGeneration.value++;
-      stopSiteUpdates = watchSiteUpdates();
       fetchLatestSyncTime();
     };
     const mobileSidebarOpen = ref(false);
@@ -271,14 +268,12 @@ export default {
 
     watch(showSidebar, updateTheme);
     onMounted(() => {
-      if (isApiPackage) stopSiteUpdates = watchSiteUpdates();
       updateTheme();
       fetchLatestSyncTime();
-      if (!isStaticExport) syncTimer = setInterval(fetchLatestSyncTime, 60000); // 1分钟刷新一次
+      if (!isStaticExport && !isApiPackage) syncTimer = setInterval(fetchLatestSyncTime, 60000); // 主站每分钟刷新同步时间
     });
 
     onUnmounted(() => {
-      stopSiteUpdates?.();
       if (syncTimer) {
         clearInterval(syncTimer);
       }

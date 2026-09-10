@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSiteClient, validateSiteConfig, resolveSiteMedia } from './siteClient.mjs';
 const config = { schemaVersion: 1, apiBaseUrl: 'https://stats.test/public-api/site/v1', mediaOrigin: 'https://stats.test',
-  refreshIntervalMs: 60000, timeoutMs: 1000, assetBaseUrl: 'https://partner.test/partner/owcs/' };
+  timeoutMs: 1000, assetBaseUrl: 'https://partner.test/partner/owcs/' };
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 
-test('config rejects mixed content, credentials, incompatible API and unbounded intervals', () => {
+test('config rejects mixed content, credentials, incompatible API and unbounded timeouts', () => {
   assert.equal(validateSiteConfig(config).mediaOrigin, 'https://stats.test');
   for (const override of [{ schemaVersion: 2 }, { apiBaseUrl: 'https://x.test/api' }, { mediaOrigin: 'http://remote.test' },
-    { mediaOrigin: 'https://user:secret@stats.test' }, { refreshIntervalMs: 1 }, { timeoutMs: -1 }]) {
+    { mediaOrigin: 'https://user:secret@stats.test' }, { timeoutMs: 120001 }, { timeoutMs: -1 }]) {
     assert.throws(() => validateSiteConfig({ ...config, ...override }));
   }
 });
