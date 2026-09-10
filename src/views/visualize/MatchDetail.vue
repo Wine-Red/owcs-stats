@@ -394,6 +394,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -502,10 +503,7 @@ export default {
     const getMapModeIconUrlByType = (mapType) => {
       const key = getMapModeKey(mapType);
       if (!key) return '';
-      const baseUrl = import.meta.env.BASE_URL?.endsWith('/')
-        ? import.meta.env.BASE_URL
-        : `${import.meta.env.BASE_URL || '/'}${(import.meta.env.BASE_URL || '/').endsWith('/') ? '' : '/'}`;
-      return `${baseUrl}maps/logo/${key}.png`;
+      return packageAssetUrl(`maps/logo/${key}.png`);
     };
 
     const getMapModeInfo = (mapId) => {
@@ -523,11 +521,10 @@ export default {
     };
 
     const getRoleIconUrl = (role) => {
-      const baseUrl = import.meta.env.BASE_URL || '/';
       const normalizedRole = String(role || 'damage').toLowerCase();
-      if (normalizedRole === 'tank') return `${baseUrl}icons/role/Tank.png`;
-      if (normalizedRole === 'support') return `${baseUrl}icons/role/Support.png`;
-      return `${baseUrl}icons/role/DPS.png`;
+      if (normalizedRole === 'tank') return packageAssetUrl(`icons/role/Tank.png`);
+      if (normalizedRole === 'support') return packageAssetUrl(`icons/role/Support.png`);
+      return packageAssetUrl(`icons/role/DPS.png`);
     };
 
     const formatNumber = (num) => {

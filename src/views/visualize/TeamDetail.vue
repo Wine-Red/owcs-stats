@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -393,13 +394,12 @@ export default {
     };
 
     const getRoleIconUrl = (role) => {
-      const baseUrl = import.meta.env.BASE_URL || '/';
-      if (!role) return `${baseUrl}icons/role/DPS.png`;
+      if (!role) return packageAssetUrl(`icons/role/DPS.png`);
       const lowerRole = role.toLowerCase();
-      if (lowerRole === 'tank') return `${baseUrl}icons/role/Tank.png`;
-      if (lowerRole === 'damage') return `${baseUrl}icons/role/DPS.png`;
-      if (lowerRole === 'support') return `${baseUrl}icons/role/Support.png`;
-      return `${baseUrl}icons/role/DPS.png`;
+      if (lowerRole === 'tank') return packageAssetUrl(`icons/role/Tank.png`);
+      if (lowerRole === 'damage') return packageAssetUrl(`icons/role/DPS.png`);
+      if (lowerRole === 'support') return packageAssetUrl(`icons/role/Support.png`);
+      return packageAssetUrl(`icons/role/DPS.png`);
     };
 
     // 常用阵容：英雄 id → 主数据/图标

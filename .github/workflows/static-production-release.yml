@@ -96,6 +96,7 @@ jobs:
           npm run smoke:static
           npm run verify:static-timeline
           npm run verify:embedded-webview
+          npm run verify:partner-host
 
       - name: Build and verify API-driven package
         run: |
@@ -120,6 +121,7 @@ jobs:
           npm run smoke:api-static
           npm run verify:api-runtime
           npm run verify:embedded-webview
+          npm run verify:api-partner-host
 
       - name: Package release
         id: release
@@ -144,9 +146,9 @@ jobs:
           node --input-type=module <<'NODE' > release-notes.md
           import { readFile } from 'node:fs/promises';
           const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
-          console.log(`完整数据随包的静态展示站，共用主站页面，无在线接口依赖或投票功能。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 数据资源：${Object.keys(manifest.files).length}\n- 本地图片：${manifest.assets.length}\n\n解压后将 dist 内的全部文件上传到纯静态网站平台，保持目录结构。`);
+          console.log(`完整数据随包的静态展示站，共用主站页面，无在线接口依赖或投票功能。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 数据资源：${Object.keys(manifest.files).length}\n- 本地图片：${manifest.assets.length}\n\n运行只需 dist/index.html：代码、样式、图片和按需解压的数据均内置，不依赖 CDN 跨域设置。其他文件仅供版本和数据核对。`);
           const api = JSON.parse(await readFile('dist-api/site-config.json', 'utf8'));
-          console.log(`\n同一提交另附接口驱动包：\`owcs-stats-api-production.zip\`。页面按需读取 \`${api.apiBaseUrl}\`，比赛数据更新无需替换包；前端升级需部署新包。两种包均只读，无投票。每个 ZIP 都有独立 SHA-256，解压后上传其中 dist 的全部内容。`);
+          console.log(`\n同一提交另附接口驱动包：\`owcs-stats-api-production.zip\`。页面按需读取 \`${api.apiBaseUrl}\`，比赛数据更新无需替换包；前端升级需部署新包。两种包均只读，无投票。每个 ZIP 都有独立 SHA-256，运行只需上传其中 dist/index.html，保留内联代码和 CSP；其余文件为核对元数据。`);
           NODE
           {
             echo "tag=$release_tag"

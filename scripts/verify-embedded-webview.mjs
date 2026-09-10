@@ -44,19 +44,21 @@ try {
     await route.continue()
   })
   await page.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-  await page.locator('.page-loading').waitFor({ state: 'visible', timeout: 10_000 })
+  // Embedded snapshots can finish loading before the first paint. API packages
+  // still exercise the loading layout; viewport checks always apply to both.
+  const hasLoading = await page.locator('.page-loading').isVisible()
   const loadingMetrics = await page.evaluate(() => {
-    const loading = document.querySelector('.loading-panel').getBoundingClientRect()
+    const loading = document.querySelector('.loading-panel')?.getBoundingClientRect()
     const content = document.querySelector('.vis-content').getBoundingClientRect()
     const viewport = document.querySelector('meta[name="viewport"]')?.getAttribute('content') || ''
     return {
       contentHeight: content.height,
-      loadingCenterY: loading.top + loading.height / 2,
+      loadingCenterY: loading ? loading.top + loading.height / 2 : null,
       viewportCenterY: window.innerHeight / 2,
       viewport
     }
   })
-  if (loadingMetrics.contentHeight < 500 || Math.abs(loadingMetrics.loadingCenterY - loadingMetrics.viewportCenterY) > 4) {
+  if (hasLoading && (loadingMetrics.contentHeight < 500 || Math.abs(loadingMetrics.loadingCenterY - loadingMetrics.viewportCenterY) > 4)) {
     throw new Error(`WebView loading position is incorrect: ${JSON.stringify(loadingMetrics)}`)
   }
   if (!/user-scalable\s*=\s*no/i.test(loadingMetrics.viewport) || !/maximum-scale\s*=\s*1(?:\.0)?/i.test(loadingMetrics.viewport)) {

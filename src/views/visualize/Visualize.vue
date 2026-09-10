@@ -249,6 +249,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
@@ -569,10 +570,7 @@ export default {
     
     // 动态计算 logo URL，确保在非根路径部署时也能正确加载
     const logoUrl = computed(() => {
-      const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
-        ? import.meta.env.BASE_URL 
-        : `${import.meta.env.BASE_URL}/`;
-      return `${baseUrl}icons/OWCS.png`;
+      return packageAssetUrl(`icons/OWCS.png`);
     });
     
     const activeStage = ref('');

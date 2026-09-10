@@ -1,7 +1,11 @@
+import { isDisplayPackage } from '../services/packageMode.mjs';
+import { packageAssetUrl } from './packageAssets';
+
 export const resolveMediaUrl = value => {
   const source = String(value || '').trim();
   if (!source) return '';
   if (/^(?:https?:|data:|blob:)/i.test(source)) return source;
+  if (isDisplayPackage) return packageAssetUrl(source);
   if (source.startsWith('/')) return source;
   const baseUrl = import.meta.env.BASE_URL.endsWith('/')
     ? import.meta.env.BASE_URL

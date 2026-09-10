@@ -1,4 +1,5 @@
 import { resolveMediaUrl } from './media';
+import { packageAssetUrl } from './packageAssets';
 
 export const typeFolderMap = {
   '占领要点': 'control',
@@ -78,9 +79,6 @@ export const fileMap = {
 export const getMapImageUrl = (map) => {
   if (!map) return '';
   if (map.image) return resolveMediaUrl(map.image);
-  const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-    ? import.meta.env.BASE_URL
-    : `${import.meta.env.BASE_URL}/`;
   
   const folder = typeFolderMap[map.type] || 'hybrid';
   let filename = fileMap[map.name];
@@ -88,7 +86,7 @@ export const getMapImageUrl = (map) => {
     filename = `${map.name.replace(/ /g, '-')}.jpg`;
   }
   
-  return `${baseUrl}maps/${folder}/${filename}`;
+  return packageAssetUrl(`maps/${folder}/${filename}`);
 };
 
 export const getMapModeKey = (mapType) => {
@@ -105,9 +103,5 @@ export const getMapModeIconUrl = (mapOrType) => {
   const key = getMapModeKey(type);
   if (!key) return '';
 
-  const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-    ? import.meta.env.BASE_URL
-    : `${import.meta.env.BASE_URL}/`;
-
-  return `${baseUrl}maps/logo/${key}.png`;
+  return packageAssetUrl(`maps/logo/${key}.png`);
 };

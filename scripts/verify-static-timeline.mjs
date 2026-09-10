@@ -1,11 +1,12 @@
 // Synthetic timeline fixture at static file URLs; never changes packaged data.
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { openDisplayPackage, replaceDisplayResources } from './lib/display-package.mjs';
 const base = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/partner/owcs/';
 const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
-const read = async name => JSON.parse(await readFile(path.join('dist/static-data', manifest.files[name].path), 'utf8'));
+const bundle = await openDisplayPackage('dist');
+const read = async name => bundle.json(`static-data/${manifest.files[name].path}`);
 const games = await read('collections.mapGames'), stats = await read('collections.playerStats');
 const game = games.find(item => stats.filter(row => row.mapGameId === item.id).length >= 2);
 assert.ok(game, 'timeline UI verification needs a match with player statistics');
@@ -20,6 +21,11 @@ const payload = {
 game.timeline = { schemaVersion: 2, revision: 1 };
 const timelinePath = `data/timelines.${game.id}-fixture.json`;
 manifest.files[`timelines.${game.id}`] = { path: timelinePath };
+const fixtureHtml = replaceDisplayResources(bundle.html, {
+  'static-data/manifest.json': manifest,
+  [`static-data/${manifest.files['collections.mapGames'].path}`]: games,
+  [`static-data/${timelinePath}`]: { ...game.timeline, payload }
+});
 let executablePath;
 for (const candidate of [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean)) {
   try { await access(candidate); executablePath = candidate; break; } catch { /* try next */ }
@@ -29,16 +35,13 @@ const browser = await chromium.launch({ executablePath, headless: true });
 try {
   for (const width of [1280, 390]) {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
-    const errors = [], timelineReads = [];
+    const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', route => {
       const url = new URL(route.request().url());
       if (url.origin !== new URL(base).origin && /^https?:$/.test(url.protocol)) { errors.push(url.href); return route.abort(); }
-      const respond = data => route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
-      if (url.pathname.endsWith('/static-data/manifest.json')) return respond(manifest);
-      if (url.pathname.endsWith(`/${manifest.files['collections.mapGames'].path}`)) return respond(games);
-      if (url.pathname.endsWith(`/${timelinePath}`)) { timelineReads.push(url.href); return respond({ ...game.timeline, payload }); }
-      return route.continue();
+      if (route.request().resourceType() === 'document') return route.fulfill({ contentType: 'text/html', body: fixtureHtml });
+      errors.push(`Unexpected file request: ${url.href}`); return route.abort();
     });
     await page.goto(`${base}#/visualize/match-detail?seasonId=${game.seasonId}&matchId=${game.matchId}`);
     await page.locator('.tab-nav-item').nth(1).waitFor({ timeout: 60000 });
@@ -48,12 +51,11 @@ try {
     await page.locator('.tab-nav-item').nth(matchGames.findIndex(item => item.id === game.id) + 1).click();
     await page.getByRole('radio', { name: '地图分析' }).click();
     await page.locator('.last-blow-marker').first().waitFor({ timeout: 30000 });
-    assert.equal(timelineReads.length, 1);
     assert.equal(await page.locator('.last-blow-marker').count(), 1);
     assert.equal(await page.locator('.match-support').count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     assert.deepEqual(errors, []);
     await page.close();
-    console.log(`[static-timeline] PASS ${width}px, local timeline file, synthetic fixture`);
+    console.log(`[static-timeline] PASS ${width}px, embedded timeline, no secondary requests`);
   }
 } finally { await browser.close(); }

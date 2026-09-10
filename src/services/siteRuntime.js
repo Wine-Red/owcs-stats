@@ -1,19 +1,16 @@
 /* global globalThis */
 import { reactive } from 'vue';
 import { createSiteClient, validateSiteConfig } from './siteClient.mjs';
+import { embeddedPackage } from './embeddedPackage.mjs';
+import { packageAssetUrl } from '../utils/packageAssets';
 
 export const siteStatus = reactive({ error: '', updateAvailable: false, scheduleStale: false, revision: '' });
 let configPromise;
 const failedPaths = new Map();
 export const loadSiteConfig = () => {
   if (!configPromise) configPromise = (async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    try {
-      const response = await fetch(`${import.meta.env.BASE_URL}site-config.json`, { cache: 'no-store', credentials: 'omit', signal: controller.signal });
-      if (!response.ok) throw new Error('页面配置加载失败，请重试');
-      return { ...validateSiteConfig(await response.json()), assetBaseUrl: new URL(import.meta.env.BASE_URL, globalThis.location.href).href };
-    } finally { clearTimeout(timer); }
+    return { ...validateSiteConfig(embeddedPackage().json('site-config.json')),
+      assetBaseUrl: new URL(import.meta.env.BASE_URL, globalThis.location.href).href, resolveLocalAsset: packageAssetUrl };
   })().catch(error => { configPromise = null; siteStatus.error = error.message; throw error; });
   return configPromise;
 };

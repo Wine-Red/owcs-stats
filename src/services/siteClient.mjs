@@ -14,10 +14,12 @@ export const validateSiteConfig = config => {
   return { ...config, apiBaseUrl: config.apiBaseUrl.replace(/\/$/, ''), mediaOrigin: new URL(config.mediaOrigin).origin };
 };
 
-export const resolveSiteMedia = (value, { mediaOrigin, assetBaseUrl }, key = '') => {
+export const resolveSiteMedia = (value, config, key = '') => {
+  const { mediaOrigin, assetBaseUrl, resolveLocalAsset } = config;
   if (typeof value === 'string' && /^(?:logo|image|icon|avatar|banner|backgroundImage|cover)(?:Url)?$/i.test(key)) {
     if (value.startsWith('/media/')) return `${mediaOrigin}${value}`;
-    if (/^\/?(?:heroes|maps|icons|branding)\//.test(value)) return new URL(value.replace(/^\//, ''), assetBaseUrl).href;
+    if (/^\/?(?:heroes|maps|icons|branding)\//.test(value)) return resolveLocalAsset
+      ? resolveLocalAsset(value) : new URL(value.replace(/^\//, ''), assetBaseUrl).href;
     if (/^(?:https?:)?\/\//.test(value)) {
       const url = new URL(value, mediaOrigin);
       // Old absolute first-party paths use the same media boundary as new uploads.
@@ -27,8 +29,8 @@ export const resolveSiteMedia = (value, { mediaOrigin, assetBaseUrl }, key = '')
     }
     return '';
   }
-  if (Array.isArray(value)) return value.map(item => resolveSiteMedia(item, { mediaOrigin, assetBaseUrl }));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveSiteMedia(item, { mediaOrigin, assetBaseUrl }, name)]));
+  if (Array.isArray(value)) return value.map(item => resolveSiteMedia(item, config));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, resolveSiteMedia(item, config, name)]));
   return value;
 };
 

@@ -265,6 +265,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, profileTotalsStat } from '@/utils/statMetrics.mjs';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -327,7 +328,7 @@ export default {
     const roleMeta = computed(() => ROLE_META[role.value] || ROLE_META.damage);
     const roleLabel = computed(() => roleMeta.value.label);
     const roleCode = computed(() => roleMeta.value.code);
-    const roleIconUrl = computed(() => `${import.meta.env.BASE_URL || '/'}icons/role/${roleMeta.value.icon}`);
+    const roleIconUrl = computed(() => packageAssetUrl(`icons/role/${roleMeta.value.icon}`));
 
     const normalizedHistory = computed(() => seasonHistory.value
       .filter(item => item?.seasonId)

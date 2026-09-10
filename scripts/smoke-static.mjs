@@ -6,10 +6,12 @@ import path from 'node:path';
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/';
 const screenshotDirectory = process.env.OWCS_STATIC_SCREENSHOT_DIR || '';
 import { readStaticData } from '../src/services/staticSnapshot.mjs';
+import { openDisplayPackage } from './lib/display-package.mjs';
 const live = process.argv.includes('--api');
 const siteConfig = live ? JSON.parse(await readFile('dist-api/site-config.json', 'utf8')) : null;
 const manifest = live ? null : JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
-const load = async name => JSON.parse(await readFile(path.join('dist/static-data', manifest.files[name].path), 'utf8'));
+const bundle = live ? null : await openDisplayPackage('dist');
+const load = async name => bundle.json(`static-data/${manifest.files[name].path}`);
 const get = async (path, params = {}) => {
   if (!live) return readStaticData(load, path, params);
   const response = await fetch(`${siteConfig.apiBaseUrl}${path}?${new URLSearchParams(params)}`);
@@ -297,9 +299,10 @@ try {
     }
     if (target.localLogo) {
       const src = await page.locator(target.localLogo).first().getAttribute('src');
-      if (!live && !src?.includes('static-data/')) {
+      if (!live && (!src?.startsWith('blob:') || new URL(src).origin !== new URL(baseUrl).origin)) {
         throw new Error(`${target.name} 未使用本地队伍图标: ${src || '(empty)'}`);
       }
+      await page.locator(target.localLogo).first().evaluate(image => image.decode());
     }
     if (await page.locator('.match-support').count()) throw new Error('静态包仍显示投票组件');
     console.log(`[static-smoke] PASS ${target.name}`);

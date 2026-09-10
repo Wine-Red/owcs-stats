@@ -5,17 +5,17 @@
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
             <el-radio-button label="tank">
               <div class="role-btn-content">
-                <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
+                <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" />
               </div>
             </el-radio-button>
             <el-radio-button label="damage">
               <div class="role-btn-content">
-                <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
+                <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" />
               </div>
             </el-radio-button>
             <el-radio-button label="support">
               <div class="role-btn-content">
-                <img src="/icons/role/Support.png" class="role-icon" alt="support" />
+                <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" />
               </div>
             </el-radio-button>
           </el-radio-group>
@@ -92,6 +92,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
@@ -476,6 +477,7 @@ export default {
     });
 
     return {
+      packageAssetUrl,
         radarChart,
         playerRole,
         player1Id,

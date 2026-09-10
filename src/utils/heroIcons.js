@@ -1,4 +1,5 @@
 import { resolveMediaUrl } from './media';
+import { packageAssetUrl } from './packageAssets';
 
 // DB 英雄名 → public/heroes/illustrated/ 文件 slug（仅作为未配置图片时的兼容回退）
 export const HERO_SLUG_BY_NAME = {
@@ -28,8 +29,5 @@ export const getHeroIconUrl = (heroOrName, heroRecords = []) => {
   if (!heroName) return '';
   const slug = HERO_SLUG_BY_NAME[heroName];
   if (!slug) return '';
-  const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-    ? import.meta.env.BASE_URL
-    : `${import.meta.env.BASE_URL}/`;
-  return `${baseUrl}heroes/illustrated/${slug}.png`;
+  return packageAssetUrl(`heroes/illustrated/${slug}.png`);
 };

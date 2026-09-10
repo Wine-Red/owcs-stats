@@ -30,9 +30,8 @@ export default defineConfig(({ mode }) => {
     build: portable ? {
       outDir: site ? 'dist-api' : 'dist',
       copyPublicDir: !site,
-      // Some third-party static hosts move secondary assets to a CDN without
-      // enabling CORS for ES modules. Keep the downloadable release portable by
-      // avoiding runtime chunk imports and cross-origin font requests.
+      // Produce one intermediate bundle. build-display embeds code, styles,
+      // fonts, images and local JSON into HTML for hosts with a no-CORS CDN.
       cssCodeSplit: false,
       assetsInlineLimit: 100_000_000,
       rollupOptions: {

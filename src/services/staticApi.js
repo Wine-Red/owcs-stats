@@ -1,12 +1,8 @@
 import { readStaticData, STATIC_SCHEMA_VERSION, staticError } from './staticSnapshot.mjs';
-const base = import.meta.env.BASE_URL;
+import { embeddedPackage } from './embeddedPackage.mjs';
 const token = '__OWCS_STATIC_BASE__/';
 const resources = new Map();
-const json = async path => {
-  const response = await fetch(`${base}static-data/${path}`, { cache: 'no-cache' });
-  if (!response.ok) throw staticError(`静态数据文件加载失败 (${response.status}): ${path}`);
-  return response.json();
-};
+const json = async path => embeddedPackage().json(`static-data/${path}`);
 let manifestPromise;
 export const loadStaticManifest = () => {
   if (!manifestPromise) manifestPromise = json('manifest.json').then(manifest => {
@@ -16,7 +12,7 @@ export const loadStaticManifest = () => {
   return manifestPromise;
 };
 const localAssets = value => {
-  if (typeof value === 'string') return value.startsWith(token) ? `${base}${value.slice(token.length)}` : value;
+  if (typeof value === 'string') return value.startsWith(token) ? embeddedPackage().asset(value.slice(token.length)) : value;
   if (Array.isArray(value)) return value.map(localAssets);
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, localAssets(item)]));
   return value;

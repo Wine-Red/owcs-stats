@@ -1,3 +1,4 @@
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import * as echarts from 'echarts';
@@ -372,10 +373,9 @@ export function useChartExport() {
     // 2. 加载资源 (Logo)
     const logoImg = new Image();
     const godlikeImg = new Image();
-    const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
     
-    logoImg.src = `${baseUrl}icons/OWCS_Dark.png`;
-    godlikeImg.src = `${baseUrl}icons/godlike.png`;
+    logoImg.src = packageAssetUrl(`icons/OWCS_Dark.png`);
+    godlikeImg.src = packageAssetUrl(`icons/godlike.png`);
     
     // 3. 创建 Canvas 绘制海报
     const canvas = document.createElement('canvas');
@@ -388,7 +388,7 @@ export function useChartExport() {
       new Promise((resolve) => { 
         logoImg.onload = resolve;
         logoImg.onerror = () => {
-          logoImg.src = `${baseUrl}icons/godlike.png`;
+          logoImg.src = packageAssetUrl(`icons/godlike.png`);
           logoImg.onload = resolve;
           logoImg.onerror = resolve;
         };
@@ -443,9 +443,8 @@ export function useChartExport() {
     // 加载全局Logo
     const logoImg = new Image();
     const godlikeImg = new Image();
-    const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
-    logoImg.src = `${baseUrl}icons/OWCS_Dark.png`;
-    godlikeImg.src = `${baseUrl}icons/godlike.png`;
+    logoImg.src = packageAssetUrl(`icons/OWCS_Dark.png`);
+    godlikeImg.src = packageAssetUrl(`icons/godlike.png`);
 
     // 预加载所有行内的队伍logo
     const logoPromises = [];
@@ -495,7 +494,7 @@ export function useChartExport() {
 
     await Promise.all([
       new Promise(r => { logoImg.onload = r; logoImg.onerror = () => {
-          logoImg.src = `${baseUrl}icons/godlike.png`;
+          logoImg.src = packageAssetUrl(`icons/godlike.png`);
           logoImg.onload = r;
           logoImg.onerror = r;
       };}),

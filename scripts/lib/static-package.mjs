@@ -60,12 +60,12 @@ export const writeResources = async (directory, snapshot) => {
   await write('schedule', snapshot.schedule);
   return files;
 };
-export const verifyResources = async (directory, manifest) => {
+export const verifyResources = async (directory, manifest, read = relative => readFile(path.join(directory, relative))) => {
   if (manifest.schemaVersion !== 2 || !manifest.files) throw new Error('Invalid static manifest');
   for (const item of [...Object.values(manifest.files), ...(manifest.assets || [])]) {
     const resolved = path.resolve(directory, item.path);
     if (!resolved.startsWith(`${path.resolve(directory)}${path.sep}`)) throw new Error('资源路径越界');
-    const bytes = await readFile(resolved);
+    const bytes = await read(item.path);
     if (bytes.length !== item.bytes || hash(bytes) !== item.sha256) throw new Error(`文件校验失败: ${item.path}`);
   }
 };

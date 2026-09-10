@@ -5,17 +5,17 @@
         <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
           <el-radio-button label="tank">
             <div class="role-btn-content">
-              <img src="/icons/role/Tank.png" class="role-icon" alt="tank" />
+              <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" />
             </div>
           </el-radio-button>
           <el-radio-button label="damage">
             <div class="role-btn-content">
-              <img src="/icons/role/DPS.png" class="role-icon" alt="damage" />
+              <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" />
             </div>
           </el-radio-button>
           <el-radio-button label="support">
             <div class="role-btn-content">
-              <img src="/icons/role/Support.png" class="role-icon" alt="support" />
+              <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" />
             </div>
           </el-radio-button>
         </el-radio-group>
@@ -55,13 +55,13 @@
       <div class="leaderboard-section">
         <div class="leaderboard-header">
           <span class="leaderboard-title" v-if="playerRole === 'tank'">
-            <img src="/icons/role/Tank.png" class="leaderboard-role-icon" alt="tank" /> 重装选手排行榜
+            <img :src="packageAssetUrl('icons/role/Tank.png')" class="leaderboard-role-icon" alt="tank" /> 重装选手排行榜
           </span>
           <span class="leaderboard-title" v-else-if="playerRole === 'damage'">
-            <img src="/icons/role/DPS.png" class="leaderboard-role-icon" alt="damage" /> 输出选手排行榜
+            <img :src="packageAssetUrl('icons/role/DPS.png')" class="leaderboard-role-icon" alt="damage" /> 输出选手排行榜
           </span>
           <span class="leaderboard-title" v-else-if="playerRole === 'support'">
-            <img src="/icons/role/Support.png" class="leaderboard-role-icon" alt="support" /> 支援选手排行榜
+            <img :src="packageAssetUrl('icons/role/Support.png')" class="leaderboard-role-icon" alt="support" /> 支援选手排行榜
           </span>
           <el-button link class="export-btn-small" @click="handleExportLeaderboard">
             <el-icon><Download /></el-icon> 导出
@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, perMinute } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
@@ -922,6 +923,7 @@ export default {
     });
 
     return {
+      packageAssetUrl,
       playerStatsChart,
       playerFilter,
       playerRole,
