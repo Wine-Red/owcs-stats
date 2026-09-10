@@ -1636,7 +1636,7 @@ export default {
 </style>
 
 <style scoped>
-/* Compact schedule layout: one date strip, one information row per match. */
+/* Shared match cards keep upcoming and imported matches on the same visual grid. */
 .schedule-shell {
   width: 100%;
   margin: 0;
@@ -1758,19 +1758,33 @@ export default {
 }
 
 .day-matches {
+  display: grid;
+  gap: 4px;
   overflow: visible;
+  padding: 8px 12px 12px;
   border: 0;
-  background: #fff;
+  background: transparent;
   box-shadow: none;
 }
 
 .schedule-match {
   position: relative;
-  background: #fff;
+  overflow: hidden;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #f8f9fb 0%, #fff 24%, #fff 76%, #f8f9fb 100%);
+  box-shadow: 0 1px 3px rgba(28, 35, 45, 0.05);
 }
 
 .schedule-match + .schedule-match {
-  border-top: 1px solid #e9edf1;
+  border-top: 0;
+}
+
+@media (min-width: 1100px) {
+  .day-matches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 6px;
+  }
 }
 
 .schedule-match.is-ongoing::before {
@@ -1787,12 +1801,12 @@ export default {
 }
 
 .match-main {
-  max-width: 980px;
-  min-height: 76px;
+  max-width: 760px;
+  min-height: 82px;
   grid-template-columns: minmax(0, 1fr) 138px minmax(0, 1fr);
   gap: 12px;
   margin: 0 auto;
-  padding: 10px 12px;
+  padding: 8px 24px;
 }
 
 .match-meta {
@@ -1815,7 +1829,14 @@ export default {
 }
 
 .team-side {
-  gap: 7px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.team-side--left .team-name {
+  order: 2;
 }
 
 .team-logo-box {
@@ -1830,6 +1851,7 @@ export default {
 }
 
 .team-name {
+  max-width: 100%;
   color: #3f454d;
   font-family: var(--vis-font-display);
   font-size: 14px;
@@ -1858,7 +1880,7 @@ export default {
 }
 
 .match-center {
-  gap: 3px;
+  gap: 4px;
 }
 
 .match-center::before {
@@ -1870,9 +1892,9 @@ export default {
   min-width: 58px;
   padding: 0 4px;
   font-family: var(--vis-font-numeric);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 24px;
+  line-height: 26px;
   letter-spacing: 0;
 }
 
@@ -1923,7 +1945,9 @@ export default {
 }
 
 .versus {
-  font-size: 16px;
+  background: transparent;
+  font-size: 21px;
+  font-style: italic;
   color: #767d87;
   letter-spacing: -0.03em;
 }
@@ -1946,6 +1970,7 @@ export default {
   color: #707782;
   font-size: 11px;
   line-height: 16px;
+  flex-wrap: wrap;
   white-space: nowrap;
 }
 
@@ -1986,9 +2011,9 @@ export default {
 .replay-toggle {
   position: static;
   width: 100%;
-  min-height: 30px;
+  min-height: 26px;
   gap: 5px;
-  padding: 5px 10px;
+  padding: 3px 10px;
   border-top: 1px solid #eef0f2;
   background: #fafbfc;
   color: #737b85;
@@ -2035,7 +2060,7 @@ export default {
 
 @media (hover: hover) and (pointer: fine) {
   .match-main:hover {
-    background: #f8f9fa;
+    background: rgba(255, 138, 0, 0.035);
     box-shadow: none;
   }
 
@@ -2221,16 +2246,16 @@ export default {
     display: inline;
   }
 
-  /* 贴边整白带：行内发丝分隔，层级靠分组间隔而非逐卡留白 */
   .day-matches {
     margin: 0;
+    padding: 6px 8px 8px;
     border-top: 0;
     border-bottom: 0;
-    background: #fff;
+    background: transparent;
   }
 
   .schedule-match + .schedule-match {
-    border-top: 1px solid #eef1f4;
+    border-top: 0;
   }
 
   .match-main:active {
@@ -2238,11 +2263,11 @@ export default {
   }
 
   .match-main {
-    min-height: 76px;
-    grid-template-columns: minmax(0, 1fr) 86px minmax(0, 1fr);
+    min-height: 70px;
+    grid-template-columns: minmax(0, 1fr) 100px minmax(0, 1fr);
     grid-template-rows: 1fr;
-    gap: 4px;
-    padding: 7px 4px;
+    gap: 6px;
+    padding: 6px 24px;
     touch-action: manipulation;
   }
 
@@ -2260,22 +2285,24 @@ export default {
   .team-side--left {
     grid-column: 1;
     grid-row: 1;
+    padding-left: 40px;
   }
 
   .match-center {
     grid-column: 2;
     grid-row: 1;
-    min-height: 54px;
+    min-height: 46px;
   }
 
   .team-side--right {
     grid-column: 3;
     grid-row: 1;
+    padding-right: 40px;
   }
 
   .team-side {
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     text-align: center;
   }
 
@@ -2289,14 +2316,14 @@ export default {
   }
 
   .team-logo-box {
-    width: 32px;
-    height: 32px;
-    flex-basis: 32px;
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .team-logo {
-    max-width: 30px;
-    max-height: 30px;
+    max-width: 28px;
+    max-height: 28px;
   }
 
   .team-name {
@@ -2330,7 +2357,7 @@ export default {
   }
 
   .versus {
-    font-size: 15px;
+    font-size: 18px;
   }
 
   .center-state {
@@ -2351,7 +2378,7 @@ export default {
   }
 
   .replay-toggle {
-    min-height: 34px;
+    min-height: 28px;
     touch-action: manipulation;
   }
 
@@ -2363,19 +2390,25 @@ export default {
 
 @media (max-width: 380px) {
   .match-main {
-    grid-template-columns: minmax(0, 1fr) 82px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
     gap: 4px;
+    padding-right: 24px;
+    padding-left: 24px;
   }
 }
 
-.match-main.has-support { max-width: none; padding-bottom: 0; padding-left: 24px; padding-right: 24px; row-gap: 8px; }
-.schedule-match > .match-support { position: relative; margin-top: -24px; padding: 0; pointer-events: none; }
+.match-main.has-support { padding-bottom: 0; }
+/* Embed the voting corners beside the team names without adding a footer row. */
+.schedule-match > .match-support { position: absolute; right: 0; bottom: 0; left: 0; margin: 0; padding: 0; pointer-events: none; }
+.schedule-match > .match-support:not(.empty) { --support-black: #343c48; --support-orange: #ff812d; }
+.schedule-match > .match-support :deep(.support-actions) { height: 18px; }
+.schedule-match > .match-support :deep(.support-choice) { width: 64px; height: 18px; padding: 0 7px; font-size: 12px; }
+.schedule-match > .match-support :deep(.support-choice::before) { height: 19px; }
+.schedule-match > .match-support.interactive :deep(.support-choice) { height: 44px; padding-top: 26px; }
+.schedule-match > .match-support:not(.empty) :deep(.support-choice.right) { color: #fff; }
+.schedule-match > .match-support :deep(.support-track) { height: 6px; }
 .schedule-match > .match-support :deep(.support-choice) { pointer-events: auto; }
 @media (max-width: 768px) {
-  /* Keep names and their navigation targets outside the 64px voting corners. */
-  .match-main.has-support .team-side--left { padding-left: 40px; }
-  .match-main.has-support .team-side--right { padding-right: 40px; }
-  .match-main.has-support .team-name { width: 100%; }
   .match-main.has-support .match-summary { flex-wrap: wrap; row-gap: 0; max-width: 100%; }
   .match-main.has-support .state-ongoing + .match-enter-indicator { display: none; }
 }

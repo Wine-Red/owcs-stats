@@ -631,10 +631,10 @@ export default {
             extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
           },
           grid: {
-            left: '5%',
-            right: '10%',
-            bottom: '10%',
-            top: '10%',
+            left: 8,
+            right: 28,
+            bottom: 38,
+            top: 34,
             containLabel: true
           },
           xAxis: {
@@ -733,14 +733,14 @@ export default {
               query: { maxWidth: 768 },
               option: {
                 grid: {
-                   top: '14%',
-                   left: '9%',
-                   right: '6%',
-                   bottom: '10%',
+                   top: 30,
+                   left: 4,
+                   right: 20,
+                   bottom: 30,
                    containLabel: true
                 },
                 xAxis: {
-                   nameGap: 18,
+                   nameGap: 24,
                    splitNumber: 3,
                    axisLabel: {
                       rotate: 0,
@@ -1412,8 +1412,8 @@ export default {
 
 .chart-container {
   position: relative;
-  height: 420px;
-  min-height: 360px;
+  height: 360px;
+  min-height: 0;
 }
 
 .custom-select-label {
@@ -1559,18 +1559,38 @@ export default {
   }
 
   .chart-container {
-    height: 270px;
-    min-height: 250px;
+    height: clamp(210px, 58vw, 280px);
+    min-height: 0;
+  }
+
+  .panel-header {
+    margin-bottom: 4px;
   }
 
   .header-controls {
     width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
     margin-top: 0;
     gap: 8px;
   }
 
-  .role-radio-group,
-  .select-wrapper,
+  .role-radio-group {
+    width: 132px;
+    flex: 0 0 132px;
+    flex-wrap: nowrap;
+  }
+
+  .role-radio-group :deep(.el-radio-button__inner) {
+    padding: 6px 10px !important;
+  }
+
+  .select-wrapper {
+    min-width: 0;
+    flex: 1;
+    margin-top: 0;
+  }
+
   .player-select-input {
     width: 100%;
   }
@@ -1581,11 +1601,11 @@ export default {
   }
 
   .card-content {
-    gap: 16px;
+    gap: 4px;
   }
 
   .leaderboard-section {
-    padding-top: 16px;
+    padding-top: 4px;
   }
 
   .leaderboard-header {
@@ -1599,6 +1619,16 @@ export default {
 
   .leaderboard-footer {
     margin-top: 8px;
+  }
+
+  .leaderboard-section :deep(.el-table__cell) {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .leaderboard-section :deep(.el-table .cell) {
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   .player-cell {

@@ -56,7 +56,7 @@
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="teamName" label="队伍" min-width="120" fixed>
+          <el-table-column prop="teamName" label="队伍" width="96" fixed>
             <template #default="scope">
               <div class="team-cell team-cell-clickable" @click="goToTeamDetail(scope.row)" role="button" tabindex="0">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
@@ -405,10 +405,10 @@ export default {
             extraCssText: 'box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); border-radius: 8px;'
           },
           grid: {
-            left: '3%',
-            right: '7%',
-            bottom: '10%',
-            top: '10%',
+            left: 8,
+            right: 28,
+            bottom: 38,
+            top: 34,
             containLabel: true
           },
           xAxis: {
@@ -504,14 +504,14 @@ export default {
               query: { maxWidth: 768 },
               option: {
                 grid: {
-                   top: '14%',
-                   left: '9%',
-                   right: '6%',
-                   bottom: '10%',
+                   top: 30,
+                   left: 4,
+                   right: 20,
+                   bottom: 30,
                    containLabel: true
                 },
                 xAxis: {
-                   nameGap: 18,
+                   nameGap: 24,
                    splitNumber: 3,
                    axisLabel: {
                       rotate: 0,
@@ -796,6 +796,7 @@ export default {
 }
 
 .team-cell-clickable .team-name {
+  flex: 0 1 auto;
   color: #111;
   text-decoration: underline;
   text-decoration-color: rgba(0, 0, 0, 0.18);
@@ -810,6 +811,7 @@ export default {
 
 .team-roster-cue {
   flex: 0 0 auto;
+  margin-left: -2px;
   color: #ff8a00;
   font-size: 16px;
   font-weight: 800;
@@ -1068,8 +1070,8 @@ export default {
 
 .chart-container {
   position: relative;
-  height: 420px;
-  min-height: 360px;
+  height: 360px;
+  min-height: 0;
 }
 
 .custom-select-label {
@@ -1183,18 +1185,25 @@ export default {
   }
 
   .chart-container {
-    height: 270px;
-    min-height: 250px;
+    height: clamp(210px, 58vw, 280px);
+    min-height: 0;
+  }
+
+  .panel-header {
+    margin-bottom: 4px;
   }
 
   .header-controls {
     width: 100%;
+    align-items: stretch;
     margin-top: 0;
   }
 
   .select-wrapper,
   .team-select-input {
     width: 100%;
+    max-width: 100%;
+    margin-top: 0;
   }
 
   .header-controls :deep(.el-select .el-input__wrapper) {
@@ -1203,11 +1212,11 @@ export default {
   }
 
   .card-content {
-    gap: 16px;
+    gap: 4px;
   }
 
   .leaderboard-section {
-    padding-top: 16px;
+    padding-top: 4px;
   }
 
   .leaderboard-header {
@@ -1221,6 +1230,16 @@ export default {
 
   .leaderboard-footer {
     margin-top: 8px;
+  }
+
+  .leaderboard-section :deep(.el-table__cell) {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .leaderboard-section :deep(.el-table .cell) {
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   .team-cell {
