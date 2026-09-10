@@ -6,9 +6,16 @@ import path from 'node:path';
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/';
 const screenshotDirectory = process.env.OWCS_STATIC_SCREENSHOT_DIR || '';
 import { readStaticData } from '../src/services/staticSnapshot.mjs';
-const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
+const live = process.argv.includes('--api');
+const siteConfig = live ? JSON.parse(await readFile('dist-api/site-config.json', 'utf8')) : null;
+const manifest = live ? null : JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
 const load = async name => JSON.parse(await readFile(path.join('dist/static-data', manifest.files[name].path), 'utf8'));
-const get = (path, params) => readStaticData(load, path, params);
+const get = async (path, params = {}) => {
+  if (!live) return readStaticData(load, path, params);
+  const response = await fetch(`${siteConfig.apiBaseUrl}${path}?${new URLSearchParams(params)}`);
+  if (!response.ok) throw new Error(`API smoke data failed: ${path} ${response.status}`);
+  return response.json();
+};
 const list = value => Array.isArray(value) ? value : value?.data || value?.list || [];
 
 const chromeCandidates = [
@@ -39,12 +46,12 @@ if (!executablePath) throw new Error('未找到 Chrome/Edge；可通过 CHROME_P
 
 const seasons = await get('/seasons');
 const seasonTeams = await get('/season-teams');
-const matches = list(await get('/matches', { pageSize: 1000000 }));
+const matches = list(await get('/matches', { pageSize: live ? 10000 : 1000000 }));
 const upcoming = list(await get('/matches/upcoming'));
 const selectedSeasonTeam = seasonTeams.find(team => team.seasonId === seasons[0]?.id) || seasonTeams[0];
 const selectedRelations = await get(`/season-teams/${selectedSeasonTeam.id}/players`);
 const selectedPlayer = selectedRelations[0];
-const games = await load('collections.mapGames');
+const games = live ? await get('/map-games', { pageSize: 10000 }) : await load('collections.mapGames');
 const selectedMatch = matches.find(match => games.some(game => game.matchId === match.id && game.timeline))
   || matches.find(match => games.some(game => game.matchId === match.id));
 const selectedUpcoming = upcoming[0];
@@ -99,6 +106,7 @@ const pageErrors = [];
 // Fail closed: a static package must work with every external request blocked.
 await page.route('**/*', async route => {
   const url = new URL(route.request().url());
+  if (live && (url.href.startsWith(`${siteConfig.apiBaseUrl}/`) || (url.origin === siteConfig.mediaOrigin && url.pathname.startsWith('/media/')))) return route.continue();
   if (/^https?:$/.test(url.protocol) && url.origin !== new URL(baseUrl).origin) {
     externalRequests.push(url.href); return route.abort();
   }
@@ -289,7 +297,7 @@ try {
     }
     if (target.localLogo) {
       const src = await page.locator(target.localLogo).first().getAttribute('src');
-      if (!src?.includes('static-data/')) {
+      if (!live && !src?.includes('static-data/')) {
         throw new Error(`${target.name} 未使用本地队伍图标: ${src || '(empty)'}`);
       }
     }
@@ -301,7 +309,7 @@ try {
   if (externalRequests.length) throw new Error(`静态站仍请求外部资源:\n${externalRequests.join('\n')}`);
   if (staticDataMissing.length) throw new Error(staticDataMissing.join('\n'));
   if (pageErrors.length) throw new Error(`页面脚本错误:\n${pageErrors.join('\n')}`);
-  console.log(`[static-smoke] 完成：${pages.length} 个页面，0 个 /api 请求，0 个投票请求，0 个外部请求，0 个快照缺失`);
+  console.log(`[static-smoke] 完成：${pages.length} 个页面，${live ? '仅受信任的展示接口和媒体请求' : '0 个外部请求'}，0 个投票请求，0 个错误`);
 } finally {
   await browser.close();
 }

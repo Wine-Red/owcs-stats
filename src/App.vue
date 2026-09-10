@@ -91,9 +91,10 @@
       <main id="admin-main-content" :class="['app-main', { 'no-padding-main': isAnalyticsRoute }]" tabindex="-1">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="dataGeneration" />
           </transition>
         </router-view>
+        <SiteDataStatus v-if="isApiPackage" @refresh="refreshSiteData" />
       </main>
 
       <footer class="app-footer" v-if="showFooter">
@@ -120,6 +121,10 @@ import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
 import { loadStaticManifest } from '@/services/staticApi';
+import { isApiPackage } from '@/services/packageMode.mjs';
+import { resetSiteData, watchSiteUpdates } from '@/services/siteRuntime';
+import SiteDataStatus from '@/components/SiteDataStatus.vue';
+import store from '@/store';
 import {
   ArrowRight,
   Avatar,
@@ -142,6 +147,7 @@ import {
 export default {
   name: 'App',
   components: {
+    SiteDataStatus,
     ArrowRight,
     Close,
     Menu,
@@ -151,6 +157,16 @@ export default {
   },
   setup() {
     const route = useRoute();
+    const dataGeneration = ref(0);
+    let stopSiteUpdates;
+    const refreshSiteData = async () => {
+      stopSiteUpdates?.();
+      resetSiteData();
+      await store.dispatch('loadBaseData');
+      dataGeneration.value++;
+      stopSiteUpdates = watchSiteUpdates();
+      fetchLatestSyncTime();
+    };
     const mobileSidebarOpen = ref(false);
     const sidebarCollapsed = ref(localStorage.getItem('owcs-admin-sidebar-collapsed') === 'true');
 
@@ -255,18 +271,21 @@ export default {
 
     watch(showSidebar, updateTheme);
     onMounted(() => {
+      if (isApiPackage) stopSiteUpdates = watchSiteUpdates();
       updateTheme();
       fetchLatestSyncTime();
       if (!isStaticExport) syncTimer = setInterval(fetchLatestSyncTime, 60000); // 1分钟刷新一次
     });
 
     onUnmounted(() => {
+      stopSiteUpdates?.();
       if (syncTimer) {
         clearInterval(syncTimer);
       }
     });
 
     return {
+      isApiPackage, dataGeneration, refreshSiteData,
       showSidebar,
       showFooter,
       sidebarGroups,

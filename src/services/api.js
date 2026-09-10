@@ -3,10 +3,12 @@ import axios from 'axios';
 import { trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
 import { resolveRuntimeApiBaseUrl, routeRuntimeApiRequest } from './apiBaseUrl.mjs';
+import { isApiPackage, isDisplayPackage } from './packageMode.mjs';
+import { siteApi } from './siteRuntime';
 
 // 创建axios实例
 const isStaticExport = import.meta.env.MODE === 'static';
-const api = isStaticExport ? createStaticApi() : axios.create({
+const api = isStaticExport ? createStaticApi() : isApiPackage ? siteApi : axios.create({
   baseURL: resolveRuntimeApiBaseUrl(globalThis.location?.pathname),
   timeout: 60000, // 增加到 60 秒以支持耗时的同步和 AI 操作
   headers: {
@@ -15,7 +17,7 @@ const api = isStaticExport ? createStaticApi() : axios.create({
 });
 
 // 请求拦截器
-if (!isStaticExport) api.interceptors.request.use(
+if (!isDisplayPackage) api.interceptors.request.use(
   config => {
     // The SPA can move between public visualization and protected admin routes
     // without reloading this module, so choose the boundary per request.
@@ -27,7 +29,7 @@ if (!isStaticExport) api.interceptors.request.use(
 );
 
 // 响应拦截器
-if (!isStaticExport) api.interceptors.response.use(
+if (!isDisplayPackage) api.interceptors.response.use(
   response => {
     return response.data;
   },

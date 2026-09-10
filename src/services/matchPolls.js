@@ -1,5 +1,6 @@
 /* global globalThis */
 import { computed, onMounted, onUnmounted, reactive, unref, watch } from 'vue';
+import { isDisplayPackage } from './packageMode.mjs';
 
 const baseURL = import.meta.env.VITE_POLL_API_BASE_URL
   || (import.meta.env.MODE === 'static' ? 'https://stats.owmini.xyz/poll-api' : '/poll-api');
@@ -43,7 +44,7 @@ const ensureVisitor = async () => {
 
 export const useMatchPolls = season => {
   // Static packages have no visitor identity, vote totals, polling or writes.
-  if (import.meta.env.MODE === 'static') return {
+  if (isDisplayPackage) return {
     entry: computed(() => ({ sources: {}, matches: {}, error: '', loading: false })),
     refresh: async () => {},
     vote: async () => { throw new Error('静态展示版不支持投票'); }

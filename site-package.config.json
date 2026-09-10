@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "apiBaseUrl": "https://stats.owmini.xyz/public-api/site/v1",
+  "mediaOrigin": "https://stats.owmini.xyz",
+  "refreshIntervalMs": 60000,
+  "timeoutMs": 30000
+}

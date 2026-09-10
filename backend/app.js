@@ -28,12 +28,13 @@ app.set('trust proxy', ['loopback', 'uniquelocal']);
 // The partner contract handles methods/errors itself, before body parsing and
 // the management API's global CORS preflight. Importing never starts sync jobs.
 app.use('/data/v1', helmet(), require('./routes/data-v1').createDataRouter());
+app.use('/api/site/v1', helmet(), require('./routes/site-v1').createSiteRouter());
 app.use(cors());
 app.use(helmet());
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/media', express.static(getMediaRoot(), {
+app.use('/media', helmet.crossOriginResourcePolicy({ policy: 'cross-origin' }), express.static(getMediaRoot(), {
   dotfiles: 'deny',
   etag: true,
   immutable: true,

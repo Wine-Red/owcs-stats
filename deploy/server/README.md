@@ -40,6 +40,14 @@ you want the first post-migration build to be warm. Do not archive `releases`,
 its static assets use the unauthenticated, GET-only `/public-api` prefix; the
 normal `/api` prefix stays protected.
 
+The API-driven display package uses `/public-api/site/v1/`. Apply its more
+specific location from `stats-openresty-root.conf` once: it forwards OPTIONS
+and lets the application return JSON 405 for writes instead of the older
+GET-only location rejecting preflight. Application deployment does not
+automatically modify this host-managed include. Validate with
+`npm run verify:site-api` before publishing the first dual-package release.
+See [API-driven package operations](../../docs/api-static-package.md).
+
 The separate partner contract uses public `/data/v1` routes. Both the Docker
 Nginx config and this host-managed OpenResty include must be applied for external
 access; deploying backend code alone does not update the host include. The

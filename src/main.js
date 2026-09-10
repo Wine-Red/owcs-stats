@@ -28,6 +28,7 @@ import '@/styles/visualize-theme.css'
 import '@/styles/admin-theme.css'
 import { initAnalytics } from '@/utils/analytics'
 import { isEmbeddedWebView, readSafeAreaInsetTop } from '@/utils/embeddedWebView.mjs'
+import { isDisplayPackage } from '@/services/packageMode.mjs'
 
 if (isEmbeddedWebView({ safeAreaInsetTop: readSafeAreaInsetTop() })) {
   document.documentElement.classList.add('is-embedded-webview')
@@ -39,7 +40,7 @@ if ('scrollRestoration' in history) {
 
 // 创建Vue应用
 const app = createApp(App)
-if (import.meta.env.MODE !== 'static') initAnalytics()
+if (!isDisplayPackage) initAnalytics()
 
 // 使用插件
 app.use(router)

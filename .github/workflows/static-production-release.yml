@@ -46,6 +46,7 @@ jobs:
         run: |
           npm run test:static-export
           npm run test:stat-metrics
+          npm run test:site-client
 
       - name: Export production static site
         run: npm run export:static:production
@@ -96,6 +97,30 @@ jobs:
           npm run verify:static-timeline
           npm run verify:embedded-webview
 
+      - name: Build and verify API-driven package
+        run: |
+          npm run build:api-static
+          npm run verify:api-bundle
+
+      - name: Smoke test API-driven pages against production
+        env:
+          OWCS_STATIC_PREVIEW_URL: http://127.0.0.1:4175/partner/owcs/
+          OWCS_PREVIEW_DIR: dist-api
+          PORT: '4175'
+        run: |
+          node scripts/serve-static.mjs > /tmp/owcs-api-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent "$OWCS_STATIC_PREVIEW_URL" > /dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then cat /tmp/owcs-api-preview.log; exit 1; fi
+            sleep 1
+          done
+          npm run verify:site-api
+          npm run smoke:api-static
+          npm run verify:api-runtime
+          npm run verify:embedded-webview
+
       - name: Package release
         id: release
         env:
@@ -110,10 +135,18 @@ jobs:
           unzip -p "$archive_name" dist/index.html > /dev/null
           unzip -p "$archive_name" dist/static-data/manifest.json > /dev/null
           sha256sum "$archive_name" > "$archive_name.sha256"
+          mkdir -p .local/api-package
+          cp -R dist-api .local/api-package/dist
+          (cd .local/api-package && zip -q -r "$GITHUB_WORKSPACE/owcs-stats-api-production.zip" dist)
+          unzip -tq owcs-stats-api-production.zip
+          unzip -p owcs-stats-api-production.zip dist/site-config.json > /dev/null
+          sha256sum owcs-stats-api-production.zip > owcs-stats-api-production.zip.sha256
           node --input-type=module <<'NODE' > release-notes.md
           import { readFile } from 'node:fs/promises';
           const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
           console.log(`完整数据随包的静态展示站，共用主站页面，无在线接口依赖或投票功能。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 数据资源：${Object.keys(manifest.files).length}\n- 本地图片：${manifest.assets.length}\n\n解压后将 dist 内的全部文件上传到纯静态网站平台，保持目录结构。`);
+          const api = JSON.parse(await readFile('dist-api/site-config.json', 'utf8'));
+          console.log(`\n同一提交另附接口驱动包：\`owcs-stats-api-production.zip\`。页面按需读取 \`${api.apiBaseUrl}\`，比赛数据更新无需替换包；前端升级需部署新包。两种包均只读，无投票。每个 ZIP 都有独立 SHA-256，解压后上传其中 dist 的全部内容。`);
           NODE
           {
             echo "tag=$release_tag"
@@ -129,6 +162,8 @@ jobs:
           gh release create "${{ steps.release.outputs.tag }}" \
             "${{ steps.release.outputs.archive }}" \
             "${{ steps.release.outputs.archive }}.sha256" \
+            "owcs-stats-api-production.zip" \
+            "owcs-stats-api-production.zip.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "${{ steps.release.outputs.target_sha }}" \
             --title "${{ steps.release.outputs.name }}" \
