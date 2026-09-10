@@ -4,7 +4,11 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { launchBrowser } from './lib/browser.mjs';
 const base = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4175/partner/owcs/';
 const config = JSON.parse(await readFile('dist-api/site-config.json', 'utf8'));
-const get = async path => (await fetch(`${config.apiBaseUrl}${path}`)).json();
+const get = async path => {
+  const response = await fetch(`${config.apiBaseUrl}${path}`, { signal: AbortSignal.timeout(90000) });
+  assert.equal(response.status, 200, path);
+  return response.json();
+};
 const teams = await get('/teams'), relations = await get('/season-teams');
 const selected = relations.find(row => teams.some(team => team.id === row.teamId && team.logo));
 assert.ok(selected);
@@ -51,19 +55,20 @@ try {
   }, config.apiBaseUrl);
   assert.equal(preflight.status, 200); assert.ok(preflight.etag && preflight.count);
 
-  let changed = false;
-  await page.route(`${config.apiBaseUrl}/meta`, async route => {
-    const response = await route.fetch(); const body = await response.json();
-    await route.fulfill({ response, json: { ...body, revision: changed ? 'fixture-new-revision' : body.revision } });
-  });
-  changed = true;
+  // Capture real JSON, then serve controlled changes without inheriting upstream
+  // compression/cache headers or leaving a second network request in the mock.
+  const meta = await get('/meta');
+  const mockHeaders = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
+  await page.route(`${config.apiBaseUrl}/meta`, route => route.fulfill({ status: 200,
+    headers: mockHeaders, json: { ...meta, revision: 'fixture-new-revision' } }));
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await page.getByRole('button', { name: '刷新数据', exact: true }).waitFor({ timeout: 10000 });
   await page.screenshot({ path: '.local/api-runtime-qa/update-mobile.png', fullPage: true });
   let refreshed = 0;
-  await page.route(`${config.apiBaseUrl}/teams`, async route => {
-    refreshed++; const response = await route.fetch(); const body = await response.json();
-    await route.fulfill({ response, json: body.map(row => row.id === team.id ? { ...row, name: `${team.name} QA` } : row) });
+  await page.route(`${config.apiBaseUrl}/teams`, route => {
+    refreshed++;
+    return route.fulfill({ status: 200, headers: mockHeaders,
+      json: teams.map(row => row.id === team.id ? { ...row, name: `${team.name} QA` } : row) });
   });
   await page.getByRole('button', { name: '刷新数据', exact: true }).click();
   await page.getByText(`${team.name} QA`, { exact: true }).first().waitFor({ timeout: 60000 });
@@ -96,4 +101,8 @@ try {
   injectingFailure = false;
   assert.deepEqual(errors, []); assert.deepEqual(forbidden, []); assert.deepEqual(failures, []);
   console.log('API browser runtime passed: desktop/mobile, direct/refresh, real CORS preflight, media/canvas, data update, offline/retry, no voting or admin requests');
-} finally { await browser.close(); }
+} finally {
+  // Let in-flight mock responses finish before closing their page.
+  await page.unrouteAll({ behavior: 'wait' });
+  await browser.close();
+}
