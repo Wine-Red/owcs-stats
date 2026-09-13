@@ -1,0 +1,27 @@
+{
+  "name": "owcs-stats-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test tests/*.test.js",
+    "test:live": "node scripts/check-live.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.52",
+    "@ai-sdk/openai-compatible": "^3.0.47",
+    "ai": "^7.0.97",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "cheerio": "^1.2.0",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.6.2"
+  }
+}

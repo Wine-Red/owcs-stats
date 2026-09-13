@@ -92,6 +92,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
@@ -475,6 +476,9 @@ export default {
         window.removeEventListener('resize', handleResize);
         myChart?.dispose();
     });
+
+    useAssistantContext(() => ({ for_tab: 'stats/radar', player_ids: [player1Id.value, player2Id.value],
+      role: playerRole.value, metric: '选手每十分钟对比' }), { chart: true });
 
     return {
       packageAssetUrl,

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>助手模型设置 · OWCS Stats</title>
+<style>
+body{font:15px/1.6 system-ui,"Microsoft YaHei",sans-serif;background:#f4f5f8;color:#252938;margin:0;padding:32px 20px}main{max-width:540px;margin:auto}header{border-left:4px solid #e87525;padding-left:16px;margin-bottom:28px}h1{font-size:25px;margin:0}small{color:#667085}form{background:white;border:1px solid #e0e3e9;border-radius:16px;padding:24px}label{display:block;margin-bottom:16px;font-weight:600}input,select{display:block;width:100%;box-sizing:border-box;padding:11px;margin-top:5px;border:1px solid #cdd3df;border-radius:8px;font:inherit}button{padding:10px 16px;border:0;border-radius:8px;font:inherit;cursor:pointer;background:#25344b;color:white;margin:5px 6px 0 0}button.primary{background:#c65112}button:disabled{opacity:.5}output{display:block;margin-top:18px;white-space:pre-wrap}a{color:#a44618}.help{font-size:13px;color:#667085;margin-top:6px}fieldset{border:0;padding:0;margin:0}input:focus,select:focus,button:focus-visible{outline:2px solid #dc7837;outline-offset:2px}
+</style></head><body><main><header><small>OWCS STATS / LOCAL</small><h1>助手模型设置</h1></header>
+<p><a href="http://127.0.0.1:8080/data-manage/assistant">在 OWCS Stats 管理后台中设置 →</a></p>
+<form id="settings"><button id="load" type="button">重新读取配置</button>
+<hr><fieldset id="fields"><label>协议<select id="protocol"><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic 兼容</option></select></label>
+<label>服务地址<input id="baseUrl" type="url" placeholder="https://api.example.com/v1" required></label><div class="help">可粘贴基础地址或完整的 chat/completions、messages 地址，保存时自动整理。</div>
+<label>模型名称<input id="model" required placeholder="服务商提供的模型 ID"></label><label>API Key<input id="apiKey" type="password" autocomplete="off" placeholder="已配置时留空表示保留"></label>
+<label>最大输出长度<input id="maxTokens" type="number" min="256" max="16000" value="2048" required></label>
+<label>Dots 深度思考<select id="dotsThinking"><option value="default">跟随供应商默认</option><option value="off">关闭 · 直接回答</option><option value="on">开启 · 深度思考</option></select></label><div class="help">仅用于 OpenAI 兼容协议的 dots3-note-prev。默认开启深度思考，推理会消耗输出额度；开启时通常需要更大的额度和更长等待。</div></fieldset>
+<button class="primary" type="submit">保存配置</button><button id="test" type="button">测试连接</button><output id="result" role="status"></output></form>
+<p class="help">配置加密保存在本机；聊天内容不留档。对话和查询资料会发送给所配置的模型服务，测试连接也会实际调用模型。</p><a href="/visualize">回到可视化页面</a></main><script src="/assistant/v1/admin.js"></script></body></html>

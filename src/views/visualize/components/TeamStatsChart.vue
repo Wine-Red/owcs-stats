@@ -98,6 +98,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { perTenMinutes, killDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
@@ -667,6 +668,9 @@ export default {
       window.removeEventListener('resize', handleResize);
       teamChart?.dispose();
     });
+
+    useAssistantContext(() => ({ for_tab: 'stats/team', team_ids: teamFilter.value,
+      metric: '队伍统计' }), { chart: true });
 
     return {
       teamComparisonChart,

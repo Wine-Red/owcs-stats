@@ -43,6 +43,12 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 8080,
       proxy: {
+        '/assistant/v1': {
+          target: 'http://127.0.0.1:4330',
+          changeOrigin: true,
+          proxyTimeout: 190000,
+          timeout: 190000
+        },
         '/data/v1': {
           target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
           changeOrigin: true,
@@ -62,14 +68,14 @@ export default defineConfig(({ mode }) => {
           timeout: 60000
         },
         '/public-api': {
-          target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
+          target: process.env.API_PROXY_TARGET || (mode === 'assistant' ? 'https://stats.owmini.xyz' : 'http://localhost:3000'),
           changeOrigin: true,
-          rewrite: requestPath => requestPath.replace(/^\/public-api/, '/api'),
+          rewrite: requestPath => mode === 'assistant' && !process.env.API_PROXY_TARGET ? requestPath : requestPath.replace(/^\/public-api/, '/api'),
           proxyTimeout: 60000,
           timeout: 60000
         },
         '/media': {
-          target: process.env.API_PROXY_TARGET || 'http://localhost:3000',
+          target: process.env.API_PROXY_TARGET || (mode === 'assistant' ? 'https://stats.owmini.xyz' : 'http://localhost:3000'),
           changeOrigin: true,
           proxyTimeout: 60000,
           timeout: 60000

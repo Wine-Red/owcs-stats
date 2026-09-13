@@ -226,6 +226,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { killDeathRatio, killAssistDeathRatio, perTenMinutes } from '@/utils/statMetrics.mjs';
 import { ref, onMounted, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -1091,6 +1092,13 @@ export default {
       const pair = [Number(team1ResolvedId.value), Number(team2ResolvedId.value)].sort().join(':');
       return poll && !poll.matchId && [poll.team1Id, poll.team2Id].sort().join(':') === pair ? poll : null;
     });
+
+    useAssistantContext(() => ({
+      kind: 'upcoming', label: `${queryParams.value.team1 || '待定'} vs ${queryParams.value.team2 || '待定'}`,
+      competition_id: queryParams.value.seasonId, team_ids: [team1ResolvedId.value, team2ResolvedId.value],
+      player_ids: activeTab.value === 'players' ? Object.values(selectedPlayers.value[selectedRole.value] || {}).map(p => p?.playerId || p?.id) : [],
+      tab: activeTab.value,
+    }));
 
     return {
       pollEntry,

@@ -394,6 +394,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -1631,6 +1632,15 @@ export default {
       });
     });
 
+
+    useAssistantContext(() => ({
+      kind: 'match', label: `${queryParams.value.team1 || '比赛'} vs ${queryParams.value.team2 || ''}${currentMapGame.value ? ' · ' + getMapName(currentMapGame.value.mapId) : ''}`,
+      competition_id: queryParams.value.seasonId, match_id: queryParams.value.matchId,
+      game_id: currentMapGame.value?.id, map_id: currentMapGame.value?.mapId,
+      team_ids: [queryParams.value.team1Id, queryParams.value.team2Id],
+      player_ids: Object.values(selectedMapPlayers.value[String(currentMapGame.value?.id)]?.[selectedMapRole.value] || {}).map(p => p?.playerId),
+      tab: `${activeTab.value}/${contentMode.value}`, loading: isLoading.value,
+    }));
 
     return {
       isLoading,

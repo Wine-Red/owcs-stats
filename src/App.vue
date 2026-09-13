@@ -95,6 +95,7 @@
           </transition>
         </router-view>
         <SiteDataStatus v-if="isApiPackage" @refresh="refreshSiteData" />
+        <StatsAssistant v-if="assistantEnabled && isVisualizeRoute && assistantVisible" />
       </main>
 
       <footer class="app-footer" v-if="showFooter">
@@ -117,7 +118,9 @@
 </template>
 
 <script>
-import { computed, watch, onMounted, ref, onUnmounted } from 'vue';
+import { computed, watch, onMounted, ref, onUnmounted, defineAsyncComponent } from 'vue';
+import { assistantEnabled } from '@/services/assistantContext';
+import { useAssistantVisibility } from '@/services/assistantVisibility';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
 import { loadStaticManifest } from '@/services/staticApi';
@@ -129,6 +132,7 @@ import {
   ArrowRight,
   Avatar,
   Calendar,
+  ChatDotRound,
   Close,
   Collection,
   Connection,
@@ -147,6 +151,7 @@ import {
 export default {
   name: 'App',
   components: {
+    StatsAssistant: assistantEnabled ? defineAsyncComponent(() => import('@/components/assistant/StatsAssistant.vue')) : {},
     SiteDataStatus,
     ArrowRight,
     Close,
@@ -207,7 +212,11 @@ export default {
           { to: '/data-manage/heroes', label: '英雄管理', icon: PictureFilled },
           { to: '/data-manage/maps', label: '地图管理', icon: MapLocation }
         ]
-      }
+      },
+      ...(assistantEnabled ? [{
+        title: '助手管理',
+        items: [{ to: '/data-manage/assistant', label: '赛事助手', icon: ChatDotRound }]
+      }] : [])
     ];
 
     const isVisualizeRoute = computed(() => {
@@ -215,6 +224,7 @@ export default {
     });
 
     const isVisualizeHome = computed(() => route.path === '/visualize');
+    const assistantVisible = useAssistantVisibility(() => isVisualizeRoute.value ? route.fullPath : '');
 
     const isAnalyticsRoute = computed(() => {
       return route.path === '/analytics';
@@ -280,6 +290,8 @@ export default {
     });
 
     return {
+      assistantEnabled,
+      assistantVisible,
       isApiPackage, dataGeneration, refreshSiteData,
       showSidebar,
       showFooter,

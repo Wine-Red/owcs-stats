@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, perMinute } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
@@ -921,6 +922,9 @@ export default {
       window.removeEventListener('resize', handleResize);
       playerChart?.dispose();
     });
+
+    useAssistantContext(() => ({ for_tab: 'stats/player', player_ids: playerFilter.value,
+      role: playerRole.value, metric: sortState.value.prop || '选手表现分布' }), { chart: true });
 
     return {
       packageAssetUrl,

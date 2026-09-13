@@ -265,6 +265,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, profileTotalsStat } from '@/utils/statMetrics.mjs';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -745,6 +746,13 @@ export default {
     });
 
     onBeforeUnmount(() => window.removeEventListener('resize', fitPlayerName));
+
+    useAssistantContext(() => ({
+      kind: 'player', label: `${player.value?.name || '选手'} · ${currentSeasonName.value}`,
+      competition_id: currentSeasonId.value, player_ids: [playerId.value],
+      hero_id: activeTab.value === 'heroes' ? selectedHeroId.value : undefined, tab: activeTab.value,
+      metric: expandedMetric.value || undefined, loading: isLoading.value,
+    }));
 
     return {
       isLoading,

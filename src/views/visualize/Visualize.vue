@@ -249,6 +249,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
@@ -703,6 +704,15 @@ export default {
       }
     });
     
+    useAssistantContext(() => ({
+      kind: 'competition', label: currentSeasonName.value,
+      competition_id: filterForm.value.seasonId,
+      tab: currentTab.value + '/' + activeStatsCategory.value,
+      team_ids: filterForm.value.teamIds, player_ids: filterForm.value.playerIds,
+      liquipedia_url: seasonVisualConfig.value.liquipediaTournamentUrl || undefined,
+      loading: isPageLoading.value,
+    }));
+
     return {
       currentTab,
       tabContentRef,

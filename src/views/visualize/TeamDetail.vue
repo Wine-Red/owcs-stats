@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -633,6 +634,12 @@ export default {
     onMounted(() => {
       loadData();
     });
+
+    useAssistantContext(() => ({
+      kind: 'team', label: team.value?.name || '队伍详情',
+      competition_id: currentSeasonId.value, team_ids: [queryParams.value.teamId],
+      tab: activeTab.value,
+    }));
 
     return {
       isLoading,
