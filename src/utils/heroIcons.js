@@ -11,11 +11,11 @@ export const HERO_SLUG_BY_NAME = {
   '黑百合': 'widowmaker', '安燃': 'anran', '源氏': 'genji', '死神': 'reaper',
   '猎空': 'tracer', '斩仇': 'shion', '探奇': 'venture', '堡垒': 'bastion',
   '埃姆雷': 'emre', '狂鼠': 'junkrat', '美': 'mei', '士兵：76': 'soldier-76',
-  '秩序之光': 'symmetra', '托比昂': 'torbjorn', '回声': 'echo', '弗雷娅': 'freja',
+  '秩序之光': 'symmetra', '托比昂': 'torbjorn', '回声': 'echo', '弗蕾娅': 'freja', '弗雷娅': 'freja',
   '法老之鹰': 'pharah', '黑影': 'sombra', '死怨': 'vendetta', '西拉': 'sierra',
   '安娜': 'ana', '巴蒂斯特': 'baptiste', '飞天猫': 'jetpack-cat', '卢西奥': 'lucio',
   '禅雅塔': 'zenyatta', '雾子': 'kiriko', '生命之梭': 'lifeweaver', '天使': 'mercy',
-  '莫伊拉': 'moira', '布里吉塔': 'brigitte', '伊拉锐': 'illari', '朱诺': 'juno',
+  '莫伊拉': 'moira', '布丽吉塔': 'brigitte', '布里吉塔': 'brigitte', '伊拉锐': 'illari', '朱诺': 'juno',
   '瑞稀': 'mizuki', '无漾': 'wuyang'
 };
 

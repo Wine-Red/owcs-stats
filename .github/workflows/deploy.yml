@@ -118,7 +118,7 @@ jobs:
           DATA_API_TEST_DB_PORT: '3306'
           DATA_API_TEST_DB_PASSWORD: isolated-ci-test
           DATA_API_HTTP_CAPTURE: public-data-http-responses.json
-        run: node --test backend/tests/public-data-mysql.test.js
+        run: node --test backend/tests/public-data-mysql.test.js backend/tests/hero-identity-mysql.test.js
       - name: Validate every response against OpenAPI
         run: python docs/public-data-api/validate.py --responses public-data-http-responses.json
 

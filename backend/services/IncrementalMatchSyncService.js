@@ -12,6 +12,7 @@ const Season = require('../models/Season');
 const MapModel = require('../models/Map');
 const Player = require('../models/Player');
 const Hero = require('../models/Hero');
+const { HERO_NAME_ALIASES, heroNameKey, resolveExistingHero } = require('./HeroIdentityService');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
 const { createExternalMatchInboxService } = require('./ExternalMatchInboxService');
 const {
@@ -35,13 +36,7 @@ const SYNC_CURSOR_CONFIG_KEY = 'external_match_sync_cursor_v2';
 const SYNC_SUMMARY_CONFIG_KEY = 'latest_match_sync_updates';
 const DEFAULT_PAGE_SIZE = 50;
 const DETAIL_CONCURRENCY = 5;
-const HERO_NAME_ALIASES = {
-  dmon: 'd.mon',
-  dva: 'd.va'
-};
-
 const lower = value => String(value || '').toLowerCase();
-const heroNameKey = value => HERO_NAME_ALIASES[lower(value)] || lower(value);
 const integer = value => Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
 const numberOrNull = value => {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
@@ -135,22 +130,6 @@ const ensurePlayer = async (source, team, caches, transaction) => {
     if (Object.keys(updates).length) await player.update(updates, { transaction });
   }
   return player;
-};
-
-const ensureHero = async (name, role, caches, transaction, externalId = null) => {
-  if (!name) return null;
-  let hero = externalId ? caches.heroByExternalId.get(heroNameKey(externalId)) : null;
-  hero ||= caches.heroByName.get(heroNameKey(name));
-  if (!hero && ['tank', 'damage', 'support'].includes(role)) {
-    hero = await Hero.create({ name, externalId: externalId || null, role, subRole: null }, { transaction });
-    caches.heroes.push(hero);
-    caches.heroByName.set(heroNameKey(name), hero);
-    if (externalId) caches.heroByExternalId.set(heroNameKey(externalId), hero);
-  } else if (hero && externalId && !hero.externalId) {
-    await hero.update({ externalId }, { transaction });
-    caches.heroByExternalId.set(heroNameKey(externalId), hero);
-  }
-  return hero || null;
 };
 
 const resolveMap = (name, caches) => {
@@ -265,13 +244,11 @@ const replacePlayerStats = async ({
         );
         if (membership.relationCreated) newMembershipsCount++;
       }
-      const role = normalizeRole(source.role);
       const heroes = Array.isArray(source.heroes) ? source.heroes : [];
       const heroModels = [];
       for (const detail of heroes) {
-        heroModels.push(await ensureHero(
+        heroModels.push(await resolveExistingHero(
           detail.hero,
-          role,
           caches,
           transaction,
           detail.heroId || detail.heroExternalId || null
