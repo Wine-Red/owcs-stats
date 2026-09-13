@@ -43,7 +43,10 @@ const HERO_NAME_ALIASES = {
 const lower = value => String(value || '').toLowerCase();
 const heroNameKey = value => HERO_NAME_ALIASES[lower(value)] || lower(value);
 const integer = value => Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
-const numberOrNull = value => Number.isFinite(Number(value)) ? Number(value) : null;
+const numberOrNull = value => {
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
+  return Number.isFinite(Number(value)) ? Number(value) : null;
+};
 const normalizeRole = role => role === 'T' ? 'tank' : role === 'D' ? 'damage' : role === 'S' ? 'support' : lower(role);
 
 const parseDuration = value => {
@@ -627,5 +630,6 @@ module.exports = {
   createIncrementalMatchSyncService,
   parseDuration,
   parseKad,
+  numberOrNull,
   mapWithConcurrency
 };

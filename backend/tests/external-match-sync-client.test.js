@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createExternalMatchSyncClient, validateSummary, validateDetail } = require('../services/ExternalMatchSyncClient');
-const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency } = require('../services/IncrementalMatchSyncService');
+const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency, numberOrNull } = require('../services/IncrementalMatchSyncService');
 
 test('fetchChanges preserves the opaque cursor and accepts schema v3', async () => {
   let requestedUrl = '';
@@ -80,4 +80,14 @@ test('hero aliases normalize dotted MEKA hero names', () => {
   assert.equal(heroNameKey('DMON'), heroNameKey('D.Mon'));
   assert.equal(HERO_NAME_ALIASES.dva, 'd.va');
   assert.equal(heroNameKey('DVA'), heroNameKey('D.Va'));
+});
+
+test('sync preserves missing charge samples as null and distinguishes measured zero', () => {
+  for (const missing of [null, undefined, '', ' ', 'invalid', NaN, Infinity]) {
+    assert.equal(numberOrNull(missing), null);
+  }
+  assert.equal(numberOrNull(0), 0);
+  assert.equal(numberOrNull('0'), 0);
+  assert.equal(numberOrNull(92.7), 92.7);
+  assert.equal(numberOrNull('92.7'), 92.7);
 });

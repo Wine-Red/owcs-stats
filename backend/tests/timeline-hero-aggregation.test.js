@@ -146,3 +146,92 @@ test('deleting a timeline clears hero and final-blow aggregates only', () => {
     playersB: [{ playerId: 'B', kad: '4/3/1', healing: 4321, finalBlows: 0, heroes: [] }]
   });
 });
+
+const deathFixture = events => ({
+  schemaVersion: 2,
+  timebase: { kind: 'round-local' },
+  media: { durationMs: 400_000 },
+  players: [
+    { playerId: 'VICTIM', teamSide: 'A' },
+    { playerId: 'KILLER', teamSide: 'B' }
+  ],
+  rounds: [1, 2].map(index => ({ roundId: `round-${index}`, index, startMs: 0, endMs: 200_000 })),
+  events: [
+    ...[1, 2].flatMap(index => [
+      { type: 'hero_selected', playerId: 'VICTIM', heroId: 'cassidy', timeMs: 0, roundId: `round-${index}` },
+      { type: 'hero_selected', playerId: 'KILLER', heroId: 'tracer', timeMs: 0, roundId: `round-${index}` }
+    ]),
+    ...events.map(event => ({ status: 'confirmed', roundId: 'round-1', ...event }))
+  ]
+});
+const death = (timeMs, extra = {}) => ({ type: 'death', playerId: 'VICTIM', timeMs, ...extra });
+const kill = (timeMs, extra = {}) => ({ type: 'kill', killerId: 'KILLER', victimId: 'VICTIM', timeMs, ...extra });
+const victimDeaths = result => result.playersA[0].heroes.reduce((sum, hero) => sum + hero.deathsByFinalBlow, 0);
+
+test('linked kill and death crossing the old time bucket count once in either timestamp order', () => {
+  for (const [deathTime, killTime] of [[137_000, 137_500], [137_500, 137_000]]) {
+    const timeline = deathFixture([
+      death(deathTime, { evidenceIds: ['death-proof'] }),
+      kill(killTime, { evidenceIds: ['killfeed-proof', 'death-proof'] })
+    ]);
+    const before = structuredClone(timeline);
+    const result = aggregateTimeline(timeline);
+    assert.equal(victimDeaths(result), 1);
+    assert.equal(result.playersB[0].finalBlows, 1);
+    assert.deepEqual(timeline, before, 'aggregation must not rewrite canonical timestamps or evidence');
+  }
+});
+
+test('death attribution uses its own hero even when the linked kill arrives after a switch', () => {
+  const result = aggregateTimeline(deathFixture([
+    death(80_000, { evidenceIds: ['death-proof'] }),
+    { type: 'hero_switch', playerId: 'VICTIM', heroId: 'ana', timeMs: 81_000 },
+    kill(84_000, { heroId: 'tracer', evidenceIds: ['death-proof'] })
+  ]));
+  assert.equal(victimDeaths(result), 1);
+  assert.equal(result.playersA[0].heroes.find(hero => hero.heroId === 'cassidy').deathsByFinalBlow, 1);
+  assert.equal(result.playersA[0].heroes.find(hero => hero.heroId === 'ana').deathsByFinalBlow, 0);
+  assert.equal(result.playersB[0].heroes[0].finalBlows, 1);
+});
+
+test('legacy kill/death pairs use actual distance and keep unpaired deaths and kills', () => {
+  const result = aggregateTimeline(deathFixture([
+    death(137_000), kill(137_500),
+    death(150_000),
+    kill(170_000),
+    death(190_000), kill(191_501)
+  ]));
+  assert.equal(victimDeaths(result), 5);
+  assert.equal(result.playersB[0].finalBlows, 3);
+});
+
+test('nearby independent deaths survive and evidence matches take priority over temporal fallback', () => {
+  const result = aggregateTimeline(deathFixture([
+    death(100_000, { evidenceIds: ['first-death'] }),
+    death(100_500, { evidenceIds: ['second-death'] }),
+    kill(100_600),
+    kill(104_000, { evidenceIds: ['first-death'] })
+  ]));
+  assert.equal(victimDeaths(result), 2);
+  assert.equal(result.playersB[0].finalBlows, 2);
+});
+
+test('legacy temporal pairing is one-to-one even for multiple close deaths', () => {
+  const result = aggregateTimeline(deathFixture([
+    death(100_000), death(101_400), kill(101_100), kill(102_000),
+    kill(120_000), kill(120_500)
+  ]));
+  assert.equal(victimDeaths(result), 4);
+  assert.equal(result.playersB[0].finalBlows, 4);
+});
+
+test('death matching never crosses round-local rounds or includes rejected events', () => {
+  const result = aggregateTimeline(deathFixture([
+    death(137_000, { evidenceIds: ['same-proof'] }),
+    kill(137_500, { roundId: 'round-2', evidenceIds: ['same-proof'] }),
+    death(137_000, { roundId: 'round-2', status: 'rejected' }),
+    kill(150_000, { status: 'rejected' })
+  ]));
+  assert.equal(victimDeaths(result), 2);
+  assert.equal(result.playersB[0].finalBlows, 1);
+});

@@ -1,6 +1,7 @@
 const integer = value => Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0;
 const lower = value => String(value || '').trim().toLocaleLowerCase('en-US');
 const MIN_HERO_USAGE_MS = 30_000;
+const LEGACY_DEATH_MATCH_MS = 1500;
 
 const parseKad = value => {
   const [kills = 0, assists = 0, deaths = 0] = String(value || '').split('/').map(integer);
@@ -16,7 +17,40 @@ const heroIdentity = event => {
   };
 };
 
-const eventPlayerId = event => event?.playerId || event?.killerId || null;
+// Studio emits both a death and its matched killfeed event. Count the death
+// using its own timestamp/hero; a kill supplies a death only when unmatched.
+const playerDeathEvents = (playerEvents, playerId, sameRound) => {
+  const deaths = playerEvents.filter(event => event.type === 'death' && event.playerId === playerId);
+  const kills = playerEvents.filter(event => event.type === 'kill' && event.victimId === playerId);
+  const matchedKills = new Set();
+  const remainingDeaths = new Set(deaths);
+
+  // Reserve explicit evidence links before attempting any time-based matching.
+  // Shared death evidence remains authoritative even if the killfeed is delayed.
+  for (const kill of kills) {
+    const evidence = new Set(Array.isArray(kill.evidenceIds) ? kill.evidenceIds.filter(Boolean) : []);
+    const death = deaths.find(candidate => sameRound(candidate.roundId, kill.roundId)
+      && Array.isArray(candidate.evidenceIds)
+      && candidate.evidenceIds.some(id => evidence.has(id)));
+    if (death) {
+      matchedKills.add(kill);
+      remainingDeaths.delete(death);
+    }
+  }
+
+  // Legacy events may not share evidence. Both lists are chronological: consume
+  // the earliest compatible death once, preserving separate nearby deaths/kills.
+  for (const kill of kills) {
+    if (matchedKills.has(kill)) continue;
+    const death = [...remainingDeaths].find(candidate => sameRound(candidate.roundId, kill.roundId)
+      && Math.abs(Number(candidate.timeMs) - Number(kill.timeMs)) <= LEGACY_DEATH_MATCH_MS);
+    if (death) {
+      matchedKills.add(kill);
+      remainingDeaths.delete(death);
+    }
+  }
+  return [...deaths, ...kills.filter(kill => !matchedKills.has(kill))];
+};
 
 /** Build the exact JSON mirror row consumed by IncrementalMatchSyncService. */
 const buildTimelineMirrorAttributes = (round, syncedAt = new Date()) => {
@@ -146,19 +180,14 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       return heroIdentity(prior);
     };
 
-    const deathKeys = new Set();
+    for (const event of playerDeathEvents(playerEvents, playerId, sameRound)) {
+      const identity = heroAt(event);
+      if (identity) rowFor(identity).deathsByFinalBlow++;
+    }
     for (const event of playerEvents) {
       const identity = heroAt(event);
       if (event.type === 'kill' && event.killerId === playerId) {
         if (identity) rowFor(identity).finalBlows++;
-      }
-      if ((event.type === 'kill' && event.victimId === playerId)
-        || (event.type === 'death' && event.playerId === playerId)) {
-        const key = `${event.roundId || ''}:${Math.round(Number(event.timeMs) / 1500)}`;
-        if (!deathKeys.has(key)) {
-          deathKeys.add(key);
-          if (identity) rowFor(identity).deathsByFinalBlow++;
-        }
       }
       if (event.playerId !== playerId || !identity) continue;
       const row = rowFor(identity);
