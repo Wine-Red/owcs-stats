@@ -14,6 +14,7 @@ const client = createDataClient({ baseUrl: process.env.ASSISTANT_DATA_URL || 'ht
   displayBaseUrl: process.env.ASSISTANT_DISPLAY_URL });
 const port = Number(process.env.ASSISTANT_PORT || 4330);
 const app = createApp({ settings, client, wiki: createWiki(), production, publicOrigin,
+  partnerOrigins: (process.env.ASSISTANT_PARTNER_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean),
   ...(process.env.ASSISTANT_ORIGINS ? { allowedOrigins: process.env.ASSISTANT_ORIGINS.split(',') } : {}) });
 const server = app.listen(port, '127.0.0.1', () => {
   console.log(`Assistant: http://127.0.0.1:${port}/assistant/v1/admin`);

@@ -1,7 +1,8 @@
 import { computed, onUnmounted, shallowReactive, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-export const assistantEnabled = import.meta.env.MODE === 'assistant' || import.meta.env.MODE === 'production';
+export const assistantManagementEnabled = import.meta.env.MODE === 'assistant' || import.meta.env.MODE === 'production';
+export const assistantEnabled = assistantManagementEnabled || import.meta.env.MODE === 'api-static';
 const contexts = shallowReactive(new Map());
 const ids = value => [...new Set((value || []).map(Number).filter(x => Number.isSafeInteger(x) && x > 0))].slice(0, 10);
 export function cleanPage(value) {

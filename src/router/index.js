@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router';
 
 import { isDisplayPackage } from '../services/packageMode.mjs';
-import { assistantEnabled } from '../services/assistantContext';
+import { assistantManagementEnabled } from '../services/assistantContext';
 
 const routes = [
   {
@@ -14,7 +14,7 @@ const routes = [
     name: 'DataManage',
     component: () => import('../views/data-manage/DataManage.vue')
   },
-  ...(assistantEnabled ? [{
+  ...(assistantManagementEnabled ? [{
     path: '/data-manage/assistant',
     name: 'AssistantAdmin',
     component: () => import('../views/data-manage/AssistantAdmin.vue')

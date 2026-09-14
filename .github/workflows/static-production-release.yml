@@ -123,6 +123,12 @@ jobs:
           npm run verify:embedded-webview
           npm run verify:api-partner-host
 
+      - name: Verify package voting and assistant against isolated services
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix services/assistant
+          npm run verify:package-interactions
+
       - name: Package release
         id: release
         env:

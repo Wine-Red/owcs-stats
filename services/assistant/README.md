@@ -151,3 +151,5 @@ Remove-Item Env:ASSISTANT_TEST_CASE
 `deploy/server/stats-openresty-root.conf` 已准备同源路由：仅精确 `/assistant/v1/status` 和 `/assistant/v1/chat` 匿名访问，其余助手路径执行 Tinyauth 认证。管理请求未登录返回 401/403，不重定向 POST/PUT。网关覆盖 Host、X-Forwarded-Host、X-Forwarded-For 和 Remote-User，公共路由清空 Remote-User；服务只信任本机代理，管理操作还要求网关提供登录用户。限流按代理转交的真实访客 IP 计算，每 IP 每分钟 40 次，全服务最多 3 个并发回答；聊天关闭代理缓冲，代理超时 190 秒。
 
 以后实际发布时，应先启动独立服务并确认健康，再验证并应用 OpenResty include，最后发布主站前端。通过现有登录进入 `/data-manage/assistant` 配置模型。需实际验收未登录无法读写管理设置、公开聊天流式返回、客户端断开取消，以及页面显示开关。首次接入需先备份并应用网关配置；后续常规发布由现有 GitHub Actions 自动更新三个容器。
+
+API 静态包启用助手时，Compose 默认使用 `OWCS_PARTNER_ORIGINS=*`，同时允许任意 HTTP(S) 网页调用公开投票和助手。独立助手通过 `ASSISTANT_PARTNER_ORIGINS=*` 开启这一行为；也可填写逗号分隔的来源白名单。只对精确的公开 status/chat 路径返回 CORS，管理接口继续只允许主站来源与认证网关。详见 `docs/api-static-package.md`。

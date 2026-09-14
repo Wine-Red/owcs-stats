@@ -7,7 +7,7 @@ import { validateSiteConfig } from './src/services/siteClient.mjs'
 export default defineConfig(({ mode }) => {
   const portable = ['static', 'api-static'].includes(mode)
   const site = mode === 'api-static' ? validateSiteConfig(JSON.parse(readFileSync(process.env.OWCS_SITE_CONFIG || 'site-package.config.json', 'utf8'))) : null
-  const origins = site ? [...new Set([new URL(site.apiBaseUrl).origin, site.mediaOrigin])].join(' ') : ''
+  const origins = site ? [...new Set([new URL(site.apiBaseUrl).origin, site.mediaOrigin, ...[site.pollApiBaseUrl, site.assistantApiBaseUrl].filter(Boolean).map(url => new URL(url).origin)])].join(' ') : ''
   return {
     base: portable ? './' : (process.env.VITE_BASE_PATH || '/'),
     publicDir: 'public',

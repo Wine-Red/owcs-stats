@@ -1,6 +1,6 @@
 # 接口驱动展示包（展示接口 v1）
 
-同一份 Vue 页面、组件、图表和统计服务生成主站、纯静态快照包与接口驱动包。接口包由合作方托管一个包含 JS、CSS、字体及内置图片的 HTML；浏览器直接读取本站公开 JSON 和托管媒体。合作方不需要部署 Node、数据库、代理、登录、Cookie 或 API Key。两个交付包均只读，不启用投票或主站流量统计。
+同一份 Vue 页面、组件、图表和统计服务生成主站、纯静态快照包与接口驱动包。接口包由合作方托管一个包含 JS、CSS、字体及内置图片的 HTML；浏览器直接读取本站公开 JSON 和托管媒体。合作方不需要部署 Node、数据库、代理、登录、Cookie 或 API Key。纯快照包保持只读；API 包支持配置投票和助手，两种包均不启用主站流量统计。
 
 ## 构建与发布
 
@@ -34,7 +34,7 @@ flowchart LR
 
 生产基础地址：`https://stats.owmini.xyz/public-api/site/v1`，网关转发到后端 `/api/site/v1`。这是既有展示页面的版本化接口，与分析接口 `/data/v1` 独立，后者契约不变。
 
-路由和参数允许列表集中在 `backend/services/siteApi/contract.js`，直接复用现有控制器和 `PublicStatsService`、`SeasonStatsCalculator`、`RosterReadService`、`MatchDataDetailService` 等服务。不复制统计公式，也不转发整个管理路由。赛程复用快照导出使用的来源缓存，不执行投票身份补全。
+路由和参数允许列表集中在 `backend/services/siteApi/contract.js`，直接复用现有控制器和 `PublicStatsService`、`SeasonStatsCalculator`、`RosterReadService`、`MatchDataDetailService` 等服务。不复制统计公式，也不转发整个管理路由。只读展示接口的赛程不执行投票身份补全；启用投票的 API 包另外读取投票服务赛程。
 
 主要资源：赛季、队伍、选手、地图、英雄目录；比赛/地图局及时间线详情；报名关系；选手档案；英雄总览/排行榜；赛季、阶段、队伍统计；公开展示配置；`/meta`。完整路径及参数以路由表为可执行契约。比赛分页支持 `page`、`pageSize`（1–10000）及既有赛季、队伍、地图和日期筛选。不支持的参数返回 400。
 
@@ -99,3 +99,15 @@ npm run verify:embedded-webview
 `verify:api-runtime` 用真实浏览器测试跨源图片和 canvas，随后仅在测试浏览器内替换队名/赛季名称响应，验证停留、回到前台及恢复网络均不自动请求更新，浏览器刷新后才显示新数据；模拟断网与 503 验证错误重试，不修改数据库。纯静态包继续运行既有快照、页面、时间线及 WebView 检查。两种包的构建与校验目录彼此独立。
 
 `npm run verify:api-partner-host` 使用两个真实 HTTP 服务模拟页面域与无 CORS CDN：对照模块确实被浏览器阻止，新包则只请求 HTML 和本站公开接口/媒体。覆盖根目录、子目录、桌面、手机、刷新和包内图片 canvas 导出。该检查已纳入每次 Release。
+
+## API 包的投票与助手
+
+API 包现在可通过 `site-package.config.json` 的 `interactions.voting` / `interactions.assistant` 分别启用投票和助手。默认交付配置均开启；省略开关的旧配置保持关闭。`pollApiBaseUrl` 和 `assistantApiBaseUrl` 指向本站对应独立接口，构建时和 CSP 一起嵌入，禁止放入模型密钥。主站管理页不包含在 API 包内。纯快照包继续禁用两项交互。
+
+投票页面从投票服务 `/upcoming` 读取带稳定比赛标识的赛程，通过 `/summary` 查询投票、`/visitor` 获取匿名身份、`/vote` 提交或更改支持队伍。浏览器 localStorage 保存身份，按域名隔离；不承诺主站和不同合作方域名之间去重，不依赖第三方 Cookie。API 包只在页面加载/导航和投票后读取结果，不启用后台轮询。比赛已结束或封盘时沿用现有禁止投票规则。
+
+助手从公开 `/status` 读取显示开关，向 `/chat` 提交当前页面范围和临时对话，继续使用 NDJSON 流；刷新清空会话。设置、连接测试、模型密钥和管理路由不向合作方开放。
+
+服务器 Compose 默认 `OWCS_PARTNER_ORIGINS=*`，公开投票和助手允许任意 HTTP(S) 网页来源，合作方上传即可使用，无需登记域名。也可改为逗号分隔的实际网页源以收紧访问，再更新 api/assistant 容器。来源只含协议、主机和端口，不含路径；`null` 来源（如直接双击本地 HTML）不受支持，应通过 HTTP(S) 托管。助手跨域预检只开放聊天和状态接口，不允许凭据或 Remote-User 等自定义管理头。管理接口仍受来源校验与登录保护，Host 网关继续覆盖转发头。
+
+发布新包前需运行 `npm run verify:package-interactions`：使用实际打包 HTML、不同 HTTP 源和真实路由，模拟数据层/模型回答，覆盖桌面和手机投票、身份持久化、换边、跨域预检、流式问答及页面上下文；不写入生产票数或调用付费模型。原有数据/CORS/资源测试单独隔离交互读取。对方实际 WebView 的存储、CORS 和流式响应仍需最终接入验收。

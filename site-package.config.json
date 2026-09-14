@@ -2,5 +2,8 @@
   "schemaVersion": 1,
   "apiBaseUrl": "https://stats.owmini.xyz/public-api/site/v1",
   "mediaOrigin": "https://stats.owmini.xyz",
-  "timeoutMs": 30000
+  "timeoutMs": 30000,
+  "interactions": { "voting": true, "assistant": true },
+  "pollApiBaseUrl": "https://stats.owmini.xyz/poll-api",
+  "assistantApiBaseUrl": "https://stats.owmini.xyz/assistant/v1"
 }

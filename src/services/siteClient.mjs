@@ -9,7 +9,16 @@ export const validateSiteConfig = config => {
   }
   if (!/\/site\/v1\/?$/.test(new URL(config.apiBaseUrl).pathname)) throw failure('需要 v1 展示接口');
   if (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 1000 || config.timeoutMs > 120000) throw failure('页面配置无效：timeoutMs');
-  return { ...config, apiBaseUrl: config.apiBaseUrl.replace(/\/$/, ''), mediaOrigin: new URL(config.mediaOrigin).origin };
+  const normalized = { ...config, apiBaseUrl: config.apiBaseUrl.replace(/\/$/, ''), mediaOrigin: new URL(config.mediaOrigin).origin };
+  for (const [feature, key, suffix] of [['voting', 'pollApiBaseUrl', '/poll-api'], ['assistant', 'assistantApiBaseUrl', '/assistant/v1']]) {
+    if (config.interactions?.[feature] !== undefined && typeof config.interactions[feature] !== 'boolean') throw failure(`页面配置无效：${feature}`);
+    if (!config.interactions?.[feature]) continue;
+    const url = new URL(config[key] || suffix, config.mediaOrigin);
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) || url.username || url.password || url.search || url.hash)
+      throw failure(`页面配置无效：${key}`);
+    normalized[key] = url.href.replace(/\/$/, '');
+  }
+  return normalized;
 };
 
 export const resolveSiteMedia = (value, config, key = '') => {

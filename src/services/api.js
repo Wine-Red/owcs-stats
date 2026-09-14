@@ -5,6 +5,8 @@ import createStaticApi from './staticApi';
 import { resolveRuntimeApiBaseUrl, routeRuntimeApiRequest } from './apiBaseUrl.mjs';
 import { isApiPackage, isDisplayPackage } from './packageMode.mjs';
 import { siteApi } from './siteRuntime';
+import { interactionBase } from './interactionEndpoints.mjs';
+import { getLiveUpcomingMatches } from './matchPolls';
 
 // 创建axios实例
 const isStaticExport = import.meta.env.MODE === 'static';
@@ -100,7 +102,8 @@ const apiService = {
   clearMedia: (category, id) => api.delete(`/media/${category}/${id}`),
 
   // 比赛相关
-  getUpcomingMatches: () => api.get('/matches/upcoming'),
+  getUpcomingMatches: async () => isApiPackage && await interactionBase('voting')
+    ? getLiveUpcomingMatches() : api.get('/matches/upcoming'),
   getMatches: (filters) => api.get('/matches', { params: filters }),
   getMatchById: (id) => api.get(`/matches/${id}`),
   getMatchData: (id) => api.get(`/matches/${id}/data`),

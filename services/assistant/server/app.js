@@ -6,7 +6,7 @@ import { turnSchema } from './context.js';
 import { runChat, checkConnection } from './agent.js';
 
 export function createApp({ settings, client, wiki, runner = runChat, testConnection = checkConnection,
-  production = false, publicOrigin = 'https://stats.owmini.xyz',
+  production = false, publicOrigin = 'https://stats.owmini.xyz', partnerOrigins = [],
   allowedOrigins = production ? [publicOrigin] : ['http://127.0.0.1:8080', 'http://localhost:8080', 'http://127.0.0.1:4330', 'http://localhost:4330'] }) {
   const app = express();
   if (production) app.set('trust proxy', 'loopback');
@@ -20,9 +20,25 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
     const hosts = production ? [new URL(publicOrigin).hostname, 'localhost', '127.0.0.1'] : ['localhost', '127.0.0.1'];
     if (!hosts.includes(host)) return res.status(403).json({ error: '请求域名不允许' });
     const origin = req.get('origin');
-    if ((origin && !allowedOrigins.includes(origin)) || req.get('sec-fetch-site') === 'cross-site')
+    const publicPath = req.path === '/assistant/v1/status' || req.path === '/assistant/v1/chat';
+    const webOrigin = (() => { try { const url = new URL(origin); return ['http:', 'https:'].includes(url.protocol) && url.origin === origin; } catch { return false; } })();
+    const openPartners = partnerOrigins.includes('*');
+    const partner = production && webOrigin && (openPartners || partnerOrigins.includes(origin)) && publicPath;
+    if ((origin && !allowedOrigins.includes(origin) && !partner) || (req.get('sec-fetch-site') === 'cross-site' && !partner))
       return res.status(403).json({ error: '请求来源不允许' });
     res.set('Cache-Control', 'no-store');
+    if (partner) {
+      res.vary('Origin');
+      res.set('Access-Control-Allow-Origin', openPartners ? '*' : origin);
+      if (req.method === 'OPTIONS') {
+        const method = req.get('Access-Control-Request-Method');
+        const headers = (req.get('Access-Control-Request-Headers') || '').toLowerCase().split(',').map(v => v.trim()).filter(Boolean);
+        const methods = req.path.endsWith('/chat') ? ['POST'] : ['GET', 'HEAD'];
+        if (!methods.includes(method) || headers.some(v => v !== 'content-type')) return res.sendStatus(403);
+        res.set({ 'Access-Control-Allow-Methods': methods.join(', '), 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '300' });
+        return res.sendStatus(204);
+      }
+    }
     next();
   });
   app.use(express.json({ limit: '128kb' }));

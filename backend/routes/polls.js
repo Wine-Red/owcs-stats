@@ -19,9 +19,10 @@ const createPollRouter = (pollService = service) => {
     if (!limit(`all:${ip}`, 300, 60000)) return res.status(429).json({ error: '请求较多，请稍后重试' });
     if (req.method !== 'GET') {
       const origin = req.get('Origin');
-      const allowed = (process.env.POLL_ALLOWED_ORIGINS || 'https://stats.owmini.xyz').split(',').map(s => s.trim());
+      const allowed = [process.env.POLL_ALLOWED_ORIGINS || 'https://stats.owmini.xyz', process.env.POLL_PARTNER_ORIGINS || ''].join(',').split(',').map(s => s.trim()).filter(Boolean);
       const local = process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
-      if (origin && !allowed.includes(origin) && !local) return res.status(403).json({ error: '当前页面暂不支持投票' });
+      const openPartner = allowed.includes('*') && (() => { try { const url = new URL(origin); return ['http:', 'https:'].includes(url.protocol) && url.origin === origin; } catch { return false; } })();
+      if (origin && !allowed.includes(origin) && !local && !openPartner) return res.status(403).json({ error: '当前页面暂不支持投票' });
       const session = req.path === '/visitor';
       if (!limit(`${session ? 'identity' : 'vote'}:${ip}`, session ? 60 : 120, session ? 3600000 : 60000)) {
         return res.status(429).json({ error: '操作较频繁，请稍后再试' });

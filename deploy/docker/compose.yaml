@@ -13,6 +13,7 @@ services:
       ASSISTANT_MODE: production
       ASSISTANT_PUBLIC_ORIGIN: https://stats.owmini.xyz
       ASSISTANT_STATE_DIR: /app/state
+      ASSISTANT_PARTNER_ORIGINS: ${OWCS_PARTNER_ORIGINS:-*}
     volumes:
       - ${OWCS_ASSISTANT_STATE_DIR:-./data/assistant}:/app/state
     read_only: true
@@ -41,6 +42,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       MEDIA_ROOT: /app/media
+      POLL_PARTNER_ORIGINS: ${OWCS_PARTNER_ORIGINS:-*}
       EXTERNAL_MATCH_API_BASE: ${EXTERNAL_MATCH_API_BASE:-http://matchweb-app:5000}
     volumes:
       - ${OWCS_MEDIA_DIR:-./data/media}:/app/media

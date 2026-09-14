@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import { interactionBase } from './interactionEndpoints.mjs';
 const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true });
 const defaultLink = markdown.renderer.rules.link_open || ((tokens, i, options, env, self) => self.renderToken(tokens, i, options));
 markdown.renderer.rules.link_open = (tokens, i, options, env, self) => {
@@ -11,7 +12,9 @@ markdown.renderer.rules.image = (tokens, i) => markdown.utils.escapeHtml(tokens[
 export const renderAssistantMarkdown = text => markdown.render(text || '');
 
 export async function streamAssistant({ text, history, page, signal, onEvent, fetcher = fetch }) {
-  const r = await fetcher('/assistant/v1/chat', {
+  const base = await interactionBase('assistant');
+  if (!base) throw new Error('当前页面未启用助手');
+  const r = await fetcher(`${base}/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit',
     body: JSON.stringify({ text, history, page }), signal,
   });

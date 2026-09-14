@@ -3,12 +3,14 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
-import { openDisplayPackage } from './lib/display-package.mjs';
+import { openDisplayPackage, replaceDisplayResources } from './lib/display-package.mjs';
 import { launchBrowser } from './lib/browser.mjs';
 
 const live = process.argv.includes('--api');
 const bundle = await openDisplayPackage(live ? 'dist-api' : 'dist');
 const config = live ? bundle.json('site-config.json') : null;
+// Isolate asset portability; interactive behavior has a separate HTTP suite.
+if (live) bundle.html = replaceDisplayResources(bundle.html, { 'site-config.json': { ...config, interactions: { voting: false, assistant: false } } });
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)));
 const cdnRequests = [];
 const cdn = createServer((req, res) => {

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
 import { launchBrowser } from './lib/browser.mjs';
+import { fulfillInteractionRead, isInteractionUrl } from './lib/interaction-read-fixtures.mjs';
 const base = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4175/partner/owcs/';
 const config = JSON.parse(await readFile('dist-api/site-config.json', 'utf8'));
 const get = async path => {
@@ -18,6 +19,7 @@ const hash = `#/visualize/team-detail?seasonId=${selected.seasonId}&teamId=${tea
 const browser = await launchBrowser();
 const context = await browser.newContext();
 const page = await context.newPage();
+await page.route('**/*', async route => { if (!await fulfillInteractionRead(route, config)) await route.fallback(); });
 const errors = [], forbidden = [], failures = [];
 let apiReads = 0, documents = 0;
 page.on('pageerror', error => errors.push(error.message));
@@ -25,7 +27,7 @@ page.on('request', request => {
   const url = new URL(request.url());
   if (url.href.startsWith(`${config.apiBaseUrl}/`)) apiReads++;
   if (request.resourceType() === 'document') documents++;
-  if (/\/poll-api\//.test(url.pathname) || (/\/(?:api|public-api)\//.test(url.pathname) && !url.href.startsWith(`${config.apiBaseUrl}/`))) forbidden.push(url.href);
+  if (!isInteractionUrl(url.href, config) && /\/(?:api|public-api|poll-api)\//.test(url.pathname) && !url.href.startsWith(`${config.apiBaseUrl}/`)) forbidden.push(url.href);
 });
 let injectingFailure = false;
 page.on('requestfailed', request => { if (!injectingFailure) failures.push(`${request.url()} ${request.failure()?.errorText}`); });

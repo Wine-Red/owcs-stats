@@ -119,7 +119,7 @@
 
 <script>
 import { computed, watch, onMounted, ref, onUnmounted, defineAsyncComponent } from 'vue';
-import { assistantEnabled } from '@/services/assistantContext';
+import { assistantEnabled, assistantManagementEnabled } from '@/services/assistantContext';
 import { useAssistantVisibility } from '@/services/assistantVisibility';
 import { useRoute } from 'vue-router';
 import apiService from '@/services/api';
@@ -213,7 +213,7 @@ export default {
           { to: '/data-manage/maps', label: '地图管理', icon: MapLocation }
         ]
       },
-      ...(assistantEnabled ? [{
+      ...(assistantManagementEnabled ? [{
         title: '助手管理',
         items: [{ to: '/data-manage/assistant', label: '赛事助手', icon: ChatDotRound }]
       }] : [])

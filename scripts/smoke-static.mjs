@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import process from 'node:process';
 import { chromium } from 'playwright-core';
 import path from 'node:path';
+import { fulfillInteractionRead } from './lib/interaction-read-fixtures.mjs';
 
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/';
 const screenshotDirectory = process.env.OWCS_STATIC_SCREENSHOT_DIR || '';
@@ -107,6 +108,7 @@ const pageErrors = [];
 
 // Fail closed: a static package must work with every external request blocked.
 await page.route('**/*', async route => {
+  if (live && await fulfillInteractionRead(route, siteConfig)) return;
   const url = new URL(route.request().url());
   if (live && (url.href.startsWith(`${siteConfig.apiBaseUrl}/`) || (url.origin === siteConfig.mediaOrigin && url.pathname.startsWith('/media/')))) return route.continue();
   if (/^https?:$/.test(url.protocol) && url.origin !== new URL(baseUrl).origin) {

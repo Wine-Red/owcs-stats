@@ -27,3 +27,9 @@ test('public voting routes validate origins, avoid shared caching and rate-limit
     assert.equal(r.status, i < 20 ? 200 : 429);
   }
 });
+
+test('open partner policy accepts web origins but still rejects opaque origins',async t=>{
+ const previous=process.env.POLL_PARTNER_ORIGINS;process.env.POLL_PARTNER_ORIGINS='*';
+ const app=express();app.use('/poll-api',createPollRouter({createVisitor:async()=> 'fixture-token'}));const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(async()=>{if(previous===undefined)delete process.env.POLL_PARTNER_ORIGINS;else process.env.POLL_PARTNER_ORIGINS=previous;await new Promise(r=>server.close(r));});const base=`http://127.0.0.1:${server.address().port}/poll-api/visitor`;
+ assert.equal((await fetch(base,{method:'POST',headers:{origin:'https://arbitrary.example'}})).status,200);assert.equal((await fetch(base,{method:'POST',headers:{origin:'null'}})).status,403);
+});

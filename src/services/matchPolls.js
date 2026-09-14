@@ -1,6 +1,7 @@
 /* global globalThis */
 import { computed, onMounted, onUnmounted, reactive, unref, watch } from 'vue';
-import { isDisplayPackage } from './packageMode.mjs';
+import { isSnapshotPackage, isApiPackage } from './packageMode.mjs';
+import { interactionBase } from './interactionEndpoints.mjs';
 
 const baseURL = import.meta.env.VITE_POLL_API_BASE_URL
   || (import.meta.env.MODE === 'static' ? 'https://stats.owmini.xyz/poll-api' : '/poll-api');
@@ -17,8 +18,14 @@ const request = async (path, body) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch(`${baseURL.replace(/\/$/, '')}${path}`, {
+    const base = isApiPackage ? await interactionBase('voting') : baseURL;
+    if (!base) {
+      if (body) throw new Error('当前页面未启用投票');
+      return { sources: {}, matches: {} };
+    }
+    const response = await fetch(`${base.replace(/\/$/, '')}${path}`, {
       method: body ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
+      credentials: 'omit',
       headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { 'X-Vote-Token': token } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {})
     });
@@ -44,7 +51,7 @@ const ensureVisitor = async () => {
 
 export const useMatchPolls = season => {
   // Static packages have no visitor identity, vote totals, polling or writes.
-  if (isDisplayPackage) return {
+  if (isSnapshotPackage) return {
     entry: computed(() => ({ sources: {}, matches: {}, error: '', loading: false })),
     refresh: async () => {},
     vote: async () => { throw new Error('静态展示版不支持投票'); }
@@ -83,6 +90,7 @@ export const useMatchPolls = season => {
   const onVisible = () => { if (document.visibilityState === 'visible') refresh(true); };
   watch(seasonId, () => refresh(), { immediate: true });
   onMounted(() => {
+    if (isApiPackage) return; // Partner pages read on navigation and after voting, without background polling.
     timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 60000);
     document.addEventListener('visibilitychange', onVisible);
   });

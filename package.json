@@ -23,6 +23,7 @@
     "verify:api-runtime": "node scripts/verify-api-runtime.mjs",
     "verify:partner-host": "node scripts/verify-partner-host.mjs",
     "verify:api-partner-host": "node scripts/verify-partner-host.mjs --api",
+    "verify:package-interactions": "node scripts/verify-package-interactions.mjs",
     "test:static-export": "node --test scripts/tests/*.test.mjs",
     "test:liquipedia-url": "node --test src/utils/liquipediaTournament.test.mjs",
     "test:match-schedule": "node --test src/utils/matchScheduleReconciliation.test.mjs",

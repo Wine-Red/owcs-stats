@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { assistantEnabled } from './assistantContext';
+import { interactionBase } from './interactionEndpoints.mjs';
 
 // Read the server's shared setting on navigation and when returning to a tab.
 // Keep a successful visible state while refreshing so navigation preserves chat.
@@ -13,7 +14,9 @@ export function useAssistantVisibility(getPageScope) {
     const controller = new AbortController(); current = controller;
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const response = await fetch('/assistant/v1/status', {
+      const base = await interactionBase('assistant');
+      if (!base) { if (current === controller) visible.value = false; return; }
+      const response = await fetch(`${base}/status`, {
         credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal,
       });
       const status = response.ok ? await response.json() : null;

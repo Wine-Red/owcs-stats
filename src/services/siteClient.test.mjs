@@ -58,3 +58,9 @@ test('HTML redirects and timeouts fail visibly; clearing prevents late reads poi
   client.clear(); assert.equal(await client.get('/seasons'), 'new'); finish(json('old')); await old;
   assert.equal(await client.get('/seasons'), 'new');
 });
+
+test('interactive package endpoints are validated and contain no credentials',()=>{
+ const c=validateSiteConfig({...config,interactions:{voting:true,assistant:true}});
+ assert.equal(c.pollApiBaseUrl,'https://stats.test/poll-api');assert.equal(c.assistantApiBaseUrl,'https://stats.test/assistant/v1');
+ for(const patch of [{interactions:{voting:'yes'}},{pollApiBaseUrl:'https://user:secret@stats.test/poll-api'},{assistantApiBaseUrl:'http://unsafe.test/assistant/v1'}]) assert.throws(()=>validateSiteConfig({...config,interactions:{voting:true,assistant:true},...patch}));
+});
