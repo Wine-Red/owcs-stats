@@ -21,7 +21,7 @@
           <p v-for="notice in message.notices" :key="notice" class="assistant-notice">{{ notice }}</p>
         </article>
       </div>
-      <form class="assistant-composer" @submit.prevent="send()"><label class="assistant-sr-only" for="assistant-input">输入问题</label><textarea id="assistant-input" ref="input" v-model="draft" rows="2" maxlength="6000" placeholder="问比赛、比较选手，或让我解释这张图…" @keydown.enter="onEnter"></textarea><div class="assistant-composer-bottom"><span>临时对话 · 刷新后清空</span><button v-if="busy" class="assistant-send stop" type="button" @click="stop">停止</button><button v-else class="assistant-send" type="submit" :disabled="!draft.trim()">发送 <span aria-hidden="true">↑</span></button></div></form>
+      <form class="assistant-composer" @submit.prevent="send()"><label class="assistant-sr-only" for="assistant-input">输入问题</label><textarea id="assistant-input" ref="input" v-model="draft" rows="2" maxlength="6000" placeholder="问比赛、比较选手，或让我解释这张图…" @keydown.enter="onEnter"></textarea><div class="assistant-composer-bottom"><span>对话将保存用于改进回答，请勿输入敏感信息</span><button v-if="busy" class="assistant-send stop" type="button" @click="stop">停止</button><button v-else class="assistant-send" type="submit" :disabled="!draft.trim()">发送 <span aria-hidden="true">↑</span></button></div></form>
       <div v-if="serviceUnavailable" class="assistant-service-note">助手暂时不可用，请稍后重试。<template v-if="assistantManagementEnabled">管理员可打开<router-link to="/data-manage/assistant" target="_blank" rel="noopener">模型设置</router-link>。</template></div>
     </section>
   </Teleport>

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { turnSchema } from './context.js';
 import { runChat, checkConnection } from './agent.js';
 
-export function createApp({ settings, client, wiki, runner = runChat, testConnection = checkConnection,
+export function createApp({ settings, conversations, client, wiki, runner = runChat, testConnection = checkConnection,
   production = false, publicOrigin = 'https://stats.owmini.xyz', partnerOrigins = [],
   allowedOrigins = production ? [publicOrigin] : ['http://127.0.0.1:8080', 'http://localhost:8080', 'http://127.0.0.1:4330', 'http://localhost:4330'] }) {
   const app = express();
@@ -66,6 +66,24 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
   app.get(`${base}/status`, (_req, res) => res.json({ configured: !!settings.get(), dataSource: client.baseUrl, ...settings.getDisplay() }));
   app.put(`${base}/settings/display`, rate, adminWrite, (req, res) => res.json(settings.saveDisplay(req.body)));
   app.get(`${base}/settings`, (_req, res) => res.json(settings.get() || {}));
+  app.get(`${base}/conversations`, (req, res) => {
+    if (!conversations) return res.status(503).json({ error: '对话记录未启用' });
+    const offset = Number(req.query.offset || 0);
+    if (!Number.isSafeInteger(offset) || offset < 0) return res.status(400).json({ error: '分页参数不正确' });
+    res.json(conversations.list(offset));
+  });
+  app.get(`${base}/conversations/:id`, (req, res) => {
+    if (!conversations) return res.status(503).json({ error: '对话记录未启用' });
+    if (!/^[0-9a-f-]{36}$/.test(req.params.id)) return res.status(400).json({ error: '记录编号不正确' });
+    const record = conversations.get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在或已过期' });
+    res.json(record);
+  });
+  app.delete(`${base}/conversations/:id`, rate, adminWrite, (req, res) => {
+    if (!conversations) return res.status(503).json({ error: '对话记录未启用' });
+    if (!/^[0-9a-f-]{36}$/.test(req.params.id)) return res.status(400).json({ error: '记录编号不正确' });
+    conversations.remove(req.params.id); res.json({ ok: true });
+  });
   app.put(`${base}/settings`, rate, adminWrite, (req, res) => res.json(settings.save(req.body)));
   app.post(`${base}/test`, rate, adminWrite, async (_req, res) => {
     const config = settings.get(true);
@@ -77,21 +95,36 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
     const input = turnSchema.parse(req.body), config = settings.get(true);
     if (!config) return res.status(409).json({ error: '助手尚未配置模型，请联系管理员' });
     if (active.size >= 3) return res.status(429).json({ error: '助手正在处理其他问题，请稍后再试' });
+    const startedAt = new Date().toISOString();
+    let answer = '', outcome = 'completed', metrics = {}, errorCode;
     const controller = new AbortController(); active.add(controller);
     const timer = setTimeout(() => controller.abort(new Error('本次查询超时')), 180000);
     res.set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'X-Accel-Buffering': 'no' });
     res.flushHeaders();
     res.on('close', () => { if (!res.writableEnded) controller.abort(new Error('客户端已断开')); });
-    const emit = event => { if (!res.destroyed) res.write(JSON.stringify(event) + '\n'); };
+    const emit = event => {
+      if (event.type === 'text') answer = (answer + event.text).slice(0, 100000);
+      if (!res.destroyed) res.write(JSON.stringify(event) + '\n');
+    };
     try {
       const result = await runner({ config, input, client, wiki, signal: controller.signal, emit });
+      metrics = result.metrics || {};
       // Timings only: no transcript, user IDs, model secrets or tool arguments.
       console.log(JSON.stringify({ event: 'assistant_completed', ...result.metrics }));
     } catch (e) {
+      outcome = controller.signal.aborted ? 'stopped' : 'failed';
+      errorCode = e.code || 'REQUEST_FAILED'; metrics = e.metrics || {};
       console.warn(JSON.stringify({ event: 'assistant_failed', code: e.code || 'REQUEST_FAILED',
         aborted: controller.signal.aborted, ...(e.metrics || {}) }));
       emit({ type: 'error', text: controller.signal.aborted ? '回答已停止或查询超时，可以重试。' : publicError(e) });
-    } finally { clearTimeout(timer); active.delete(controller); res.end(); }
+    } finally {
+      clearTimeout(timer); active.delete(controller);
+      if (controller.signal.aborted) outcome = 'stopped';
+      try { conversations?.save({ ...input, answer, status: outcome, errorCode, metrics,
+        startedAt, model: config.model, origin: req.get('origin') || null }); }
+      catch { console.warn(JSON.stringify({ event: 'assistant_record_failed' })); }
+      res.end();
+    }
   });
   const directory = fileURLToPath(new URL('../public/', import.meta.url));
   app.get(`${base}/admin`, (_req, res) => res.sendFile(path.join(directory, 'admin.html')));

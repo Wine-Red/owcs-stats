@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it';
 import { interactionBase } from './interactionEndpoints.mjs';
 const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true });
+let conversationId;
 const defaultLink = markdown.renderer.rules.link_open || ((tokens, i, options, env, self) => self.renderToken(tokens, i, options));
 markdown.renderer.rules.link_open = (tokens, i, options, env, self) => {
   tokens[i].attrSet('target', '_blank'); tokens[i].attrSet('rel', 'noopener noreferrer');
@@ -12,11 +13,12 @@ markdown.renderer.rules.image = (tokens, i) => markdown.utils.escapeHtml(tokens[
 export const renderAssistantMarkdown = text => markdown.render(text || '');
 
 export async function streamAssistant({ text, history, page, signal, onEvent, fetcher = fetch }) {
+  if (!history?.length || !conversationId) conversationId = globalThis.crypto?.randomUUID?.();
   const base = await interactionBase('assistant');
   if (!base) throw new Error('当前页面未启用助手');
   const r = await fetcher(`${base}/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit',
-    body: JSON.stringify({ text, history, page }), signal,
+    body: JSON.stringify({ text, history, page, conversationId }), signal,
   });
   if (!r.ok) {
     let detail; try { detail = await r.json(); } catch { /* gateway error */ }

@@ -26,6 +26,7 @@ try {
     const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
     if (offline) return route.fulfill({ status: 502, contentType: 'text/html', body: 'Bad gateway' });
     if (path === 'status') return reply({ configured: !!stored.model, showInVisualize });
+    if (path === 'conversations') return reply({ items: [], total: 0, offset: 0, limit: 25, retentionDays: 90, maxRecords: 2000 });
     assert.equal(request.headers().authorization, undefined, 'no assistant-specific credential');
     assert.match(request.headers().cookie || '', /test-admin-session=signed-in/, 'reuse the existing same-origin session');
     if (expiredStatus === 307) return route.fulfill({ status: 307, headers: { location: `${base}/test-admin-login` } });
@@ -172,7 +173,7 @@ try {
 
   offline = true;
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('alert').filter({ hasText: '无法连接本机助手' }).waitFor();
+  await page.locator('.feedback[role="alert"]').filter({ hasText: '无法连接助手服务' }).waitFor();
   assert.equal(await page.locator('#assistant-model').isDisabled(), true);
   offline = false;
   await page.getByRole('button', { name: '重新读取配置', exact: true }).click(); await ready();

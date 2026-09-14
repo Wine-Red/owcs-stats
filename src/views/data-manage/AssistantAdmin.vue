@@ -92,15 +92,17 @@
           </div>
         </section>
 
-        <p class="privacy-note">对话仅临时保留，刷新后清空。模型配置加密保存在服务端，对话与查询资料会发送给所配置的模型服务。</p>
+        <p class="privacy-note">对话记录加密保存在服务端，用于检查回答与改进助手，仅管理员可查看。对话与查询资料会发送给所配置的模型服务。</p>
       </aside>
     </div>
+    <ConversationRecords :request="request" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { ArrowRight } from '@element-plus/icons-vue';
+import ConversationRecords from '@/components/assistant/ConversationRecords.vue';
 
 const defaults = () => ({ protocol: 'openai', baseUrl: '', model: '', apiKey: '', maxTokens: 2048, dotsThinking: 'default' });
 const form = reactive(defaults());

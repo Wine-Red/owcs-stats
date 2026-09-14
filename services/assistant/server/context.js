@@ -13,6 +13,7 @@ export const pageSchema = z.object({
   loading: z.boolean().default(false),
 });
 export const turnSchema = z.object({
+  conversationId: z.string().uuid().optional(),
   text: z.string().trim().min(1).max(6000),
   page: pageSchema.default({}),
   history: z.array(z.object({
