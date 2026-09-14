@@ -16,10 +16,11 @@ export async function streamAssistant({ text, history, page, signal, onEvent, fe
   if (!history?.length || !conversationId) conversationId = globalThis.crypto?.randomUUID?.();
   const base = await interactionBase('assistant');
   if (!base) throw new Error('当前页面未启用助手');
+  const networkError = error => error.name === 'TypeError' ? new Error('连接中断，回答可能不完整，请稍后重试。') : error;
   const r = await fetcher(`${base}/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit',
     body: JSON.stringify({ text, history, page, conversationId }), signal,
-  });
+  }).catch(error => { throw networkError(error); });
   if (!r.ok) {
     let detail; try { detail = await r.json(); } catch { /* gateway error */ }
     throw new Error(detail?.error || '助手暂时无法连接，请稍后重试。');
@@ -40,5 +41,6 @@ export async function streamAssistant({ text, history, page, signal, onEvent, fe
       if (done) { consume(buffer); break; }
     }
     if (!terminal) throw new Error('连接中断，回答可能不完整，请重试。');
-  } finally { reader.releaseLock(); }
+  } catch (error) { throw networkError(error); }
+  finally { reader.releaseLock(); }
 }

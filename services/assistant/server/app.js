@@ -6,7 +6,7 @@ import { turnSchema } from './context.js';
 import { runChat, checkConnection } from './agent.js';
 
 export function createApp({ settings, conversations, client, wiki, runner = runChat, testConnection = checkConnection,
-  production = false, publicOrigin = 'https://stats.owmini.xyz', partnerOrigins = [],
+  production = false, publicOrigin = 'https://stats.owmini.xyz', partnerOrigins = [], heartbeatMs = 10000, requestTimeoutMs = 180000,
   allowedOrigins = production ? [publicOrigin] : ['http://127.0.0.1:8080', 'http://localhost:8080', 'http://127.0.0.1:4330', 'http://localhost:4330'] }) {
   const app = express();
   if (production) app.set('trust proxy', 'loopback');
@@ -98,7 +98,7 @@ export function createApp({ settings, conversations, client, wiki, runner = runC
     const startedAt = new Date().toISOString();
     let answer = '', outcome = 'completed', metrics = {}, errorCode;
     const controller = new AbortController(); active.add(controller);
-    const timer = setTimeout(() => controller.abort(new Error('本次查询超时')), 180000);
+    const timer = setTimeout(() => controller.abort(new Error('本次查询超时')), requestTimeoutMs);
     res.set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'X-Accel-Buffering': 'no' });
     res.flushHeaders();
     res.on('close', () => { if (!res.writableEnded) controller.abort(new Error('客户端已断开')); });
@@ -106,8 +106,19 @@ export function createApp({ settings, conversations, client, wiki, runner = runC
       if (event.type === 'text') answer = (answer + event.text).slice(0, 100000);
       if (!res.destroyed) res.write(JSON.stringify(event) + '\n');
     };
+    // Send actual bytes immediately and while the model is silent. Headers alone
+    // do not keep intermediary streaming connections alive.
+    emit({ type: 'heartbeat' });
+    const heartbeat = setInterval(() => emit({ type: 'heartbeat' }), heartbeatMs);
+    let onAbort;
+    const aborted = new Promise((_, reject) => {
+      onAbort = () => reject(controller.signal.reason);
+      controller.signal.addEventListener('abort', onAbort, { once: true });
+    });
     try {
-      const result = await runner({ config, input, client, wiki, signal: controller.signal, emit });
+      // Some upstream SDK waits may not settle promptly after abort. Always
+      // terminate the HTTP stream with a structured error at our own deadline.
+      const result = await Promise.race([runner({ config, input, client, wiki, signal: controller.signal, emit }), aborted]);
       metrics = result.metrics || {};
       // Timings only: no transcript, user IDs, model secrets or tool arguments.
       console.log(JSON.stringify({ event: 'assistant_completed', ...result.metrics }));
@@ -118,7 +129,8 @@ export function createApp({ settings, conversations, client, wiki, runner = runC
         aborted: controller.signal.aborted, ...(e.metrics || {}) }));
       emit({ type: 'error', text: controller.signal.aborted ? '回答已停止或查询超时，可以重试。' : publicError(e) });
     } finally {
-      clearTimeout(timer); active.delete(controller);
+      clearTimeout(timer); clearInterval(heartbeat); controller.signal.removeEventListener('abort', onAbort); active.delete(controller);
+      metrics.total_ms ??= Date.now() - Date.parse(startedAt);
       if (controller.signal.aborted) outcome = 'stopped';
       try { conversations?.save({ ...input, answer, status: outcome, errorCode, metrics,
         startedAt, model: config.model, origin: req.get('origin') || null }); }
@@ -139,6 +151,7 @@ export function createApp({ settings, conversations, client, wiki, runner = runC
 
 export function publicError(error) {
   if (['EMPTY_MODEL_RESPONSE', 'EVIDENCE_REQUIRED', 'INCOMPLETE_ANSWER'].includes(error.code)) return error.message;
+  if (error.statusCode === 429 || error.statusCode >= 500) return '模型服务当前繁忙或暂时不可用，请稍后重试。';
   if (error.statusCode) return `模型服务返回 ${error.statusCode}，请检查服务地址、协议和模型权限。`;
   if (/API|fetch|connect|timeout|abort/i.test(error.name || '')) return '模型服务连接失败或超时，请重试；可在管理页测试连接。';
   if (/本次未生成/.test(error.message || '')) return error.message;
