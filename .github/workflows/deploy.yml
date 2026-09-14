@@ -54,6 +54,11 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Test Assistant
+        run: |
+          npm ci --prefix services/assistant
+          npm run test:assistant
+
       - name: Test Backend Units
         working-directory: backend
         run: node --test tests/*.test.js
@@ -159,7 +164,7 @@ jobs:
         run: |
           release_dir="$RUNNER_TEMP/owcs-stats-release"
           install -d "$release_dir"
-          cp -a backend deploy dist .dockerignore "$release_dir/"
+          cp -a backend deploy dist services docs .dockerignore "$release_dir/"
           printf '%s\n' "$GITHUB_SHA" > "$release_dir/.release-sha"
 
           ssh -i ~/.ssh/owcs_stats_deploy \

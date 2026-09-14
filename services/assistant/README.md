@@ -1,6 +1,6 @@
-# OWCS Stats 本地赛事助手
+# OWCS Stats 赛事助手
 
-项目内的独立 Node 服务，通过公开赛事 API 取数，嵌入可视化页面进行临时问答。当前仅用于本机测试，普通生产构建不显示助手入口。
+项目内的独立 Node 服务，通过公开赛事 API 取数，嵌入可视化页面进行临时问答。支持本地测试和生产模式；普通 production 构建启用助手入口，static/api-static 交付包不启用。服务状态不可达时隐藏入口。
 
 ## 本地启动
 
@@ -23,19 +23,19 @@ npm run assistant:start
 npm run dev:assistant
 ```
 
-访问 <http://127.0.0.1:8080/visualize>，点击右下角“问问比赛”。测试模式的页面读取现有线上展示数据，助手通过服务器读取公开的 `/data/v1`，时间线通过同源的 `/public-api/map-games/{id}` 读取；不需要数据库账号。关闭对应终端即可停止进程。
+访问 <http://127.0.0.1:8080/visualize>，点击右下角小星标。测试模式的页面读取现有线上展示数据，助手通过服务器读取公开的 `/data/v1`，时间线通过同源的 `/public-api/map-games/{id}` 读取；不需要数据库账号。关闭对应终端即可停止进程。
 
 ## 模型配置
 
-管理页顶部的「在可视化页面显示助手」开关控制所有可视化页面的助手入口，默认显示，点击后立即保存。该设置单独写入 `.local/assistant/display.json`，不修改模型或密钥，未配置模型时也能调整。浏览器在进入可视化页面、切换页面或重新聚焦标签页时通过 `/assistant/v1/status` 读取；没有定时轮询。关闭时隐藏入口及已展开的面板。它是显示开关，不是停止独立服务或禁用聊天 API 的开关；普通生产构建仍不启用助手。
+管理页顶部的「在可视化页面显示助手」开关控制所有可视化页面的助手入口，默认显示，点击后立即保存。该设置单独写入 `.local/assistant/display.json`，不修改模型或密钥，未配置模型时也能调整。浏览器在进入可视化页面、切换页面或重新聚焦标签页时通过 `/assistant/v1/status` 读取；没有定时轮询。关闭时隐藏入口及已展开的面板。它是显示开关，不是停止独立服务或禁用聊天 API 的开关。
 
 显示开关通过 `PUT /assistant/v1/settings/display` 保存，只接受 `{ "showInVisualize": true/false }`，沿用后台统一登录保护，不能作为公开接口放行。
 
 打开管理后台的「助手管理 → 赛事助手」：<http://127.0.0.1:8080/data-manage/assistant>。页面自动读取配置，直接填写模型协议、地址、模型名称和 API Key，不再需要独立的管理验证令牌。支持 OpenAI Chat Completions 兼容协议及 Anthropic Messages 协议，需要模型支持流式输出和工具调用。
 
-管理请求通过同源 Cookie 沿用站点的后台登录。登录失效时提示刷新登录，不自动把配置请求重定向到登录地址。新配置用于下一次提问，不需要重启服务。有未保存修改时，先保存再测试连接，避免测试旧模型。页面显示本机服务状态，并提供「去页面试聊」入口；这里管理模型设置，不收集或保存访客会话。该入口只在 assistant 模式显示，不加载业务数据管理接口；原 `/assistant/v1/admin` 保留为独立服务的简易配置页，也不要求单独令牌。
+管理请求通过同源 Cookie 沿用站点的后台登录。登录失效时提示刷新登录，不自动把配置请求重定向到登录地址。新配置用于下一次提问，不需要重启服务。有未保存修改时，先保存再测试连接，避免测试旧模型。页面显示助手服务状态，并提供「去页面试聊」入口；这里管理模型设置，不收集或保存访客会话。该入口在 assistant 和 production 模式显示，不加载业务数据管理接口；原 `/assistant/v1/admin` 保留为独立服务的简易配置页，也不要求单独令牌。
 
-本机测试仍只监听 `127.0.0.1`，校验 Host 和请求来源，管理写入必须使用 JSON。线上登录由现有 Tinyauth/OpenResty 网关负责；仓库 `deploy/server/stats-openresty-root.conf` 的受保护根路径涵盖 `/data-manage/assistant`、`/assistant/v1/settings`、`/assistant/v1/test`、`/assistant/v1/admin` 和 `/assistant/v1/admin.js`。部署助手时须保留这些路径的登录保护及服务内网边界，不能把整个 `/assistant/v1/` 加入公开白名单。本次只完成本地集成，没有部署助手或更改线上认证。
+本机测试仍只监听 `127.0.0.1`，校验 Host 和请求来源，管理写入必须使用 JSON。线上登录由现有 Tinyauth/OpenResty 网关负责；仓库 `deploy/server/stats-openresty-root.conf` 的受保护根路径涵盖 `/data-manage/assistant`、`/assistant/v1/settings`、`/assistant/v1/test`、`/assistant/v1/admin` 和 `/assistant/v1/admin.js`。部署助手时须保留这些路径的登录保护及服务内网边界，不能把整个 `/assistant/v1/` 加入公开白名单。生产部署方式见下方 Docker 部署说明。
 
 可以填写 `/v1` 等基础地址，也可以粘贴完整 `/chat/completions` 或 `/messages` 地址，保存时自动规范化。修改其他配置时 API Key 留空表示保留原值。“测试连接”只验证简单文本调用，不证明工具调用、统计正确性或响应速度达标。
 
@@ -139,3 +139,15 @@ Remove-Item Env:ASSISTANT_TEST_CASE
 后续空回答排查：比较 leave 与 Proper 时，旧逻辑错误地扫描全站比赛并触发 300 场限制；即使后面取得数据，第 7 步仍可停在工具调用，导致没有正文。已改为选手/队伍比赛列表并集、最后一步保留回答，以及空正文结束原因诊断；服务回归增加到 17 项且全部通过。同题真实复测读取 66 场相关比赛，约 54 秒首字、62 秒完成。此样本证明空回答路径改善，但回答仍有将统计差异解释为整体实力、将助攻解释为团队协作等过度推断，不能据此称为语义验收通过。
 
 进一步复测“你觉得proper和leave谁更厉害”：已确认供应商可返回 HTTP 200、仅 reasoning_content 而无正文，并以 length 结束，4096 输出额度均被消耗；此前服务也记录过 stop 结束但无正文。新增 list_matches 扁平筛选参数的形式修复，以及最多一次携带完整工具结果的无工具回答恢复。真实模型恢复仍曾达到总超时，因此加上恢复独立 20 秒期限；该供应商配置的可靠性仍未验收通过。当前 20 项服务测试通过，包括空 stop、仅推理 length、证据保留和恢复超时；这些协议回归不代表真实模型已恢复稳定。
+
+## 生产模式与 Docker 部署
+
+主站 `npm run build` 启用助手和管理页；本地仍使用 `npm run dev:assistant`。快照包和 API 静态包均不包含助手。入口仍受服务端显示开关控制，状态读取失败时隐藏。
+
+独立服务设置 `ASSISTANT_MODE=production`，默认公开源为 `https://stats.owmini.xyz`，可通过 `ASSISTANT_PUBLIC_ORIGIN` 指定 HTTPS 源。服务始终监听 `127.0.0.1:4330`，禁止向公网直接暴露。`ASSISTANT_STATE_DIR` 指向持久化目录（配置、加密密钥、显示设置需一起备份）；未设置时继续使用仓库 `.local/assistant`。生产默认只接受公开源；不要设置本地开发来源列表覆盖生产默认值。
+
+助手通过 `deploy/docker/Dockerfile.assistant` 构建，在现有 Compose 中作为 `assistant` 服务运行，和网站/API 使用同一提交标签，参与 CI 测试、健康检查与回滚。容器采用 host 网络以保留本机代理信任边界，但 Node 仅监听 `127.0.0.1:4330`，不监听公网地址。以非 root 用户运行、只读文件系统、禁用额外 capabilities，限额 512 MiB 内存和 1 CPU。持久化目录为 `/opt/compose/owcs-stats/data/assistant`，权限 0700、UID/GID 1000，挂载到 `/app/state`；配置与加密密钥一起备份。不要将开发机 `.local`、聊天诊断文件或密钥打进镜像。
+
+`deploy/server/stats-openresty-root.conf` 已准备同源路由：仅精确 `/assistant/v1/status` 和 `/assistant/v1/chat` 匿名访问，其余助手路径执行 Tinyauth 认证。管理请求未登录返回 401/403，不重定向 POST/PUT。网关覆盖 Host、X-Forwarded-Host、X-Forwarded-For 和 Remote-User，公共路由清空 Remote-User；服务只信任本机代理，管理操作还要求网关提供登录用户。限流按代理转交的真实访客 IP 计算，每 IP 每分钟 40 次，全服务最多 3 个并发回答；聊天关闭代理缓冲，代理超时 190 秒。
+
+以后实际发布时，应先启动独立服务并确认健康，再验证并应用 OpenResty include，最后发布主站前端。通过现有登录进入 `/data-manage/assistant` 配置模型。需实际验收未登录无法读写管理设置、公开聊天流式返回、客户端断开取消，以及页面显示开关。首次接入需先备份并应用网关配置；后续常规发布由现有 GitHub Actions 自动更新三个容器。

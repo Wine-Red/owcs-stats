@@ -17,9 +17,9 @@ export async function streamAssistant({ text, history, page, signal, onEvent, fe
   });
   if (!r.ok) {
     let detail; try { detail = await r.json(); } catch { /* gateway error */ }
-    throw new Error(detail?.error || '助手暂时无法连接，请确认本机服务已启动。');
+    throw new Error(detail?.error || '助手暂时无法连接，请稍后重试。');
   }
-  if (!r.headers.get('content-type')?.includes('application/x-ndjson')) throw new Error('助手返回了异常响应，请检查本机服务。');
+  if (!r.headers.get('content-type')?.includes('application/x-ndjson')) throw new Error('助手返回了异常响应，请稍后重试。');
   const reader = r.body.getReader(), decoder = new TextDecoder();
   let buffer = '', terminal = false;
   const consume = line => {

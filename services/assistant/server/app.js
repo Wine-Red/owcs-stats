@@ -5,14 +5,20 @@ import { fileURLToPath } from 'node:url';
 import { turnSchema } from './context.js';
 import { runChat, checkConnection } from './agent.js';
 
-export function createApp({ settings, client, wiki, runner = runChat, testConnection = checkConnection, allowedOrigins = ['http://127.0.0.1:8080', 'http://localhost:8080', 'http://127.0.0.1:4330', 'http://localhost:4330'] }) {
+export function createApp({ settings, client, wiki, runner = runChat, testConnection = checkConnection,
+  production = false, publicOrigin = 'https://stats.owmini.xyz',
+  allowedOrigins = production ? [publicOrigin] : ['http://127.0.0.1:8080', 'http://localhost:8080', 'http://127.0.0.1:4330', 'http://localhost:4330'] }) {
   const app = express();
+  if (production) app.set('trust proxy', 'loopback');
   const active = new Set(), rates = new Map();
   app.use(helmet());
   app.use((req, res, next) => {
-    // This local-only service has no public deployment/auth configuration yet.
-    const host = req.headers.host?.split(':')[0];
-    if (!['localhost', '127.0.0.1'].includes(host)) return res.status(403).json({ error: '仅支持本机访问' });
+    // Production stays loopback-only, behind the site's authenticated gateway.
+    if (production && !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress))
+      return res.status(403).json({ error: '请通过站点网关访问' });
+    const host = req.hostname;
+    const hosts = production ? [new URL(publicOrigin).hostname, 'localhost', '127.0.0.1'] : ['localhost', '127.0.0.1'];
+    if (!hosts.includes(host)) return res.status(403).json({ error: '请求域名不允许' });
     const origin = req.get('origin');
     if ((origin && !allowedOrigins.includes(origin)) || req.get('sec-fetch-site') === 'cross-site')
       return res.status(403).json({ error: '请求来源不允许' });
@@ -21,6 +27,12 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
   });
   app.use(express.json({ limit: '128kb' }));
   const base = '/assistant/v1';
+  if (production) app.use(base, (req, res, next) => {
+    const publicRequest = (req.path === '/status' && ['GET', 'HEAD'].includes(req.method))
+      || (req.path === '/chat' && req.method === 'POST');
+    if (!publicRequest && !req.get('Remote-User')?.trim()) return res.status(401).json({ error: '请先登录管理后台' });
+    next();
+  });
   // Management uses the site's login gateway, not a second browser credential.
   // Keep this service loopback-only and these routes behind the protected gateway.
   function adminWrite(req, res, next) {
@@ -28,7 +40,7 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
     next();
   }
   function rate(req, res, next) {
-    const now = Date.now(), key = req.socket.remoteAddress;
+    const now = Date.now(), key = production ? req.ip : req.socket.remoteAddress;
     for (const [k, r] of rates) if (r.until < now) rates.delete(k);
     const r = rates.get(key) || { count: 0, until: now + 60000 }; rates.set(key, r);
     if (++r.count > 40) return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
@@ -47,7 +59,7 @@ export function createApp({ settings, client, wiki, runner = runChat, testConnec
   });
   app.post(`${base}/chat`, rate, async (req, res) => {
     const input = turnSchema.parse(req.body), config = settings.get(true);
-    if (!config) return res.status(409).json({ error: '助手尚未配置模型，请在本机管理页设置' });
+    if (!config) return res.status(409).json({ error: '助手尚未配置模型，请联系管理员' });
     if (active.size >= 3) return res.status(429).json({ error: '助手正在处理其他问题，请稍后再试' });
     const controller = new AbortController(); active.add(controller);
     const timer = setTimeout(() => controller.abort(new Error('本次查询超时')), 180000);

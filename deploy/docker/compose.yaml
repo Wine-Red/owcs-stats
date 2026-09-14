@@ -1,6 +1,35 @@
 name: owcs-stats
 
 services:
+  assistant:
+    image: ${OWCS_ASSISTANT_IMAGE:?OWCS_ASSISTANT_IMAGE must reference an immutable image}
+    container_name: owcs-stats-assistant
+    restart: unless-stopped
+    init: true
+    # Preserve the loopback-only trust boundary used by host OpenResty.
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      ASSISTANT_MODE: production
+      ASSISTANT_PUBLIC_ORIGIN: https://stats.owmini.xyz
+      ASSISTANT_STATE_DIR: /app/state
+    volumes:
+      - ${OWCS_ASSISTANT_STATE_DIR:-./data/assistant}:/app/state
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   api:
     image: ${OWCS_API_IMAGE:?OWCS_API_IMAGE must reference an immutable image}
     container_name: owcs-stats-backend

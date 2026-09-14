@@ -91,7 +91,10 @@
               >
                 <div class="player-id">
                   <span class="rank-no" :class="{ 'rank-top': idx < 3 }">{{ idx + 1 }}</span>
-                  <span class="player-name">{{ player.playerName }}</span>
+                  <span class="player-name-with-time">
+                    <span class="player-name" :title="player.playerName">{{ player.playerName }}</span>
+                    <sub class="player-hero-time" :title="`本赛季使用${row.heroName}：${heroUsageText(player.usageSeconds)}`">{{ heroUsageText(player.usageSeconds) }}</sub>
+                  </span>
                   <span v-if="player.teamName" class="player-team">{{ player.teamName }}</span>
                 </div>
                 <span
@@ -144,7 +147,7 @@ export default {
     const router = useRouter();
     const rows = ref([]);
     const loading = ref(false);
-    const sortBy = ref('winRate');
+    const sortBy = ref('pick');
     const roleFilter = ref('all');
     const expanded = ref(false);
     const expandedHeroIds = ref(new Set());
@@ -159,13 +162,13 @@ export default {
     // 本赛季是否有任何选用数据（选用/胜率排序 tab 与卡片进度条的门控；没有时只按禁用排）
     const hasPickData = computed(() => rows.value.some(r => (Number(r.mapsAppeared) || 0) > 0));
 
-    // 排序 tab：按胜率第一、按禁用最后；没有选用数据时只保留按禁用
+    // 排序 tab：按选用、按禁用、按胜率；没有选用数据时只保留按禁用
     const sortOptions = computed(() => {
       if (!hasPickData.value) return [{ value: 'ban', label: '按禁用' }];
       return [
-        { value: 'winRate', label: '按胜率' },
         { value: 'pick', label: '按选用' },
-        { value: 'ban', label: '按禁用' }
+        { value: 'ban', label: '按禁用' },
+        { value: 'winRate', label: '按胜率' }
       ];
     });
 
@@ -192,8 +195,8 @@ export default {
           playerSortBy: 'fb'
         }));
         expandedHeroIds.value = new Set();
-        // 默认按胜率排；本赛季没有选用数据时回落到按禁用
-        sortBy.value = hasPickData.value ? 'winRate' : 'ban';
+        // 默认按选用排；本赛季没有选用数据时回落到按禁用
+        sortBy.value = hasPickData.value ? 'pick' : 'ban';
       } catch (error) {
         console.error('获取英雄总览数据失败:', error);
         rows.value = [];
@@ -278,23 +281,24 @@ export default {
 
     // 选手在某维度上的可排序值；无数据返回 null（排序时沉底）
     const playerMetricValue = (player, key) => {
-      if (key === 'fb') {
-        return (Number(player.finalBlows) || 0) > 0 ? Number(player.finalBlowsPer10) || 0 : null;
-      }
-      if (key === 'ult') {
-        return player.avgUltChargeSeconds !== null && player.avgUltChargeSeconds !== undefined
-          ? Number(player.avgUltChargeSeconds)
-          : null;
-      }
-      return player.fbPerDeath !== null && player.fbPerDeath !== undefined
-        ? Number(player.fbPerDeath)
-        : null;
+      const raw = player[{ fb: 'finalBlowsPer10', ult: 'avgUltChargeSeconds', ratio: 'fbPerDeath' }[key]];
+      if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : null;
     };
 
-    // 单元格展示值；无数据留空
+    const heroUsageText = (raw) => {
+      if (raw === null || raw === undefined || String(raw).trim() === '') return '-';
+      const seconds = Number(raw);
+      if (!Number.isFinite(seconds) || seconds < 0) return '-';
+      const total = Math.round(seconds);
+      return total < 60 ? `${total}秒` : `${Math.floor(total / 60)}分${String(total % 60).padStart(2, '0')}秒`;
+    };
+
+    // 缺失值使用占位符，有效的零值正常展示。
     const playerCellText = (player, key) => {
       const v = playerMetricValue(player, key);
-      if (v === null) return '';
+      if (v === null) return '-';
       if (key === 'fb') return v.toFixed(1);
       if (key === 'ult') return `${Math.round(v)} 秒`;
       return v.toFixed(2);
@@ -333,9 +337,9 @@ export default {
         }));
         // 指标级门控：该英雄所有选手都没有的维度不生成对应列
         const available = [];
-        if (players.some(p => (Number(p.finalBlows) || 0) > 0)) available.push('fb');
-        if (players.some(p => p.avgUltChargeSeconds !== null && p.avgUltChargeSeconds !== undefined)) available.push('ult');
-        if (players.some(p => p.fbPerDeath !== null && p.fbPerDeath !== undefined)) available.push('ratio');
+        for (const { value } of PLAYER_METRIC_DEFS) {
+          if (players.some(p => playerMetricValue(p, value) !== null)) available.push(value);
+        }
         row.playerMetricOptions = PLAYER_METRIC_DEFS.filter(d => available.includes(d.value));
         row.playerSortBy = available[0] || 'fb';
         row.players = players;
@@ -384,6 +388,7 @@ export default {
       toggleExpand,
       sortedPlayers,
       playerCellText,
+      heroUsageText,
       goToPlayerDetail
     };
   }
@@ -670,9 +675,28 @@ export default {
   color: #ff6a00;
 }
 
-.player-name {
+.player-name-with-time {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.player-hero-time {
+  flex: 0 0 auto;
+  position: relative;
+  top: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: #687488;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.player-name {
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   font-weight: 700;
   color: #1a1a1a;

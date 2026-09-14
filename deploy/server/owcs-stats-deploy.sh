@@ -6,6 +6,7 @@ mode="${1:-}"
 deploy_sha="${2:-}"
 api_image="owcs-local/owcs-stats-backend:${deploy_sha}"
 web_image="owcs-local/owcs-stats-web:${deploy_sha}"
+assistant_image="owcs-local/owcs-stats-assistant:${deploy_sha}"
 
 if [[ "$mode" != "prepare" && "$mode" != "activate" ]]; then
     echo "Invalid deployment mode." >&2
@@ -54,6 +55,7 @@ test -s "$deploy_root/.env" || {
 }
 
 install -d -m 0750 "$releases_root" "$state_root" "$build_cache_root"
+install -d -m 0700 -o 1000 -g 1000 "$deploy_root/data/assistant"
 install -d -m 0755 -o 1000 -g 1000 "$media_root"
 install -d -m 0755 -o 1000 -g 1000 "$media_root/seasons" "$media_root/teams" "$media_root/heroes" "$media_root/maps"
 install -d -m 0750 -o 1000 -g 1000 "$media_root/.migration-reports"
@@ -118,6 +120,10 @@ for required_file in \
     deploy/docker/compose.yaml \
     deploy/docker/Dockerfile.backend \
     deploy/docker/Dockerfile.web \
+    deploy/docker/Dockerfile.assistant \
+    services/assistant/package-lock.json \
+    services/assistant/server/index.js \
+    docs/public-data-api/openapi.yaml \
     deploy/docker/web.nginx.conf \
     deploy/server/owcs-stats-deploy.sh \
     deploy/server/owcs-stats-ci-entrypoint.sh \
@@ -198,9 +204,10 @@ build_one_image() {
 
 build_one_image backend deploy/docker/Dockerfile.backend "$api_image"
 build_one_image web deploy/docker/Dockerfile.web "$web_image"
+build_one_image assistant deploy/docker/Dockerfile.assistant "$assistant_image"
 flock -u 8
 
-for image_ref in "$api_image" "$web_image"; do
+for image_ref in "$api_image" "$web_image" "$assistant_image"; do
     image_revision=$(docker image inspect \
         --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
         "$image_ref")
@@ -211,6 +218,7 @@ for image_ref in "$api_image" "$web_image"; do
 done
 
 docker run --rm --network none "$api_image" node --check app.js
+docker run --rm --network none "$assistant_image" node --input-type=module -e "await import('./server/app.js'); await import('./server/data.js');"
 docker run --rm --network none --add-host api:127.0.0.1 "$web_image" nginx -t
 
 incoming_dir=$(mktemp -d "$state_root/activate.${deploy_sha}.XXXXXX")
@@ -248,6 +256,7 @@ cp "$release_dir/deploy/docker/compose.yaml" "$candidate_compose"
 cp "$deploy_root/.env" "$candidate_env"
 upsert_env OWCS_API_IMAGE "$api_image" "$candidate_env"
 upsert_env OWCS_WEB_IMAGE "$web_image" "$candidate_env"
+upsert_env OWCS_ASSISTANT_IMAGE "$assistant_image" "$candidate_env"
 upsert_env OWCS_IMAGE_TAG "$deploy_sha" "$candidate_env"
 upsert_env OWCS_BACKEND_ENV_FILE './secrets/backend.env' "$candidate_env"
 
@@ -303,7 +312,8 @@ healthy=false
 for _ in $(seq 1 60); do
     api_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' owcs-stats-backend 2>/dev/null || true)
     web_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' owcs-stats-web 2>/dev/null || true)
-    if [[ "$api_health" == "healthy" && "$web_health" == "healthy" ]]; then
+    assistant_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' owcs-stats-assistant 2>/dev/null || true)
+    if [[ "$api_health" == "healthy" && "$web_health" == "healthy" && "$assistant_health" == "healthy" ]]; then
         healthy=true
         break
     fi
@@ -311,6 +321,7 @@ for _ in $(seq 1 60); do
 done
 
 if [[ "$healthy" != true ]] \
+    || ! curl --fail --silent --show-error --max-time 10 http://127.0.0.1:4330/health >/dev/null \
     || ! curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8081/health >/dev/null \
     || ! curl --fail --silent --show-error --max-time 30 'http://127.0.0.1:8081/api/matches?page=1&pageSize=1' >/dev/null \
     || ! curl --fail --silent --show-error --max-time 30 'https://stats.owmini.xyz/api/matches?page=1&pageSize=1' >/dev/null; then
@@ -329,19 +340,23 @@ activation_started=false
 
 previous_api_image=""
 previous_web_image=""
+previous_assistant_image=""
 if [[ -n "$previous_sha" ]]; then
     previous_api_image="owcs-local/owcs-stats-backend:$previous_sha"
     previous_web_image="owcs-local/owcs-stats-web:$previous_sha"
+    previous_assistant_image="owcs-local/owcs-stats-assistant:$previous_sha"
 fi
 while IFS= read -r managed_image; do
     case "$managed_image" in
-        owcs-local/owcs-stats-backend:*|owcs-local/owcs-stats-web:*|\
+        owcs-local/owcs-stats-backend:*|owcs-local/owcs-stats-web:*|owcs-local/owcs-stats-assistant:*|\
         owmini/owcs-stats-backend:*|owmini/owcs-stats-web:*|\
         ghcr.io/wine-red/owcs-stats-backend:*|ghcr.io/wine-red/owcs-stats-web:*) ;;
         *) continue ;;
     esac
     if [[ "$managed_image" == "$api_image" ]] \
         || [[ "$managed_image" == "$web_image" ]] \
+        || [[ "$managed_image" == "$assistant_image" ]] \
+        || [[ -n "$previous_assistant_image" && "$managed_image" == "$previous_assistant_image" ]] \
         || [[ -n "$previous_api_image" && "$managed_image" == "$previous_api_image" ]] \
         || [[ -n "$previous_web_image" && "$managed_image" == "$previous_web_image" ]]; then
         continue

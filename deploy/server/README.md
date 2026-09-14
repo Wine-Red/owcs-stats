@@ -3,10 +3,10 @@
 Pushes to `master` validate the frontend and backend and build the production
 frontend in GitHub Actions. The restricted deployment account synchronizes the
 validated bundle and immutable source release to Tencent. The server then
-builds two commit-tagged images locally with persistent BuildKit caches under
+builds three commit-tagged images locally with persistent BuildKit caches under
 `/opt/compose/owcs-stats/.build-cache`.
 
-The server verifies both embedded revision labels, runs isolated Node and Nginx
+The server verifies all embedded revision labels, runs isolated Node and Nginx
 checks, and only then switches Compose. No registry account or cross-border
 image pull is involved. A failed build leaves the running release untouched; a
 failed health check restores the previous Compose file, environment, source
@@ -84,3 +84,5 @@ previous Stats backend/web images for rollback and removes older Stats/GHCR
 legacy images. A host-wide build lock serializes OWCS image builds, and
 disposable BuildKit cache is capped at 2 GB. The exported project caches in
 `.build-cache` are separate and remain available for fast rebuilds.
+
+The assistant is a separate Compose container, built and rolled back with the same commit. It binds only host loopback port 4330. Its encrypted settings, key and display choice live in data/assistant (UID/GID 1000, mode 0700), outside release directories. Back up that directory with the existing persistent state. The first assistant deployment also requires the assistant locations in stats-openresty-root.conf; normal CI does not overwrite the host-managed gateway include.

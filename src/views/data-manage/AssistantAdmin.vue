@@ -73,7 +73,7 @@
 
       <aside class="check-column">
         <section class="settings-panel" aria-labelledby="service-title">
-          <div class="panel-heading"><h2 id="service-title">本机服务</h2><button type="button" class="text-button" :disabled="checkingStatus || busy === 'display'" @click="refreshStatus">{{ checkingStatus ? '检查中…' : '刷新状态' }}</button></div>
+          <div class="panel-heading"><h2 id="service-title">助手服务</h2><button type="button" class="text-button" :disabled="checkingStatus || busy === 'display'" @click="refreshStatus">{{ checkingStatus ? '检查中…' : '刷新状态' }}</button></div>
           <div class="panel-body">
             <p class="service-state" :class="{ online: serviceStatus }"><span aria-hidden="true"></span>{{ checkingStatus ? '正在连接服务' : serviceStatus ? '服务在线' : '服务未连接' }}</p>
             <p class="field-help">{{ statusError || (serviceStatus?.configured ? (serviceStatus.showInVisualize === false ? '模型已配置，当前助手入口已隐藏。' : '模型已配置，可以到赛事页面发问。') : '保存模型配置后即可开始问答。') }}</p>
@@ -92,7 +92,7 @@
           </div>
         </section>
 
-        <p class="privacy-note">对话仅临时保留，刷新后清空。模型配置加密保存在本机，对话与查询资料会发送给所配置的模型服务。</p>
+        <p class="privacy-note">对话仅临时保留，刷新后清空。模型配置加密保存在服务端，对话与查询资料会发送给所配置的模型服务。</p>
       </aside>
     </div>
   </div>
@@ -129,13 +129,13 @@ async function request(path, { method = 'GET', body, timeout = 15000 } = {}) {
     }
     const data = await response.json().catch(() => null);
     if (!response.ok || !data || typeof data !== 'object' || Array.isArray(data)) {
-      const error = new Error(data?.error || '无法连接本机助手，请确认助手服务已启动后重试。');
+      const error = new Error(data?.error || '无法连接助手服务，请确认助手服务已启动后重试。');
       error.status = response.status; throw error;
     }
     return data;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('请求超时，请检查本机助手或模型服务后重试。');
-    if (error instanceof TypeError) throw new Error('无法连接本机助手，请确认助手服务已启动后重试。');
+    if (error.name === 'AbortError') throw new Error('请求超时，请检查助手服务或模型服务后重试。');
+    if (error instanceof TypeError) throw new Error('无法连接助手服务，请确认助手服务已启动后重试。');
     throw error;
   } finally { clearTimeout(timer); controllers.delete(controller); }
 }
@@ -197,7 +197,7 @@ async function refreshStatus() {
   checkingStatus.value = true;
   try {
     const result = await request('status', { timeout: 10000 });
-    if (typeof result.configured !== 'boolean') throw new Error('本机助手返回了异常状态，请重试。');
+    if (typeof result.configured !== 'boolean') throw new Error('助手服务返回了异常状态，请重试。');
     if (!disposed) { serviceStatus.value = result; statusError.value = ''; }
   } catch (error) {
     if (!disposed) { serviceStatus.value = null; statusError.value = error.message; }
