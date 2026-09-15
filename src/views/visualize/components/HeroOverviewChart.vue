@@ -312,7 +312,7 @@ export default {
         if (va === null && vb === null) return 0;
         if (va === null) return 1;
         if (vb === null) return -1;
-        return vb - va;
+        return key === 'ult' ? va - vb : vb - va;
       });
     };
 
