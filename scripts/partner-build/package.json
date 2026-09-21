@@ -1,0 +1,13 @@
+{
+  "name": "owcs-stats-api-partner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 0.0.0.0",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "engines": { "node": ">=22.12.0" },
+  "dependencies": { "vite": "7.3.1" }
+}

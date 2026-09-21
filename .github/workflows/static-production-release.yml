@@ -102,6 +102,8 @@ jobs:
         run: |
           npm run build:api-static
           npm run verify:api-bundle
+          npm run package:api-build
+          npm run verify:api-build
 
       - name: Smoke test API-driven pages against production
         env:
@@ -149,12 +151,16 @@ jobs:
           unzip -tq owcs-stats-api-production.zip
           unzip -p owcs-stats-api-production.zip dist/site-config.json > /dev/null
           sha256sum owcs-stats-api-production.zip > owcs-stats-api-production.zip.sha256
+          cp .local/owcs-stats-api-build-production.zip .
+          unzip -tq owcs-stats-api-build-production.zip
+          unzip -p owcs-stats-api-build-production.zip package.json > /dev/null
+          sha256sum owcs-stats-api-build-production.zip > owcs-stats-api-build-production.zip.sha256
           node --input-type=module <<'NODE' > release-notes.md
           import { readFile } from 'node:fs/promises';
           const manifest = JSON.parse(await readFile('dist/static-data/manifest.json', 'utf8'));
           console.log(`完整数据随包的静态展示站，共用主站页面，无在线接口依赖或投票功能。\n\n- 数据源：\`${manifest.sourceApi}\`\n- 生成时间：\`${manifest.generatedAt}\`\n- 赛季：${manifest.seasons}\n- 队伍：${manifest.teams}\n- 选手：${manifest.players}\n- 比赛：${manifest.matches}\n- 地图局：${manifest.mapGames}\n- 数据资源：${Object.keys(manifest.files).length}\n- 本地图片：${manifest.assets.length}\n\n运行只需 dist/index.html：代码、样式、图片和按需解压的数据均内置，不依赖 CDN 跨域设置。其他文件仅供版本和数据核对。`);
           const api = JSON.parse(await readFile('dist-api/site-config.json', 'utf8'));
-          console.log(`\n同一提交另附接口驱动包：\`owcs-stats-api-production.zip\`。页面按需读取 \`${api.apiBaseUrl}\`，比赛数据更新无需替换包；前端升级需部署新包。两种包均只读，无投票。每个 ZIP 都有独立 SHA-256，运行只需上传其中 dist/index.html，保留内联代码和 CSP；其余文件为核对元数据。`);
+          console.log(`\n同一提交另附接口驱动包，页面按需读取 \`${api.apiBaseUrl}\`；比赛数据更新无需替换包，前端升级需部署新包。投票与助手沿用随包配置。\n\n- **上传后自动构建的平台请选 \`owcs-stats-api-build-production.zip\`**：解压根目录含 package.json，Node 22.12+，安装 \`npm ci\`，构建 \`npm run build\`，发布整个 \`dist\`。支持直接 vite build；小入口自动进入原样保留的 app.html，保留查询参数与 Hash 路由。\n- 无需构建的平台选 \`owcs-stats-api-production.zip\`：直接托管其中 dist/index.html。\n\n每个 ZIP 都有独立 SHA-256。需保留应用 HTML 内联代码和 CSP；其余 JSON 为核对元数据。自动构建包已经过独立目录安装、npm/Vite 构建、根目录/子目录桌面与手机浏览器验证。`);
           NODE
           {
             echo "tag=$release_tag"
@@ -172,6 +178,8 @@ jobs:
             "${{ steps.release.outputs.archive }}.sha256" \
             "owcs-stats-api-production.zip" \
             "owcs-stats-api-production.zip.sha256" \
+            "owcs-stats-api-build-production.zip" \
+            "owcs-stats-api-build-production.zip.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "${{ steps.release.outputs.target_sha }}" \
             --title "${{ steps.release.outputs.name }}" \

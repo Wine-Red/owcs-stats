@@ -3,11 +3,15 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { gzipSync } from 'node:zlib';
-import { openDisplayPackage, replaceDisplayResources } from './lib/display-package.mjs';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { openDisplayPackage, parseDisplayHtml, replaceDisplayResources } from './lib/display-package.mjs';
 import { launchBrowser } from './lib/browser.mjs';
 
 const live = process.argv.includes('--api');
-const bundle = await openDisplayPackage(live ? 'dist-api' : 'dist');
+const buildDir = process.env.OWCS_PARTNER_BUILD_DIR;
+const bundle = buildDir ? parseDisplayHtml(await readFile(path.join(buildDir, 'app.html'), 'utf8')) : await openDisplayPackage(live ? 'dist-api' : 'dist');
+const entry = buildDir ? await readFile(path.join(buildDir, 'index.html')) : null;
 const config = live ? bundle.json('site-config.json') : null;
 // Isolate asset portability; interactive behavior has a separate HTTP suite.
 if (live) bundle.html = replaceDisplayResources(bundle.html, { 'site-config.json': { ...config, interactions: { voting: false, assistant: false } } });
@@ -31,6 +35,14 @@ const host = createServer((req, res) => {
     return res.end(`<link rel="icon" href="data:,"><script type="module" src="${cdnOrigin}/probe.js"></script>`);
   }
   if (['/', '/index.html', '/partner/owcs/', '/partner/owcs/index.html'].includes(pathname)) {
+    if (entry) {
+      res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
+      return res.end(entry);
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html', 'Content-Encoding': 'gzip', 'Cache-Control': 'no-store' });
+    return res.end(compressed);
+  }
+  if (buildDir && ['/app.html', '/partner/owcs/app.html'].includes(pathname)) {
     res.writeHead(200, { 'Content-Type': 'text/html', 'Content-Encoding': 'gzip', 'Cache-Control': 'no-store' });
     return res.end(compressed);
   }
@@ -72,8 +84,13 @@ try {
       if (live && (url.href.startsWith(`${config.apiBaseUrl}/`) || (url.origin === config.mediaOrigin && url.pathname.startsWith('/media/')))) return;
       unexpected.push(url.href);
     });
-    await page.goto(`${hostOrigin}${prefix}index.html#/visualize`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${hostOrigin}${prefix}index.html?partner=test%20value#/visualize`, { waitUntil: 'domcontentloaded' });
     await page.locator('.vis-body').waitFor({ timeout: 60000 });
+    if (buildDir) {
+      assert.equal(new URL(page.url()).pathname, `${prefix}app.html`);
+      assert.equal(new URL(page.url()).search, '?partner=test%20value');
+      assert.equal(new URL(page.url()).hash, '#/visualize');
+    }
     await settleHttp();
     await page.getByRole('tab', { name: '赛程列表', exact: true }).click();
     await page.locator('.schedule-shell').waitFor({ timeout: 60000 });
@@ -96,7 +113,7 @@ try {
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     await page.close();
-    console.log(`[partner-host] PASS ${live ? 'API' : 'snapshot'} ${width}px ${prefix}: HTML only, schedule, image/canvas, reload`);
+    console.log(`[partner-host] PASS ${buildDir ? 'rebuilt ' : ''}${live ? 'API' : 'snapshot'} ${width}px ${prefix}: HTML only, schedule, image/canvas, reload`);
   }
   assert.deepEqual(cdnRequests, [], 'fixed package must never request the no-CORS CDN');
 } finally {

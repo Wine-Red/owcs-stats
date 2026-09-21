@@ -54,7 +54,11 @@ try {
       const source = sources[next++];
       const url = new URL(source, origin.origin);
       if (!['http:', 'https:'].includes(url.protocol)) throw new Error(`Unsupported asset URL: ${source}`);
-      const { bytes, extension } = await imageBytes(url);
+      // The same reviewed placeholder is already bundled by the API package.
+      // Do not depend on the upstream website serving this stable local asset.
+      const { bytes, extension } = source === tbd
+        ? { bytes: await readFile(path.join(publicRoot, 'branding/team-tbd.png')), extension: 'png' }
+        : await imageBytes(url);
       const sha256 = hash(bytes);
       const relative = source === tbd ? 'team-logos/team-tbd.png' : `media/${sha256}.${extension}`;
       await writeFile(path.join(staging, relative), bytes);

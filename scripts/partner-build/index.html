@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>OWCS Stats</title>
+</head>
+<body>
+  <a id="open-app" href="./app.html">进入 OWCS Stats</a>
+  <script>
+    var target = new URL('./app.html', window.location.href);
+    target.search = window.location.search;
+    target.hash = window.location.hash;
+    document.getElementById('open-app').href = target.href;
+    window.location.replace(target.href);
+  </script>
+</body>
+</html>

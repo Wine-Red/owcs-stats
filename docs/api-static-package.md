@@ -8,12 +8,23 @@
 | --- | --- | --- | --- |
 | `owcs-stats-static-production.zip` | `npm run export:static:production` → `dist/` | 替换完整快照包 | 替换完整包 |
 | `owcs-stats-api-production.zip` | `npm run build:api-static` → `dist-api/` | 页面按需读取接口，无需换包 | 替换完整包 |
+| `owcs-stats-api-build-production.zip` | 上一步后 `npm run package:api-build` → `.local/` | 同接口驱动包 | 替换完整包并由平台构建 |
+
+### 上传后自动构建的平台
+
+请选择 **`owcs-stats-api-build-production.zip`**，上传 ZIP 全部内容，以 `package.json` 所在目录作为项目根目录：Node **22.12+**，安装 **`npm ci`**，构建 **`npm run build`**，输出目录 **`dist`**。平台直接执行 `vite build` 也支持。
+
+此包在 ZIP 根目录提供小型 `index.html`、Vite 配置、锁文件和 `public/app.html`。Vite 只解析小入口，将完整应用从 `public` 原样复制；入口使用 `location.replace` 进入同目录 `app.html`，保留查询参数和 Hash。不依赖自定义 Vite 插件，即使平台忽略随包配置，Vite 默认构建仍可用。原样复制符合 [Vite public 目录约定](https://vite.dev/guide/assets.html#the-public-directory)。
+
+发布时保留整个 `dist/`，允许访问其中的 `app.html`，并保留应用的内联脚本与 CSP。不能只上传小入口，也不能重新将 `public/app.html` 设为编译入口。根目录、子目录均可用，无需 SPA 回退。平台若强制重新处理所有 HTML、只接受单个 HTML 或禁止页面跳转，仍需另行确认其约束。
+
+`npm run verify:api-build` 会解压实际 ZIP 到仓库外的独立临时目录，执行干净安装、npm 构建、直接 Vite 构建、忽略配置的默认构建，逐字节核对应用及 CSP 未变，再验证桌面/手机、根目录/子目录、参数与 Hash 保留、赛程、图片 canvas、刷新和无 CORS CDN 场景。此检查是 Release 发布的前置条件。
 
 `scripts/build-display.mjs` 是统一构建入口。Vite 生成共用页面的中间产物，再由 `scripts/lib/display-package.mjs` 将 JS、CSS、字体、本地图片和配置嵌入 `index.html`。两种包均使用 Hash 路由、不包含外部统计。接口模式排除 `static-data/`，无需先导出快照。最终输出没有供浏览器加载的拆分 JS/CSS 文件。
 
 新增本地图片继续放在 `public/`，通过已有媒体工具或 `packageAssetUrl()` 引用；构建自动收集，无需维护第二份素材清单。普通主站仍使用原来的静态资源地址。
 
-现有生产 release 工作流在成功部署后、每日定时及手动触发时，从同一提交生成两个包。两个包及生产接口通过校验、页面、更新/断网和 WebView 测试后，一次创建同一 GitHub Release，上传两个 ZIP 与各自 `.sha256`。每个 ZIP 都保留顶层 `dist/`。任何构建或检查失败均不创建该轮 release。
+现有生产 release 工作流在成功部署后、每日定时及手动触发时，从同一提交生成快照包、接口直接托管包及接口自动构建包。所有包及生产接口通过校验、页面、更新/断网和 WebView 测试后，一次创建同一 GitHub Release，上传三个 ZIP 与各自 `.sha256`。前两个 ZIP 保留顶层 `dist/`；自动构建 ZIP 的 `package.json` 位于根目录，由部署平台生成 `dist/`。任何构建或检查失败均不创建该轮 release。
 
 自动发布会更新可下载的包；合作方已部署的 JS 不会被远程替换。比赛数据更新无需合作方重新发包，前端功能升级仍由合作方部署新版包。没有远程 JS 热更新或 Service Worker 更新通道。
 
