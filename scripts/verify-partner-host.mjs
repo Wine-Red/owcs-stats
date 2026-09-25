@@ -64,8 +64,10 @@ try {
     const errors = [], unexpected = [];
     const pendingHttp = new Set();
     let lastHttpAt = Date.now();
-    // Wait for actual HTTP work before navigating; local Blob URLs need no CDN
-    // response and are checked separately by image.decode() and canvas export.
+    // Wait for subresource HTTP work before navigating. Entry documents can be
+    // replaced before Chromium emits requestfinished; their status and the
+    // resulting application are verified separately below. Blob URLs need no
+    // CDN response and are checked by image.decode() and canvas export.
     const settleHttp = async () => {
       const deadline = Date.now() + 60000;
       while ((pendingHttp.size || Date.now() - lastHttpAt < 500) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
@@ -73,14 +75,17 @@ try {
     };
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+    page.on('response', response => {
+      if (response.request().resourceType() === 'document' && response.status() >= 400) errors.push(`Document ${response.status()}: ${response.url()}`);
+    });
     page.on('requestfinished', request => { if (pendingHttp.delete(request)) lastHttpAt = Date.now(); });
     page.on('requestfailed', request => { if (pendingHttp.delete(request)) lastHttpAt = Date.now(); errors.push(`${request.url()} ${request.failure()?.errorText}`); });
     page.on('request', request => {
       if (!/^https?:/.test(request.url())) return;
-      pendingHttp.add(request);
-      lastHttpAt = Date.now();
       const url = new URL(request.url());
       if (url.origin === hostOrigin && request.resourceType() === 'document') return;
+      pendingHttp.add(request);
+      lastHttpAt = Date.now();
       if (live && (url.href.startsWith(`${config.apiBaseUrl}/`) || (url.origin === config.mediaOrigin && url.pathname.startsWith('/media/')))) return;
       unexpected.push(url.href);
     });
