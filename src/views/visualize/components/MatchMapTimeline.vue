@@ -212,8 +212,8 @@ const sourceCategory = event => {
   const type = String(event?.type || '').toLowerCase();
   if (type.includes('death')) return 'death';
   if (type.includes('kill') || type.includes('final_blow')) return 'kill';
-  if (type.includes('ultimate') || type.includes('ult_')) return 'ultimate';
-  if (type.includes('hero')) return 'hero';
+  if (type.includes('ultimate') || type.includes('ult_') || type.startsWith('mech_call_')) return 'ultimate';
+  if (type.includes('hero') || type.startsWith('echo_duplicate_')) return 'hero';
   return 'other';
 };
 
@@ -513,6 +513,14 @@ const eventSummary = event => {
   const actor = playerName(event?.playerId ?? event?.killerId ?? event?.actorId);
   const target = playerName(event?.victimId ?? event?.targetId);
   const hero = String(event?.heroName || event?.hero || event?.heroId || '');
+  const special = {
+    echo_duplicate_start: '回声开始复制', echo_duplicate_end: '回声复制结束',
+    duplicate_ultimate_ready: '复制大招就绪', duplicate_ultimate_used: '释放复制大招',
+    mech_call_ready: '召唤机甲就绪', mech_call_used: event.abilityContext?.timeMeaning === 'completion' ? '召唤机甲完成' : '召唤机甲',
+    hero_form_changed: event.heroForm === 'pilot' ? '离开机甲' : event.heroForm === 'mech' ? '进入机甲' : '形态待核实',
+    hero_life_state: event.lifeState === 'dead' ? '死亡' : '复活'
+  }[event.type];
+  if (special) return [actor, special].filter(Boolean).join(' · ');
   if (category === 'death') return `${target || actor || '选手'} · 死亡`;
   if (category === 'kill') return actor && target ? `${actor} → ${target}` : actor || target || '击杀';
   if (category === 'hero') return [actor, hero].filter(Boolean).join(' · ') || '英雄切换';

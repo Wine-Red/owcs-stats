@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   getDefaultSeason,
   sortSeasonGroupsNewestFirst,
+  sortSeasonsForDisplay,
   sortSeasonsNewestFirst
 } from './seasonSelection.mjs'
 
@@ -54,4 +55,20 @@ test('selects the maximum id when every season is completed', () => {
 
 test('returns null when there are no seasons', () => {
   assert.equal(getDefaultSeason([]), null)
+})
+
+test('honors saved stage order and appends unconfigured seasons newest first', () => {
+  const seasons = [{ id: 30 }, { id: '13' }, { id: 23 }, { id: 28 }]
+  const order = ['13', 23, 999, 13, null, 'invalid']
+  assert.deepEqual(sortSeasonsForDisplay(seasons, order).map(s => Number(s.id)), [13, 23, 30, 28])
+  assert.deepEqual(seasons.map(s => Number(s.id)), [30, 13, 23, 28])
+  assert.deepEqual(order, ['13', 23, 999, 13, null, 'invalid'])
+})
+
+test('missing or malformed display order falls back without changing default season selection', () => {
+  const seasons = [{ id: 13, status: 'in_progress' }, { id: 30, status: 'in_progress' }]
+  for (const config of [undefined, null, {}, [], [999]]) {
+    assert.deepEqual(sortSeasonsForDisplay(seasons, config).map(s => s.id), [30, 13])
+  }
+  assert.equal(getDefaultSeason(sortSeasonsForDisplay(seasons, [13, 30])).id, 30)
 })

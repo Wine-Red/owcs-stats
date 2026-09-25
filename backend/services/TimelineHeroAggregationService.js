@@ -168,6 +168,17 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
     }
 
     const heroAt = event => {
+      const copyBoundary = playerEvents.filter(candidate => (
+        candidate.playerId === playerId && sameRound(candidate.roundId, event.roundId)
+        && Number(candidate.timeMs) <= Number(event.timeMs)
+        && ['echo_duplicate_start', 'echo_duplicate_end', 'hero_switch', 'hero_selected'].includes(candidate.type)
+      )).at(-1);
+      const owner = ((event.playerId === playerId || event.killerId === playerId) ? event.abilityContext?.ownerHero : null)
+        || (copyBoundary?.type === 'echo_duplicate_start' ? 'echo' : null);
+      if (owner) {
+        const selected = heroEvents.find(candidate => lower(heroIdentity(candidate)?.heroId) === lower(owner));
+        return heroIdentity(selected) || { heroId: owner, heroName: owner };
+      }
       // A kill event's hero belongs to the killer, not the victim.
       const direct = (event.playerId === playerId || event.killerId === playerId)
         ? heroIdentity(event)
@@ -192,7 +203,18 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
       if (event.playerId !== playerId || !identity) continue;
       const row = rowFor(identity);
       if (event.type === 'ultimate_ready') {
+        if (event.statisticsEligible === false || event.status === 'candidate'
+          || (event.abilityContext && event.abilityContext.kind !== 'primary')) continue;
         row.ultReady++;
+        if (event.abilityContext) {
+          // Studio owns the completed cycle, including suspended pilot/copy
+          // intervals. Missing data must not fall back to a guessed duration.
+          const chargeMs = event.abilityContext.chargeDurationMs;
+          if (typeof chargeMs === 'number' && Number.isFinite(chargeMs) && chargeMs >= 0) {
+            row._chargeSamples.push(chargeMs / 1000);
+          }
+          continue;
+        }
         const boundary = playerEvents.filter(candidate => (
           candidate.playerId === playerId
           && Number(candidate.timeMs) < Number(event.timeMs)
@@ -203,7 +225,8 @@ const aggregateTimeline = (timeline, fallbackRound = {}) => {
         const startMs = boundary ? Number(boundary.timeMs) : (window?.startMs ?? 0);
         row._chargeSamples.push(Math.max(0, (Number(event.timeMs) - startMs) / 1000));
       }
-      if (event.type === 'ultimate_used') row.ultUsed++;
+      if (event.type === 'ultimate_used' && event.statisticsEligible !== false && event.status !== 'candidate'
+        && (!event.abilityContext || event.abilityContext.kind === 'primary')) row.ultUsed++;
     }
 
     const totalUsageMs = [...heroRows.values()].reduce((sum, hero) => sum + hero._usageMs, 0);

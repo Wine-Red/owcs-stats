@@ -260,7 +260,7 @@ import { resolveMediaUrl } from '@/utils/media';
 import {
   getDefaultSeason,
   sortSeasonGroupsNewestFirst,
-  sortSeasonsNewestFirst
+  sortSeasonsForDisplay
 } from '@/utils/seasonSelection.mjs';
 
 const TeamStatsChart = defineAsyncComponent(() => import('./components/TeamStatsChart.vue'));
@@ -501,6 +501,7 @@ export default {
     };
     
     const seasons = computed(() => store.state.seasons);
+    const seasonDisplayOrder = ref({});
     const OTHER_STAGE_LABEL = '其他赛季';
 
     const normalizeStageLabel = (stage) => {
@@ -562,8 +563,7 @@ export default {
 
       const seasonGroups = Array.from(groups.entries()).map(([stage, options]) => ({
         label: stage,
-        // 公开赛事选择器始终以 ID 表示新旧，避免历史人工排序让新赛季落到末尾。
-        options: sortSeasonsNewestFirst(options)
+        options: sortSeasonsForDisplay(options, seasonDisplayOrder.value[stage])
       }));
 
       return sortSeasonGroupsNewestFirst(seasonGroups);
@@ -645,7 +645,15 @@ export default {
         }
       }
 
-      await store.dispatch('loadBaseData');
+      await Promise.all([
+        store.dispatch('loadBaseData'),
+        apiService.getConfig('visualize_stage_season_order').then(config => {
+          seasonDisplayOrder.value = config && typeof config === 'object' && !Array.isArray(config) ? config : {};
+        }).catch(error => {
+          console.error('加载赛季显示顺序失败，使用默认顺序:', error);
+          seasonDisplayOrder.value = {};
+        })
+      ]);
 
       const requestedTab = typeof route.query.tab === 'string' ? route.query.tab : '';
       if (['overview', 'recent', 'stats'].includes(requestedTab)) {

@@ -15,6 +15,19 @@ export const sortSeasonsNewestFirst = (seasonList = []) => {
   })
 }
 
+export const sortSeasonsForDisplay = (seasonList = [], configuredIds = []) => {
+  const rank = new Map()
+  for (const value of Array.isArray(configuredIds) ? configuredIds : []) {
+    const id = Number(value)
+    if (Number.isInteger(id) && id > 0 && !rank.has(id)) rank.set(id, rank.size)
+  }
+  return sortSeasonsNewestFirst(seasonList).sort((left, right) => {
+    const leftRank = rank.get(Number(left.id)) ?? Number.MAX_SAFE_INTEGER
+    const rightRank = rank.get(Number(right.id)) ?? Number.MAX_SAFE_INTEGER
+    return leftRank - rightRank
+  })
+}
+
 export const sortSeasonGroupsNewestFirst = (groups = []) => {
   const newestSeasonId = group => Math.max(
     Number.NEGATIVE_INFINITY,

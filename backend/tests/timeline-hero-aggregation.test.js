@@ -6,6 +6,44 @@ const {
   clearTimelineDerivedPlayerData
 } = require('../services/TimelineHeroAggregationService');
 
+test('temporary abilities retain Echo ownership and never inflate primary ultimate statistics', () => {
+  const ability = (kind, chargeDurationMs = null) => ({ ownerHero: 'echo', abilityHero: 'tracer', kind, chargeDurationMs });
+  const base = { roundId: 'r1', playerId: 'ECHO', status: 'confirmed' };
+  const events = [
+    { ...base, type: 'hero_selected', timeMs: 0, heroId: 'echo', heroName: '回声' },
+    { ...base, type: 'ultimate_ready', timeMs: 30_000, abilityContext: ability('primary', 25_000) },
+    { ...base, type: 'echo_duplicate_start', timeMs: 35_000, heroId: 'tracer' },
+    { ...base, type: 'ultimate_used', timeMs: 35_000, abilityContext: ability('primary') },
+    { ...base, type: 'duplicate_ultimate_used', timeMs: 40_000, abilityContext: ability('duplicate') },
+    { ...base, type: 'ultimate_ready', timeMs: 41_000, abilityContext: ability('duplicate', 1000) },
+    { ...base, type: 'kill', timeMs: 42_000, killerId: 'ECHO', heroId: 'tracer', victimId: 'OTHER' },
+    { ...base, type: 'mech_call_used', timeMs: 43_000, abilityContext: ability('call_mech') },
+    { ...base, type: 'echo_duplicate_end', timeMs: 50_000, heroId: 'echo' },
+    { ...base, type: 'ultimate_ready', timeMs: 70_000, abilityContext: ability('primary', null) },
+    { ...base, type: 'ultimate_used', timeMs: 75_000, abilityContext: ability('unknown'), statisticsEligible: false }
+  ];
+  const result = aggregateTimeline({ media: { durationMs: 100_000 }, events,
+    players: [{ playerId: 'ECHO', teamSide: 'A' }], rounds: [{ roundId: 'r1', startMs: 0, endMs: 100_000 }] });
+  assert.equal(result.playersA[0].heroes.length, 1);
+  const hero = result.playersA[0].heroes[0];
+  assert.equal(hero.heroId, 'echo');
+  assert.equal(hero.usageSeconds, 100);
+  assert.equal(hero.finalBlows, 1);
+  assert.equal(hero.ultReady, 2);
+  assert.equal(hero.ultUsed, 1);
+  assert.equal(hero.avgUltChargeSeconds, 25);
+});
+
+test('an incomplete primary cycle has no inferred or zero-valued charge sample', () => {
+  const result = aggregateTimeline({ media: { durationMs: 100_000 },
+    players: [{ playerId: 'TANK', teamSide: 'A' }], events: [
+      { type: 'hero_selected', timeMs: 0, playerId: 'TANK', heroId: 'dva' },
+      { type: 'ultimate_ready', timeMs: 10_000, playerId: 'TANK', heroId: 'dva',
+        abilityContext: { kind: 'primary', chargeDurationMs: null } }
+    ] });
+  assert.equal(result.playersA[0].heroes[0].avgUltChargeSeconds, null);
+});
+
 test('timeline mirror keeps the canonical MatchWeb payload losslessly', () => {
   const payload = { schemaVersion: 1, source: { taskId: 'task-1' }, events: [{ eventId: 'e1' }] };
   const syncedAt = new Date('2026-09-01T00:00:00.000Z');
