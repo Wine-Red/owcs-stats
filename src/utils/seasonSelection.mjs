@@ -45,7 +45,6 @@ export const sortSeasonGroupsNewestFirst = (groups = []) => {
   })
 }
 
-export const getDefaultSeason = (seasonList = []) => {
-  const newestFirst = sortSeasonsNewestFirst(seasonList)
-  return newestFirst.find(season => season?.status === 'in_progress') || newestFirst[0] || null
+export const getDefaultSeason = (displayOrderedSeasons = []) => {
+  return displayOrderedSeasons.find(season => season?.status === 'in_progress') || displayOrderedSeasons[0] || null
 }

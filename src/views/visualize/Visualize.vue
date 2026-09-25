@@ -665,20 +665,13 @@ export default {
         activeStatsCategory.value = requestedStatsCategory;
       }
       
-      const defaultSeason = getDefaultSeason(seasons.value);
-      
-      // 1. 如果 URL 中带有指定的 seasonId，优先使用它（这允许从详情页无缝返回到对应赛季）
-      if (route.query.seasonId) {
-        const targetSeason = seasons.value.find(s => String(s.id) === String(route.query.seasonId));
-        if (targetSeason) {
-          filterForm.value.seasonId = targetSeason.id;
-          activeStage.value = normalizeStageLabel(targetSeason.stage);
-        }
-      } 
-      // 2. 无 URL 指定时优先最新的进行中赛季；若全都完赛，则选择 ID 最大的最新赛季。
-      else if (defaultSeason) {
-        filterForm.value.seasonId = defaultSeason.id;
-        activeStage.value = normalizeStageLabel(defaultSeason.stage);
+      // 默认选择与下拉列表一致：优先最靠前的进行中赛季，没有进行中赛季时选择第一项。
+      const defaultSeason = getDefaultSeason(groupedSeasons.value.flatMap(group => group.options));
+      // 有效的赛季链接优先；已删除或无效的 seasonId 回退到默认选择。
+      const targetSeason = seasons.value.find(s => String(s.id) === String(route.query.seasonId)) || defaultSeason;
+      if (targetSeason) {
+        filterForm.value.seasonId = targetSeason.id;
+        activeStage.value = normalizeStageLabel(targetSeason.stage);
       }
 
       if (filterForm.value.seasonId) {
