@@ -59,12 +59,13 @@ const selectedMatch = matches.find(match => games.some(game => game.matchId === 
   || matches.find(match => games.some(game => game.matchId === match.id));
 const selectedUpcoming = upcoming[0];
 const selectedSeason = seasons.find(season => String(season.id) === String(selectedSeasonTeam.seasonId)) || seasons[0];
+if (!selectedMatch) throw new Error('Smoke verification requires a recorded match with map data');
 
 const pages = [
-  { name: '可视化首页', hash: '#/visualize', ready: '.vis-body', verifyHeroTabs: true },
+  { name: '可视化首页', hash: `#/visualize?seasonId=${selectedMatch.seasonId}`, ready: '.vis-body', verifyHeroTabs: true },
   {
     name: '赛程列表',
-    hash: '#/visualize',
+    hash: `#/visualize?seasonId=${selectedMatch.seasonId}`,
     ready: '.vis-body',
     verifySchedule: true
   },

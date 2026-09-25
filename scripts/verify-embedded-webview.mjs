@@ -1,8 +1,32 @@
-import { access } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { chromium } from 'playwright-core'
+import assert from 'node:assert/strict'
+import { openDisplayPackage } from './lib/display-package.mjs'
+import { readStaticData } from '../src/services/staticSnapshot.mjs'
 
 const baseUrl = process.env.OWCS_STATIC_PREVIEW_URL || 'http://127.0.0.1:4174/'
+const packageDirectory = process.env.OWCS_PREVIEW_DIR || 'dist'
+const metadata = JSON.parse(await readFile(`${packageDirectory}/package-manifest.json`, 'utf8'))
+const live = metadata.mode === 'api'
+const siteConfig = live ? JSON.parse(await readFile(`${packageDirectory}/site-config.json`, 'utf8')) : null
+const bundle = live ? null : await openDisplayPackage(packageDirectory)
+const manifest = live ? null : await bundle.json('static-data/manifest.json')
+const get = async (resource, params = {}) => {
+  if (!live) return readStaticData(name => bundle.json(`static-data/${manifest.files[name].path}`), resource, params)
+  const response = await fetch(`${siteConfig.apiBaseUrl}${resource}?${new URLSearchParams(params)}`)
+  if (!response.ok) throw new Error(`WebView QA data unavailable: ${resource} ${response.status}`)
+  return response.json()
+}
+const displayOrder = await get('/config/visualize_stage_season_order') || {}
+const schedule = await get('/matches', { pageSize: live ? 10000 : 1000000 })
+const matchCounts = new Map()
+for (const match of Array.isArray(schedule) ? schedule : schedule.list || []) {
+  matchCounts.set(String(match.seasonId), (matchCounts.get(String(match.seasonId)) || 0) + 1)
+}
+const scheduleSeasonId = [...matchCounts].sort((a, b) => b[1] - a[1])[0]?.[0]
+if (!scheduleSeasonId) throw new Error('WebView scrolling verification requires a season with recorded matches')
+const scheduleHash = `#/visualize?seasonId=${scheduleSeasonId}`
 const chromeCandidates = [
   process.env.CHROME_PATH,
   `${process.env.LOCALAPPDATA || ''}\\Google\\Chrome\\Application\\chrome.exe`,
@@ -84,22 +108,24 @@ try {
     label: group.querySelector('h2')?.textContent?.trim() || '',
     ids: [...group.querySelectorAll('.mobile-season-option')].map(option => Number(option.dataset.seasonId))
   })))
-  const flattenedSeasonIds = seasonPickerOrder.flatMap(group => group.ids)
-  if (flattenedSeasonIds.some((id, index) => index > 0 && id >= flattenedSeasonIds[index - 1])) {
-    throw new Error(`赛事选择器未按 ID 从新到旧排列: ${JSON.stringify(seasonPickerOrder)}`)
+  const groupNewestIds = seasonPickerOrder.map(group => Math.max(...group.ids))
+  assert.deepEqual(groupNewestIds, [...groupNewestIds].sort((a, b) => b - a), '赛段按最新赛事排序')
+  for (const group of seasonPickerOrder) {
+    const configured = [...new Set((Array.isArray(displayOrder[group.label]) ? displayOrder[group.label] : []).map(Number))].filter(id => group.ids.includes(id))
+    assert.deepEqual(group.ids.slice(0, configured.length), configured, `赛事选择器遵循配置顺序: ${group.label}`)
+    const remaining = group.ids.slice(configured.length)
+    assert.deepEqual(remaining, [...remaining].sort((a, b) => b - a), `未配置赛事按 ID 从新到旧: ${group.label}`)
   }
-  const completedSeasonOption = page.locator('.mobile-season-option').filter({ hasText: '已结束' }).first()
-  if (await completedSeasonOption.count()) {
-    const completedSeasonName = (await completedSeasonOption.locator('strong').textContent())?.trim() || ''
-    await completedSeasonOption.click()
-    await page.waitForFunction(name => document.querySelector('.mobile-event-name')?.textContent?.trim() === name, completedSeasonName)
-  } else {
-    await page.keyboard.press('Escape')
-  }
+  const scheduleSeasonOption = page.locator(`.mobile-season-option[data-season-id="${scheduleSeasonId}"]`)
+  const scheduleSeasonName = (await scheduleSeasonOption.locator('strong').textContent())?.trim() || ''
+  await scheduleSeasonOption.click()
+  await page.waitForFunction(name => document.querySelector('.mobile-event-name')?.textContent?.trim() === name, scheduleSeasonName)
   await page.locator('.mobile-season-drawer').waitFor({ state: 'hidden', timeout: 10_000 })
   await page.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
   await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
+  await page.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
+  await page.locator('.date-chip--all').click()
   await page.waitForTimeout(320)
   await page.evaluate(() => {
     document.activeElement?.blur()
@@ -214,10 +240,12 @@ try {
   }
 
   const browserPage = await browser.newPage({ viewport: { width: 390, height: 520 } })
-  await browserPage.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  await browserPage.goto(`${baseUrl}${scheduleHash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   await browserPage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
   await browserPage.getByRole('tab', { name: '赛程列表' }).click()
   await browserPage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
+  await browserPage.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
+  await browserPage.locator('.date-chip--all').click()
   const browserMetrics = await browserPage.locator('.tab-content').evaluate(element => {
     const eventContext = document.querySelector('.mobile-event-context')
     element.scrollTop = 0
@@ -251,13 +279,14 @@ try {
       isMobile: true,
       userAgent: 'Mozilla/5.0 (Linux; Android 14; OWCS App Build/1; wv) AppleWebKit/537.36 Version/4.0 Chrome/126.0 Mobile Safari/537.36'
     })
-    await responsivePage.goto(`${baseUrl}#/visualize`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+    await responsivePage.goto(`${baseUrl}${scheduleHash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await responsivePage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
     await responsivePage.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
     await responsivePage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
     // The shell can precede the live schedule. Its arrival resets the selected
     // date and scroll position, so finish loading before testing touch scrolling.
     await responsivePage.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
+    await responsivePage.locator('.date-chip--all').click()
     await responsivePage.waitForLoadState('networkidle', { timeout: 60_000 })
     await responsivePage.waitForTimeout(300)
     const responsiveCdp = await responsivePage.context().newCDPSession(responsivePage)
