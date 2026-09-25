@@ -81,6 +81,13 @@ try {
   await page.locator('.export-btn-small').click();
   await waitEvent('导出-生成结果', data => data['结果'] === '失败');
   await page.evaluate(() => { HTMLCanvasElement.prototype.toDataURL = window.qaToDataURL; delete window.qaToDataURL; });
+  await page.locator('.team-cell-clickable').first().click();
+  await waitEvent('访问-内容加载完成', data => data['页面'] === '战队详情');
+  await page.getByRole('tab', { name: '历史比赛', exact: true }).click();
+  await waitEvent('浏览-切换内容', data => data['页面'] === '战队详情' && data['内容分区'] === '历史比赛');
+  assert.equal(await page.getByRole('tab', { name: '历史比赛', exact: true }).getAttribute('aria-selected'), 'true');
+  await page.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$router.push('/visualize?seasonId=24&tab=stats'));
+  await page.getByRole('tab', { name: '赛事数据', exact: true }).click();
   await page.getByRole('radio', { name: '选手', exact: true }).click();
   await page.locator('.player-link').first().waitFor();
   await page.locator('.player-link').first().click();

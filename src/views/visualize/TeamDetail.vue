@@ -293,7 +293,7 @@ export default {
         trackPublicEvent('tab_change', {
           seasonId: currentSeasonId.value || queryParams.value.seasonId,
           teamId: queryParams.value.teamId,
-          tab: detailTabs.value.find(item => item.value === tab)?.label || tab
+          tab: detailTabs.find(item => item.value === tab)?.label || tab
         }, route);
       }
       activeTab.value = tab;
