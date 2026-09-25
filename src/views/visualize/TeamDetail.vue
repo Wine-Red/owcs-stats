@@ -56,7 +56,7 @@
           @update:model-value="switchTab"
         />
 
-        <div class="tab-content-area">
+        <div class="tab-content-area" v-analytics-view="seasonLoading ? null : { seasonId: currentSeasonId, feature: '战队-' + (detailTabs.find(item => item.value === activeTab)?.label || activeTab) }">
           <!-- 选手阵容 Tab -->
           <div v-show="activeTab === 'roster'" class="seamless-content">
             <div v-if="!hasAnyPlayers" class="empty-state">
@@ -210,6 +210,8 @@
 </template>
 
 <script>
+import { snapshotRoute } from '@/analytics/core.mjs';
+import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, onMounted, computed, nextTick } from 'vue';
@@ -234,6 +236,7 @@ export default {
     const store = useStore();
     
     const isLoading = ref(true);
+    const analyticsLoadOutcome = ref('success');
     const queryParams = ref({
       seasonId: route.query.seasonId,
       teamId: route.query.teamId,
@@ -287,10 +290,10 @@ export default {
     
     const switchTab = async (tab) => {
       if (activeTab.value !== tab) {
-        trackPublicEvent('战队详情-切换标签', {
+        trackPublicEvent('tab_change', {
           seasonId: currentSeasonId.value || queryParams.value.seasonId,
           teamId: queryParams.value.teamId,
-          tab
+          tab: detailTabs.value.find(item => item.value === tab)?.label || tab
         }, route);
       }
       activeTab.value = tab;
@@ -298,7 +301,7 @@ export default {
     };
 
     const goBack = () => {
-      trackPublicEvent('战队详情-返回上一页', {
+      trackPublicEvent('back', {
         seasonId: currentSeasonId.value || queryParams.value.seasonId,
         teamId: queryParams.value.teamId,
         source: queryParams.value.from || 'visualize'
@@ -318,7 +321,8 @@ export default {
     const goToMatchDetail = (match) => {
       if (!match?.id) return;
 
-      trackPublicEvent('战队详情-打开比赛', {
+      trackPublicEvent('open_match', {
+        team1Id: match?.team1Id, team2Id: match?.team2Id, team1Name: match?.team1?.name, team2Name: match?.team2?.name, matchDate: match?.matchDate, matchName: undefined,
         seasonId: String(match.seasonId || currentSeasonId.value || queryParams.value.seasonId || ''),
         teamId: queryParams.value.teamId,
         matchId: match.id,
@@ -363,9 +367,10 @@ export default {
 
     const goToPlayerDetail = (selectedPlayer) => {
       if (!selectedPlayer?.id) return;
-      trackPublicEvent('战队详情-打开选手个人页', {
+      trackPublicEvent('open_player', {
         seasonId: currentSeasonId.value || queryParams.value.seasonId,
         teamId: queryParams.value.teamId,
+        playerName: selectedPlayer.name || selectedPlayer.playerName,
         playerId: selectedPlayer.id
       }, route);
       router.push({
@@ -472,6 +477,7 @@ export default {
 
     const loadData = async () => {
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       isLoading.value = true;
       try {
         if (!store.state.teams.length || !store.state.seasons.length || !store.state.maps.length) {
@@ -519,20 +525,26 @@ export default {
         await selectSeason(targetSeasonId);
 
       } catch (err) {
+        analyticsLoadOutcome.value = 'error';
         console.error('Failed to load team base data:', err);
       } finally {
         isLoading.value = false;
         trackPerformance('战队详情加载', performance.now() - startTime, {
+          outcome: analyticsLoadOutcome.value === 'error' ? 'error' : team.value ? 'success' : 'empty',
           seasonId: currentSeasonId.value || queryParams.value.seasonId,
           teamId: queryParams.value.teamId,
           tab: activeTab.value
-        }, route);
+        }, analyticsRoute);
       }
     };
 
     const selectSeason = async (seasonId) => {
       if (!seasonId) return;
+      if (!isLoading.value && String(currentSeasonId.value) !== String(seasonId)) trackPublicEvent('season_change', { seasonId }, route);
       currentSeasonId.value = String(seasonId);
+      const analyticsStarted = performance.now();
+      const isInitialLoad = isLoading.value;
+      analyticsLoadOutcome.value = 'success';
       seasonLoading.value = true;
       try {
         const teamId = queryParams.value.teamId;
@@ -625,15 +637,19 @@ export default {
         });
 
       } catch (err) {
+        analyticsLoadOutcome.value = 'error';
         console.error('Failed to load season data:', err);
       } finally {
         seasonLoading.value = false;
+        if (!isInitialLoad) trackPerformance('战队切换赛事加载', performance.now() - analyticsStarted, { outcome: analyticsLoadOutcome.value }, route);
       }
     };
 
     onMounted(() => {
       loadData();
     });
+
+    useAnalyticsContext(() => ({ seasonId: currentSeasonId.value || queryParams.value.seasonId, teamId: queryParams.value.teamId, teamName: team.value?.name }));
 
     useAssistantContext(() => ({
       kind: 'team', label: team.value?.name || '队伍详情',

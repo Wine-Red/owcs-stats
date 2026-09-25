@@ -1,7 +1,7 @@
 <template>
-  <div class="map-stats-overview">
+  <div v-analytics-view="{ feature: '地图数据', seasonId }" class="map-stats-overview">
     <div v-if="groups.length > 1" class="mode-filter" role="group" aria-label="按模式筛选地图">
-      <button type="button" class="mode-chip" :class="{ active: activeMode === '' }" @click="activeMode = ''">
+      <button type="button" class="mode-chip" :class="{ active: activeMode === '' }" @click="activeMode = ''; track('filter_change', { filter: '地图模式', value: 'all' })">
         <span>全部</span>
       </button>
       <button
@@ -10,7 +10,7 @@
         type="button"
         class="mode-chip"
         :class="{ active: activeMode === g.type }"
-        @click="activeMode = activeMode === g.type ? '' : g.type"
+        @click="activeMode = activeMode === g.type ? '' : g.type; track('filter_change', { filter: '地图模式', value: activeMode || 'all' })"
       >
         <span
           v-if="g.iconUrl"
@@ -34,7 +34,7 @@
           type="button"
           class="mode-rail-item"
           :class="{ active: activeMode === g.type }"
-          @click="activeMode = g.type"
+          @click="activeMode = g.type; track('filter_change', { filter: '地图模式', value: g.type })"
         >
           <span
             v-if="g.iconUrl"
@@ -148,6 +148,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -188,6 +189,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('地图数据', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const router = useRouter();
     const expandedMapIds = ref(new Set());
@@ -199,6 +201,7 @@ export default {
     const goToTeamDetail = (stat) => {
       const teamId = stat?.team?.id;
       if (!teamId || !props.seasonId) return;
+      track('open_team', { teamId, teamName: stat.team?.name });
       router.push({
         path: '/visualize/team-detail',
         query: {
@@ -214,6 +217,7 @@ export default {
 
     const toggleExpand = (row) => {
       if (!canExpand(row)) return;
+      track('expand', { mapId: row.mapId, expanded: !expandedMapIds.value.has(row.mapId) });
       const next = new Set(expandedMapIds.value);
       if (next.has(row.mapId)) next.delete(row.mapId);
       else next.add(row.mapId);
@@ -381,6 +385,7 @@ export default {
     });
 
     return {
+      track,
       groups,
       visibleGroups,
       activeMode,

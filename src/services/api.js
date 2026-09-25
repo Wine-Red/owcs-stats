@@ -1,6 +1,6 @@
 import axios from 'axios';
 /* global globalThis */
-import { trackError } from '@/utils/analytics';
+import { captureAnalyticsContext, trackError } from '@/utils/analytics';
 import createStaticApi from './staticApi';
 import { resolveRuntimeApiBaseUrl, routeRuntimeApiRequest } from './apiBaseUrl.mjs';
 import { isApiPackage, isDisplayPackage } from './packageMode.mjs';
@@ -23,6 +23,7 @@ if (!isDisplayPackage) api.interceptors.request.use(
   config => {
     // The SPA can move between public visualization and protected admin routes
     // without reloading this module, so choose the boundary per request.
+    config.analyticsContext = captureAnalyticsContext();
     return routeRuntimeApiRequest(config, globalThis.location?.pathname);
   },
   error => {
@@ -37,11 +38,7 @@ if (!isDisplayPackage) api.interceptors.response.use(
   },
   error => {
     console.error('API Error:', error);
-    if (error.config && error.config.url) {
-      trackError('API 请求', error);
-    } else {
-      trackError('API 请求', error);
-    }
+    trackError('API 请求', error, {}, error.config?.analyticsContext);
     return Promise.reject(error);
   }
 );

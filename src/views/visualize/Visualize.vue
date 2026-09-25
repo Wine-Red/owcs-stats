@@ -54,7 +54,7 @@
       </div>
 
       <Transition name="page-fade" mode="out-in">
-        <div v-if="!isPageLoading" class="vis-body">
+        <div v-if="!isPageLoading" class="vis-body" v-analytics-view="{ feature: '赛事首页', seasonId: filterForm.seasonId }">
           <section class="mobile-event-context" aria-label="当前赛事">
             <div class="mobile-event-mark" aria-hidden="true">
               <img v-if="currentSeasonLogoUrl" :src="currentSeasonLogoUrl" alt="" width="36" height="36" />
@@ -137,7 +137,7 @@
                 v-if="chartConfig.recentTab"
                 class="vis-tab-item"
                 :class="{ active: currentTab === 'recent' }"
-                @click="currentTab = 'recent'"
+                @click="switchHomeTab('recent')"
                 role="tab"
                 :aria-selected="currentTab === 'recent'"
               >
@@ -147,7 +147,7 @@
                 v-if="chartConfig.statsTab"
                 class="vis-tab-item"
                 :class="{ active: currentTab === 'stats' }"
-                @click="currentTab = 'stats'"
+                @click="switchHomeTab('stats')"
                 role="tab"
                 :aria-selected="currentTab === 'stats'"
               >
@@ -157,7 +157,7 @@
                 v-if="chartConfig.overviewTab"
                 class="vis-tab-item"
                 :class="{ active: currentTab === 'overview' }"
-                @click="currentTab = 'overview'"
+                @click="switchHomeTab('overview')"
                 role="tab"
                 :aria-selected="currentTab === 'overview'"
               >
@@ -249,6 +249,8 @@
 </template>
 
 <script>
+import { snapshotRoute } from '@/analytics/core.mjs';
+import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
@@ -299,13 +301,15 @@ export default {
     const mobileSeasonPickerOpen = ref(false);
     const tabContentRef = ref(null);
 
-    watch(currentTab, (newTab) => {
-      trackPublicEvent('首页-切换标签', {
+    const switchHomeTab = newTab => {
+      if (currentTab.value === newTab) return;
+      currentTab.value = newTab;
+      trackPublicEvent('tab_change', {
         tab: newTab,
         seasonId: filterForm.value.seasonId,
-        stage: activeStage.value
+        stage: currentSeason.value?.stage
       }, route);
-    });
+    };
 
     const filterForm = ref({
       seasonId: '',
@@ -321,6 +325,7 @@ export default {
     // 赛季数据维度探测结果（ban / 英雄明细 / 最后一击 / 大招充能），null = 尚未加载
     const seasonFeatures = ref(null);
     const isPageLoading = ref(true);
+    const analyticsLoadOutcome = ref('success');
 
     const setScrollPositionToTop = () => {
       window.scrollTo({ left: 0, top: 0, behavior: 'auto' });
@@ -360,6 +365,7 @@ export default {
         const mapGamesRes = await apiService.getMapGames({ seasonId, pageSize: 1000 });
         seasonMapGames.value = Array.isArray(mapGamesRes) ? mapGamesRes : mapGamesRes.data || mapGamesRes.list || [];
       } catch (error) {
+        analyticsLoadOutcome.value = 'partial';
         console.error('Failed to load season data', error);
       }
     };
@@ -372,6 +378,7 @@ export default {
         const filteredSeasonTeams = (allSeasonTeams || []).filter(st => Number(st.seasonId) === seasonIdNum);
         store.commit('setSeasonTeams', filteredSeasonTeams);
       } catch (error) {
+        analyticsLoadOutcome.value = 'partial';
         console.error('Failed to load season teams mapping', error);
         store.commit('setSeasonTeams', []);
       }
@@ -391,10 +398,12 @@ export default {
           const featuresRes = await apiService.getSeasonFeatures(seasonId);
           seasonFeatures.value = featuresRes && typeof featuresRes === 'object' ? featuresRes : null;
         } catch (featuresError) {
+          analyticsLoadOutcome.value = 'partial';
           console.warn('Failed to load season features', featuresError);
           seasonFeatures.value = null;
         }
       } catch (error) {
+        analyticsLoadOutcome.value = 'partial';
         console.error('Failed to load season overview stats', error);
         seasonTeamScoreStats.value = [];
         seasonMapPickStats.value = [];
@@ -491,10 +500,10 @@ export default {
     const switchStatsCategory = async (category) => {
       if (activeStatsCategory.value === category) return;
       activeStatsCategory.value = category;
-      trackPublicEvent('首页-切换赛事数据分类', {
+      trackPublicEvent('tab_change', {
         category,
         seasonId: filterForm.value.seasonId,
-        stage: activeStage.value
+        stage: currentSeason.value?.stage
       }, route);
       if (tabContentRef.value) tabContentRef.value.scrollTop = 0;
       await handleStatsPanelAfterEnter();
@@ -588,15 +597,17 @@ export default {
     };
 
     const handleSeasonChange = async () => {
+      analyticsLoadOutcome.value = 'success';
       filterForm.value.teamIds = [];
       filterForm.value.playerIds = [];
       filterForm.value.heroIds = [];
       isPageLoading.value = true;
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       
-      trackPublicEvent('首页-切换赛季', {
+      trackPublicEvent('season_change', {
         seasonId: filterForm.value.seasonId,
-        stage: activeStage.value,
+        stage: currentSeason.value?.stage,
         tab: currentTab.value
       }, route);
 
@@ -611,11 +622,12 @@ export default {
         await nextTick();
         isPageLoading.value = false;
         const duration = performance.now() - startTime;
-        trackPerformance('首页切换赛季加载', duration, {
+        trackPerformance('首页切换赛事加载', duration, {
+          outcome: analyticsLoadOutcome.value, resultCount: seasonMatches.value.length,
           seasonId: filterForm.value.seasonId,
-          stage: activeStage.value,
+          stage: currentSeason.value?.stage,
           tab: currentTab.value
-        }, route);
+        }, analyticsRoute);
       }
     };
     
@@ -623,6 +635,7 @@ export default {
       isPageLoading.value = true;
       await resetInitialScroll();
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       // 等待 Vue DOM 更新
       await nextTick();
 
@@ -688,23 +701,27 @@ export default {
           await resetInitialScroll();
           const duration = performance.now() - startTime;
           trackPerformance('首页首次加载', duration, {
+            outcome: !seasons.value.length ? (store.state.error ? 'error' : 'empty') : analyticsLoadOutcome.value, resultCount: seasonMatches.value.length,
             seasonId: filterForm.value.seasonId,
-            stage: activeStage.value,
+            stage: currentSeason.value?.stage,
             tab: currentTab.value
-          }, route);
+          }, analyticsRoute);
         }
       } else {
         isPageLoading.value = false;
         await resetInitialScroll();
         const duration = performance.now() - startTime;
         trackPerformance('首页首次加载', duration, {
+            outcome: !seasons.value.length ? (store.state.error ? 'error' : 'empty') : analyticsLoadOutcome.value, resultCount: seasonMatches.value.length,
           seasonId: filterForm.value.seasonId,
-          stage: activeStage.value,
+          stage: currentSeason.value?.stage,
           tab: currentTab.value
-        }, route);
+        }, analyticsRoute);
       }
     });
     
+    useAnalyticsContext(() => ({ seasonId: filterForm.value.seasonId, seasonName: currentSeason.value?.name, stage: currentSeason.value?.stage }));
+
     useAssistantContext(() => ({
       kind: 'competition', label: currentSeasonName.value,
       competition_id: filterForm.value.seasonId,
@@ -716,6 +733,7 @@ export default {
 
     return {
       currentTab,
+      switchHomeTab,
       tabContentRef,
       activeStatsCategory,
       statsCategoryTabs,

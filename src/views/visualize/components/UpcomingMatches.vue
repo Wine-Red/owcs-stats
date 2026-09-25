@@ -415,7 +415,7 @@ export default {
 
       closePanel();
 
-      trackPublicEvent('首页-打开未开赛详情', {
+      trackPublicEvent('open_upcoming', {
         source: 'upcoming_matches',
         seasonId: props.seasonId,
         team1Name: match?.team1?.name,

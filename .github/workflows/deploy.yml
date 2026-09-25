@@ -49,6 +49,7 @@ jobs:
           npm run test:api-base-url
           npm run test:site-client
           npm run test:stat-metrics
+          npm run test:analytics
 
       - name: Install Backend Dependencies
         working-directory: backend

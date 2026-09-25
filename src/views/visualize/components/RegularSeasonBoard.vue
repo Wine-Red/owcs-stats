@@ -1,5 +1,5 @@
 <template>
-  <div class="regular-season-container">
+  <div v-analytics-view="{ feature: '赛事积分榜', seasonId, resultCount: standings.length }" class="regular-season-container">
     <div class="section-header">
       <h3 class="section-title">{{ title }}</h3>
       <div v-if="segments.length > 0" class="stage-tabs" :key="segmentSelectKey">
@@ -79,6 +79,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { computed, ref, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
@@ -125,6 +126,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('赛事积分榜', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const route = useRoute();
     const router = useRouter();
@@ -331,6 +333,7 @@ export default {
 
     const selectSegment = async (key) => {
       if (key === selectedSegmentKey.value) return;
+      track('filter_change', { filter: '积分赛段', value: segments.value.find(segment => segment.key === key)?.label || '累计积分' });
       const targetKey = key;
       selectedSegmentKey.value = targetKey;
       
@@ -408,7 +411,7 @@ export default {
       const team = row?.team;
       if (!team?.id || !props.seasonId) return;
 
-      trackPublicEvent('首页-打开战队详情', {
+      trackPublicEvent('open_team', {
         source: 'regular_season_board',
         seasonId: props.seasonId,
         teamId: team.id
@@ -432,6 +435,7 @@ export default {
     };
 
     return {
+      track,
       standings,
       getDiffClass,
       tableRowClassName,

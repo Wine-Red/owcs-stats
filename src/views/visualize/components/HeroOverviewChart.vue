@@ -1,5 +1,5 @@
 <template>
-  <div class="hero-overview-chart">
+  <div v-analytics-view="{ feature: '英雄数据', seasonId, resultCount: filteredSortedRows.length }" class="hero-overview-chart">
     <div v-if="rows.length" class="hero-filters">
       <ContentChoiceGroup
         :model-value="roleFilter"
@@ -7,7 +7,7 @@
         hide-label
         compact
         aria-label="职责筛选"
-        @update:model-value="roleFilter = $event"
+        @update:model-value="roleFilter = $event; track('filter_change', { filter: '职责', role: $event })"
       />
       <ContentChoiceGroup
         v-if="sortOptions.length > 1"
@@ -16,7 +16,7 @@
         hide-label
         compact
         aria-label="英雄数据排序"
-        @update:model-value="sortBy = $event"
+        @update:model-value="sortBy = $event; track('sort_change', { metric: $event })"
       />
     </div>
 
@@ -76,7 +76,7 @@
                   :class="{ 'is-active': row.playerSortBy === opt.value }"
                   role="radio"
                   :aria-checked="row.playerSortBy === opt.value"
-                  @click="row.playerSortBy = opt.value"
+                  @click="row.playerSortBy = opt.value; track('sort_change', { metric: opt.label, heroId: row.heroId })"
                 ><span aria-hidden="true"></span>{{ opt.label }}</button>
               </div>
               <div
@@ -108,10 +108,10 @@
           </div>
           </div>
         </div>
-        <div v-if="!expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = true">
+        <div v-if="!expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = true; track('expand', { feature: '完整英雄榜单', expanded: true })">
           展开全部 {{ filteredSortedRows.length }} 位英雄
         </div>
-        <div v-else-if="expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = false">
+        <div v-else-if="expanded && filteredSortedRows.length > COLLAPSED_COUNT" class="expand-toggle" @click="expanded = false; track('expand', { feature: '完整英雄榜单', expanded: false })">
           收起
         </div>
       </template>
@@ -120,6 +120,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { ref, computed, watch, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
@@ -143,6 +144,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('英雄数据', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const router = useRouter();
     const rows = ref([]);
@@ -318,6 +320,7 @@ export default {
 
     const toggleExpand = async (row) => {
       if (!canExpand(row)) return;
+      track('expand', { heroId: row.heroId, expanded: !expandedHeroIds.value.has(row.heroId) });
       const next = new Set(expandedHeroIds.value);
       if (next.has(row.heroId)) {
         next.delete(row.heroId);
@@ -358,6 +361,7 @@ export default {
     const goToPlayerDetail = (player) => {
       const playerId = player?.playerId;
       if (!playerId || !props.seasonId) return;
+      track('open_player', { playerId, playerName: player.playerName || player.name });
       router.push({
         path: '/visualize/player-detail',
         query: {
@@ -369,6 +373,7 @@ export default {
     };
 
     return {
+      track,
       rows,
       loading,
       sortBy,

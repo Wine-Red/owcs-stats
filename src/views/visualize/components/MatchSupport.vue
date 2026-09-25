@@ -1,5 +1,5 @@
 <template>
-  <span v-if="summary" class="match-support" :class="{ compact, interactive: canVote, empty: !summary.total || !showResults, concealed: !showResults }"
+  <span v-if="summary" v-analytics-view="{ ...analyticsContext, feature: canVote ? '观众支持投票' : '观众支持结果', team1Id: leftId, team2Id: rightId, exposureKey: summary.sourceId }" class="match-support" :class="{ compact, interactive: canVote, empty: !summary.total || !showResults, concealed: !showResults }"
     :aria-label="readonly || summary.closed ? '赛前观众支持率' : '观众支持率'" :aria-busy="busy">
     <span class="support-actions">
       <component :is="canVote ? 'button' : 'span'" v-for="(team, index) in choices" :key="team.id" :type="canVote ? 'button' : undefined" class="support-choice"
@@ -23,14 +23,19 @@
 <script setup>
 /* global defineProps */
 import { computed, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { captureAnalyticsContext, trackPublicEvent } from '@/utils/analytics';
+import { classifyError } from '@/analytics/core.mjs';
 import { ElMessage } from 'element-plus';
 const props = defineProps({
   summary: { type: Object, default: null }, compact: Boolean, readonly: Boolean,
   error: { type: String, default: '' }, leftId: [String, Number], rightId: [String, Number],
   leftName: { type: String, default: '' }, rightName: { type: String, default: '' },
+  analyticsContext: { type: Object, default: () => ({}) },
   submit: { type: Function, default: null }
 });
 const busy = ref(false);
+const route = useRoute();
 const canVote = computed(() => !props.readonly && !props.summary?.closed);
 // Closed polls remain readable to visitors who can no longer participate.
 const showResults = computed(() => !canVote.value || [Number(props.leftId), Number(props.rightId)].includes(Number(props.summary?.myTeamId)));
@@ -49,13 +54,28 @@ const choices = computed(() => [
 ]);
 const cast = async teamId => {
   if (!props.submit || busy.value) return;
+  const context = captureAnalyticsContext(route, {
+    ...props.analyticsContext,
+    teamId, teamName: undefined,
+    team1Id: props.leftId, team2Id: props.rightId,
+    team1Name: undefined, team2Name: undefined, matchName: undefined,
+  });
+  const action = !props.summary?.myTeamId ? 'first' : String(props.summary.myTeamId) === String(teamId) ? 'repeat' : 'change';
+  const started = performance.now();
+  trackPublicEvent('vote_start', { action }, context);
   if (props.error) {
+    trackPublicEvent('vote_result', { action, outcome: 'error', errorType: 'unavailable' }, context);
     ElMessage.warning({ message: props.error, grouping: true, duration: 3000 });
     return;
   }
   busy.value = true;
-  try { await props.submit(props.summary, teamId); }
-  catch (error) { ElMessage.warning({ message: error.message || '投票未成功，请稍后再试', grouping: true, duration: 3000 }); }
+  try {
+    await props.submit(props.summary, teamId);
+    trackPublicEvent('vote_result', { action, outcome: 'success', duration: Math.round(performance.now() - started) }, context);
+  }
+  catch (error) {
+    trackPublicEvent('vote_result', { action, outcome: 'error', errorType: classifyError(error), duration: Math.round(performance.now() - started) }, context);
+    ElMessage.warning({ message: error.message || '投票未成功，请稍后再试', grouping: true, duration: 3000 }); }
   finally { busy.value = false; }
 };
 </script>

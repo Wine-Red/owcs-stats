@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:analytics": "node --test src/analytics/*.test.mjs && node scripts/analytics-catalog.mjs --check",
+    "verify:analytics": "node scripts/verify-analytics.mjs",
+    "docs:analytics": "node scripts/analytics-catalog.mjs",
     "dev": "vite",
     "dev:assistant": "vite --mode assistant --host 127.0.0.1 --port 8080 --strictPort",
     "assistant:install": "npm ci --prefix services/assistant",

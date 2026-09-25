@@ -1,5 +1,5 @@
 <template>
-  <section class="map-timeline" aria-label="本局时间线">
+  <section v-analytics-view="!loading ? { feature: '比赛时间线', mapId: mapGame?.mapId, mapGameId: mapGame?.id, outcome: error ? 'error' : activeRound ? 'success' : 'empty' } : null" class="map-timeline" aria-label="本局时间线">
     <div class="map-timeline__topline">
       <h3>时间线</h3>
       <nav v-if="hasTimeline && activeRound" class="map-timeline__rounds" aria-label="选择回合">
@@ -134,6 +134,7 @@
 </template>
 
 <script setup>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 /* global defineProps */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -144,6 +145,7 @@ const props = defineProps({
   error: { type: String, default: '' }
 });
 
+const track = useFeatureAnalytics('比赛时间线', () => ({ mapId: props.mapGame?.mapId, mapGameId: props.mapGame?.id }));
 const maxZoom = 1;
 const zoomStep = 0.01;
 const activeRoundId = ref('');
@@ -317,12 +319,14 @@ watch(minZoom, (nextMinimum, previousMinimum) => {
 });
 
 const selectRound = roundId => {
+  if (activeRoundId.value !== roundId) track('timeline_round', { round: roundViews.value.find(round => round.roundId === roundId)?.label });
   activeRoundId.value = roundId;
   activeFilter.value = 'all';
   resetView();
 };
 
 const selectFilter = value => {
+  if (activeFilter.value !== value) track('timeline_filter', { filter: availableFilters.value.find(filter => filter.value === value)?.label });
   activeFilter.value = value;
   selectedEvent.value = null;
 };
@@ -420,6 +424,9 @@ const startMomentum = initialVelocity => {
 const handlePointerDown = event => {
   const viewport = trackViewport.value;
   if (!viewport || activePointerId !== null) return;
+  // Event buttons need their normal click; capturing the pointer here redirects
+  // that click to the viewport and used to make desktop event details unreachable.
+  if (event.target.closest?.('.lane-marker')) return;
   cancelMomentum();
   activePointerId = event.pointerId;
   try { viewport.setPointerCapture(event.pointerId); } catch { /* synthetic pointers do not support capture */ }
@@ -454,7 +461,8 @@ const handlePointerMove = event => {
 
 const handlePointerEnd = event => {
   if (event.pointerId !== activePointerId) return;
-  const shouldGlide = event.type !== 'pointercancel' && dragOrigin?.axis === 'x';
+  const shouldGlide = event.type !== 'pointercancel' && dragOrigin?.axis === 'x'
+    && Math.abs(event.clientX - dragOrigin.x) > 4;
   const releaseDelay = dragSample ? performance.now() - dragSample.time : Number.POSITIVE_INFINITY;
   const releaseVelocity = releaseDelay < 100
     ? dragVelocity * Math.max(0, 1 - releaseDelay / 140)
@@ -482,6 +490,7 @@ const handleWheel = event => {
 const selectEvent = event => {
   if (Date.now() - lastDragAt < 160) return;
   selectedEvent.value = selectedEvent.value?.renderKey === event.renderKey ? null : event;
+  if (selectedEvent.value) track('timeline_event', { eventType: event.type, round: activeRound.value?.label });
 };
 
 const clock = milliseconds => {

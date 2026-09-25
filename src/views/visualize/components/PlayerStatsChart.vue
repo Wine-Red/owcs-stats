@@ -1,8 +1,8 @@
 <template>
-  <div class="vis-card">
+  <div v-analytics-view="{ feature: '选手排行榜', seasonId, resultCount: playerLeaderboardData.length }" class="vis-card">
     <div class="panel-header">
       <div class="header-controls">
-        <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart" class="role-radio-group">
+        <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart(); track('filter_change', { filter: '职责', role: playerRole })" class="role-radio-group">
           <el-radio-button label="tank">
             <div class="role-btn-content">
               <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" />
@@ -21,7 +21,7 @@
         </el-radio-group>
         <div class="select-wrapper">
           <el-select 
-            v-model="playerFilter" 
+            v-model="playerFilter" @change="track('filter_change', { filter: '选手', playerIds: $event })"
             placeholder="" 
             :disabled="!seasonId" 
             class="player-select-input"
@@ -196,7 +196,7 @@
         </el-table>
 
         <div class="leaderboard-footer" v-if="playerLeaderboardData.length > 3">
-          <el-button link type="primary" @click="isExpanded = !isExpanded">
+          <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
             {{ isExpanded ? '收起全部' : '查看全部' }}
             <el-icon class="el-icon--right">
               <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, perMinute } from '@/utils/statMetrics.mjs';
@@ -243,6 +244,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('选手排行榜', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const router = useRouter();
     const playerStatsChart = ref(null);
@@ -339,6 +341,7 @@ export default {
     }, { immediate: true });
 
     const handleSortChange = ({ prop, order }) => {
+        if (sortState.value.prop !== prop || sortState.value.order !== order) track('sort_change', { metric: prop, order: order || '默认' });
         sortState.value = { prop, order };
     };
 
@@ -407,6 +410,7 @@ export default {
     const goToPlayerDetail = (selectedPlayer) => {
       const selectedPlayerId = selectedPlayer?.playerId || selectedPlayer?.player?.id;
       if (!selectedPlayerId) return;
+      track('open_player', { playerId: selectedPlayerId, playerName: selectedPlayer.playerName || selectedPlayer.player?.name });
       router.push({
         path: '/visualize/player-detail',
         query: {
@@ -927,6 +931,7 @@ export default {
       role: playerRole.value, metric: sortState.value.prop || '选手表现分布' }), { chart: true });
 
     return {
+      track,
       packageAssetUrl,
       playerStatsChart,
       playerFilter,

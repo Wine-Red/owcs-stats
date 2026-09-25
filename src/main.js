@@ -27,6 +27,7 @@ import '@fontsource/oxanium/latin-800.css'
 import '@/styles/visualize-theme.css'
 import '@/styles/admin-theme.css'
 import { initAnalytics } from '@/utils/analytics'
+import { analyticsView } from '@/analytics/exposure'
 import { isEmbeddedWebView, readSafeAreaInsetTop } from '@/utils/embeddedWebView.mjs'
 import { isDisplayPackage } from '@/services/packageMode.mjs'
 
@@ -40,7 +41,8 @@ if ('scrollRestoration' in history) {
 
 // 创建Vue应用
 const app = createApp(App)
-if (!isDisplayPackage) initAnalytics()
+if (!isDisplayPackage) initAnalytics({ router, store })
+app.directive('analytics-view', analyticsView)
 
 // 使用插件
 app.use(router)

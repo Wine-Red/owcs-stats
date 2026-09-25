@@ -2,7 +2,7 @@ import { packageAssetUrl } from '@/utils/packageAssets';
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import * as echarts from 'echarts';
-import { trackPublicEvent } from '@/utils/analytics';
+import { captureAnalyticsContext, trackPublicEvent } from '@/utils/analytics';
 
 function drawVerticalArtisticTitle(ctx, title, rightAreaX, rightAreaY) {
     let mainText = title;
@@ -681,50 +681,33 @@ export function useChartExport() {
     return canvas.toDataURL('image/png');
   };
 
-  const handleExportChart = async (chartInstance, seasonName = '', chartTitle = '', isTransparent = false, eventData = {}) => {
+  const exportImage = async (generate, data, valid) => {
+    const context = captureAnalyticsContext(route);
+    const started = performance.now();
+    trackPublicEvent('export_start', data, context);
     try {
-      trackPublicEvent('公共页-导出图片', {
-        ...eventData,
-        type: 'chart',
-        title: chartTitle || 'Untitled',
-        transparent: isTransparent
-      }, route);
-      
-      if (!chartInstance) {
-        console.warn('Chart instance not found');
+      if (!valid) {
+        trackPublicEvent('export_result', { ...data, outcome: 'empty' }, context);
         return;
       }
-      const url = await generateChartImage(chartInstance, seasonName, chartTitle, isTransparent);
-      if (url) {
-        previewImage.value = url;
-        showPreview.value = true;
-      }
-    } catch (e) {
-      console.error('Export failed:', e);
+      const url = await generate();
+      if (!url) throw new Error('No generated image');
+      previewImage.value = url;
+      showPreview.value = true;
+      trackPublicEvent('export_result', { ...data, outcome: 'preview', duration: Math.round(performance.now() - started) }, context);
+    } catch (error) {
+      trackPublicEvent('export_result', { ...data, outcome: 'error', errorType: 'unknown', duration: Math.round(performance.now() - started) }, context);
+      console.error('Export failed:', error);
     }
   };
-
-  const handleExportTable = async (tableTitle, columns, data, seasonName = '', eventData = {}) => {
-    try {
-      trackPublicEvent('公共页-导出图片', {
-        ...eventData,
-        type: 'table',
-        title: tableTitle || 'Untitled'
-      }, route);
-      
-      if (!data || data.length === 0) {
-        console.warn('No table data to export');
-        return;
-      }
-      const url = await generateTableImage(tableTitle, columns, data, seasonName);
-      if (url) {
-        previewImage.value = url;
-        showPreview.value = true;
-      }
-    } catch (e) {
-      console.error('Table export failed:', e);
-    }
-  };
+  const handleExportChart = (chartInstance, seasonName = '', chartTitle = '', isTransparent = false, eventData = {}) => exportImage(
+    () => generateChartImage(chartInstance, seasonName, chartTitle, isTransparent),
+    { ...eventData, seasonName, type: 'chart', title: chartTitle || '统计图表', transparent: isTransparent }, Boolean(chartInstance)
+  );
+  const handleExportTable = (tableTitle, columns, data, seasonName = '', eventData = {}) => exportImage(
+    () => generateTableImage(tableTitle, columns, data, seasonName),
+    { ...eventData, seasonName, type: 'table', title: tableTitle || '统计表格' }, Boolean(data?.length)
+  );
 
   return {
     showPreview,

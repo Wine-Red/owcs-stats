@@ -1,5 +1,5 @@
 <template>
-  <div class="map-analysis-panel">
+  <div v-analytics-view="{ feature: '地图胜率分析' }" class="map-analysis-panel">
     <div v-if="!hasAnyData" class="analysis-empty">
       暂无地图局数据
     </div>
@@ -161,6 +161,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { getMapImageUrl, getMapModeIconUrl, getMapModeLabel } from '@/utils/mapImages';
@@ -223,6 +224,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('地图胜率分析', () => ({}));
     const store = useStore();
 
     const normalizeId = (value) => String(value ?? '');
@@ -538,6 +540,7 @@ export default {
 
     const isModeExpanded = (type) => expandedModes.value.includes(type);
     const toggleMode = (type) => {
+      track('expand', { feature: '地图胜率分析', metric: type, expanded: !isModeExpanded(type) });
       if (isModeExpanded(type)) {
         expandedModes.value = expandedModes.value.filter((item) => item !== type);
         return;
@@ -589,6 +592,7 @@ export default {
     };
 
     return {
+      track,
       isCompare,
       hasAnyData,
       singleModeStats,

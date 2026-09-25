@@ -91,7 +91,7 @@
               />
 
               <transition name="mode-fade" mode="out-in" @after-enter="handleModePanelAfterEnter">
-                <div v-if="contentMode === 'data'" key="overall-data" class="overall-stats-container mode-panel">
+                <div v-if="contentMode === 'data'" v-analytics-view="{ feature: '全场数据表' }" key="overall-data" class="overall-stats-container mode-panel">
                   <template v-for="(teamBlock, ti) in overallTeamSections" :key="teamBlock.key">
                     <!-- 全场对标带：两队选手之间，深色赛事面 + 双方队标 -->
                     <div v-if="ti === 1" class="versus-band versus-band--overall">
@@ -142,7 +142,7 @@
                   </template>
                 </div>
 
-                <div v-else-if="teamAnalysis" key="overall-analysis" class="match-analysis-section mode-panel">
+                <div v-else-if="teamAnalysis" v-analytics-view="{ feature: '全场比赛分析' }" key="overall-analysis" class="match-analysis-section mode-panel">
                   <div class="analysis-grid">
                     <div v-if="mapFlow.length" class="map-flow-strip analysis-grid-span-2">
                       <div
@@ -394,6 +394,8 @@
 </template>
 
 <script>
+import { snapshotRoute } from '@/analytics/core.mjs';
+import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -430,6 +432,7 @@ export default {
       { value: 'data', label: '选手数据' },
       { value: 'analysis', label: '地图分析' }
     ];
+    const analyticsLoadOutcome = ref('success');
     const matchDetails = ref({ mapGames: [], playerStats: [] });
     const mapTimelineCache = ref({});
     const expandedMapPlayerKeys = ref([]);
@@ -820,6 +823,7 @@ export default {
     const isMapPlayerExpanded = (player) => expandedMapPlayerKeys.value.includes(mapPlayerExpansionKey(player));
     const toggleMapPlayerHeroes = (player) => {
       if (!canExpandMapPlayer(player)) return;
+      trackPublicEvent('expand', { feature: '单图选手英雄明细', playerId: player.playerId, playerName: player.name, expanded: !isMapPlayerExpanded(player) }, route);
       const key = mapPlayerExpansionKey(player);
       expandedMapPlayerKeys.value = isMapPlayerExpanded(player)
         ? expandedMapPlayerKeys.value.filter(item => item !== key)
@@ -1169,6 +1173,7 @@ export default {
     });
 
     const selectMapRole = (role) => {
+      if (selectedMapRole.value !== role) trackPublicEvent('filter_change', { feature: '单图选手对比', filter: '职责', role }, route);
       selectedMapRole.value = role;
       nextTick(() => {
         if (activeMapRadarCard.value) renderMapPlayerRadar(activeMapRadarCard.value);
@@ -1192,6 +1197,8 @@ export default {
         selectedMapPlayers.value[mapId][role] = { team1: null, team2: null };
       }
       selectedMapPlayers.value[mapId][role][teamKey] = player;
+      const chosen = Object.values(selectedMapPlayers.value[mapId][role]).filter(Boolean);
+      trackPublicEvent('compare', { feature: '单图选手对比', role, playerIds: chosen.map(p => p.playerId), playerNames: chosen.map(p => p.playerName || p.name), selectionCount: chosen.length }, route);
 
       nextTick(() => {
         const targetCard = currentMapPlayerRadarCards.value.find(card => card.role === role);
@@ -1214,12 +1221,14 @@ export default {
 
     const switchTab = (tab) => {
       if (activeTab.value !== tab) {
-        trackPublicEvent('比赛详情-切换标签', {
+        trackPublicEvent('tab_change', {
           seasonId: queryParams.value.seasonId,
           matchId: queryParams.value.matchId,
           team1Id: queryParams.value.team1Id,
           team2Id: queryParams.value.team2Id,
-          tab: String(tab)
+          tab: tab === 'overall' ? '全场总览' : '单图详情',
+          mapGameId: tab === 'overall' ? undefined : tab,
+          mapId: matchDetails.value.mapGames.find(game => String(game.id) === String(tab))?.mapId
         }, route);
       }
       activeTab.value = tab;
@@ -1233,12 +1242,12 @@ export default {
 
     const switchContentMode = (mode) => {
       if (contentMode.value !== mode) {
-        trackPublicEvent('比赛详情-切换模式', {
+        trackPublicEvent('tab_change', {
           seasonId: queryParams.value.seasonId,
           matchId: queryParams.value.matchId,
           team1Id: queryParams.value.team1Id,
           team2Id: queryParams.value.team2Id,
-          tab: String(activeTab.value),
+          tab: activeTab.value === 'overall' ? '全场总览' : '单图详情',
           mode
         }, route);
       }
@@ -1251,7 +1260,7 @@ export default {
 
     const goToTeamDetail = (teamId) => {
       if (!teamId) return;
-      trackPublicEvent('比赛详情-打开战队', {
+      trackPublicEvent('open_team', {
         seasonId: queryParams.value.seasonId,
         matchId: queryParams.value.matchId,
         teamId: String(teamId),
@@ -1269,7 +1278,7 @@ export default {
     };
 
     const goBack = () => {
-      trackPublicEvent('比赛详情-返回上一页', {
+      trackPublicEvent('back', {
         seasonId: queryParams.value.seasonId,
         matchId: queryParams.value.matchId,
         source: queryParams.value.from || 'visualize'
@@ -1523,6 +1532,7 @@ export default {
 
     const loadData = async () => {
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       isLoading.value = true;
       try {
         if (!store.state.teams.length || !store.state.maps.length || !store.state.seasons.length) {
@@ -1569,17 +1579,19 @@ export default {
         activeTab.value = 'overall';
         contentMode.value = 'analysis';
       } catch (error) {
+        analyticsLoadOutcome.value = 'error';
         console.error('Failed to load match detail data:', error);
       } finally {
         isLoading.value = false;
         trackPerformance('比赛详情加载', performance.now() - startTime, {
+          outcome: analyticsLoadOutcome.value === 'error' ? 'error' : matchDetails.value.mapGames.length ? 'success' : 'empty', resultCount: matchDetails.value.mapGames.length,
           seasonId: queryParams.value.seasonId,
           matchId: queryParams.value.matchId,
           team1Id: queryParams.value.team1Id,
           team2Id: queryParams.value.team2Id,
-          tab: String(activeTab.value),
+          tab: activeTab.value === 'overall' ? '全场总览' : '单图详情',
           mode: contentMode.value
-        }, route);
+        }, analyticsRoute);
         ensureCurrentMapSelections();
         renderVisibleCharts();
       }
@@ -1632,6 +1644,8 @@ export default {
       });
     });
 
+
+    useAnalyticsContext(() => ({ seasonId: queryParams.value.seasonId, matchId: queryParams.value.matchId, team1Id: queryParams.value.team1Id, team2Id: queryParams.value.team2Id, team1Name: queryParams.value.team1, team2Name: queryParams.value.team2, matchDate: queryParams.value.matchDate, mapGameId: currentMapGame.value?.id, mapId: currentMapGame.value?.mapId }));
 
     useAssistantContext(() => ({
       kind: 'match', label: `${queryParams.value.team1 || '比赛'} vs ${queryParams.value.team2 || ''}${currentMapGame.value ? ' · ' + getMapName(currentMapGame.value.mapId) : ''}`,

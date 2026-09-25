@@ -1,5 +1,5 @@
 <template>
-  <section class="schedule-shell" aria-labelledby="schedule-title">
+  <section v-analytics-view="{ feature: '赛程列表', seasonId, resultCount: scheduleCount }" class="schedule-shell" aria-labelledby="schedule-title">
     <h2 id="schedule-title" class="visually-hidden">赛程列表</h2>
 
     <div v-if="hasScheduleData" class="date-rail-wrap">
@@ -159,7 +159,7 @@
               </div>
 
             </button>
-            <MatchSupport compact :summary="supportForMatch(match)"
+            <MatchSupport :analytics-context="{ seasonId, matchId: match.source === 'recorded' ? match.id : undefined, matchDate: match.matchDate || match.dateKey }" compact :summary="supportForMatch(match)"
               :readonly="match.source === 'recorded' || match.state === 'ongoing'" :left-id="match.team1.id" :right-id="match.team2.id"
               :left-name="match.team1.name" :right-name="match.team2.name" :submit="submitVote" :error="pollEntry.error" />
 
@@ -187,7 +187,7 @@
                     type="button"
                     class="replay-tag"
                     :title="`点击复制 ${item.mapName} 代码`"
-                    @click="copyCode(item.code)"
+                    @click="copyCode(item.code, match, item)"
                   >
                     <span class="replay-map-name">{{ item.mapName }}</span>
                     <span class="replay-code">{{ item.code }}</span>
@@ -228,6 +228,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
@@ -306,6 +307,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('赛程列表', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const route = useRoute();
     const router = useRouter();
@@ -552,12 +554,13 @@ export default {
     };
 
     const selectDate = key => {
+      if (selectedDate.value !== key) track('filter_change', { filter: '比赛日期', value: key === ALL_DATE ? '全部日期' : key });
       selectedDate.value = key;
       nextTick(scrollSelectedDateIntoView);
     };
 
     const selectDateFromPicker = key => {
-      selectedDate.value = key;
+      selectDate(key);
       datePickerOpen.value = false;
       nextTick(scrollSelectedDateIntoView);
     };
@@ -636,21 +639,27 @@ export default {
       if (next.has(matchId)) next.delete(matchId);
       else next.add(matchId);
       expandedReplays.value = next;
+      const match = props.matches.find(m => String(m.id) === String(matchId));
+      track('replay_expand', { matchId, team1Id: match?.team1Id, team2Id: match?.team2Id, expanded: next.has(matchId) });
     };
 
     const isReplaysExpanded = matchId => expandedReplays.value.has(matchId);
 
-    const copyCode = async code => {
+    const copyCode = async (code, match, item) => {
+      const analytics = { matchId: match.id, team1Id: match.team1Id, team2Id: match.team2Id, mapId: item.mapId };
       try {
         await navigator.clipboard.writeText(code);
+        track('replay_copy', { ...analytics, outcome: 'success' });
         ElMessage.success({ message: `录像代码 ${code} 已复制`, duration: 2000 });
       } catch (error) {
+        track('replay_copy', { ...analytics, outcome: 'error' });
         ElMessage.error('复制失败');
       }
     };
 
     const openRecordedMatch = match => {
-      trackPublicEvent('首页-打开比赛详情', {
+      trackPublicEvent('open_match', {
+        team1Id: match?.team1Id, team2Id: match?.team2Id, team1Name: match?.team1?.name, team2Name: match?.team2?.name, matchDate: match?.matchDate, matchName: undefined,
         source: 'match_schedule',
         seasonId: match.seasonId,
         matchId: match.id
@@ -694,7 +703,7 @@ export default {
 
     const openUpcomingMatch = match => {
       if (!props.seasonId) return;
-      trackPublicEvent('首页-打开未开赛详情', {
+      trackPublicEvent('open_upcoming', {
         source: 'match_schedule',
         seasonId: props.seasonId,
         team1Name: match.team1.name,
@@ -756,6 +765,7 @@ export default {
       : '切换日期或比赛状态查看其他安排');
 
     const clearFilters = () => {
+      track('filter_change', { filter: '比赛日期', value: '全部日期' });
       selectedDate.value = ALL_DATE;
       nextTick(scrollSelectedDateIntoView);
     };
@@ -780,6 +790,7 @@ export default {
     };
 
     return {
+      track,
       supportForMatch,
       pollEntry,
       submitVote,

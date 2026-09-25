@@ -46,6 +46,7 @@ jobs:
         run: |
           npm run test:static-export
           npm run test:stat-metrics
+          npm run test:analytics
           npm run test:site-client
 
       - name: Export production static site

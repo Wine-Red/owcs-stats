@@ -1,17 +1,17 @@
 <template>
   <Teleport to="body">
-    <AssistantLauncher v-show="!open" ref="launcher" @open="show" />
+    <AssistantLauncher v-show="!open" v-analytics-view="{ feature: '赛事助手入口' }" ref="launcher" @open="show" />
     <div v-if="open" class="assistant-mobile-shade" @click="close"></div>
     <section v-if="open" ref="panel" class="owcs-assistant" role="dialog" aria-label="赛事助手" @keydown.esc="close" @keydown="trapFocus">
       <header class="assistant-header"><div><span class="assistant-eyebrow">OWCS STATS</span><h2>赛事助手 <span class="assistant-live-dot"></span></h2></div>
         <div class="assistant-actions"><button type="button" @click="clear" :disabled="busy || !messages.length" title="清空对话" aria-label="清空对话">↺</button><button type="button" @click="close" aria-label="关闭助手">×</button></div>
       </header>
-      <div class="assistant-context"><button type="button" :class="{ detached: !withPage }" @click="withPage = !withPage" :aria-pressed="withPage" :title="withPage ? '点击取消当前页面范围' : '点击结合当前页面'">
+      <div class="assistant-context"><button type="button" :class="{ detached: !withPage }" @click="withPage = !withPage; trackPublicEvent('assistant_context', { withPage }, route)" :aria-pressed="withPage" :title="withPage ? '点击取消当前页面范围' : '点击结合当前页面'">
         <span>{{ withPage ? '正在看' : '自由问答' }}</span><strong>{{ withPage ? currentPage.label : '不限定当前页面' }}</strong><b aria-hidden="true">{{ withPage ? '×' : '+' }}</b>
       </button><small v-if="withPage && currentPage.loading">页面数据加载中</small></div>
       <div ref="scrollArea" class="assistant-messages" role="log" aria-label="对话内容">
         <div v-if="!messages.length" class="assistant-welcome"><span class="welcome-symbol" aria-hidden="true">✦</span><h3>这场比赛，想了解什么？</h3><p>可以从眼前的数据聊起，也可以问其他赛事。</p>
-          <div class="assistant-starters"><button v-for="question in starters" :key="question" type="button" @click="send(question)">{{ question }} <span aria-hidden="true">↗</span></button></div>
+          <div class="assistant-starters"><button v-for="question in starters" :key="question" type="button" @click="send(question, 'starter')">{{ question }} <span aria-hidden="true">↗</span></button></div>
         </div>
         <article v-for="message in messages" :key="message.id" :class="['assistant-message', message.role]">
           <span class="assistant-speaker">{{ message.role === 'user' ? '你' : '赛事助手' }}</span>
@@ -28,6 +28,10 @@
 </template>
 
 <script setup>
+import { useRoute } from 'vue-router';
+import { captureAnalyticsContext, trackPublicEvent } from '@/utils/analytics';
+import { classifyError } from '@/analytics/core.mjs';
+const route = useRoute();
 import { computed, nextTick, onUnmounted, ref } from 'vue';
 import AssistantLauncher from './AssistantLauncher.vue';
 import { useCurrentAssistantPage, assistantManagementEnabled } from '@/services/assistantContext';
@@ -35,15 +39,15 @@ import { renderAssistantMarkdown, streamAssistant } from '@/services/assistantCh
 const currentPage = useCurrentAssistantPage();
 const open = ref(false), withPage = ref(true), messages = ref([]), draft = ref(''), busy = ref(false);
 const panel = ref(), launcher = ref(), input = ref(), scrollArea = ref(), serviceUnavailable = ref(false);
-let controller;
+let controller, stopRequested = false;
 const starters = computed(() => currentPage.value.kind === 'match'
   ? ['这场比赛有哪些值得关注的表现？', '比较一下当前选中的选手', '这些数据能说明哪些问题？']
   : currentPage.value.kind === 'player' ? ['这名选手有什么表现特点？', '解释一下这里的每十分钟指标', '他最近参加了哪些比赛？']
     : ['介绍一下当前赛事', '这页的数据应该怎么看？', '有哪些值得比较的选手？']);
-async function show() { open.value = true; await nextTick(); input.value?.focus(); }
+async function show() { trackPublicEvent('assistant_open', {}, route); open.value = true; await nextTick(); input.value?.focus(); }
 async function close() { open.value = false; await nextTick(); launcher.value?.focus(); }
 function clear() { messages.value = []; draft.value = ''; serviceUnavailable.value = false; }
-function stop() { controller?.abort(); }
+function stop() { stopRequested = true; controller?.abort(); }
 function onEnter(e) { if (!e.shiftKey && !e.isComposing) { e.preventDefault(); if (!busy.value) send(); } }
 function trapFocus(e) {
   if (e.key !== 'Tab') return;
@@ -56,28 +60,41 @@ async function scroll(force = false) {
   const area = scrollArea.value, nearBottom = area && area.scrollHeight - area.scrollTop - area.clientHeight < 160;
   await nextTick(); if (area && (force || nearBottom)) area.scrollTop = area.scrollHeight;
 }
-async function send(value = draft.value) {
+async function send(value = draft.value, inputType = 'typed') {
   const text = value.trim(); if (!text || busy.value) return;
+  const analyticsContext = captureAnalyticsContext(route);
+  const analyticsData = { inputType, withPage: withPage.value };
+  const started = performance.now();
+  let firstTextMs, outcome = 'interrupted', errorType;
+  const turns = messages.value.filter(m => m.role === 'user').length + 1;
+  trackPublicEvent('assistant_send', { ...analyticsData, turnBucket: turns === 1 ? '首轮' : turns <= 3 ? '2-3轮' : '4轮以上' }, analyticsContext);
   const page = withPage.value ? JSON.parse(JSON.stringify(currentPage.value)) : { kind: 'general', label: '自由问答' };
   const history = messages.value.filter(m => !m.failed && m.content).slice(-14).map(m => ({ role: m.role, content: m.content.slice(0, 20000), ...(m.page ? { page: m.page } : {}) }));
   messages.value.push({ id: crypto.randomUUID(), role: 'user', content: text, page });
   const message = { id: crypto.randomUUID(), role: 'assistant', content: '', notices: [], pending: true };
   messages.value.push(message); const response = messages.value.at(-1);
-  draft.value = ''; busy.value = true; serviceUnavailable.value = false; controller = new AbortController();
+  draft.value = ''; busy.value = true; serviceUnavailable.value = false; stopRequested = false; controller = new AbortController();
   scroll(true);
   try {
     await streamAssistant({ text, history, page, signal: controller.signal, onEvent(event) {
-      if (event.type === 'text') response.content += event.text;
+      if (event.type === 'text') {
+        response.content += event.text;
+        if (event.text && firstTextMs === undefined) firstTextMs = Math.round(performance.now() - started);
+      }
       if (event.type === 'notice') response.notices.push(event.text);
-      if (event.type === 'error') { response.notices.push(event.text); response.failed = true; }
-      if (event.type === 'done') response.metrics = event.metrics;
+      if (event.type === 'error') { response.notices.push(event.text); response.failed = true; outcome = 'error'; errorType = 'unavailable'; }
+      if (event.type === 'done') { response.metrics = event.metrics; if (!response.failed) outcome = response.content.trim() ? 'completed' : 'empty'; }
       scroll();
     } });
   } catch (e) {
+    outcome = e.name === 'AbortError' ? (stopRequested ? 'stopped' : 'interrupted') : 'error';
+    errorType = e.name === 'AbortError' ? undefined : classifyError(e);
     response.failed = true;
     response.notices.push(e.name === 'AbortError' ? '已停止，以上回答可能不完整。' : e.message);
     if (e.name !== 'AbortError') serviceUnavailable.value = true;
-  } finally { response.pending = false; busy.value = false; controller = null; scroll(); }
+  } finally {
+    trackPublicEvent('assistant_result', { ...analyticsData, outcome, errorType, firstTextMs, duration: Math.round(performance.now() - started) }, analyticsContext);
+    response.pending = false; busy.value = false; controller = null; scroll(); }
 }
 onUnmounted(() => controller?.abort());
 </script>

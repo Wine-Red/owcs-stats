@@ -221,7 +221,8 @@ export default {
     };
 
     const goToMatchDetail = (match) => {
-      trackPublicEvent('首页-打开比赛详情', {
+      trackPublicEvent('open_match', {
+        team1Id: match?.team1Id, team2Id: match?.team2Id, team1Name: match?.team1?.name, team2Name: match?.team2?.name, matchDate: match?.matchDate, matchName: undefined,
         source: 'recent_matches',
         seasonId: match?.seasonId,
         matchId: match?.id

@@ -69,7 +69,7 @@
         @update:model-value="switchTab"
       />
 
-      <div v-show="activeTab === 'overview'" class="player-tab-panel">
+      <div v-show="activeTab === 'overview'" v-analytics-view="{ feature: '选手表现概览' }" class="player-tab-panel">
         <div class="content-grid">
         <section class="content-section performance-section" aria-labelledby="performance-title">
           <div class="section-heading">
@@ -159,7 +159,7 @@
         </div>
       </div>
 
-      <div v-if="hasHeroData" v-show="activeTab === 'heroes'" class="player-tab-panel">
+      <div v-if="hasHeroData" v-analytics-view="{ feature: '选手英雄表现', seasonId: currentSeasonId }" v-show="activeTab === 'heroes'" class="player-tab-panel">
         <section class="content-section heroes-section" aria-label="英雄数据">
           <div class="ph-strip" role="tablist" aria-label="本赛季使用过的英雄">
             <button
@@ -171,7 +171,7 @@
               role="tab"
               :aria-selected="selectedHeroId === h.heroId"
               :title="getHeroName(h.heroId)"
-              @click="selectedHeroId = h.heroId"
+              @click="selectHero(h.heroId)"
             >
               <span class="ph-hero-icon">
                 <img
@@ -230,7 +230,7 @@
         </section>
       </div>
 
-      <div v-show="activeTab === 'maps'" class="player-tab-panel">
+      <div v-analytics-view="{ feature: '选手近期出场', seasonId: currentSeasonId }" v-show="activeTab === 'maps'" class="player-tab-panel">
         <section class="recent-matches-panel" aria-label="近期出场">
         <div v-if="recentMatches.length" class="recent-match-list">
           <button
@@ -265,6 +265,8 @@
 </template>
 
 <script>
+import { snapshotRoute } from '@/analytics/core.mjs';
+import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio, profileTotalsStat } from '@/utils/statMetrics.mjs';
@@ -300,6 +302,11 @@ export default {
     const activeTab = ref(['overview', 'heroes', 'maps'].includes(String(route.query.tab)) ? String(route.query.tab) : 'overview');
     const playerHeroes = ref([]);
     const selectedHeroId = ref(null);
+    const selectHero = heroId => {
+      if (selectedHeroId.value === heroId) return;
+      selectedHeroId.value = heroId;
+      trackPublicEvent('filter_change', { feature: '选手英雄表现', filter: '英雄', heroId }, route);
+    };
     const failedHeroIcons = ref(new Set());
     const hasHeroData = computed(() => playerHeroes.value.length > 0);
     const detailTabs = computed(() => {
@@ -320,7 +327,7 @@ export default {
     const switchTab = async (tab) => {
       if (activeTab.value === tab) return;
       activeTab.value = tab;
-      trackPublicEvent('选手详情-切换标签', { tab, playerId: route.query.playerId }, route);
+      trackPublicEvent('tab_change', { tab: detailTabs.value.find(item => item.value === tab)?.label || tab, playerId: route.query.playerId }, route);
       await router.replace({ query: { ...route.query, tab } });
     };
 
@@ -416,6 +423,7 @@ export default {
     // 同位置表现：点击最右侧排名可展开该指标的同位置完整榜单
     const expandedMetric = ref(null);
     const toggleMetricRank = (key) => {
+      trackPublicEvent('expand', { feature: '选手同职责排名', metric: key, expanded: expandedMetric.value !== key }, route);
       expandedMetric.value = expandedMetric.value === key ? null : key;
     };
     const metricLeaderboard = (metric) => {
@@ -495,6 +503,7 @@ export default {
     });
 
     const toggleHeroMetric = (key) => {
+      trackPublicEvent('expand', { feature: '选手英雄排名', metric: key, heroId: selectedHeroId.value, expanded: expandedHeroMetric.value !== key }, route);
       expandedHeroMetric.value = expandedHeroMetric.value === key ? null : key;
     };
 
@@ -609,6 +618,7 @@ export default {
 
     const loadData = async () => {
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       isLoading.value = true;
       errorMessage.value = '';
       try {
@@ -627,30 +637,34 @@ export default {
         errorMessage.value = error?.response?.status === 404 ? '没有找到这名选手。' : '数据加载失败，请稍后重试。';
       } finally {
         isLoading.value = false;
-        trackPerformance('选手个人页加载', performance.now() - startTime, {
+        trackPerformance('选手详情加载', performance.now() - startTime, {
+          outcome: errorMessage.value ? 'error' : player.value ? 'success' : 'empty',
           playerId: playerId.value,
           seasonId: currentSeasonId.value
-        }, route);
+        }, analyticsRoute);
       }
     };
 
     const selectSeason = async seasonId => {
       if (!seasonId || String(seasonId) === String(currentSeasonId.value)) return;
       currentSeasonId.value = String(seasonId);
+      trackPublicEvent('season_change', { playerId: playerId.value, seasonId }, route);
+      const analyticsStarted = performance.now();
+      errorMessage.value = '';
       await router.replace({ query: { ...route.query, seasonId: String(seasonId) } });
       isLoading.value = true;
       try {
         await loadSeason(seasonId);
-        trackPublicEvent('选手个人页-切换赛季', { playerId: playerId.value, seasonId }, route);
       } catch (error) {
         errorMessage.value = '赛季数据加载失败，请稍后重试。';
       } finally {
+        trackPerformance('选手切换赛事加载', performance.now() - analyticsStarted, { outcome: errorMessage.value ? 'error' : 'success' }, route);
         isLoading.value = false;
       }
     };
 
     const goBack = () => {
-      trackPublicEvent('选手个人页-返回上一页', { playerId: playerId.value, seasonId: currentSeasonId.value }, route);
+      trackPublicEvent('back', { playerId: playerId.value, seasonId: currentSeasonId.value }, route);
       if (route.query.from) {
         router.back();
       } else {
@@ -660,6 +674,7 @@ export default {
 
     const goToTeamDetail = () => {
       if (!currentTeam.value?.id) return;
+      trackPublicEvent('open_team', { teamId: currentTeam.value.id, teamName: currentTeam.value.name, source: '选手所属战队' }, route);
       router.push({
         path: '/visualize/team-detail',
         query: { teamId: String(currentTeam.value.id), seasonId: currentSeasonId.value, from: 'player-detail' }
@@ -668,6 +683,7 @@ export default {
 
     const goToMatchDetail = map => {
       if (!map.matchId) return;
+      trackPublicEvent('open_match', { matchId: map.matchId, matchName: undefined, team1Id: map.teamId, team2Id: map.opponentId, matchDate: map.matchDate, source: '选手比赛记录' }, route);
       router.push({
         path: '/visualize/match-detail',
         query: {
@@ -683,6 +699,7 @@ export default {
     // 榜单里其他选手的名字 → 该选手的详情页（同赛季）；本人行不跳
     const goToPeerDetail = row => {
       if (!row?.playerId || row.isSelf) return;
+      trackPublicEvent('open_player', { playerId: row.playerId, playerName: row.playerName || row.name, source: '同职责选手排名' }, route);
       router.push({
         path: '/visualize/player-detail',
         query: {
@@ -747,6 +764,8 @@ export default {
 
     onBeforeUnmount(() => window.removeEventListener('resize', fitPlayerName));
 
+    useAnalyticsContext(() => ({ seasonId: currentSeasonId.value, playerId: playerId.value, playerName: String(player.value?.id) === playerId.value ? player.value?.name : undefined, teamId: currentTeam.value?.id, teamName: currentTeam.value?.name }));
+
     useAssistantContext(() => ({
       kind: 'player', label: `${player.value?.name || '选手'} · ${currentSeasonName.value}`,
       competition_id: currentSeasonId.value, player_ids: [playerId.value],
@@ -777,6 +796,7 @@ export default {
       metricLeaderboard,
       playerHeroes,
       selectedHeroId,
+      selectHero,
       hasHeroData,
       selectedHero,
       failedHeroIcons,

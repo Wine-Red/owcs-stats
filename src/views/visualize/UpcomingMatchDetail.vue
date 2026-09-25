@@ -38,7 +38,7 @@
           @update:model-value="switchTab"
         />
 
-        <div class="tab-content-area">
+        <div class="tab-content-area" v-analytics-view="{ feature: '赛前-' + (detailTabs.find(item => item.value === activeTab)?.label || activeTab) }">
           <p v-if="loadError" class="form-note" role="alert">{{ loadError }}</p>
           <p v-if="!loadError && !recentMatches.team1.length && !recentMatches.team2.length" class="form-note">暂无已录入的近期完赛记录。</p>
           <p v-else-if="!loadError && !teamStats.team1 && !teamStats.team2" class="form-note">近期比赛暂无选手统计，暂无法生成雷达和选手对位。</p>
@@ -226,6 +226,8 @@
 </template>
 
 <script>
+import { snapshotRoute } from '@/analytics/core.mjs';
+import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { killDeathRatio, killAssistDeathRatio, perTenMinutes } from '@/utils/statMetrics.mjs';
 import { ref, onMounted, computed, nextTick, onUnmounted, watch } from 'vue';
@@ -477,11 +479,11 @@ export default {
 
     const switchTab = async (tab) => {
       if (activeTab.value !== tab) {
-        trackPublicEvent('未开赛详情-切换标签', {
+        trackPublicEvent('tab_change', {
           seasonId: queryParams.value.seasonId,
           team1Id: team1ResolvedId.value,
           team2Id: team2ResolvedId.value,
-          tab
+          tab: detailTabs.value.find(item => item.value === tab)?.label || tab
         }, route);
       }
 
@@ -505,6 +507,7 @@ export default {
     };
 
     const selectRole = (role) => {
+      if (selectedRole.value !== role) trackPublicEvent('filter_change', { feature: '赛前选手对比', filter: '职责', role }, route);
       selectedRole.value = role;
       nextTick(() => {
         renderPlayerRadar();
@@ -513,13 +516,15 @@ export default {
 
     const selectPlayer = (role, teamKey, playerObj) => {
       selectedPlayers.value[role][teamKey] = playerObj;
+      const chosen = Object.values(selectedPlayers.value[role]).filter(Boolean);
+      trackPublicEvent('compare', { feature: '赛前选手对比', role, playerIds: chosen.map(p => p.playerId || p.id), playerNames: chosen.map(p => p.playerName || p.name), selectionCount: chosen.length }, route);
       nextTick(() => {
         renderPlayerRadar();
       });
     };
 
     const goBack = () => {
-      trackPublicEvent('未开赛详情-返回上一页', {
+      trackPublicEvent('back', {
         seasonId: queryParams.value.seasonId,
         team1Id: team1ResolvedId.value,
         team2Id: team2ResolvedId.value
@@ -533,7 +538,7 @@ export default {
 
     const goToTeamDetail = (teamId) => {
       if (!teamId) return;
-      trackPublicEvent('未开赛详情-打开战队', {
+      trackPublicEvent('open_team', {
         seasonId: queryParams.value.seasonId,
         team1Id: team1ResolvedId.value,
         team2Id: team2ResolvedId.value,
@@ -553,10 +558,9 @@ export default {
     const goToMatchDetail = (match) => {
       if (!match?.id) return;
 
-      trackPublicEvent('未开赛详情-打开历史比赛', {
+      trackPublicEvent('open_match', {
+        team1Id: match?.team1Id, team2Id: match?.team2Id, team1Name: match?.team1?.name, team2Name: match?.team2?.name, matchDate: match?.matchDate, matchName: undefined,
         seasonId: String(match.seasonId || queryParams.value.seasonId || ''),
-        team1Id: team1ResolvedId.value,
-        team2Id: team2ResolvedId.value,
         matchId: match.id
       }, route);
 
@@ -976,6 +980,7 @@ export default {
 
     const loadData = async () => {
       const startTime = performance.now();
+      const analyticsRoute = snapshotRoute(route);
       isLoading.value = true;
       try {
         if (!store.state.teams.length || !store.state.players.length || !store.state.maps.length || !store.state.seasons.length) {
@@ -1031,12 +1036,13 @@ export default {
         loadError.value = '部分近期比赛数据加载失败，请刷新重试。';
       } finally {
         isLoading.value = false;
-        trackPerformance('未开赛详情加载', performance.now() - startTime, {
+        trackPerformance('赛前分析加载', performance.now() - startTime, {
+          outcome: loadError.value ? 'partial' : (team1ResolvedId.value || team2ResolvedId.value) ? 'success' : 'empty',
           seasonId: queryParams.value.seasonId,
           team1Id: team1ResolvedId.value,
           team2Id: team2ResolvedId.value,
           tab: activeTab.value
-        }, route);
+        }, analyticsRoute);
         nextTick(() => {
           if (activeTab.value === 'team') {
             requestAnimationFrame(() => {
@@ -1092,6 +1098,8 @@ export default {
       const pair = [Number(team1ResolvedId.value), Number(team2ResolvedId.value)].sort().join(':');
       return poll && !poll.matchId && [poll.team1Id, poll.team2Id].sort().join(':') === pair ? poll : null;
     });
+
+    useAnalyticsContext(() => ({ seasonId: queryParams.value.seasonId, team1Id: team1ResolvedId.value, team2Id: team2ResolvedId.value, matchDate: queryParams.value.time }));
 
     useAssistantContext(() => ({
       kind: 'upcoming', label: `${queryParams.value.team1 || '待定'} vs ${queryParams.value.team2 || '待定'}`,

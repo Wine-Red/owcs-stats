@@ -1,10 +1,10 @@
 <template>
-  <div class="vis-card">
+  <div v-analytics-view="{ feature: '战队排行榜', seasonId, resultCount: teamLeaderboardData.length }" class="vis-card">
     <div class="panel-header">
       <div class="header-controls">
         <div class="select-wrapper">
           <el-select 
-            v-model="teamFilter" 
+            v-model="teamFilter" @change="track('filter_change', { filter: '战队', teamIds: $event })"
             placeholder="" 
             :disabled="!seasonId" 
             class="team-select-input"
@@ -84,7 +84,7 @@
         </el-table>
 
         <div class="leaderboard-footer" v-if="teamLeaderboardData.length > 3">
-          <el-button link type="primary" @click="isExpanded = !isExpanded">
+          <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
             {{ isExpanded ? '收起全部' : '查看全部' }}
             <el-icon class="el-icon--right">
               <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
@@ -98,6 +98,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { perTenMinutes, killDeathRatio } from '@/utils/statMetrics.mjs';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
@@ -126,6 +127,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('战队排行榜', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const route = useRoute();
     const teamComparisonChart = ref(null);
@@ -139,15 +141,17 @@ export default {
 
     const goToTeamDetail = (row) => {
       if (!row || !row.teamId || !props.seasonId) return;
-      trackPublicEvent('首页-打开战队详情', {
+      trackPublicEvent('open_team', {
         source: 'team_stats_chart',
         seasonId: props.seasonId,
+        teamName: row.teamName || row.team?.name,
         teamId: row.teamId
       }, route);
 
       router.push({
         path: '/visualize/team-detail',
-        query: { seasonId: props.seasonId, teamId: row.teamId }
+        query: { seasonId: props.seasonId, teamName: row.teamName || row.team?.name,
+        teamId: row.teamId }
       });
     };
 
@@ -177,6 +181,7 @@ export default {
     const sortState = ref({ prop: 'kd', order: 'descending' });
 
     const handleSortChange = ({ prop, order }) => {
+      if (sortState.value.prop !== prop || sortState.value.order !== order) track('sort_change', { metric: prop, order: order || '默认' });
       sortState.value = { prop, order };
     };
 
@@ -673,6 +678,7 @@ export default {
       metric: '队伍统计' }), { chart: true });
 
     return {
+      track,
       teamComparisonChart,
       teamFilter,
       teams,

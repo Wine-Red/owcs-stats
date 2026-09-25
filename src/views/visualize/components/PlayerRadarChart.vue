@@ -1,5 +1,5 @@
 <template>
-  <div class="radar-section">
+  <div v-analytics-view="{ feature: '选手对比', seasonId, resultCount: rolePlayers.length }" class="radar-section">
     <div class="panel-header">
       <div class="header-controls">
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
@@ -22,7 +22,7 @@
           
           <div class="player-selectors">
              <el-select 
-              v-model="player1Id" 
+              v-model="player1Id" @change="trackComparison"
               placeholder="" 
               clearable
               class="player-select"
@@ -46,7 +46,7 @@
             </el-select>
             
             <el-select 
-              v-model="player2Id" 
+              v-model="player2Id" @change="trackComparison"
               placeholder="" 
               clearable
               class="player-select"
@@ -92,6 +92,7 @@
 </template>
 
 <script>
+import { useFeatureAnalytics } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
 import { perTenMinutes, killDeathRatio, killAssistDeathRatio } from '@/utils/statMetrics.mjs';
@@ -116,6 +117,7 @@ export default {
     }
   },
   setup(props) {
+    const track = useFeatureAnalytics('选手对比', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const radarChart = ref(null);
     const playerRole = ref('tank'); // 默认为坦克
@@ -129,7 +131,7 @@ export default {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
         const isTransparent = command === 'transparent';
-        handleExportChart(myChart, seasonName, '', isTransparent, { seasonId: props.seasonId });
+        handleExportChart(myChart, seasonName, '选手每十分钟对比', isTransparent, { seasonId: props.seasonId });
     };
 
     // 获取当前职责的所有选手
@@ -193,7 +195,12 @@ export default {
         return processStats(raw);
     };
 
+    const trackComparison = () => {
+      const selected = [player1Id.value, player2Id.value].filter(Boolean);
+      track('compare', { role: playerRole.value, playerIds: selected, playerNames: selected.map(id => rolePlayers.value.find(p => String(p.id) === String(id))?.name), selectionCount: selected.length });
+    };
     const handleRoleChange = () => {
+        track('filter_change', { filter: '职责', role: playerRole.value });
         player1Id.value = '';
         player2Id.value = '';
         updateChart();
@@ -481,6 +488,8 @@ export default {
       role: playerRole.value, metric: '选手每十分钟对比' }), { chart: true });
 
     return {
+      track,
+      trackComparison,
       packageAssetUrl,
         radarChart,
         playerRole,
