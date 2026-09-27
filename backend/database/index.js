@@ -21,6 +21,7 @@ const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
 const { retireLegacyAgentViews } = require('./legacyAgentViewRetirement');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
 const { runMembershipEvidenceMigration } = require('./membershipEvidenceMigration');
+const { ensureTeamLiquipediaSchema } = require('./teamLiquipediaSchema');
 
 const lowerTableName = table => {
   if (typeof table === 'string') return table.toLowerCase();
@@ -144,6 +145,7 @@ const initDatabase = async () => {
     await ensureTimelineAggregationSchema();
     await ensureMediaSchema();
     await ensureMembershipSourceSchema();
+    await ensureTeamLiquipediaSchema(sequelize);
     console.log('数据库连接成功');
 
     // 设置模型关联关系

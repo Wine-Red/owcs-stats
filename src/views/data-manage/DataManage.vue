@@ -600,6 +600,7 @@
                 <span v-if="team.aliases.length > 3">+{{ team.aliases.length - 3 }}</span>
               </div>
               <span v-else class="entity-card-muted">暂无同步别名</span>
+              <el-link v-if="team.liquipediaUrl" :href="team.liquipediaUrl" target="_blank" rel="noopener noreferrer" @click.stop @keydown.stop>Liquipedia ↗</el-link>
             </div>
             <div class="entity-card-actions" @click.stop>
               <button type="button" @click="openTeamContext(team)">历史</button>
@@ -842,6 +843,9 @@
             @file-change="handleMediaFileChange"
             @clear="handleMediaClear"
           />
+        </el-form-item>
+        <el-form-item label="Liquipedia 页面">
+          <el-input v-model.trim="editForm.liquipediaUrl" placeholder="https://liquipedia.net/overwatch/..." clearable />
         </el-form-item>
       </el-form>
     </div>
@@ -1375,7 +1379,7 @@ export default {
     const pageDescriptionMap = {
       'seasons': '组织赛事、赛段与外部事件映射，控制公开页面的赛事顺序。',
       'season-visualize': '配置公开数据页中的赛事标签、地图池、阶段与积分榜呈现。',
-      'teams': '维护队伍主名、同步别名和公开展示使用的 Logo。',
+      'teams': '维护队伍主名、同步别名、Liquipedia 页面和公开展示使用的 Logo。',
       'heroes': '维护英雄名称、职责分类与公开页面图片资源。',
       'maps': '维护地图名称、模式分类与公开页面横幅资源。',
       'players': '按职责浏览和维护规范选手身份。',
@@ -3031,6 +3035,7 @@ export default {
         name: '',
         region: '',
         logo: '',
+        liquipediaUrl: '',
         aliases: []
       };
       dialogVisible.value = true;

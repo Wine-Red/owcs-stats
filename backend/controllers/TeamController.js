@@ -14,10 +14,12 @@ const {
   serializeTeamsWithAliases
 } = require('../services/TeamAliasService');
 const { getTeamContext } = require('../services/AdminEntityContextService');
+const { teamLiquipediaPayload } = require('../services/TeamLiquipediaLink');
 
 const teamPayload = body => ({
   name: body?.name,
   region: body?.region,
+  ...teamLiquipediaPayload(body),
   ...(Object.prototype.hasOwnProperty.call(body || {}, 'logo') ? { logo: body.logo || null } : {})
 });
 
