@@ -1,9 +1,10 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 import { fetchJsonWithRetry } from './lib/fetch-json-with-retry.mjs';
-import { hash, mediaSources, replaceMedia, validateSnapshot, writeResources, verifyResources } from './lib/static-package.mjs';
+import { hash, mediaSources, replaceMedia, validateSnapshot, writeResources } from './lib/static-package.mjs';
+import { publishStaticData } from './lib/publish-static-data.mjs';
 
 const root = process.cwd();
 const config = JSON.parse(await readFile(path.join(root, 'static-export.config.json'), 'utf8'));
@@ -16,9 +17,8 @@ if (production && sourceFile) throw new Error('Production packages must fetch th
 const publicRoot = path.resolve(root, 'public');
 const destination = path.join(publicRoot, 'static-data');
 const staging = path.join(publicRoot, `.static-export-${randomUUID()}`);
-const backup = path.join(publicRoot, `.static-export-${randomUUID()}`);
-// Every rename/removal below is confined to these generated children of public/.
-for (const target of [destination, staging, backup]) if (path.dirname(path.resolve(target)) !== publicRoot) throw new Error('Unsafe export destination');
+// Every write/removal below is confined to these generated children of public/.
+for (const target of [destination, staging]) if (path.dirname(path.resolve(target)) !== publicRoot) throw new Error('Unsafe export destination');
 
 const imageBytes = async url => {
   for (let attempt = 1; ; attempt++) {
@@ -60,7 +60,7 @@ try {
         ? { bytes: await readFile(path.join(publicRoot, 'branding/team-tbd.png')), extension: 'png' }
         : await imageBytes(url);
       const sha256 = hash(bytes);
-      const relative = source === tbd ? 'team-logos/team-tbd.png' : `media/${sha256}.${extension}`;
+      const relative = `media/${sha256}.${extension}`;
       await writeFile(path.join(staging, relative), bytes);
       replacements.set(source, `__OWCS_STATIC_BASE__/static-data/${relative}`);
       assets.push({ path: relative, sha256, bytes: bytes.length });
@@ -85,14 +85,12 @@ try {
     warnings: []
   };
   await writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  await verifyResources(staging, manifest);
-  let moved = false;
-  try { await rename(destination, backup); moved = true; } catch (error) { if (error.code !== 'ENOENT') throw error; }
-  try { await rename(staging, destination); } catch (error) { if (moved) await rename(backup, destination); throw error; }
-  if (moved) await rm(backup, { recursive: true, force: true });
+  await publishStaticData(staging, destination, manifest);
   console.log(`[static-export] Complete: ${Object.keys(files).length} resources, ${assets.length} local images. No external runtime requests.`);
 } catch (error) {
-  await rm(staging, { recursive: true, force: true });
   console.error(error.message);
   process.exitCode = 1;
+} finally {
+  await rm(staging, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })
+    .catch(error => console.warn(`[static-export] Temporary resources retained at ${staging}: ${error.message}`));
 }

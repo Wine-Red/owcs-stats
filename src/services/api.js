@@ -48,6 +48,7 @@ const apiService = {
   // 赛季相关
   getSeasons: () => api.get('/seasons'),
   getSeasonById: (id) => api.get(`/seasons/${id}`),
+  getSeasonTournament: (id) => api.get(`/seasons/${id}/tournament`),
   createSeason: (data) => api.post('/seasons', data),
   updateSeason: (id, data) => api.put(`/seasons/${id}`, data),
   deleteSeason: (id) => api.delete(`/seasons/${id}`),

@@ -126,6 +126,7 @@
             :seasonId="filterForm.seasonId"
             :tags="seasonVisualConfig.tags" 
             :dateRange="seasonVisualConfig.dateRange"
+            :status="currentSeasonStatus"
           />
 
           <!-- 标签页导航 -->
@@ -134,6 +135,16 @@
           >
             <div class="vis-tabs" role="tablist">
               <button
+                v-if="chartConfig.overviewTab"
+                class="vis-tab-item"
+                :class="{ active: currentTab === 'overview' }"
+                @click="switchHomeTab('overview')"
+                role="tab"
+                :aria-selected="currentTab === 'overview'"
+              >
+                赛事进程
+              </button>
+              <button
                 v-if="chartConfig.recentTab"
                 class="vis-tab-item"
                 :class="{ active: currentTab === 'recent' }"
@@ -141,7 +152,7 @@
                 role="tab"
                 :aria-selected="currentTab === 'recent'"
               >
-                赛程列表
+                比赛列表
               </button>
               <button
                 v-if="chartConfig.statsTab"
@@ -153,28 +164,21 @@
               >
                 赛事数据
               </button>
-              <button
-                v-if="chartConfig.overviewTab"
-                class="vis-tab-item"
-                :class="{ active: currentTab === 'overview' }"
-                @click="switchHomeTab('overview')"
-                role="tab"
-                :aria-selected="currentTab === 'overview'"
-              >
-                赛事积分
-              </button>
             </div>
           </div>
 
-          <ContentChoiceGroup
-            v-if="currentTab === 'stats' && statsCategoryTabs.length"
-            class="stats-category-choices"
-            :model-value="activeStatsCategory"
-            :items="statsCategoryTabs"
-            hide-label
-            aria-label="赛事数据分类"
-            @update:model-value="switchStatsCategory"
-          />
+          <div id="tournament-stage-tabs-host" v-show="currentTab === 'overview'" class="tournament-stage-tabs-host"></div>
+
+          <div v-if="currentTab === 'stats' && statsCategoryTabs.length" class="stats-category-host">
+            <ContentChoiceGroup
+              class="stats-category-choices"
+              :model-value="activeStatsCategory"
+              :items="statsCategoryTabs"
+              hide-label
+              aria-label="赛事数据分类"
+              @update:model-value="switchStatsCategory"
+            />
+          </div>
 
           <Transition name="tab-fade" mode="out-in" @after-enter="handleTabAfterEnter">
             <div
@@ -191,16 +195,7 @@
             >
               <template v-if="currentTab === 'overview'">
                 <div class="overview-section">
-                  <RegularSeasonBoard
-                    title="阶段排名"
-                    :seasonId="filterForm.seasonId"
-                    :matches="seasonMatches"
-                    :mapGames="seasonMapGames"
-                    :template="seasonVisualConfig.standings.template"
-                    :score-stats="seasonTeamScoreStats"
-                    :stage-overrides="seasonVisualConfig.standings.stageOverrides"
-                    :qualification-count="seasonVisualConfig.standings.qualificationCount"
-                  />
+                  <TournamentBoard :season-id="filterForm.seasonId" @show-matches="switchHomeTab('recent')" />
                 </div>
               </template>
               <template v-else-if="currentTab === 'recent'">
@@ -272,7 +267,7 @@ const MapStatsOverview = defineAsyncComponent(() => import('./components/MapStat
 const HeroOverviewChart = defineAsyncComponent(() => import('./components/HeroOverviewChart.vue'));
 
 import TournamentBanner from './components/TournamentBanner.vue';
-import RegularSeasonBoard from './components/RegularSeasonBoard.vue';
+import TournamentBoard from './components/TournamentBoard.vue';
 import MatchSchedule from './components/MatchSchedule.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
 
@@ -287,7 +282,7 @@ export default {
     MapStatsOverview,
     HeroOverviewChart,
     TournamentBanner,
-    RegularSeasonBoard,
+    TournamentBoard,
     MatchSchedule,
     ContentChoiceGroup,
     ArrowDown
@@ -296,7 +291,7 @@ export default {
     const store = useStore();
     const route = useRoute();
     
-    const currentTab = ref('recent');
+    const currentTab = ref('overview');
     const activeStatsCategory = ref('team');
     const mobileSeasonPickerOpen = ref(false);
     const tabContentRef = ref(null);
@@ -320,7 +315,6 @@ export default {
 
     const seasonMatches = ref([]);
     const seasonMapGames = ref([]);
-    const seasonTeamScoreStats = ref([]);
     const seasonMapPickStats = ref([]);
     // 赛季数据维度探测结果（ban / 英雄明细 / 最后一击 / 大招充能），null = 尚未加载
     const seasonFeatures = ref(null);
@@ -387,13 +381,9 @@ export default {
     const loadSeasonOverviewStats = async (seasonId) => {
       if (!seasonId) return;
       try {
-        const [teamScoreRes, mapPickRes] = await Promise.all([
-          apiService.getSeasonTeamScoreStats(seasonId),
-          apiService.getSeasonMapPickStats(seasonId)
-        ]);
-        seasonTeamScoreStats.value = Array.isArray(teamScoreRes) ? teamScoreRes : teamScoreRes?.data || [];
+        const mapPickRes = await apiService.getSeasonMapPickStats(seasonId);
         seasonMapPickStats.value = Array.isArray(mapPickRes) ? mapPickRes : mapPickRes?.data || [];
-        // features 独立拉取、独立容错：接口失败（如后端尚未更新）不影响战队/地图数据展示
+        // features 独立拉取、独立容错：接口失败（如后端尚未更新）不影响地图数据展示
         try {
           const featuresRes = await apiService.getSeasonFeatures(seasonId);
           seasonFeatures.value = featuresRes && typeof featuresRes === 'object' ? featuresRes : null;
@@ -405,7 +395,6 @@ export default {
       } catch (error) {
         analyticsLoadOutcome.value = 'partial';
         console.error('Failed to load season overview stats', error);
-        seasonTeamScoreStats.value = [];
         seasonMapPickStats.value = [];
         seasonFeatures.value = null;
       }
@@ -416,10 +405,6 @@ export default {
       dateRange: '',
       mapPool: {
         mapIds: []
-      },
-      standings: {
-        template: 'wl_maps',
-        qualificationCount: 0
       },
       liquipediaTournamentUrl: ''
     });
@@ -442,11 +427,6 @@ export default {
           tags: normalizeStringArray(config?.tags),
           dateRange: config?.dateRange || '',
           mapPool: { mapIds: normalizeIdArray(config?.mapPool?.mapIds) },
-          standings: {
-            template: config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps',
-            qualificationCount: Number(config?.standings?.qualificationCount) || 0,
-            stageOverrides: (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object') ? config.standings.stageOverrides : {}
-          },
           liquipediaTournamentUrl: config?.liquipediaTournamentUrl || ''
         };
       } catch (error) {
@@ -454,7 +434,6 @@ export default {
           tags: [],
           dateRange: '',
           mapPool: { mapIds: [] },
-          standings: { template: 'wl_maps', stageOverrides: {}, qualificationCount: 0 },
           liquipediaTournamentUrl: ''
         };
       }
@@ -482,6 +461,16 @@ export default {
       merged.heroBan = !!(f && (f.hasBans || f.hasHeroStats));
       return merged;
     });
+
+    const visibleHomeTabs = computed(() => [
+      chartConfig.value.overviewTab && 'overview',
+      chartConfig.value.recentTab && 'recent',
+      chartConfig.value.statsTab && 'stats'
+    ].filter(Boolean));
+
+    watch(visibleHomeTabs, tabs => {
+      if (!tabs.includes(currentTab.value)) currentTab.value = tabs[0] || 'overview';
+    }, { immediate: true });
 
     const statsCategoryTabs = computed(() => [
       chartConfig.value.teamStats && { value: 'team', label: '战队' },
@@ -520,7 +509,7 @@ export default {
 
     const currentSeasonStatus = computed(() => {
       const selectedSeason = seasons.value.find(s => String(s.id) === String(filterForm.value.seasonId));
-      return selectedSeason ? selectedSeason.status : 'in_progress';
+      return selectedSeason?.status || 'unknown';
     });
 
     const currentSeason = computed(() => seasons.value.find(
@@ -531,7 +520,8 @@ export default {
     const currentSeasonStage = computed(() => normalizeStageLabel(currentSeason.value?.stage));
     const getSeasonStatusLabel = status => {
       if (status === 'completed') return '已结束';
-      if (status === 'upcoming') return '即将开始';
+      if (status === 'upcoming') return '未开始';
+      if (status === 'unknown') return '日期待配置';
       return '进行中';
     };
     const currentSeasonStatusLabel = computed(() => getSeasonStatusLabel(currentSeasonStatus.value));
@@ -669,16 +659,15 @@ export default {
       ]);
 
       const requestedTab = typeof route.query.tab === 'string' ? route.query.tab : '';
-      if (['overview', 'recent', 'stats'].includes(requestedTab)) {
-        currentTab.value = requestedTab;
-      }
+      currentTab.value = visibleHomeTabs.value.includes(requestedTab)
+        ? requestedTab : visibleHomeTabs.value[0] || 'overview';
 
       const requestedStatsCategory = typeof route.query.statsView === 'string' ? route.query.statsView : '';
       if (statsCategoryTabs.value.some(item => item.value === requestedStatsCategory)) {
         activeStatsCategory.value = requestedStatsCategory;
       }
       
-      // 默认选择与下拉列表一致：优先最靠前的进行中赛季，没有进行中赛季时选择第一项。
+      // 状态优先级：进行中、未开赛、已结束；同一状态内沿用后台可视化显示顺序。
       const defaultSeason = getDefaultSeason(groupedSeasons.value.flatMap(group => group.options));
       // 有效的赛季链接优先；已删除或无效的 seasonId 回退到默认选择。
       const targetSeason = seasons.value.find(s => String(s.id) === String(route.query.seasonId)) || defaultSeason;
@@ -741,7 +730,6 @@ export default {
       filterForm,
       seasonMatches,
       seasonMapGames,
-      seasonTeamScoreStats,
       seasonMapPickStats,
       seasonFeatures,
       seasonVisualConfig,
@@ -1041,11 +1029,16 @@ export default {
   margin: 0 auto;
 }
 
-.stats-category-choices {
+.stats-category-host,
+.tournament-stage-tabs-host {
   flex: 0 0 auto;
   width: calc(100% + 64px);
   margin: 0 -32px;
   background: #fff;
+}
+.stats-category-choices {
+  width: 100%;
+  margin: 0;
 }
 
 .stats-category-panel {
@@ -1281,7 +1274,8 @@ export default {
     box-shadow: 0 0 0 3px rgba(32, 163, 102, 0.1);
   }
 
-  .mobile-status-dot.is-completed {
+  .mobile-status-dot.is-completed,
+  .mobile-status-dot.is-unknown {
     background: #949ba5;
     box-shadow: none;
   }
@@ -1335,6 +1329,17 @@ export default {
     margin-left: -10px;
   }
 
+  /* Keep the phase tabs flush with the existing mobile secondary navigation. */
+  .tab-content.is-overview {
+    width: calc(100% + 20px);
+    margin-right: -10px;
+    margin-left: -10px;
+  }
+
+  .tab-content.is-overview .overview-section {
+    padding: 0 10px;
+  }
+
   /* 赛事数据区同样全宽贴边（overflow-x:hidden 会裁掉组件级负 margin，必须在容器层扩宽） */
   .tab-content.is-stats {
     width: calc(100% + 20px);
@@ -1383,7 +1388,8 @@ export default {
     margin-bottom: 10px;
   }
 
-  .stats-category-choices {
+  .stats-category-host,
+  .tournament-stage-tabs-host {
     width: calc(100% + 20px);
     margin: 0 -10px;
   }

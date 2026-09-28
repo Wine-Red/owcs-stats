@@ -1,4 +1,5 @@
 const Config = require('../models/Config');
+const { wakeTournamentSync } = require('../services/TournamentRuntime');
 
 const ConfigController = {
   // 获取所有配置
@@ -57,6 +58,7 @@ const ConfigController = {
       }
 
       console.log('[ConfigController] Saved config:', config.toJSON());
+      if (/^visualize_season_\d+$/.test(key)) wakeTournamentSync();
       res.json({ message: '配置更新成功', config });
     } catch (error) {
       console.error('更新配置失败:', error);

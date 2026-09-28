@@ -5,7 +5,8 @@ import {
   getLiquipediaTournamentPageKey,
   isLiquipediaTournamentMatch,
   isValidLiquipediaTournamentUrl,
-  normalizeLiquipediaTournamentUrl
+  normalizeLiquipediaTournamentUrl,
+  getTournamentScheduleSources
 } from './liquipediaTournament.mjs';
 
 const TOURNAMENT_URL = 'https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/China/Stage_2';
@@ -35,4 +36,40 @@ test('does not use names or unsafe and similarly prefixed URLs as a fallback', (
   assert.equal(isLiquipediaTournamentMatch(`${TOURNAMENT_URL}/Open_Qualifier`, TOURNAMENT_URL), false);
   assert.equal(isLiquipediaTournamentMatch('https://example.com/overwatch/Overwatch_Champions_Series/2026/China/Stage_2', TOURNAMENT_URL), false);
   assert.equal(normalizeLiquipediaTournamentUrl('https://liquipedia.net/dota2/The_International'), '');
+});
+
+test('schedule accepts an automatically resolved root and only its confirmed phase pages', () => {
+  const root = 'https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Asia/Stage_3/Korea';
+  const regular = `${root}/Regular_Season`;
+  const snapshot = { configured: true, sourceUrl: root, sources: [{ url: root }, { url: regular }], blocks: [] };
+  const sources = getTournamentScheduleSources(snapshot);
+  assert.deepEqual(sources, [root, regular]);
+  const accepts = url => sources.some(source => isLiquipediaTournamentMatch(url, source));
+  assert.equal(accepts(`${regular}#Week_1`), true);
+  assert.equal(accepts(`${regular}#Week_3`), true);
+  assert.equal(accepts(`${root}#Regional_Playoffs`), true);
+  for (const page of [`${root}/Open_Qualifier`, `${root}/Closed_Qualifier`, `${root}/Regular_Season/Unconfirmed`,
+    root.replace('/Korea', '/Japan'), root.replace('Stage_3', 'Stage_2')]) assert.equal(accepts(page), false, page);
+  assert.deepEqual(getTournamentScheduleSources(snapshot, root), sources);
+});
+
+test('manual source scope wins; mismatched, absent and conflicting snapshots cannot widen it', () => {
+  const regular = `${TOURNAMENT_URL}/Regular_Season`;
+  const snapshot = { configured: true, sourceUrl: TOURNAMENT_URL, sources: [{ url: TOURNAMENT_URL }, { url: regular }], blocks: [] };
+  assert.deepEqual(getTournamentScheduleSources(snapshot, regular), [regular]);
+  assert.deepEqual(getTournamentScheduleSources(null, TOURNAMENT_URL), [TOURNAMENT_URL]);
+  assert.deepEqual(getTournamentScheduleSources({ configured: false }), []);
+  assert.deepEqual(getTournamentScheduleSources({ configured: true, sourceUrl: TOURNAMENT_URL, loading: true }), [TOURNAMENT_URL]);
+  assert.deepEqual(getTournamentScheduleSources(snapshot, 'https://example.com/wrong'), []);
+  snapshot.blocks.push({ sourceUrl: regular, stageIssue: 'conflicting-stage' });
+  assert.deepEqual(getTournamentScheduleSources(snapshot), [TOURNAMENT_URL]);
+});
+
+test('verified schedule pages are normalized and deduplicated; foreign hosts are rejected', () => {
+  const snapshot = { configured: true, sourceUrl: TOURNAMENT_URL, sources: [
+    { url: `${TOURNAMENT_URL}#Results` },
+    { url: `https://liquipedia.net/overwatch/index.php?title=Overwatch_Champions_Series/2026/China/Stage_2` },
+    { url: 'https://example.com/overwatch/Other' }
+  ] };
+  assert.deepEqual(getTournamentScheduleSources(snapshot), [TOURNAMENT_URL]);
 });

@@ -1,5 +1,6 @@
 // Query complete resources instead of replaying a list of captured URLs.
 import { timestampRange, withinTimestampRange } from '../../backend/shared/dateRange.mjs';
+import { presentSeason } from '../../backend/shared/seasonStatus.mjs';
 export const STATIC_SCHEMA_VERSION = 2;
 export const staticError = (message, status = 404) => Object.assign(new Error(message), {
   code: 'STATIC_DATA_MISSING', response: { status }
@@ -32,9 +33,27 @@ export const readStaticData = async (load, path, params) => {
   const entity = async (name, id) => required((await collection(name)).find(row => same(row.id, id)), `${name}/${id}`);
   let match;
   if (pathname === '/matches/upcoming') { check(); return load('schedule'); }
+  // Older offline snapshots have no source tournament data. Return an empty state
+  // and never attempt a network request from the offline build.
+  if ((match = pathname.match(/^\/seasons\/(\d+)\/tournament$/))) {
+    check();
+    try { return await view('tournaments', match[1]) || { configured: false, offline: true }; }
+    catch (error) { if (error.code !== 'STATIC_DATA_MISSING') throw error; return { configured: false, offline: true }; }
+  }
   if ((match = pathname.match(/^\/(seasons|teams|players|maps|heroes|season-teams|season-team-players|player-stats)(?:\/(\d+))?$/))) {
     check();
     const name = { 'season-teams': 'seasonTeams', 'season-team-players': 'seasonTeamPlayers', 'player-stats': 'playerStats' }[match[1]] || match[1];
+    if (name === 'seasons') {
+      const seasons = await collection(name);
+      const configs = await view('config');
+      const now = Date.now();
+      const presented = seasons.map(season => {
+        const config = configs?.[`visualize_season_${season.id}`];
+        const value = typeof config === 'string' ? JSON.parse(config) : config;
+        return presentSeason(season, value?.dateRange, now);
+      });
+      return match[2] ? required(presented.find(row => same(row.id, match[2])), `${name}/${match[2]}`) : presented;
+    }
     return match[2] ? entity(name, match[2]) : collection(name);
   }
   if (pathname === '/matches' || pathname === '/map-games') {

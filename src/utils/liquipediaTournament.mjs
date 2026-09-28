@@ -78,3 +78,25 @@ export const isLiquipediaTournamentMatch = (matchUrl, tournamentUrl) => {
   if (!matchPageKey || !tournamentPageKey) return false;
   return matchPageKey === tournamentPageKey;
 };
+
+// The tournament API resolves automatic/manual sources and discovers their
+// actual phase pages. Never widen matching to arbitrary URL descendants.
+export const getTournamentScheduleSources = (snapshot, configuredUrl = '') => {
+  const explicit = String(configuredUrl || '').trim();
+  if (explicit && !isValidLiquipediaTournamentUrl(explicit)) return [];
+  const sources = new Map();
+  const add = url => {
+    if (isValidLiquipediaTournamentUrl(url)) sources.set(getLiquipediaTournamentPageKey(url), normalizeLiquipediaTournamentUrl(url));
+  };
+  add(explicit);
+  if (!snapshot || snapshot.configured === false || !isValidLiquipediaTournamentUrl(snapshot.sourceUrl)) return [...sources.values()];
+  // A stale response for a previously configured article cannot expand scope.
+  if (explicit && !isLiquipediaTournamentMatch(snapshot.sourceUrl, explicit)) return [...sources.values()];
+  add(snapshot.sourceUrl);
+  const conflictedPages = new Set((snapshot.blocks || []).filter(block => block.stageIssue)
+    .map(block => getLiquipediaTournamentPageKey(block.sourceUrl)));
+  for (const source of snapshot.sources || []) {
+    if (!conflictedPages.has(getLiquipediaTournamentPageKey(source.url))) add(source.url);
+  }
+  return [...sources.values()];
+};

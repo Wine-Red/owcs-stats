@@ -55,7 +55,7 @@ export const FIELDS = Object.freeze({
 });
 export const CONTEXT_FIELDS = 'seasonName seasonId stage matchName matchId matchDate teamName teamId team1Name team2Name playerName playerId heroName heroId mapName mapId mapGameId'.split(' ');
 export const LABELS = Object.freeze({
-  recent: '赛程列表', stats: '赛事数据', overview: '赛事积分', overall: '全场总览',
+  recent: '比赛列表', stats: '赛事数据', overview: '赛事进程', overall: '全场总览',
   team: '战队', player: '选手', map: '地图', hero: '英雄', radar: '选手对比',
   players: '选手对比', maps: '地图分析', heroes: '英雄表现', history: '历史比赛',
   roster: '选手阵容', matches: '比赛记录', compositions: '阵容分析', bans: '英雄禁用',
@@ -67,7 +67,7 @@ export const LABELS = Object.freeze({
   assistsPer10: '每10分钟助攻', damagePer10: '每10分钟伤害', healingPer10: '每10分钟治疗',
   mitigationPer10: '每10分钟承伤', finalBlowsPer10: '每10分钟最后一击',
   fb: '最后一击', dmg: '伤害', heal: '治疗', time: '使用时长', duration: '时长',
-  match_schedule: '赛程列表', recent_matches: '近期比赛', upcoming_matches: '未开赛列表',
+  match_schedule: '比赛列表', recent_matches: '近期比赛', upcoming_matches: '未开赛列表',
   regular_season_board: '赛事积分榜', team_stats_chart: '战队排行榜', player_stats_chart: '选手排行榜',
   hero_overview: '英雄榜单', map_overview: '地图数据', visualize: '赛事首页',
   'player-detail': '选手详情', 'team-detail': '战队详情', 'match-detail': '比赛详情',

@@ -1,0 +1,287 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { launchBrowser } from './lib/browser.mjs';
+const base = process.env.TOURNAMENT_PREVIEW_URL || 'http://127.0.0.1:8083';
+const output = '.local/tournament-qa';
+await mkdir(output, { recursive: true });
+const browser = await launchBrowser();
+const errors = [], report = [];
+try {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  page.on('pageerror', e => errors.push(e.message));
+  await page.clock.setFixedTime(new Date('2026-09-28T04:00:00Z'));
+  const datePage = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Los_Angeles', reducedMotion: 'reduce' });
+  datePage.on('pageerror', e => errors.push(e.message));
+  // Last group-stage day -> intermission: the default advances to playoffs.
+  await datePage.clock.install({ time: new Date('2026-08-23T15:59:30Z') });
+  await datePage.goto(`${base}/visualize?seasonId=25&tab=overview`);
+  const dateTabs = datePage.locator('#tournament-stage-tabs-host');
+  await dateTabs.getByRole('tab', { name: '小组赛', selected: true, exact: true }).waitFor();
+  await datePage.clock.fastForward(60000);
+  await dateTabs.getByRole('tab', { name: '季后赛', selected: true, exact: true }).waitFor();
+  assert.equal(new URL(datePage.url()).searchParams.has('tournamentStage'), false);
+  await dateTabs.getByRole('tab', { name: '小组赛', exact: true }).click();
+  await datePage.waitForURL(url => url.searchParams.get('tournamentStage') === 'groups');
+  await datePage.clock.fastForward(60000);
+  await dateTabs.getByRole('tab', { name: '小组赛', selected: true, exact: true }).waitFor();
+  await datePage.reload();
+  await dateTabs.getByRole('tab', { name: '小组赛', selected: true, exact: true }).waitFor();
+  await datePage.close();
+  await page.goto(`${base}/visualize?seasonId=25&tab=overview`);
+  const stageTabs = page.locator('#tournament-stage-tabs-host');
+  await stageTabs.getByRole('tab', { name: '季后赛', selected: true, exact: true }).waitFor();
+  report.push({ check: 'Beijing midnight switches the dated default in a US browser; manual selection survives clock ticks and reload; completed World Cup defaults to playoffs', passed: true });
+  await page.goto(`${base}/visualize?seasonId=13&tab=overview&tournamentStage=swiss`);
+  const board = page.locator('.tournament-board');
+  const stage = name => stageTabs.getByRole('tab', { name, exact: true });
+  const stageNames = () => stageTabs.getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')));
+  const stageDates = () => stageTabs.locator('.detail-section-tabs__description').allTextContents();
+  const verifyMatchDetail = async () => {
+    const query = new URL(page.url()).searchParams;
+    const response = await page.request.get(`${base}/api/matches/${query.get('matchId')}`);
+    assert.ok(response.ok());
+    const match = await response.json();
+    assert.equal(String(match.seasonId), query.get('seasonId'));
+    const hero = page.locator('.match-detail-page .match-hero');
+    await hero.waitFor({ timeout: 60000 });
+    assert.deepEqual((await hero.locator('.match-score > span').allTextContents()).map(text => text.trim()).filter(text => /^\d+$/.test(text)),
+      [String(match.team1Score), String(match.team2Score)]);
+  };
+  const chooseStage = async (name, id) => {
+    await stage(name).click();
+    await page.waitForURL(url => url.searchParams.get('tournamentStage') === id);
+    assert.equal(await stage(name).getAttribute('aria-selected'), 'true');
+  };
+  await board.locator('.bracket-node').first().waitFor({ timeout: 240000 });
+  assert.deepEqual(await stageNames(), ['瑞士轮', '循环赛', '季后赛']);
+  assert.deepEqual(await stageDates(), ['06.06 — 06.14', '06.19 — 06.28', '07.04 — 07.05']);
+  assert.equal(await board.locator('.stage-summary, .block-heading h3').count(), 0);
+  assert.equal(await board.locator('.tournament-table').count(), 1);
+  assert.equal(await board.locator('.bracket-node').count(), 3);
+  assert.equal(await board.locator('.swiss-round').count(), 32);
+  assert.equal(await board.locator('a.swiss-result').count(), 24);
+  const swissLinks = await board.locator('a.swiss-result').evaluateAll(links => links.map(a => a.href));
+  assert.equal(new Set(swissLinks).size, 12);
+  for (const width of [375, 390, 659, 844, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    assert.ok(await board.locator('.swiss-round').evaluateAll(cells => cells.every(cell => {
+      const center = element => { const rect = element.getBoundingClientRect(); return rect.x + rect.width / 2; };
+      const score = cell.querySelector('strong'), logo = cell.querySelector('img');
+      return Math.abs(center(cell) - center(score)) < 1 && (!logo || Math.abs(center(score) - center(logo)) < 1);
+    })), `Swiss score and logo should be centered at ${width}px`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: `${output}/swiss-centered-mobile.png` });
+  await board.locator('a.swiss-result strong').first().click();
+  await page.waitForURL(swissLinks[0]);
+  report.push({ check: 'Swiss centered at 375/390/659/1440px; 24 results link to 12 matches; score click navigates', url: page.url() });
+  await page.goto(`${base}/visualize?seasonId=13&tab=overview&tournamentStage=swiss`);
+  await board.locator('a.swiss-result').first().waitFor();
+  await board.locator('a.swiss-result img').first().click();
+  await page.waitForURL(swissLinks[0]);
+  await page.goto(`${base}/visualize?seasonId=13&tab=overview&tournamentStage=swiss`);
+  await board.locator('.bracket-node').first().waitFor();
+  assert.equal(await board.locator('.bracket-node').count(), 3);
+  await board.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/stages-swiss-mobile.png` });
+  await chooseStage('循环赛', 'round-robin');
+  assert.equal(await board.locator('.block-heading').count(), 0);
+  assert.equal(await board.locator('.tournament-table').count(), 1);
+  assert.equal(await board.locator('.bracket-node').count(), 0);
+  assert.equal(await board.locator('.game-result-cell').count(), 30);
+  assert.equal(await board.locator('.game-result-cell a').count(), 30);
+  await board.getByRole('button', { name: '收起逐场结果' }).click();
+  assert.equal(await board.locator('.game-result-cell').count(), 0);
+  await board.getByRole('button', { name: '展开逐场结果' }).press('Enter');
+  assert.equal(await board.locator('.game-result-cell').count(), 30);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    const scroll = board.locator('.table-scroll');
+    await scroll.evaluate(el => { el.scrollLeft = el.scrollWidth; });
+    assert.ok(await scroll.evaluate(el => {
+      const cell = el.querySelector('tbody th').getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      return cell.left >= rect.left && cell.right < rect.right;
+    }), 'Team column stays visible when results scroll');
+    await scroll.evaluate(el => { el.scrollLeft = 0; });
+  }
+  await page.screenshot({ path: `${output}/round-robin-games-mobile.png` });
+  await board.locator('.game-result-cell a').first().click();
+  await page.waitForURL(/match-detail\?.*matchId=/);
+  await page.locator('.match-detail-page').waitFor();
+  await page.goBack();
+  await board.locator('.game-result-cell').first().waitFor();
+  assert.equal(await stage('循环赛').getAttribute('aria-selected'), 'true');
+  await stage('循环赛').press('ArrowRight');
+  await page.waitForURL(url => url.searchParams.get('tournamentStage') === 'playoffs');
+  assert.equal(await stage('季后赛').evaluate(el => el === document.activeElement), true);
+  assert.equal(await board.locator('.tournament-table').count(), 0);
+  assert.equal(await board.locator('.bracket-node').count(), 6);
+  await page.reload();
+  await board.locator('.bracket-node').first().waitFor();
+  assert.equal(await stage('季后赛').getAttribute('aria-selected'), 'true');
+  const playoffs = board.locator('.tournament-block');
+  assert.equal(await board.locator('.block-heading').count(), 0);
+  await playoffs.scrollIntoViewIfNeeded();
+  assert.equal(await playoffs.locator('.bracket-node').count(), 6);
+  assert.equal(await playoffs.locator('.bracket-lines path').count(), 5);
+  for (const width of [375, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    assert.ok(await playoffs.locator('.bracket-scroll').evaluate(el => el.scrollWidth <= el.clientWidth + 1));
+  }
+  await page.screenshot({ path: `${output}/stages-playoffs-mobile.png` });
+  await playoffs.locator('a.tournament-match').first().click();
+  await page.waitForURL(/match-detail\?.*matchId=/);
+  await page.locator('.match-detail-page').waitFor();
+  await page.goBack();
+  await board.locator('.bracket-node').first().waitFor();
+  assert.equal(await stage('季后赛').getAttribute('aria-selected'), 'true');
+  report.push({ check: '375/390px compact Swiss table and connected double elimination; local match link', url: page.url() });
+  await page.setViewportSize({ width: 1440, height: 1050 });
+  await page.goto(`${base}/visualize?seasonId=24&tab=overview&tournamentStage=groups`);
+  await board.locator('.tournament-table').first().waitFor({ timeout: 240000 });
+  assert.deepEqual(await stageNames(), ['小组赛', '季后赛']);
+  assert.deepEqual(await stageDates(), ['08.20 — 08.23', '09.12 — 09.13']);
+  assert.equal(await board.locator('.tournament-table').count(), 4);
+  assert.deepEqual(await board.locator('.block-heading h3').allTextContents(), ['A 组', 'B 组', 'C 组', 'D 组']);
+  assert.equal(await board.locator('.game-result-cell').count(), 48);
+  assert.equal(await board.locator('.game-result-cell a').count(), 48);
+  await board.getByRole('button', { name: '收起逐场结果' }).first().click();
+  assert.equal(await board.locator('.game-result-cell').count(), 36);
+  await board.getByRole('button', { name: '展开逐场结果' }).click();
+  assert.equal(await board.locator('.game-result-cell').count(), 48);
+  assert.equal(await board.locator('.bracket-node').count(), 0);
+  await board.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/stages-world-groups-desktop.png` });
+  await chooseStage('季后赛', 'playoffs');
+  assert.equal(await board.locator('.tournament-table').count(), 0);
+  assert.equal(await board.locator('.bracket-node').count(), 8);
+  assert.equal(await board.locator('.bracket-lines path').count(), 6);
+  const worldPlayoffLinks = await board.locator('a.tournament-match').evaluateAll(links => links.map(link => link.href));
+  assert.equal(worldPlayoffLinks.length, 8);
+  assert.ok(worldPlayoffLinks.every(link => new URL(link).searchParams.get('seasonId') === '25'));
+  await board.locator('a.tournament-match').first().click();
+  await page.waitForURL(worldPlayoffLinks[0]);
+  await verifyMatchDetail();
+  await page.goBack();
+  await board.locator('.bracket-node').first().waitFor();
+  assert.equal(await stage('季后赛').getAttribute('aria-selected'), 'true');
+  await board.locator('.bracket-scroll').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/compact-world-desktop.png` });
+  report.push({ check: 'World Cup groups, connected single elimination and third place', passed: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/visualize?seasonId=25&tab=overview&tournamentStage=groups`);
+  await board.locator('.game-result-cell').first().waitFor();
+  const worldGroupLinks = await board.locator('.game-result-cell a').evaluateAll(links => links.map(link => link.href));
+  assert.equal(worldGroupLinks.length, 48);
+  assert.equal(new Set(worldGroupLinks).size, 24);
+  assert.ok(worldGroupLinks.every(link => new URL(link).searchParams.get('seasonId') === '24'));
+  await board.locator('.game-result-cell a').first().click();
+  await page.waitForURL(worldGroupLinks[0]);
+  await verifyMatchDetail();
+  await page.goBack();
+  await board.locator('.game-result-cell').first().waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('seasonId'), '25');
+  assert.equal(await stage('小组赛').getAttribute('aria-selected'), 'true');
+  await page.goto(`${base}/visualize?seasonId=20&tab=overview&tournamentStage=playoffs`);
+  await board.locator('.bracket-node').first().waitFor();
+  const emeaLinks = await board.locator('a.tournament-match').evaluateAll(links => links.map(link => link.href));
+  assert.equal(emeaLinks.length, 6);
+  const emeaIds = emeaLinks.map(link => new URL(link).searchParams.get('matchId'));
+  assert.ok(emeaIds.includes('877') && emeaIds.includes('908'));
+  assert.equal(new Set(emeaIds).size, 6);
+  report.push({ check: 'World Cup cross-season links: 48 group cells -> season 24, 8 playoffs -> season 25; navigation back restores origin. EMEA rematches 877 and 908 both linked.', passed: true });
+  await page.setViewportSize({ width: 375, height: 844 });
+  await page.goto(`${base}/visualize?seasonId=11&tab=overview&tournamentStage=regular-season`);
+  await stage('常规赛').waitFor();
+  assert.deepEqual(await stageNames(), ['常规赛', '季后赛种子决定战', '最后机会资格赛', '季后赛']);
+  assert.deepEqual(await stageDates(), ['03.20 — 04.19', '04.24 — 04.26', '04.24 — 04.26', '05.01 — 05.03']);
+  assert.equal(await board.locator('.game-result-cell').count(), 72);
+  assert.equal(await stageTabs.getByRole('tab').evaluateAll(tabs => new Set(tabs.map(tab => tab.getBoundingClientRect().top)).size), 1);
+  await chooseStage('季后赛种子决定战', 'playoff-seeding');
+  assert.ok(await board.locator('.stage-match-list .tournament-match').count() > 0);
+  assert.equal(await board.locator('.bracket-node').count(), 0);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  assert.equal(await board.locator('.block-heading').count(), 0);
+  for (const width of [320, 360, 375, 390, 430, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    assert.ok(await stageTabs.getByRole('tab').evaluateAll(tabs => tabs.every(tab => {
+      const rect = tab.getBoundingClientRect();
+      const label = tab.querySelector('.detail-section-tabs__label').getBoundingClientRect();
+      const description = tab.querySelector('.detail-section-tabs__description');
+      const date = description.getBoundingClientRect();
+      return rect.height >= 40 && label.bottom <= date.top && date.left >= rect.left && date.right <= rect.right
+        && label.left >= rect.left && label.right <= rect.right && description.id === tab.getAttribute('aria-describedby');
+    })), `Stage labels and dates fit inside their tabs at ${width}px`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await board.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${output}/stages-korea-mobile.png` });
+  await page.screenshot({ path: `${output}/stage-tabs-inline-dates-preview.png`, clip: { x: 0, y: 0, width: 390, height: 360 } });
+  await chooseStage('最后机会资格赛', 'last-chance');
+  assert.equal(await board.locator('.bracket-node').count(), 3);
+  await chooseStage('季后赛', 'playoffs');
+  assert.equal(await board.locator('.bracket-node').count(), 6);
+  assert.ok(await stage('季后赛').evaluate(tab => {
+    const rail = tab.parentElement.getBoundingClientRect(), rect = tab.getBoundingClientRect();
+    return rect.left >= rail.left - 1 && rect.right <= rail.right + 1;
+  }));
+  await page.screenshot({ path: `${output}/stage-dates-korea-playoffs-mobile.png` });
+  report.push({ check: 'Korea seeding and qualifier are independent; match-list-only seeding remains visible', passed: true });
+  await page.goto(`${base}/visualize?seasonId=23&tab=overview&tournamentStage=invalid`);
+  await board.locator('.bracket-node').first().waitFor();
+  assert.deepEqual(await stageNames(), ['小组赛', '季后赛']);
+  assert.equal(await stage('季后赛').getAttribute('aria-selected'), 'true');
+  assert.equal(await board.locator('.tournament-block').count(), 1);
+  await stage('季后赛').press('End');
+  await page.waitForURL(url => url.searchParams.get('tournamentStage') === 'playoffs');
+  assert.equal(await board.locator('.tournament-block').count(), 1);
+  await stage('季后赛').press('Home');
+  await page.waitForURL(url => url.searchParams.get('tournamentStage') === 'groups');
+  assert.equal(await board.locator('.tournament-block').count(), 2);
+  report.push({ check: 'Paris GSL brackets share group stage; invalid link, Home/End keyboard navigation', passed: true });
+  await page.goto(`${base}/visualize?seasonId=30&tab=overview`);
+  await board.locator('.bracket-node').first().waitFor({ timeout: 240000 });
+  assert.equal(await board.locator('.bracket-node').count(), 6);
+  assert.equal(await stageTabs.getByRole('tab').count(), 1);
+  assert.deepEqual(await stageDates(), ['10.30 — 11.01']);
+  assert.equal(await board.locator('.stage-summary, .block-heading').count(), 0);
+  assert.equal(await board.locator('a.tournament-match').count(), 0);
+  assert.ok((await board.innerText()).includes('待定'));
+  for (const [id, expected] of [
+    [7, ['瑞士轮', '循环赛', '季后赛']], [9, ['常规赛', '季后赛']], [10, ['常规赛', '季后赛']],
+    [12, ['赛事进程']], [14, ['常规赛', '季后赛种子决定战', '最后机会资格赛', '季后赛']],
+    [20, ['常规赛', '季后赛']], [22, ['常规赛', '季后赛']], [25, ['小组赛', '季后赛']],
+    [26, ['季后赛']], [28, ['常规赛', '季后赛种子决定战', '最后机会资格赛', '季后赛']], [29, ['季后赛']]
+  ]) {
+    await page.goto(`${base}/visualize?seasonId=${id}&tab=overview`);
+    await board.locator('.tournament-block').first().waitFor();
+    assert.deepEqual(await stageNames(), expected, `season ${id}`);
+    if (id === 28) assert.equal(await stage('常规赛').getAttribute('aria-selected'), 'true');
+    const dates = await stageDates();
+    if (id === 12) assert.deepEqual(dates, ['日期待定']);
+    else assert.ok(dates.every(date => /^\d{2}\.\d{2} — \d{2}\.\d{2}$/.test(date)), `season ${id} has known source dates`);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+    report.push({ seasonId: id, stages: expected, dates, passed: true });
+  }
+  await page.goto(`${base}/visualize?seasonId=14&tab=overview&tournamentStage=playoff-seeding`);
+  await board.locator('.game-result-cell').first().waitFor();
+  assert.equal(await board.locator('.game-result-cell').count(), 12);
+  assert.equal(await board.locator('.record').first().innerText(), '10–1');
+  assert.equal(await board.locator('.results-note').count(), 0);
+  await page.goto(`${base}/visualize?seasonId=28&tab=overview&tournamentStage=playoff-seeding`);
+  await board.locator('.results-note').waitFor();
+  assert.equal(await board.locator('.game-result-cell').count(), 0);
+  assert.equal(await board.locator('.rounds-toggle').count(), 0);
+  assert.equal(await board.locator('.results-note').innerText(), '对阵尚未确定');
+  report.push({ check: 'Ordinary standings expand per game; World Cup groups toggle independently; team stays visible on mobile; Korea carry-over and TBD remain accurate', passed: true });
+  assert.deepEqual(errors, []);
+  console.log(JSON.stringify(report, null, 2));
+} finally {
+  await writeFile(`${output}/report.json`, JSON.stringify({ report, errors }, null, 2));
+  await browser.close();
+}

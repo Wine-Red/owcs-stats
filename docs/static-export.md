@@ -33,11 +33,13 @@ npm run verify:static-bundle
 
 默认数据源在 `static-export.config.json` 中，为 `https://stats.owmini.xyz/public-api`；导出请求 `/static-export/snapshot`。可以用 `OWCS_PRODUCTION_API_BASE` 覆盖。生产导出拒绝本机地址和本地快照文件，且不回退到 v1，以防导出缺项或把本机数据标为生产数据。
 
-后端、赛程、图片或校验失败时保留原有 `public/static-data`；所有资源完成后才替换生成目录。`build:static` 会先检查资源清单和文件摘要，避免把旧版或损坏数据编入新页面。
+后端、赛程、图片或校验失败时保留原有清单及其引用的资源。新资源使用内容哈希文件名，写入并校验完成后才原子替换 `public/static-data/manifest.json`，避免 Windows 对含多级目录的整目录重命名返回 `EPERM`。旧资源在清单切换成功后清理；暂时无法清理的文件不会进入交付包。`build:static` 只复制清单中列出的资源，并检查清单和文件摘要，避免把旧版、残留或损坏数据编入新页面。对同一输出目录的导出和构建应顺序执行。
 
 ## 本地只读验证
 
 需要已安装后端依赖，并在 `backend/.env` 中配置可读取的数据库：
+
+旧数据库须先通过新版后端正常启动完成增量迁移，包括 `teams.liquipediaUrl`、`teams.liquipediaUrls` 和 `tournament_snapshots`。只读导出 CLI 不会补字段或建表。赛事进程来自数据库中已保存的来源快照，导出不会临时抓取或触发同步。
 
 ```powershell
 node backend/scripts/export-static-snapshot.js .local/static-v2-source.json
@@ -63,6 +65,7 @@ npm run preview:static
 ```powershell
 $env:OWCS_STATIC_PREVIEW_URL = 'http://127.0.0.1:4174/partner/owcs/'
 npm run smoke:static
+npm run verify:package-tournaments
 npm run verify:static-timeline
 npm run verify:embedded-webview
 ```
@@ -74,6 +77,8 @@ npm run verify:embedded-webview
 ## GitHub 自动交付
 
 生产部署成功后、每天北京时间 06:00 或手动触发工作流，导出并验证完整包。部署触发使用该次部署的提交；页面和导出程序随同一提交构建。只有完整验收通过才发布 `owcs-stats-static-production.zip` 及 SHA-256 文件，失败不发布空包，保留以前成功的版本。
+
+导出前通过 `node scripts/wait-site-tournaments.mjs` 只读检查生产赛事接口，等待已配置来源的赛事拥有完整快照，最长 20 分钟。首次部署的后台同步会排队；接口缺失或快照未就绪会阻止发布，不以空赛事数据完成验收。无来源的赛季仍允许导出。
 
 ## 合作方部署与更新
 

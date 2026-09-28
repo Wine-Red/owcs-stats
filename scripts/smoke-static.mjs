@@ -60,11 +60,13 @@ const selectedMatch = matches.find(match => games.some(game => game.matchId === 
 const selectedUpcoming = upcoming[0];
 const selectedSeason = seasons.find(season => String(season.id) === String(selectedSeasonTeam.seasonId)) || seasons[0];
 if (!selectedMatch) throw new Error('Smoke verification requires a recorded match with map data');
+// A visible container is not proof that the newly-added endpoint works.
+const selectedTournament = await get(`/seasons/${selectedMatch.seasonId}/tournament`);
 
 const pages = [
   { name: '可视化首页', hash: `#/visualize?seasonId=${selectedMatch.seasonId}`, ready: '.vis-body', verifyHeroTabs: true },
   {
-    name: '赛程列表',
+    name: '比赛列表',
     hash: `#/visualize?seasonId=${selectedMatch.seasonId}`,
     ready: '.vis-body',
     verifySchedule: true
@@ -132,8 +134,14 @@ try {
     await page.goto(`${baseUrl}${target.hash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.locator(target.ready).waitFor({ state: 'visible', timeout: 60_000 });
     if (target.verifyHeroTabs) {
-      await page.getByRole('tab', { name: '赛事积分' }).click();
-      await page.locator('.regular-season-container').waitFor({ state: 'visible', timeout: 60_000 });
+      await page.locator('.vis-tabs').getByRole('tab', { name: '赛事进程' }).click();
+      await page.locator('.tournament-board').waitFor({ state: 'visible', timeout: 60_000 });
+      if (selectedTournament?.blocks?.length) {
+        await page.locator('.tournament-block').first().waitFor({ state: 'visible', timeout: 60_000 });
+        if (await page.locator('.tournament-empty').count()) throw new Error('赛事进程数据存在，但页面未展示');
+      } else {
+        await page.locator('.tournament-empty strong').filter({ hasText: /暂无赛事进程|正在加载赛事进程/ }).waitFor({ timeout: 60_000 });
+      }
       if (await page.locator('.overview-dashboard').count()) {
         throw new Error('赛事概览仍渲染已移除的赛事速览区域');
       }
@@ -204,7 +212,7 @@ try {
       }
     }
     if (target.verifySchedule) {
-      await page.getByRole('tab', { name: '赛程列表' }).click();
+      await page.locator('.vis-tabs').getByRole('tab', { name: '比赛列表' }).click();
       await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 });
       await page.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 });
       await page.waitForFunction(() => {
@@ -227,7 +235,7 @@ try {
         throw new Error('赛程比赛行的左右队伍区域不对称');
       }
       const scheduleTitle = await page.locator('#schedule-title').textContent();
-      if (scheduleTitle?.trim() !== '赛程列表') {
+      if (scheduleTitle?.trim() !== '比赛列表') {
         throw new Error(`赛程标题异常: ${scheduleTitle || '(empty)'}`);
       }
       const teamFontFamily = await firstMatch.locator('.team-name').first().evaluate(element => getComputedStyle(element).fontFamily);

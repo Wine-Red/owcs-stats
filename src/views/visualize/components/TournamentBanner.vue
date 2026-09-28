@@ -13,7 +13,7 @@
           <span v-for="(tag, idx) in displayTags" :key="`${tag}-${idx}`" class="badge" :class="idx === 0 ? 'badge-owcs' : 'badge-tier'">
             {{ tag }}
           </span>
-          <span class="badge badge-status" :class="season.status">{{ season.status === 'in_progress' ? 'Ongoing' : 'Completed' }}</span>
+          <span class="badge badge-status" :class="status">{{ status === 'in_progress' ? 'Ongoing' : status === 'upcoming' ? 'Upcoming' : status === 'completed' ? 'Completed' : 'TBD' }}</span>
         </div>
         <h1 class="season-name">{{ season.name }}</h1>
         <div class="meta-data">
@@ -55,6 +55,10 @@ export default {
     dateRange: {
       type: String,
       default: ''
+    },
+    status: {
+      type: String,
+      default: 'unknown'
     }
   },
   setup(props) {
@@ -250,6 +254,12 @@ export default {
 .badge-status.completed {
   background: var(--vis-bg-muted, #f4f4f5);
   color: var(--vis-text-tertiary, #909399);
+}
+
+.badge-status.upcoming,
+.badge-status.unknown {
+  background: var(--vis-bg-muted, #f4f4f5);
+  color: var(--vis-text-secondary, #606266);
 }
 
 .meta-item {

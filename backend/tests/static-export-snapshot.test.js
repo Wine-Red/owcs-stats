@@ -14,9 +14,18 @@ test('export reads every collection in one transaction, preserves timelines and 
     MapGame: [{ id: 5001, matchId: 2107, seasonId: 1, mapId: 9, team1Id: 1, team2Id: 2, duration: null }],
     PlayerStat: [{ id: 1, playerId: 7, teamId: 1, mapGameId: 5001, kills: 0, finalBlows: null, MapGame: { id: 5001, seasonId: 1, Match: { id: 2107 }, Map: { id: 9 } } }],
     PlayerHeroStat: [], MapGameTimeline: [{ mapGameId: 5001, revision: 2, payload: { events: [{ type: 'kill' }] } }],
-    SeasonStage: [{ id: 4, seasonId: 1, startMatchId: 2107, name: 'Final' }]
+    SeasonStage: [{ id: 4, seasonId: 1, startMatchId: 2107, name: 'Final' }],
+    TournamentSnapshot: [{ sourceKey: 'fixture', page: 'Fixture', payload: { version: 2, page: 'Fixture', observedAt: 123,
+      blocks: [{ type: 'standings', rows: [{ team: { name: 'Source Alias' }, rank: '1' }] }] } }],
+    TeamAlias: [{ teamId: 1, alias: 'Source Alias' }]
   };
   const saved = new Map();
+  const teamPages = ['https://liquipedia.net/overwatch/Original', 'https://liquipedia.net/overwatch/Renamed'];
+  Object.assign(data.Team[0], { liquipediaUrl: teamPages[0], liquipediaUrls: teamPages });
+  data.TournamentSnapshot[0].payload.blocks[0].rows.push({ team: { name: 'Changed source name', url: teamPages[1] }, rank: '2' });
+  data.Team.push({ id: 3, name: 'Unregistered', liquipediaUrls: ['https://liquipedia.net/overwatch/Unregistered'] });
+  data.TournamentSnapshot[0].payload.blocks[0].rows.push({ team: { name: 'Old source name', url: data.Team[2].liquipediaUrls[0] }, rank: '3' });
+  data.Config.push({ key: 'visualize_season_1', value: { liquipediaTournamentUrl: 'https://liquipedia.net/overwatch/Fixture' } });
   const stub = (relative, exports) => {
     const filename = require.resolve(path.join(__dirname, relative));
     saved.set(filename, require.cache[filename]);
@@ -46,6 +55,11 @@ test('export reads every collection in one transaction, preserves timelines and 
     assert.deepEqual(snapshot.timelines[5001].payload, data.MapGameTimeline[0].payload);
     assert.equal(snapshot.collections.mapGames[0].timeline.payload, undefined);
     assert.equal(snapshot.views.matchData[2107].summary.timelineMaps, 1);
+    assert.equal(snapshot.views.tournaments[1].offline, true);
+    assert.equal(snapshot.views.tournaments[1].blocks[0].rows[0].team.teamId, 1);
+    assert.equal(snapshot.views.tournaments[1].blocks[0].rows[1].team.teamId, 1);
+    assert.equal(snapshot.views.tournaments[1].blocks[0].rows[2].team.teamId, 3);
+    assert.deepEqual(snapshot.collections.teams[0].liquipediaUrls, teamPages);
     assert.equal(snapshot.views.matchData[2107].mapGames[0].timeline.counts.events, 1);
     assert.equal(snapshot.collections.playerStats[0].finalBlows, null);
     assert.deepEqual(snapshot.collections.seasonTeams[0].sources, [{ sourceType: 'manual' }]);
@@ -65,9 +79,28 @@ test('export reads every collection in one transaction, preserves timelines and 
     const originals = Object.fromEntries(methods.map(name => [name, publicStats[name]]));
     const result = { futureMetric: { value: 42 }, data: [] };
     data.Hero.push({ id: 8 });
+    // One source spans two local seasons. Offline links must carry the same
+    // actual match season as the live endpoint, excluding a sibling qualifier.
+    data.Season.push({ id: 2, name: 'Playoffs' }, { id: 3, name: 'Qualifier' });
+    data.Config.push(
+      { key: 'visualize_season_2', value: { liquipediaTournamentUrl: 'https://liquipedia.net/overwatch/Fixture' } },
+      { key: 'visualize_season_3', value: { liquipediaTournamentUrl: 'https://liquipedia.net/overwatch/Fixture/Qualifier' } }
+    );
+    for (const seasonId of [2, 3]) data.Match.push({ id: 3000 + seasonId, seasonId, matchDate: '2026-09-13', team1Id: 1, team2Id: 3, team1Score: 3, team2Score: 1 });
+    data.TournamentSnapshot[0].payload.blocks.push({ type: 'matches', sourceTitle: 'Playoffs', matches: [{
+      timestamp: Date.parse('2026-09-13T12:00:00Z'), opponents: [
+        { name: 'Original', url: teamPages[0], score: 3 },
+        { name: 'Unregistered', url: data.Team[2].liquipediaUrls[0], score: 1 }
+      ]
+    }] });
     for (const method of methods) publicStats[method] = async () => result;
     try {
       const updated = await buildStaticExportSnapshot({ schedule: { data: [], observedAt: 123, stale: false } });
+      for (const id of [1, 2]) {
+        const linked = updated.views.tournaments[id].blocks[1].matches[0];
+        assert.equal(linked.matchId, 3002);
+        assert.equal(linked.matchSeasonId, 2);
+      }
       for (const view of [updated.views.playerProfiles[7].all, updated.views.playerProfiles[7].bySeason[1],
         updated.views.heroOverview[1], updated.views.heroPlayers['1:8'], updated.views.playerHeroes['1:7'], updated.views.seasonStats[1].features]) {
         assert.deepEqual(view, result);

@@ -41,6 +41,8 @@ jobs:
         run: |
           npm run test:static-export
           npm run test:liquipedia-url
+          npm run test:tournament-stages
+          node --test backend/shared/*.test.mjs
           npm run test:match-schedule
           npm run test:recent-team-form
           npm run test:team-roster

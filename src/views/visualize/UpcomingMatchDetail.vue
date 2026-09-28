@@ -258,6 +258,8 @@ export default {
     const queryParams = ref({
       sourceId: route.query.sourceId || '',
       seasonId: route.query.seasonId,
+      team1Id: route.query.team1Id || '',
+      team2Id: route.query.team2Id || '',
       team1: route.query.t1 || route.query.team1 || 'Team 1',
       team2: route.query.t2 || route.query.team2 || 'Team 2',
       team1Logo: route.query.team1Logo || '',
@@ -270,7 +272,9 @@ export default {
     if (storedMatchStr) {
       try {
         const storedMatch = JSON.parse(storedMatchStr);
-        if (storedMatch.team1 === queryParams.value.team1 && storedMatch.team2 === queryParams.value.team2) {
+        if (storedMatch.team1 === queryParams.value.team1 && storedMatch.team2 === queryParams.value.team2
+          && String(storedMatch.seasonId) === String(queryParams.value.seasonId)
+          && (!queryParams.value.time || Number(storedMatch.time) === queryParams.value.time)) {
            if (!queryParams.value.sourceId && String(storedMatch.seasonId) === String(queryParams.value.seasonId)) queryParams.value.sourceId = storedMatch.sourceId || '';
            if (!queryParams.value.team1Logo) queryParams.value.team1Logo = storedMatch.team1Logo;
            if (!queryParams.value.team2Logo) queryParams.value.team2Logo = storedMatch.team2Logo;
@@ -316,8 +320,8 @@ export default {
       return name;
     });
 
-    const team1ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team1)?.id || '');
-    const team2ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team2)?.id || '');
+    const team1ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team1, queryParams.value.team1Id)?.id || '');
+    const team2ResolvedId = computed(() => resolvePreviewTeam(store.state.teams, queryParams.value.team2, queryParams.value.team2Id)?.id || '');
 
     const activeTab = ref('team');
     const detailTabs = computed(() => {
@@ -532,7 +536,9 @@ export default {
 
       router.push({
         path: '/visualize',
-        query: { seasonId: queryParams.value.seasonId }
+        query: route.query.from === 'tournament'
+          ? { seasonId: route.query.returnSeasonId || queryParams.value.seasonId, tab: 'overview', tournamentStage: route.query.tournamentStage }
+          : { seasonId: queryParams.value.seasonId, tab: 'recent' }
       });
     };
 
@@ -707,8 +713,8 @@ export default {
       const t1Lower = team1Name.toLowerCase();
       const t2Lower = team2Name.toLowerCase();
 
-      const actualTeam1 = resolvePreviewTeam(store.state.teams, team1Name);
-      const actualTeam2 = resolvePreviewTeam(store.state.teams, team2Name);
+      const actualTeam1 = resolvePreviewTeam(store.state.teams, team1Name, queryParams.value.team1Id);
+      const actualTeam2 = resolvePreviewTeam(store.state.teams, team2Name, queryParams.value.team2Id);
 
       const buildPlayerObj = (source = {}, fallback = {}) => {
         const duration = Number(source.gameTime || source.totalDuration || fallback.gameTime || 0);
@@ -995,8 +1001,8 @@ export default {
           if (!rows.length) break;
           allMatches.push(...rows);
         }
-        const team1 = resolvePreviewTeam(store.state.teams, queryParams.value.team1);
-        const team2 = resolvePreviewTeam(store.state.teams, queryParams.value.team2);
+        const team1 = resolvePreviewTeam(store.state.teams, queryParams.value.team1, queryParams.value.team1Id);
+        const team2 = resolvePreviewTeam(store.state.teams, queryParams.value.team2, queryParams.value.team2Id);
         const before = Math.min(Date.now(), queryParams.value.time || Date.now());
         recentMatches.value = {
           team1: recentTeamMatches(allMatches, team1?.id, before),

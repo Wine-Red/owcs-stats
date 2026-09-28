@@ -75,6 +75,9 @@ const router = createRouter({
     : createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
+    // Stage tabs replace the query in place; keep the viewer at the stage panel.
+    if (to.path === '/visualize' && from.path === to.path && to.hash === from.hash
+      && Object.keys({ ...to.query, ...from.query }).every(key => key === 'tournamentStage' || to.query[key] === from.query[key])) return false
     if (to.path === '/visualize') return { left: 0, top: 0 }
     return savedPosition || { left: 0, top: 0 }
   }

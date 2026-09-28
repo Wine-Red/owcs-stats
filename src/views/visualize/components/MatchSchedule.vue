@@ -1,6 +1,6 @@
 <template>
-  <section v-analytics-view="{ feature: '赛程列表', seasonId, resultCount: scheduleCount }" class="schedule-shell" aria-labelledby="schedule-title">
-    <h2 id="schedule-title" class="visually-hidden">赛程列表</h2>
+  <section v-analytics-view="{ feature: '比赛列表', seasonId, resultCount: scheduleCount }" class="schedule-shell" aria-labelledby="schedule-title">
+    <h2 id="schedule-title" class="visually-hidden">比赛列表</h2>
 
     <div v-if="hasScheduleData" class="date-rail-wrap">
       <div class="date-rail-scroll">
@@ -64,7 +64,7 @@
 
       <div class="date-picker-content">
         <section v-for="group in datePickerGroups" :key="group.key" class="date-picker-group">
-          <h3>{{ group.label }}</h3>
+          <h3><span>{{ group.label }}</span><span class="date-picker-range">{{ group.rangeLabel }}</span></h3>
           <div class="date-picker-grid">
             <button
               v-for="date in group.options"
@@ -73,9 +73,10 @@
               class="date-picker-option"
               :class="{ active: selectedDate === date.key, today: date.isToday }"
               :aria-pressed="selectedDate === date.key"
+              :aria-label="`${date.key === 'tbd' ? '时间待定' : date.key}，${date.count} 场比赛`"
               @click="selectDateFromPicker(date.key)"
             >
-              <strong>{{ date.dayLabel }}日</strong>
+              <strong>{{ date.key === 'tbd' ? '待定' : `${date.monthLabel}月${date.dayLabel}日` }}</strong>
               <span>{{ date.isToday ? '今天' : date.weekLabel }} · {{ date.count }} 场</span>
             </button>
           </div>
@@ -229,7 +230,7 @@
 
 <script>
 import { useFeatureAnalytics } from '@/composables/useAnalytics';
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { ArrowDown, Calendar, DocumentCopy, VideoCamera } from '@element-plus/icons-vue';
@@ -241,12 +242,13 @@ import { trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import {
   isLiquipediaTournamentMatch,
-  isValidLiquipediaTournamentUrl
+  getTournamentScheduleSources
 } from '@/utils/liquipediaTournament.mjs';
 import {
   getRecordedMatchState,
   removeRecordedFromUpcoming
 } from '@/utils/matchScheduleReconciliation.mjs';
+import { groupMatchDaysByWeek } from '@/utils/matchScheduleWeeks.mjs';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000;
@@ -254,6 +256,19 @@ const ALL_DATE = 'all';
 const TBD_DATE = 'tbd';
 const WEEK_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 let fetchPromise = null;
+
+const readUpcomingMatches = async () => {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY && Array.isArray(cached.data)) return cached.data;
+  } catch { /* Invalid/unavailable browser storage must not hide the schedule. */ }
+  if (!fetchPromise) fetchPromise = apiService.getUpcomingMatches().then(response => {
+    const data = Array.isArray(response) ? response : Array.isArray(response?.data) ? response.data : [];
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data })); } catch { /* Storage is optional. */ }
+    return data;
+  }).finally(() => { fetchPromise = null; });
+  return fetchPromise;
+};
 
 const pad2 = value => String(value).padStart(2, '0');
 
@@ -307,11 +322,14 @@ export default {
     }
   },
   setup(props) {
-    const track = useFeatureAnalytics('赛程列表', () => ({ seasonId: props.seasonId }));
+    const track = useFeatureAnalytics('比赛列表', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const route = useRoute();
     const router = useRouter();
     const rawUpcomingMatches = ref([]);
+    const tournamentSources = ref([]);
+    const tournamentSnapshot = ref(null);
+    let upcomingGeneration = 0, sourceRetry;
     const isUpcomingLoading = ref(false);
     const upcomingUnavailable = ref(false);
     const selectedDate = ref(ALL_DATE);
@@ -320,9 +338,6 @@ export default {
     const expandedReplays = ref(new Set());
     const dateRailRef = ref(null);
     const dateChipRefs = new Map();
-    const hasLiquipediaTournamentUrl = computed(() => (
-      isValidLiquipediaTournamentUrl(props.liquipediaTournamentUrl)
-    ));
 
     const getTeamByName = name => {
       const normalizedName = String(name || '').trim();
@@ -384,10 +399,10 @@ export default {
     };
 
     const upcomingMatches = computed(() => {
-      if (!props.showUpcoming || !hasLiquipediaTournamentUrl.value) return [];
+      if (!props.showUpcoming || !tournamentSources.value.length) return [];
 
       return rawUpcomingMatches.value
-        .filter(match => isLiquipediaTournamentMatch(match?.link, props.liquipediaTournamentUrl))
+        .filter(match => tournamentSources.value.some(url => isLiquipediaTournamentMatch(match?.link, url)))
         .filter(match => {
           const team1Name = String(match?.team1?.name || match?.teamA?.name || match?.team1 || '').toLowerCase();
           const team2Name = String(match?.team2?.name || match?.teamB?.name || match?.team2 || '').toLowerCase();
@@ -491,22 +506,11 @@ export default {
       };
     }));
 
-    const datePickerGroups = computed(() => {
-      const groups = new Map();
-      dateOptions.value.forEach(option => {
-        const date = dateFromKey(option.key);
-        const key = date ? `${date.getFullYear()}-${pad2(date.getMonth() + 1)}` : TBD_DATE;
-        if (!groups.has(key)) {
-          groups.set(key, {
-            key,
-            label: date ? `${date.getFullYear()}年${date.getMonth() + 1}月` : '时间待定',
-            options: []
-          });
-        }
-        groups.get(key).options.push(option);
-      });
-      return [...groups.values()];
-    });
+    const datePickerGroups = computed(() => groupMatchDaysByWeek(dateOptions.value, {
+      snapshot: tournamentSnapshot.value,
+      matches: allScheduleMatches.value,
+      toDateKey: timestampToDateKey
+    }));
 
     const visibleGroups = computed(() => groupedStatusMatches.value
       .filter(group => selectedDate.value === ALL_DATE || group.key === selectedDate.value)
@@ -556,6 +560,7 @@ export default {
     const selectDate = key => {
       if (selectedDate.value !== key) track('filter_change', { filter: '比赛日期', value: key === ALL_DATE ? '全部日期' : key });
       selectedDate.value = key;
+      hasInitializedDate.value = true;
       nextTick(scrollSelectedDateIntoView);
     };
 
@@ -570,50 +575,48 @@ export default {
       else dateChipRefs.delete(key);
     };
 
-    const remapUpcomingResponse = responseData => {
-      const list = Array.isArray(responseData)
-        ? responseData
-        : (Array.isArray(responseData?.data) ? responseData.data : []);
-      rawUpcomingMatches.value = list;
-    };
-
-    const fetchUpcomingMatches = async () => {
+    const fetchSchedule = async () => {
+      const generation = ++upcomingGeneration;
+      clearTimeout(sourceRetry);
+      const seasonId = props.seasonId, configuredUrl = props.liquipediaTournamentUrl, showUpcoming = props.showUpcoming;
       rawUpcomingMatches.value = [];
+      tournamentSources.value = [];
+      tournamentSnapshot.value = null;
       upcomingUnavailable.value = false;
       hasInitializedDate.value = false;
 
-      if (!props.showUpcoming || !hasLiquipediaTournamentUrl.value) {
+      if (!seasonId) {
         isUpcomingLoading.value = false;
         initializeDate({ force: true });
         return;
       }
 
-      isUpcomingLoading.value = true;
+      // Completed seasons still need source stages/weeks for the date picker.
+      // Only the upcoming ticker and its loading message depend on season status.
+      isUpcomingLoading.value = showUpcoming;
       try {
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Date.now() - parsed.timestamp < CACHE_EXPIRY && Array.isArray(parsed.data)) {
-            rawUpcomingMatches.value = parsed.data;
-            return;
-          }
-          sessionStorage.removeItem(CACHE_KEY);
+        const [sourceResult, scheduleResult] = await Promise.allSettled([
+          apiService.getSeasonTournament(seasonId), showUpcoming ? readUpcomingMatches() : Promise.resolve([])
+        ]);
+        if (generation !== upcomingGeneration) return;
+        const snapshot = sourceResult.status === 'fulfilled' ? sourceResult.value : null;
+        tournamentSnapshot.value = snapshot;
+        tournamentSources.value = getTournamentScheduleSources(snapshot, configuredUrl);
+        if (scheduleResult.status === 'rejected') throw scheduleResult.reason;
+        rawUpcomingMatches.value = scheduleResult.value;
+        upcomingUnavailable.value = showUpcoming && sourceResult.status === 'rejected' && !tournamentSources.value.length;
+        if (snapshot?.configured && !snapshot.blocks && !snapshot.offline) {
+          sourceRetry = setTimeout(fetchSchedule, Math.max(5000, snapshot.retryAfterMs || 60000));
         }
-
-        if (!fetchPromise) fetchPromise = apiService.getUpcomingMatches();
-        const responseData = await fetchPromise;
-        remapUpcomingResponse(responseData);
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          timestamp: Date.now(),
-          data: rawUpcomingMatches.value
-        }));
       } catch (error) {
-        upcomingUnavailable.value = true;
+        if (generation !== upcomingGeneration) return;
+        upcomingUnavailable.value = showUpcoming;
         console.error('Failed to fetch upcoming matches:', error);
       } finally {
-        isUpcomingLoading.value = false;
-        fetchPromise = null;
-        initializeDate({ force: true });
+        if (generation === upcomingGeneration) {
+          isUpcomingLoading.value = false;
+          initializeDate();
+        }
       }
     };
 
@@ -770,11 +773,12 @@ export default {
       nextTick(scrollSelectedDateIntoView);
     };
 
-    onMounted(fetchUpcomingMatches);
+    onMounted(fetchSchedule);
+    onBeforeUnmount(() => { upcomingGeneration++; clearTimeout(sourceRetry); });
 
     watch(
       () => [props.seasonId, props.liquipediaTournamentUrl, props.showUpcoming],
-      fetchUpcomingMatches
+      fetchSchedule
     );
 
     watch(recordedMatches, () => {
@@ -2503,12 +2507,21 @@ export default {
   }
 
   .date-picker-group h3 {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 8px;
     margin: 0;
     padding: 0 4px 6px;
     color: #747b85;
     font-size: 11px;
     font-weight: 600;
     line-height: 18px;
+  }
+
+  .date-picker-range {
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
   }
 
   .date-picker-grid {

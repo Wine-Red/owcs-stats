@@ -1,0 +1,49 @@
+{
+  "china2": {
+    "page": "Overwatch_Champions_Series/2026/China/Stage_2",
+    "revisionId": 1146861,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/China/Stage_2",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "china2-regular": {
+    "page": "Overwatch_Champions_Series/2026/China/Stage_2/Regular_Season",
+    "revisionId": 1137308,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/China/Stage_2/Regular_Season",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "emea2": {
+    "page": "Overwatch_Champions_Series/2026/EMEA/Stage_2",
+    "revisionId": 1139201,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/EMEA/Stage_2",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "emea2-regular": {
+    "page": "Overwatch_Champions_Series/2026/EMEA/Stage_2/Regular_Season",
+    "revisionId": 1137742,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/EMEA/Stage_2/Regular_Season",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "world": {
+    "page": "Overwatch_World_Cup/2026",
+    "revisionId": 1146816,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_World_Cup/2026",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "na3": {
+    "page": "Overwatch_Champions_Series/2026/NA/Stage_3",
+    "revisionId": 1147229,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/NA/Stage_3",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse response; images and map details removed; retrieved 2026-09-27."
+  },
+  "korea2": {
+    "page": "Overwatch Champions Series/2026/Asia/Stage 2/Korea",
+    "revisionId": 1142390,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Asia/Stage_2/Korea"
+  }
+}

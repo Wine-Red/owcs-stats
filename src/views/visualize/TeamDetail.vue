@@ -16,7 +16,6 @@
           <div class="team-banner-center">
             <img :src="getTeamLogo(team?.id)" class="team-logo-large" alt="" />
             <div class="team-name-large">{{ team?.name || '未知战队' }}</div>
-            <el-link v-if="team?.liquipediaUrl" :href="team.liquipediaUrl" target="_blank" rel="noopener noreferrer">Liquipedia ↗</el-link>
 
             <el-dropdown trigger="click" @command="selectSeason" class="season-dropdown" placement="bottom">
               <div class="season-dropdown-link">

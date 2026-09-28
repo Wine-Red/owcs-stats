@@ -31,7 +31,8 @@
     "verify:package-interactions": "node scripts/verify-package-interactions.mjs",
     "test:static-export": "node --test scripts/tests/*.test.mjs",
     "test:liquipedia-url": "node --test src/utils/liquipediaTournament.test.mjs",
-    "test:match-schedule": "node --test src/utils/matchScheduleReconciliation.test.mjs",
+    "test:tournament-stages": "node --test src/utils/tournamentStages.test.mjs src/utils/tournamentResults.test.mjs src/utils/tournamentMatchNavigation.test.mjs",
+    "test:match-schedule": "node --test src/utils/matchScheduleReconciliation.test.mjs src/utils/matchScheduleWeeks.test.mjs",
     "test:recent-team-form": "node --test src/utils/recentTeamForm.test.mjs",
     "test:team-roster": "node --test src/utils/teamRoster.test.mjs",
     "test:embedded-webview": "node --test src/utils/embeddedWebView.test.mjs",
@@ -45,7 +46,8 @@
     "preview": "vite preview",
     "lint": "vue-cli-service lint",
     "preview:static": "node scripts/serve-static.mjs",
-    "verify:static-timeline": "node scripts/verify-static-timeline.mjs"
+    "verify:static-timeline": "node scripts/verify-static-timeline.mjs",
+    "verify:package-tournaments": "node scripts/verify-package-tournaments.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",

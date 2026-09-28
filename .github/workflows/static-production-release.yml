@@ -25,7 +25,7 @@ jobs:
     name: Export, verify, and publish
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout release commit
@@ -48,6 +48,9 @@ jobs:
           npm run test:stat-metrics
           npm run test:analytics
           npm run test:site-client
+
+      - name: Wait for initial tournament snapshots
+        run: node scripts/wait-site-tournaments.mjs
 
       - name: Export production static site
         run: npm run export:static:production
@@ -95,6 +98,7 @@ jobs:
             sleep 1
           done
           npm run smoke:static
+          npm run verify:package-tournaments
           npm run verify:static-timeline
           npm run verify:embedded-webview
           npm run verify:partner-host
@@ -122,6 +126,7 @@ jobs:
           done
           npm run verify:site-api
           npm run smoke:api-static
+          npm run verify:package-tournaments -- --api
           npm run verify:api-runtime
           npm run verify:embedded-webview
           npm run verify:api-partner-host

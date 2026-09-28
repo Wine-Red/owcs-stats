@@ -17,6 +17,7 @@ const SeasonStage = require('../models/SeasonStage'); // eslint-disable-line no-
 const Config = require('../models/Config'); // eslint-disable-line no-unused-vars
 require('../models/ExternalMatchInbox'); // Created additively by the existing sequelize.sync().
 require('../models/MatchVote');
+require('../models/TournamentSnapshot'); // Additive table; existing business records are unchanged.
 const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
 const { retireLegacyAgentViews } = require('./legacyAgentViewRetirement');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');

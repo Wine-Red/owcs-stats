@@ -11,7 +11,7 @@ let lastParseStartedAt = 0;
 
 const wait = (milliseconds) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
-const requestJson = async (apiUrl) => new Promise((resolve, reject) => {
+const performRequestJson = async (apiUrl) => new Promise((resolve, reject) => {
   const url = new URL(apiUrl);
   const request = https.get({
     hostname: url.hostname,
@@ -51,6 +51,35 @@ const requestJson = async (apiUrl) => new Promise((resolve, reject) => {
   });
 });
 
+let requestQueue = Promise.resolve();
+let lastRequestStartedAt = 0;
+let lastActualParseStartedAt = 0;
+const requestJson = apiUrl => {
+  const run = async () => {
+    const isParse = new URL(apiUrl).searchParams.get('action') === 'parse';
+    const remaining = Math.max(2000 - (Date.now() - lastRequestStartedAt), isParse ? PARSE_INTERVAL_MS - (Date.now() - lastActualParseStartedAt) : 0);
+    if (remaining > 0) await wait(remaining);
+    lastRequestStartedAt = Date.now();
+    if (isParse) lastActualParseStartedAt = lastRequestStartedAt;
+    return performRequestJson(apiUrl);
+  };
+  const result = requestQueue.then(run, run);
+  requestQueue = result.catch(() => undefined);
+  return result;
+};
+
+const fetchCanonicalPages = async titles => {
+  const redirects = {};
+  const unique = [...new Set(titles)];
+  for (let i = 0; i < unique.length; i += 50) {
+    const params = new URLSearchParams({ action: 'query', format: 'json', redirects: '1', titles: unique.slice(i, i + 50).join('|') });
+    const data = await requestJson(`${LIQUIPEDIA_API_BASE}?${params}`);
+    if (data.error || !data.query) throw new Error('Liquipedia team identity lookup failed');
+    for (const row of [...(data.query.normalized || []), ...(data.query.redirects || [])]) redirects[row.from] = row.to;
+  }
+  return redirects;
+};
+
 const scheduleParse = task => {
   const run = async () => {
     const remaining = PARSE_INTERVAL_MS - (Date.now() - lastParseStartedAt);
@@ -86,5 +115,6 @@ const fetchParsedHtml = async ({ page, text }) => scheduleParse(async () => {
 module.exports = {
   LIQUIPEDIA_API_BASE,
   fetchParsedHtml,
+  fetchCanonicalPages,
   requestJson
 };

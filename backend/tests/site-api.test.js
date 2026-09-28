@@ -10,6 +10,7 @@ test('metadata detects edits without timestamps, deletions, media changes and ti
   const rows = Object.fromEntries(sourceNames.map(name => [name, [{ id: 1, value: 1 }]]));
   rows.Config = [{ key: 'private_secret', value: 'private' }, { key: 'visualize_chart_config', value: { futureField: 1 } }];
   rows.MapGameTimeline = [{ id: 1, mapGameId: 1, digest: 'first', revision: 1, payload: { secret: 'not loaded' } }];
+  rows.TournamentSnapshot = [{ sourceKey: 'one', contentHash: 'first', payload: { secret: 'not loaded' }, lastAttemptAt: 1 }];
   const transaction = {}, calls = [];
   const models = Object.fromEntries(Object.entries(rows).map(([name, data]) => [name, {
     rawAttributes: Object.fromEntries(Object.keys(data[0]).map(key => [key, {}])),
@@ -23,14 +24,16 @@ test('metadata detects edits without timestamps, deletions, media changes and ti
   const first = await readMetadata(options);
   assert.equal((await readMetadata(options)).revision, first.revision);
   rows.Config[0].value = 'another private value';
+  rows.TournamentSnapshot[0].lastAttemptAt++;
   assert.equal((await readMetadata(options)).revision, first.revision);
   for (const change of [() => { rows.PlayerStat[0].value++; }, () => { rows.SeasonTeam.length = 0; },
     () => { rows.Team[0].value = 'new-image'; }, () => { rows.MapGameTimeline[0].digest = 'second'; },
-    () => { rows.Config[1].value.futureField++; }]) {
+    () => { rows.Config[1].value.futureField++; }, () => { rows.TournamentSnapshot[0].contentHash = 'second'; }]) {
     const before = (await readMetadata(options)).revision; change();
     assert.notEqual((await readMetadata(options)).revision, before);
   }
   assert.ok(calls.filter(call => call.name === 'MapGameTimeline').every(call => !call.attributes.includes('payload')));
+  assert.ok(calls.filter(call => call.name === 'TournamentSnapshot').every(call => !call.attributes.includes('payload') && !call.attributes.includes('lastAttemptAt')));
   assert.equal(JSON.stringify(first).includes('private'), false);
 });
 

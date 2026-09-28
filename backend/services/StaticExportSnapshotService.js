@@ -1,5 +1,8 @@
 const Season = require('../models/Season');
 const Team = require('../models/Team');
+const TeamAlias = require('../models/TeamAlias');
+const { serializeTeamLiquipedia } = require('./TeamLiquipediaLink');
+const TournamentSnapshot = require('../models/TournamentSnapshot');
 const Player = require('../models/Player');
 const MapModel = require('../models/Map');
 const Hero = require('../models/Hero');
@@ -51,7 +54,9 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     playerStatModels,
     playerHeroStatModels,
     timelineModels,
-    stageModels
+    stageModels,
+    tournamentModels,
+    teamAliasModels
   ] = await sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, async transaction => Promise.all([
     Season.findAll({ transaction }),
     Team.findAll({ transaction }),
@@ -100,11 +105,13 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     }),
     PlayerHeroStat.findAll({ transaction, raw: true, order: [['id', 'ASC']] }),
     MapGameTimeline.findAll({ transaction, raw: true }),
-    SeasonStage.findAll({ transaction, raw: true })
+    SeasonStage.findAll({ transaction, raw: true }),
+    TournamentSnapshot.findAll({ transaction, attributes: ['sourceKey', 'page', 'payload'], raw: true }),
+    TeamAlias.findAll({ transaction, raw: true })
   ]));
 
   const seasons = seasonModels.map(plain);
-  const teams = teamModels.map(plain);
+  const teams = teamModels.map(team => serializeTeamLiquipedia(plain(team)));
   const players = playerModels.map(plain);
   const maps = mapModels.map(plain);
   const heroes = heroModels.map(plain);
@@ -125,7 +132,7 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     })),
     playerStats: playerStatsDetailed.map(stat => withoutKeys(stat, ['MapGame']))
   };
-  const views = { config: {}, seasonStats: {}, playerProfiles: {}, heroOverview: {}, heroPlayers: {}, playerHeroes: {}, matchData: {} };
+  const views = { config: {}, tournaments: {}, seasonStats: {}, playerProfiles: {}, heroOverview: {}, heroPlayers: {}, playerHeroes: {}, matchData: {} };
   const gamesByMatch = new Map(), statsByGame = new Map();
   for (const game of collections.mapGames) pushGrouped(gamesByMatch, game.matchId, game);
   for (const stat of collections.playerStats) pushGrouped(statsByGame, stat.mapGameId, stat);
@@ -145,6 +152,28 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
   for (const model of configModels) {
     const config = plain(model);
     if (expectedConfigKeys.has(config.key)) views.config[config.key] = config.value;
+  }
+
+  // Tournament data and local identities come from the same DB transaction.
+  // Export never starts upstream requests or depends on process-local files.
+  const { parseTournamentUrl } = require('./LiquipediaRosterParser');
+  const { validSnapshot } = require('./TournamentSnapshotLoader');
+  const { bindTournament } = require('./TournamentMatchMatcher');
+  const { scopeTournamentSnapshot } = await import('./tournamentSemantics.mjs');
+  const { resolveTournamentSource, resolveTournamentSeasonIds } = require('./TournamentSourceResolver');
+  const tournamentSnapshots = new Map(tournamentModels.map(row => [row.page, row.payload]));
+  for (const season of seasons) {
+    const config = views.config[`visualize_season_${season.id}`];
+    const value = typeof config === 'string' ? JSON.parse(config) : config;
+    views.tournaments[season.id] = { configured: false, offline: true };
+    let source;
+    try { const url = resolveTournamentSource(season, value); if (!url) continue; source = parseTournamentUrl(url); } catch { continue; }
+    const snapshot = tournamentSnapshots.get(source.page);
+    if (!validSnapshot(snapshot, source.page)) continue;
+    const matchSeasonIds = [...new Set([Number(season.id), ...resolveTournamentSeasonIds(source.url, seasons, configModels.map(plain))])];
+    const ids = new Set(seasonTeams.filter(row => Number(row.seasonId) === Number(season.id)).map(row => Number(row.teamId)));
+    views.tournaments[season.id] = { ...bindTournament(scopeTournamentSnapshot(snapshot), { allTeams: teams, teams: teams.filter(t => ids.has(Number(t.id))), aliases: teamAliasModels,
+      matches: rawMatches.filter(m => matchSeasonIds.includes(Number(m.seasonId))), seasonId: season.id, matchSeasonIds }), configured: true, offline: true };
   }
 
   const rosterBySeasonTeam = new Map();

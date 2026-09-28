@@ -15,6 +15,7 @@ routes.push(
   ['/map-games/:id/player-stats', 'MapGameController', 'getPlayerStats'],
   ['/season-teams', 'SeasonTeamController', 'getAll'],
   ['/seasons/:seasonId/teams', 'SeasonTeamController', 'getTeamsBySeasonId'],
+  ['/seasons/:seasonId/tournament', 'LiquipediaTournamentController', 'get'],
   ['/season-teams/:seasonTeamId/players', 'SeasonTeamPlayerController', 'getPlayersBySeasonTeamId'],
   ['/season-team-players', 'SeasonTeamPlayerController', 'getAll'],
   ['/stats/player/:playerId/profile', 'StatsController', 'getPlayerProfile', ['seasonId']],

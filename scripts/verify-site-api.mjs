@@ -10,7 +10,8 @@ assert.equal(options.status, 204, 'public gateway must permit preflight');
 assert.equal(options.headers.get('access-control-allow-origin'), '*');
 assert.equal(options.headers.get('access-control-allow-credentials'), null);
 const response = await request('/seasons');
-assert.equal(response.status, 200); assert.ok((await response.json()).length);
+assert.equal(response.status, 200);
+const seasons = await response.json(); assert.ok(seasons.length);
 assert.equal(response.headers.get('access-control-allow-origin'), '*');
 const etag = response.headers.get('etag'); assert.ok(etag);
 assert.equal((await request('/seasons', { headers: { 'If-None-Match': etag } })).status, 304);
@@ -22,6 +23,13 @@ assert.equal((await request('/teams/1/admin-context')).status, 404);
 assert.equal((await request('/matches?pageSize=0')).status, 400);
 const meta = await request('/meta'); assert.equal(meta.status, 200);
 const data = await meta.json(); assert.equal(data.apiVersion, 1); assert.match(data.revision, /^[a-f0-9]{64}$/);
+for (const season of seasons) {
+  const tournament = await request(`/seasons/${season.id}/tournament`);
+  assert.equal(tournament.status, 200, `Missing tournament route for season ${season.id}; deploy the matching backend before releasing this package`);
+  const value = await tournament.json();
+  assert.equal(typeof value.configured, 'boolean');
+  if (value.blocks !== undefined) assert.ok(Array.isArray(value.blocks));
+}
 const teams = await (await request('/teams')).json();
 for (const source of teams.map(team => team.logo).filter(Boolean)) {
   assert.ok(source.startsWith('/media/') || source.startsWith(`${config.mediaOrigin}/media/`), `Unmanaged team image: ${source}`);

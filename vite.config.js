@@ -29,7 +29,8 @@ export default defineConfig(({ mode }) => {
     },
     build: portable ? {
       outDir: site ? 'dist-api' : 'dist',
-      copyPublicDir: !site,
+      // build-display copies public assets and only the active snapshot resources.
+      copyPublicDir: false,
       // Produce one intermediate bundle. build-display embeds code, styles,
       // fonts, images and local JSON into HTML for hosts with a no-CORS CDN.
       cssCodeSplit: false,

@@ -4,7 +4,7 @@ const { isPublicConfigKey } = require('./contract');
 
 const sourceNames = ['Season', 'Team', 'TeamAlias', 'Player', 'Map', 'Hero', 'Match', 'MapGame',
     'PlayerStat', 'PlayerHeroStat', 'SeasonTeam', 'SeasonTeamPlayer', 'SeasonStage',
-    'SeasonTeamSource', 'SeasonTeamPlayerSource', 'MapGameTimeline'];
+    'SeasonTeamSource', 'SeasonTeamPlayerSource', 'MapGameTimeline', 'TournamentSnapshot'];
 // Several source tables have no updatedAt. Hash their actual records so edits
 // and deletes cannot silently leave an old page marked current. Large timeline
 // bodies already have an authoritative digest and are never loaded here.
@@ -17,8 +17,9 @@ const readMetadata = async ({ database, models, readSchedule } = {}) => {
     // Sequential queries keep this small probe from occupying the entire DB pool.
     for (const name of sourceNames) {
       const model = resolveModel(name);
-      const attributes = name === 'MapGameTimeline' ? ['id', 'mapGameId', 'digest', 'revision'] : Object.keys(model.rawAttributes);
-      result.push([name, await model.findAll({ attributes, order: [['id', 'ASC']], raw: true, transaction })]);
+      const attributes = name === 'MapGameTimeline' ? ['id', 'mapGameId', 'digest', 'revision']
+        : name === 'TournamentSnapshot' ? ['sourceKey', 'contentHash'] : Object.keys(model.rawAttributes);
+      result.push([name, await model.findAll({ attributes, order: [[name === 'TournamentSnapshot' ? 'sourceKey' : 'id', 'ASC']], raw: true, transaction })]);
     }
     const configs = await Config.findAll({ attributes: ['key', 'value'], order: [['key', 'ASC']], raw: true, transaction });
     result.push(['config', configs.filter(row => isPublicConfigKey(row.key))]);

@@ -20,6 +20,10 @@ const Team = sequelize.define('Team', {
     type: DataTypes.STRING(1024),
     allowNull: true
   },
+  liquipediaUrls: {
+    type: DataTypes.JSON,
+    allowNull: true
+  },
   region: {
     type: DataTypes.STRING,
     allowNull: false

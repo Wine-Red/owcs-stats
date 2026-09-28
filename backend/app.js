@@ -110,6 +110,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`服务器运行在 http://localhost:${PORT}`);
       startMatchSyncPolling();
+      require('./services/TournamentRuntime').startTournamentSync();
     });
   } catch (error) {
     console.error('服务器启动失败:', error);

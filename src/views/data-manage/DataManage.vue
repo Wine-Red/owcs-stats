@@ -35,14 +35,14 @@
         </template>
         <el-form :model="chartConfig" label-width="120px" class="chart-config-form">
            <h3 class="config-section-title">全局数据统计</h3>
-           <el-form-item label="赛程列表">
+           <el-form-item label="赛事进程">
+             <el-switch v-model="chartConfig.overviewTab" active-text="显示" inactive-text="隐藏" />
+           </el-form-item>
+           <el-form-item label="比赛列表">
              <el-switch v-model="chartConfig.recentTab" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
            <el-form-item label="赛事数据">
              <el-switch v-model="chartConfig.statsTab" active-text="显示" inactive-text="隐藏" />
-           </el-form-item>
-           <el-form-item label="赛事积分">
-             <el-switch v-model="chartConfig.overviewTab" active-text="显示" inactive-text="隐藏" />
            </el-form-item>
            <el-form-item label="英雄禁用统计">
              <el-switch v-model="chartConfig.heroBan" active-text="显示" inactive-text="隐藏" />
@@ -124,10 +124,11 @@
                 复制标签和地图池
               </el-button>
             </div>
-            <div class="form-hint">只复制标签和地图池，不覆盖日期、Liquipedia 赛事页面或积分榜配置</div>
+            <div class="form-hint">只复制标签和地图池，不覆盖日期或 Liquipedia 赛事页面</div>
           </el-form-item>
           <el-form-item label="比赛日期">
             <el-input v-model="seasonVisualForm.dateRange" placeholder="如：2026.03.05 - 2026.04.12" style="width: 100%" />
+            <div class="form-hint">赛季状态按北京时间和这里的起止日期自动判断，结束日期当天仍为进行中。</div>
           </el-form-item>
           <el-form-item
             label="Liquipedia赛事页面"
@@ -184,142 +185,6 @@
               </template>
             </el-select>
           </el-form-item>
-          <el-form-item label="积分榜模板">
-            <el-select v-model="seasonVisualForm.standingsTemplate" filterable clearable placeholder="搜索模板" style="width: 240px">
-              <el-option label="W-L / Maps / +/-" value="wl_maps" />
-              <el-option label="Points(3-0)" value="points_3_0" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="世界赛晋级名额" title="积分榜前 N 名将显示晋级标识">
-            <el-input-number v-model="seasonVisualForm.qualificationCount" :min="0" :max="20" placeholder="如：2" style="max-width: 240px" />
-          </el-form-item>
-
-          <el-divider content-position="left">积分榜阶段</el-divider>
-
-          <div class="stage-manager">
-            <div class="form-hint stage-manager-hint">
-              每个阶段只需指定第一场比赛。下一阶段开始时，上一阶段自动结束；最后一个阶段会持续包含之后同步的新比赛。
-            </div>
-            <div class="stage-create-row">
-              <el-input v-model="stageDraft.name" placeholder="阶段名称，例如：常规赛第一阶段" />
-              <el-select
-                v-if="seasonStages.length > 0"
-                v-model="stageDraft.startMatchId"
-                filterable
-                clearable
-                placeholder="选择本阶段第一场比赛"
-              >
-                <el-option
-                  v-for="match in seasonStageMatches"
-                  :key="`stage-start-${match.id}`"
-                  :label="formatStageMatchLabel(match)"
-                  :value="match.id"
-                />
-              </el-select>
-              <div v-else class="stage-first-tip">首个阶段自动从赛季第一场开始</div>
-              <el-button type="primary" :loading="stageSaving" @click="createStage">新增阶段</el-button>
-            </div>
-
-            <div v-if="seasonStages.length > 0" class="stage-definition-list">
-              <div v-for="(stage, index) in seasonStages" :key="stage.id" class="stage-definition-row">
-                <div class="stage-definition-index">{{ index + 1 }}</div>
-                <el-input v-model="stage.name" class="stage-name-input" />
-                <el-select
-                  v-if="stage.startMatchId !== null"
-                  v-model="stage.startMatchId"
-                  class="stage-match-select"
-                  filterable
-                  clearable
-                >
-                  <el-option
-                    v-for="match in seasonStageMatches"
-                    :key="`stage-edit-${stage.id}-${match.id}`"
-                    :label="formatStageMatchLabel(match)"
-                    :value="match.id"
-                  />
-                </el-select>
-                <div v-else class="stage-match-select stage-season-start">从赛季第一场开始</div>
-                <div class="stage-range-summary">
-                  <span>{{ formatStageRange(stage) }}</span>
-                  <el-tag v-if="stage.isCurrent" size="small" type="success">自动延伸</el-tag>
-                </div>
-                <div class="stage-definition-actions">
-                  <el-button size="small" @click="updateStage(stage)">保存</el-button>
-                  <el-button size="small" type="danger" plain @click="deleteStage(stage)">删除</el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <el-divider v-if="stageSegments.length > 0" content-position="left">阶段积分榜覆盖</el-divider>
-
-          <div v-if="stageSegments.length > 0" class="stage-overrides">
-            <div v-for="seg in stageSegments" :key="seg.key" class="stage-override-card">
-              <div class="stage-override-title">
-                <span>{{ seg.label }}</span>
-                <span class="stage-override-key">{{ seg.key }}</span>
-              </div>
-
-              <el-form-item label="隐藏队伍">
-                <el-select
-                  v-model="getStageOverride(seg.key).hiddenTeamIds"
-                  multiple
-                  filterable
-                  clearable
-                  collapse-tags
-                  collapse-tags-tooltip
-                  style="width: 100%"
-                  placeholder="选择需要隐藏的队伍（淘汰队伍可隐藏）"
-                >
-                  <el-option
-                    v-for="team in seasonVisualTeams"
-                    :key="'hide-' + team.id"
-                    :label="team.name"
-                    :value="team.id"
-                  />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item label="手动排序队伍">
-                <el-select
-                  :model-value="getStageOverride(seg.key).orderedTeamIds"
-                  multiple
-                  filterable
-                  clearable
-                  collapse-tags
-                  collapse-tags-tooltip
-                  style="width: 100%"
-                  placeholder="选择需要手动排序的队伍（未选择的队伍仍按默认排序）"
-                  @update:modelValue="val => handleOrderedTeamIdsChange(seg.key, val)"
-                >
-                  <el-option
-                    v-for="team in seasonVisualTeams"
-                    :key="'order-' + team.id"
-                    :label="team.name"
-                    :value="team.id"
-                  />
-                </el-select>
-
-                <div class="ordered-list" v-if="getStageOverride(seg.key).orderedTeamIds.length > 0">
-                  <div
-                    v-for="(teamId, idx) in getStageOverride(seg.key).orderedTeamIds"
-                    :key="seg.key + '-row-' + teamId"
-                    class="ordered-row"
-                  >
-                    <div class="ordered-row-left">
-                      <span class="ordered-index">{{ idx + 1 }}</span>
-                      <span class="ordered-name">{{ getTeamName(teamId) }}</span>
-                    </div>
-                    <div class="ordered-row-actions">
-                      <el-button size="small" @click="moveOrderedTeam(seg.key, idx, -1)" :disabled="idx === 0">上移</el-button>
-                      <el-button size="small" @click="moveOrderedTeam(seg.key, idx, 1)" :disabled="idx === getStageOverride(seg.key).orderedTeamIds.length - 1">下移</el-button>
-                      <el-button size="small" type="danger" @click="removeOrderedTeam(seg.key, teamId)">移除</el-button>
-                    </div>
-                  </div>
-                </div>
-              </el-form-item>
-            </div>
-          </div>
         </el-form>
       </el-card>
     </div>
@@ -543,7 +408,7 @@
             <el-table-column prop="status" label="状态" width="100">
               <template #default="scope">
                 <el-tag :type="scope.row.status === 'in_progress' ? 'success' : 'info'">
-                  {{ scope.row.status === 'in_progress' ? '进行中' : '已完成' }}
+                  {{ scope.row.status === 'upcoming' ? '未开始' : scope.row.status === 'in_progress' ? '进行中' : scope.row.status === 'completed' ? '已结束' : '日期待配置' }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -600,7 +465,7 @@
                 <span v-if="team.aliases.length > 3">+{{ team.aliases.length - 3 }}</span>
               </div>
               <span v-else class="entity-card-muted">暂无同步别名</span>
-              <el-link v-if="team.liquipediaUrl" :href="team.liquipediaUrl" target="_blank" rel="noopener noreferrer" @click.stop @keydown.stop>Liquipedia ↗</el-link>
+              <el-link v-if="getTeamLiquipediaUrls(team).length" :href="getTeamLiquipediaUrls(team)[0]" target="_blank" rel="noopener noreferrer" @click.stop @keydown.stop>Liquipedia · {{ getTeamLiquipediaUrls(team).length }} 个页面 ↗</el-link>
             </div>
             <div class="entity-card-actions" @click.stop>
               <button type="button" @click="openTeamContext(team)">历史</button>
@@ -790,12 +655,6 @@
           <el-form-item label="所属赛段" prop="stage">
             <el-input v-model="editForm.stage" placeholder="请输入所属赛段（如：2024 亚洲赛区）" style="width: 100%" />
           </el-form-item>
-          <el-form-item label="状态" prop="status">
-            <el-select v-model="editForm.status" filterable clearable placeholder="搜索状态" style="width: 100%">
-              <el-option label="进行中" value="in_progress" />
-              <el-option label="已完成" value="completed" />
-            </el-select>
-          </el-form-item>
           <el-form-item label="赛季图标">
             <media-upload-field
               :model-value="editForm.icon"
@@ -844,8 +703,15 @@
             @clear="handleMediaClear"
           />
         </el-form-item>
-        <el-form-item label="Liquipedia 页面">
-          <el-input v-model.trim="editForm.liquipediaUrl" placeholder="https://liquipedia.net/overwatch/..." clearable />
+        <el-form-item label="Liquipedia 页面" class="team-page-form">
+          <div class="team-page-editor">
+            <div v-for="(_, index) in editForm.liquipediaUrls" :key="index" class="team-page-row">
+              <el-input v-model.trim="editForm.liquipediaUrls[index]" :aria-label="`Liquipedia 页面 ${index + 1}`" placeholder="https://liquipedia.net/overwatch/..." clearable />
+              <el-button text type="danger" :aria-label="`删除 Liquipedia 页面 ${index + 1}`" @click="editForm.liquipediaUrls.splice(index, 1)">删除</el-button>
+            </div>
+            <el-button text type="primary" @click="editForm.liquipediaUrls.push('')">添加页面</el-button>
+            <div class="form-hint">可绑定改名前后的多个队伍页面，命中任一页面均关联到本队。</div>
+          </div>
         </el-form-item>
       </el-form>
     </div>
@@ -1378,7 +1244,7 @@ export default {
     };
     const pageDescriptionMap = {
       'seasons': '组织赛事、赛段与外部事件映射，控制公开页面的赛事顺序。',
-      'season-visualize': '配置公开数据页中的赛事标签、地图池、阶段与积分榜呈现。',
+      'season-visualize': '配置公开数据页中的赛事标签、比赛日期、地图池与 Liquipedia 赛事页面。',
       'teams': '维护队伍主名、同步别名、Liquipedia 页面和公开展示使用的 Logo。',
       'heroes': '维护英雄名称、职责分类与公开页面图片资源。',
       'maps': '维护地图名称、模式分类与公开页面横幅资源。',
@@ -1587,9 +1453,7 @@ export default {
       tags: [],
       dateRange: '',
       liquipediaTournamentUrl: '',
-      mapIds: [],
-      standingsTemplate: 'wl_maps',
-      stageOverrides: {}
+      mapIds: []
     });
 
     const OTHER_STAGE_LABEL = '其他赛季';
@@ -1628,104 +1492,6 @@ export default {
       return value || UNGROUPED_REGION_LABEL;
     };
 
-    const seasonStages = ref([]);
-    const seasonStageMatches = ref([]);
-    const stageSaving = ref(false);
-    const stageDraft = ref({ name: '', startMatchId: null });
-
-    const stageSegments = computed(() => seasonStages.value.map((stage, index) => ({
-      key: `stage:${stage.id}`,
-      label: String(stage.name || `阶段${index + 1}`),
-      stageId: stage.id
-    })));
-
-    const loadSeasonStages = async (seasonId) => {
-      if (!seasonId) {
-        seasonStages.value = [];
-        seasonStageMatches.value = [];
-        return;
-      }
-      try {
-        const [stageRes, matchRes] = await Promise.all([
-          apiService.getSeasonStages(seasonId),
-          apiService.getMatches({ seasonId, pageSize: 1000 })
-        ]);
-        seasonStages.value = Array.isArray(stageRes) ? stageRes : stageRes?.data || [];
-        const matchList = Array.isArray(matchRes) ? matchRes : matchRes?.list || matchRes?.data || [];
-        seasonStageMatches.value = matchList.slice().sort((left, right) => {
-          const dateCompare = String(left.matchDate || '').localeCompare(String(right.matchDate || ''));
-          return dateCompare || Number(left.id) - Number(right.id);
-        });
-      } catch (e) {
-        seasonStages.value = [];
-        seasonStageMatches.value = [];
-      }
-    };
-
-    const formatStageMatchLabel = (match) => {
-      const date = String(match?.matchDate || '日期未知');
-      return `${date} · ${getTeamName(match?.team1Id)} vs ${getTeamName(match?.team2Id)}`;
-    };
-
-    const formatStageRange = (stage) => {
-      if (!stage?.matchCount) return '当前范围暂无比赛';
-      const start = stage.startMatch ? formatStageMatchLabel(stage.startMatch) : '赛季首场';
-      const end = stage.endMatch ? formatStageMatchLabel(stage.endMatch) : '当前最新比赛';
-      return `${start} → ${end} · ${stage.matchCount} 场`;
-    };
-
-    const createStage = async () => {
-      const name = String(stageDraft.value.name || '').trim();
-      if (!name) return ElMessage.warning('请输入阶段名称');
-      if (seasonStages.value.length > 0 && !stageDraft.value.startMatchId) {
-        return ElMessage.warning('请选择新阶段的第一场比赛');
-      }
-      stageSaving.value = true;
-      try {
-        await apiService.createSeasonStage(seasonVisualForm.value.seasonId, {
-          name,
-          startMatchId: stageDraft.value.startMatchId
-        });
-        stageDraft.value = { name: '', startMatchId: null };
-        await loadSeasonStages(seasonVisualForm.value.seasonId);
-        ElMessage.success('阶段已新增，后续比赛将自动归入当前阶段');
-      } catch (error) {
-        ElMessage.error(error?.response?.data?.error || '新增阶段失败');
-      } finally {
-        stageSaving.value = false;
-      }
-    };
-
-    const updateStage = async (stage) => {
-      try {
-        await apiService.updateSeasonStage(stage.id, {
-          name: String(stage.name || '').trim(),
-          startMatchId: stage.startMatchId
-        });
-        await loadSeasonStages(seasonVisualForm.value.seasonId);
-        ElMessage.success('阶段已更新');
-      } catch (error) {
-        ElMessage.error(error?.response?.data?.error || '更新阶段失败');
-      }
-    };
-
-    const deleteStage = async (stage) => {
-      try {
-        await ElMessageBox.confirm(
-          `确定删除阶段“${stage.name}”吗？比赛数据不会被删除，相邻阶段的范围会自动重新计算。`,
-          '删除阶段',
-          { type: 'warning' }
-        );
-        await apiService.deleteSeasonStage(stage.id);
-        await loadSeasonStages(seasonVisualForm.value.seasonId);
-        ElMessage.success('阶段已删除');
-      } catch (error) {
-        if (error !== 'cancel' && error !== 'close') {
-          ElMessage.error(error?.response?.data?.error || '删除阶段失败');
-        }
-      }
-    };
-
     const loadSeasonTeamsForVisualConfig = async (seasonId) => {
       if (!seasonId) return;
       try {
@@ -1738,58 +1504,6 @@ export default {
       }
     };
 
-    const getStageOverride = (segmentKey) => {
-      if (!seasonVisualForm.value.stageOverrides || typeof seasonVisualForm.value.stageOverrides !== 'object') {
-        seasonVisualForm.value.stageOverrides = {};
-      }
-      if (!seasonVisualForm.value.stageOverrides[segmentKey]) {
-        seasonVisualForm.value.stageOverrides[segmentKey] = { orderedTeamIds: [], hiddenTeamIds: [] };
-      }
-      const current = seasonVisualForm.value.stageOverrides[segmentKey];
-      if (!Array.isArray(current.orderedTeamIds)) current.orderedTeamIds = [];
-      if (!Array.isArray(current.hiddenTeamIds)) current.hiddenTeamIds = [];
-      return current;
-    };
-
-    const handleOrderedTeamIdsChange = (segmentKey, selectedIds) => {
-      const next = (Array.isArray(selectedIds) ? selectedIds : []).map(v => Number(v)).filter(v => Number.isFinite(v));
-      const override = getStageOverride(segmentKey);
-      const prev = override.orderedTeamIds.map(v => Number(v)).filter(v => Number.isFinite(v));
-      const kept = prev.filter(id => next.includes(id));
-      const appended = next.filter(id => !kept.includes(id));
-      override.orderedTeamIds = kept.concat(appended);
-    };
-
-    const moveOrderedTeam = (segmentKey, index, delta) => {
-      const override = getStageOverride(segmentKey);
-      const list = override.orderedTeamIds;
-      const nextIndex = index + delta;
-      if (nextIndex < 0 || nextIndex >= list.length) return;
-      const copy = list.slice();
-      const tmp = copy[index];
-      copy[index] = copy[nextIndex];
-      copy[nextIndex] = tmp;
-      override.orderedTeamIds = copy;
-    };
-
-    const removeOrderedTeam = (segmentKey, teamId) => {
-      const override = getStageOverride(segmentKey);
-      const id = Number(teamId);
-      override.orderedTeamIds = override.orderedTeamIds.filter(v => Number(v) !== id);
-    };
-
-    const seasonVisualTeams = computed(() => {
-      const seasonIdNum = Number(seasonVisualForm.value.seasonId);
-      if (!Number.isFinite(seasonIdNum)) return [];
-      const ids = (seasonTeams.value || [])
-        .filter(st => Number(st.seasonId) === seasonIdNum)
-        .map(st => Number(st.teamId))
-        .filter(v => Number.isFinite(v));
-      const uniqueIds = Array.from(new Set(ids));
-      const list = (teams.value || []).filter(t => uniqueIds.includes(Number(t.id)));
-      return list;
-    });
-
     const loadSeasonVisualConfig = async (seasonId) => {
       const id = seasonId || seasonVisualForm.value.seasonId;
       if (!id) return;
@@ -1799,33 +1513,17 @@ export default {
         const dateRange = config?.dateRange || '';
         const liquipediaTournamentUrl = config?.liquipediaTournamentUrl || '';
         const mapIds = normalizeIdArray(config?.mapPool?.mapIds);
-        const standingsTemplate = config?.standings?.template === 'points_3_0' ? 'points_3_0' : 'wl_maps';
-        const stageOverrides = (config?.standings?.stageOverrides && typeof config.standings.stageOverrides === 'object')
-          ? config.standings.stageOverrides
-          : {};
-        const qualificationCount = Number(config?.standings?.qualificationCount) || 0;
-
         seasonVisualForm.value.tags = tags;
         seasonVisualForm.value.dateRange = dateRange;
         seasonVisualForm.value.liquipediaTournamentUrl = liquipediaTournamentUrl;
         liquipediaTournamentUrlError.value = '';
         seasonVisualForm.value.mapIds = mapIds;
-        seasonVisualForm.value.standingsTemplate = standingsTemplate;
-        seasonVisualForm.value.qualificationCount = qualificationCount;
-        seasonVisualForm.value.stageOverrides = stageOverrides;
-        await loadSeasonStages(id);
-        await loadSeasonTeamsForVisualConfig(id);
       } catch (error) {
         seasonVisualForm.value.tags = [];
         seasonVisualForm.value.dateRange = '';
         seasonVisualForm.value.liquipediaTournamentUrl = '';
         liquipediaTournamentUrlError.value = '';
         seasonVisualForm.value.mapIds = [];
-        seasonVisualForm.value.standingsTemplate = 'wl_maps';
-        seasonVisualForm.value.qualificationCount = 0;
-        seasonVisualForm.value.stageOverrides = {};
-        await loadSeasonStages(id);
-        await loadSeasonTeamsForVisualConfig(id);
       }
     };
 
@@ -1844,18 +1542,14 @@ export default {
           tags: normalizeStringArray(seasonVisualForm.value.tags),
           dateRange: seasonVisualForm.value.dateRange,
           liquipediaTournamentUrl,
-          mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) },
-          standings: {
-            template: seasonVisualForm.value.standingsTemplate === 'points_3_0' ? 'points_3_0' : 'wl_maps',
-            qualificationCount: Number(seasonVisualForm.value.qualificationCount) || 0,
-            stageOverrides: (seasonVisualForm.value.stageOverrides && typeof seasonVisualForm.value.stageOverrides === 'object') ? seasonVisualForm.value.stageOverrides : {}
-          }
+          mapPool: { mapIds: normalizeIdArray(seasonVisualForm.value.mapIds) }
         };
         await apiService.updateConfig({
           key: buildSeasonVisualKey(seasonVisualForm.value.seasonId),
           value,
-          description: '赛季可视化配置（Liquipedia赛事页面/标签/地图池/积分榜模板）'
+          description: '赛季可视化配置（Liquipedia赛事页面/标签/比赛日期/地图池）'
         });
+        await store.dispatch('loadBaseData');
         ElMessage.success('赛季可视化配置已保存');
       } catch (error) {
         console.error('保存赛季可视化配置失败:', error);
@@ -1931,8 +1625,7 @@ export default {
     
     // 赛季验证规则
     const seasonRules = {
-      name: [{ required: true, message: '请输入赛季名称', trigger: 'blur' }],
-      status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+      name: [{ required: true, message: '请输入赛季名称', trigger: 'blur' }]
     };
     
     // 队伍验证规则
@@ -3010,7 +2703,6 @@ export default {
       editForm.value = {
         name: '',
         stage: '',
-        status: 'in_progress',
         icon: ''
       };
       dialogVisible.value = true;
@@ -3035,12 +2727,16 @@ export default {
         name: '',
         region: '',
         logo: '',
-        liquipediaUrl: '',
+        liquipediaUrls: [''],
         aliases: []
       };
       dialogVisible.value = true;
     };
     
+    const getTeamLiquipediaUrls = team => [...new Set([
+      team.liquipediaUrl, ...(Array.isArray(team.liquipediaUrls) ? team.liquipediaUrls : [])
+    ].filter(Boolean))];
+
     // 编辑队伍
     const editTeam = (team) => {
       resetMediaDraft();
@@ -3049,6 +2745,7 @@ export default {
       // 深拷贝队伍数据
       editForm.value = {
         ...JSON.parse(JSON.stringify(team)),
+        liquipediaUrls: getTeamLiquipediaUrls(team),
         aliases: Array.isArray(team.aliases) ? [...team.aliases] : []
       };
       dialogVisible.value = true;
@@ -3325,6 +3022,8 @@ export default {
       const config = catalogMediaConfig[type];
       const payload = { ...editForm.value };
       delete payload[config.imageField];
+      if (type === 'season') delete payload.status;
+      if (type === 'team') delete payload.liquipediaUrl;
 
       let entity;
       if (editForm.value.id) {
@@ -3631,6 +3330,7 @@ export default {
       editFormRef,
       seasonRules,
       teamRules,
+      getTeamLiquipediaUrls,
       heroRules,
       mapRules,
       playerRules,
@@ -3721,21 +3421,6 @@ export default {
       loadSeasonVisualConfig,
       saveSeasonVisualConfig,
       copySeasonVisualBaseConfig,
-      seasonStages,
-      seasonStageMatches,
-      stageDraft,
-      stageSaving,
-      formatStageMatchLabel,
-      formatStageRange,
-      createStage,
-      updateStage,
-      deleteStage,
-      stageSegments,
-      seasonVisualTeams,
-      getStageOverride,
-      handleOrderedTeamIdsChange,
-      moveOrderedTeam,
-      removeOrderedTeam,
       groupedMapsForSelect,
       handleMapPoolDropdownVisible,
       groupedSeasonList,
@@ -4342,6 +4027,16 @@ export default {
   width: 100%;
 }
 
+.team-page-editor { width: 100%; min-width: 0; }
+.team-page-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.team-page-row .el-input { min-width: 0; }
+.team-page-row .el-button { flex-shrink: 0; margin: 0; }
+@media (max-width: 600px) {
+  .team-page-form { display: block; }
+  .team-page-form :deep(.el-form-item__label) { width: 100% !important; justify-content: flex-start; }
+  .team-page-form :deep(.el-form-item__content) { margin-left: 0 !important; }
+}
+
 .map-type-tabs-header {
   display: flex;
   flex-wrap: wrap;
@@ -4405,177 +4100,6 @@ export default {
 
 .config-section-title:first-child {
   margin-top: 0;
-}
-
-.stage-manager {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-}
-
-.stage-manager-hint {
-  margin: 0;
-}
-
-.stage-create-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(300px, 1.5fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.stage-first-tip,
-.stage-season-start {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  color: #a3a3a3;
-  background: #202020;
-  border: 1px solid #3a3a3a;
-  border-radius: 3px;
-}
-
-.stage-definition-list {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #333;
-  background: #181818;
-}
-
-.stage-definition-row {
-  display: grid;
-  grid-template-columns: 30px minmax(150px, 0.65fr) minmax(280px, 1.35fr) minmax(260px, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border-bottom: 1px solid #303030;
-}
-
-.stage-definition-row:last-child {
-  border-bottom: 0;
-}
-
-.stage-definition-index {
-  color: #f59e0b;
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 700;
-  text-align: center;
-}
-
-.stage-name-input,
-.stage-match-select {
-  width: 100%;
-}
-
-.stage-range-summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  color: #a3a3a3;
-  font-size: 12px;
-}
-
-.stage-range-summary > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stage-definition-actions {
-  display: flex;
-  gap: 6px;
-}
-
-@media (max-width: 1100px) {
-  .stage-create-row,
-  .stage-definition-row {
-    grid-template-columns: 30px 1fr;
-  }
-
-  .stage-create-row > * {
-    grid-column: 1 / -1;
-  }
-
-  .stage-definition-row > :not(.stage-definition-index) {
-    grid-column: 2;
-  }
-}
-
-.stage-overrides {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 8px 0 0 0;
-}
-
-.stage-override-card {
-  border: 1px solid #333;
-  border-radius: 2px;
-  padding: 14px 14px 6px 14px;
-  background: #1a1a1a;
-}
-
-.stage-override-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 10px;
-  font-weight: 600;
-  color: #e0e0e0;
-  font-family: 'Oxanium', sans-serif;
-}
-
-.stage-override-key {
-  font-size: 12px;
-  color: #888;
-  font-family: 'Orbitron', sans-serif;
-}
-
-.ordered-list {
-  margin-top: 10px;
-  border: 1px solid #333;
-  border-radius: 2px;
-  padding: 8px;
-  background: #222;
-}
-
-.ordered-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 4px;
-  border-bottom: 1px dashed #444;
-}
-
-.ordered-row:last-child {
-  border-bottom: none;
-}
-
-.ordered-row-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ordered-index {
-  width: 22px;
-  text-align: right;
-  color: #888;
-  font-family: 'Orbitron', sans-serif;
-}
-
-.ordered-name {
-  font-weight: 600;
-  color: #e0e0e0;
-}
-
-.ordered-row-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .grouped-section-list {

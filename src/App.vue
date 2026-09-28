@@ -163,6 +163,19 @@ export default {
   setup() {
     const route = useRoute();
     const dataGeneration = ref(0);
+    const shanghaiDay = () => Math.floor((Date.now() + 8 * 60 * 60 * 1000) / 86400000);
+    let loadedSeasonDay = shanghaiDay();
+    let seasonRefreshTimer;
+    const refreshSeasonsAfterDateChange = async () => {
+      const today = shanghaiDay();
+      if (today === loadedSeasonDay) return;
+      try {
+        store.commit('setSeasons', await apiService.getSeasons());
+        loadedSeasonDay = today;
+      } catch (error) {
+        console.warn('赛季状态刷新失败:', error);
+      }
+    };
     const refreshSiteData = async () => {
       resetSiteData();
       await store.dispatch('loadBaseData');
@@ -281,12 +294,18 @@ export default {
       updateTheme();
       fetchLatestSyncTime();
       if (!isStaticExport && !isApiPackage) syncTimer = setInterval(fetchLatestSyncTime, 60000); // 主站每分钟刷新同步时间
+      // Only the API (or offline data adapter) computes status; refresh its
+      // season response after a Shanghai calendar-day change.
+      seasonRefreshTimer = setInterval(refreshSeasonsAfterDateChange, 60000);
+      document.addEventListener('visibilitychange', refreshSeasonsAfterDateChange);
     });
 
     onUnmounted(() => {
       if (syncTimer) {
         clearInterval(syncTimer);
       }
+      clearInterval(seasonRefreshTimer);
+      document.removeEventListener('visibilitychange', refreshSeasonsAfterDateChange);
     });
 
     return {
@@ -685,6 +704,27 @@ html.dark .divider {
     right: 0;
     left: 0;
     margin: 0;
+  }
+
+  /* Embedded mode scrolls the document. Keep each secondary tab fixed below
+     the primary tabs, with its host reserving the original row in the flow. */
+  html.is-embedded-webview .stats-category-host {
+    height: 35px;
+  }
+
+  html.is-embedded-webview .tournament-stage-tabs-host:not(:empty) {
+    height: 41px;
+  }
+
+  html.is-embedded-webview .stats-category-host .stats-category-choices,
+  html.is-embedded-webview .tournament-stage-tabs-host .tournament-tabs {
+    position: fixed;
+    top: 112px;
+    right: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    z-index: 39;
   }
 
   html.is-embedded-webview .tab-content.is-stats-hero {

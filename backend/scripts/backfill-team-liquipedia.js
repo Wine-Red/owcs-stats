@@ -4,7 +4,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const sequelize = require('../config/database');
 const Team = require('../models/Team');
-const { planTeamLiquipediaBackfill } = require('../services/TeamLiquipediaLink');
+const { planTeamLiquipediaBackfill, teamLiquipediaPayload } = require('../services/TeamLiquipediaLink');
 
 const main = async () => {
   const args = process.argv.slice(2);
@@ -14,7 +14,7 @@ const main = async () => {
   const apply = args.includes('--apply');
   if (apply && (!args.includes('--backup') || !option('--backup'))) throw new Error('--backup is required with --apply');
   await sequelize.transaction(async transaction => {
-    const teams = await Team.findAll({ transaction, ...(apply ? { lock: transaction.LOCK.UPDATE } : {}) });
+    const teams = await Team.findAll({ transaction, order: [['id', 'ASC']], ...(apply ? { lock: transaction.LOCK.UPDATE } : {}) });
     const plan = planTeamLiquipediaBackfill(teams, input.entries);
     const changes = plan.filter(row => row.changed);
     if (apply && changes.length) {
@@ -23,7 +23,8 @@ const main = async () => {
       // Refuse to overwrite any earlier backup. Write it before the first mutation.
       await fs.writeFile(backup, JSON.stringify({ at: new Date().toISOString(), plan, source: input }, null, 2), { flag: 'wx', mode: 0o600 });
       for (const row of changes) {
-        await teams.find(team => Number(team.id) === Number(row.teamId)).update({ liquipediaUrl: row.after }, { transaction });
+        const team = teams.find(team => Number(team.id) === Number(row.teamId));
+        await team.update(teamLiquipediaPayload({ liquipediaUrl: row.after }, team), { transaction });
       }
     }
     console.log(JSON.stringify({ mode: apply ? 'apply' : 'preview', total: teams.length, changed: changes.length, unchanged: plan.length - changes.length, unlisted: teams.length - plan.length, plan }, null, 2));

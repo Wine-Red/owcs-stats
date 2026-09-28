@@ -1,4 +1,5 @@
 const Season = require('../models/Season');
+const Config = require('../models/Config');
 const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
@@ -7,11 +8,17 @@ const SeasonTeamPlayer = require('../models/SeasonTeamPlayer');
 const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const SeasonStage = require('../models/SeasonStage');
+const { wakeTournamentSync } = require('../services/TournamentRuntime');
+const dateRangeFromConfig = config => {
+  try {
+    const value = typeof config?.value === 'string' ? JSON.parse(config.value) : config?.value;
+    return value?.dateRange || '';
+  } catch { return ''; }
+};
 
 const seasonPayload = body => Object.fromEntries([
   ['name', body?.name],
   ['stage', body?.stage || null],
-  ['status', body?.status],
   ['externalEventName', body?.externalEventName || null],
   ['icon', body?.icon || null]
 ].filter(([key]) => Object.prototype.hasOwnProperty.call(body || {}, key)));
@@ -83,8 +90,15 @@ const SeasonController = {
   // 获取所有赛季
   getAll: async (req, res) => {
     try {
-      const seasons = await Season.findAll();
-      res.status(200).json(seasons);
+      const [seasons, configs] = await Promise.all([
+        Season.findAll(),
+        Config.findAll({ where: { key: { [Op.like]: 'visualize_season_%' } } })
+      ]);
+      const { presentSeason } = await import('../shared/seasonStatus.mjs');
+      const dates = new Map(configs.map(row => [row.key, dateRangeFromConfig(row)]));
+      const now = Date.now();
+      res.status(200).json(seasons.map(season => presentSeason(season,
+        dates.get(`visualize_season_${season.id}`), now)));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -94,11 +108,14 @@ const SeasonController = {
   getById: async (req, res) => {
     try {
       const { id } = req.params;
-      const season = await Season.findByPk(id);
+      const [season, config] = await Promise.all([
+        Season.findByPk(id), Config.findByPk(`visualize_season_${id}`)
+      ]);
       if (!season) {
         return res.status(404).json({ error: 'Season not found' });
       }
-      res.status(200).json(season);
+      const { presentSeason } = await import('../shared/seasonStatus.mjs');
+      res.status(200).json(presentSeason(season, dateRangeFromConfig(config)));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -108,7 +125,9 @@ const SeasonController = {
   create: async (req, res) => {
     try {
       const season = await Season.create(seasonPayload(req.body));
-      res.status(201).json(season);
+      wakeTournamentSync();
+      const { presentSeason } = await import('../shared/seasonStatus.mjs');
+      res.status(201).json(presentSeason(season));
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -123,7 +142,10 @@ const SeasonController = {
         return res.status(404).json({ error: 'Season not found' });
       }
       await season.update(seasonPayload(req.body));
-      res.status(200).json(season);
+      wakeTournamentSync();
+      const config = await Config.findByPk(`visualize_season_${id}`);
+      const { presentSeason } = await import('../shared/seasonStatus.mjs');
+      res.status(200).json(presentSeason(season, dateRangeFromConfig(config)));
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

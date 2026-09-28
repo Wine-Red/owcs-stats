@@ -23,6 +23,24 @@ const fixture = () => ({
 });
 const reader = snapshot => (name) => name.split('.').reduce((value, key) => value?.[key], snapshot);
 
+test('offline tournament views use the saved source snapshot and old packages fall back without network access', async () => {
+  const snapshot = fixture();
+  assert.deepEqual(await readStaticData(reader(snapshot), '/seasons/1/tournament'), { configured: false, offline: true });
+  const saved = { configured: true, offline: true, observedAt: 1234, blocks: [{ type: 'bracket', matches: [] }] };
+  snapshot.views.tournaments = { 1: saved };
+  assert.deepEqual(await readStaticData(reader(snapshot), '/seasons/1/tournament'), saved);
+  await assert.rejects(readStaticData(reader(snapshot), '/seasons/1/tournament?refresh=1'));
+});
+
+test('offline seasons recalculate status from saved dates when the package is opened', async () => {
+  const snapshot = fixture();
+  snapshot.collections.seasons[0].status = 'completed';
+  snapshot.views.config = { visualize_season_1: { dateRange: '2099.01.01 - 2099.01.02' } };
+  assert.equal((await readStaticData(reader(snapshot), '/seasons'))[0].status, 'upcoming');
+  snapshot.views.config.visualize_season_1.dateRange = '2020.01.01 - 2020.01.02';
+  assert.equal((await readStaticData(reader(snapshot), '/seasons/1')).status, 'completed');
+});
+
 test('complete collections support previously uncaptured pages, page sizes and intersecting filters', async () => {
   const read = (url, params) => readStaticData(reader(fixture()), url, params);
   const last = await read('/matches', { page: 302, pageSize: 7 });

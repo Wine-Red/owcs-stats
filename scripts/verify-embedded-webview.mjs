@@ -122,7 +122,7 @@ try {
   await page.waitForFunction(name => document.querySelector('.mobile-event-name')?.textContent?.trim() === name, scheduleSeasonName)
   await page.locator('.mobile-season-drawer').waitFor({ state: 'hidden', timeout: 10_000 })
   await page.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
-  await page.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
+  await page.getByRole('tab', { name: '比赛列表' }).evaluate(element => element.click())
   await page.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
   await page.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
   await page.locator('.date-chip--all').click()
@@ -242,7 +242,7 @@ try {
   const browserPage = await browser.newPage({ viewport: { width: 390, height: 520 } })
   await browserPage.goto(`${baseUrl}${scheduleHash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   await browserPage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
-  await browserPage.getByRole('tab', { name: '赛程列表' }).click()
+  await browserPage.getByRole('tab', { name: '比赛列表' }).click()
   await browserPage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
   await browserPage.locator('.schedule-match').first().waitFor({ state: 'visible', timeout: 60_000 })
   await browserPage.locator('.date-chip--all').click()
@@ -281,7 +281,7 @@ try {
     })
     await responsivePage.goto(`${baseUrl}${scheduleHash}`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await responsivePage.locator('.vis-body').waitFor({ state: 'visible', timeout: 60_000 })
-    await responsivePage.getByRole('tab', { name: '赛程列表' }).evaluate(element => element.click())
+    await responsivePage.getByRole('tab', { name: '比赛列表' }).evaluate(element => element.click())
     await responsivePage.locator('.schedule-shell').waitFor({ state: 'visible', timeout: 60_000 })
     // The shell can precede the live schedule. Its arrival resets the selected
     // date and scroll position, so finish loading before testing touch scrolling.

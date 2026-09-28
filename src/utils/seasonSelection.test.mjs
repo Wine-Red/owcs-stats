@@ -21,8 +21,9 @@ test('sorts seasons from newest to oldest by numeric id without mutating the sou
 
 test('selects the first in-progress season in display order, skipping completed seasons', () => {
   const selected = getDefaultSeason([
-    { id: 28, status: 'completed' },
-    { id: 29, status: 'in_progress' },
+    { id: 28, status: 'completed', dateRange: '2026.09.29 - 2026.10.01' },
+    { id: 31, status: 'upcoming' },
+    { id: 29, status: 'in_progress', dateRange: '2026.01.01 - 2026.01.02' },
     { id: 30, status: 'in_progress' }
   ])
 
@@ -51,6 +52,28 @@ test('selects the first displayed season when every season is completed', () => 
   ])
 
   assert.equal(selected.id, 7)
+})
+
+test('prefers upcoming over completed, then follows display order within the same status', () => {
+  const selected = getDefaultSeason([
+    { id: 7, status: 'completed' },
+    { id: 23, status: 'upcoming' },
+    { id: 14, status: 'upcoming' },
+    { id: 31, status: 'completed' }
+  ])
+
+  assert.equal(selected.id, 23)
+})
+
+test('prefers a known status over an undated season and falls back to display order if all are unknown', () => {
+  assert.equal(getDefaultSeason([
+    { id: 7, status: 'unknown' },
+    { id: 23, status: 'completed' }
+  ]).id, 23)
+  assert.equal(getDefaultSeason([
+    { id: 7, status: 'unknown' },
+    { id: 23, status: 'unknown' }
+  ]).id, 7)
 })
 
 test('returns null when there are no seasons', () => {

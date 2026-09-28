@@ -1,5 +1,6 @@
 const Team = require('../models/Team');
 const TeamAlias = require('../models/TeamAlias');
+const { serializeTeamLiquipedia } = require('./TeamLiquipediaLink');
 
 const MAX_ALIAS_LENGTH = 191;
 
@@ -111,7 +112,7 @@ const serializeTeamsWithAliases = async (teams, transaction) => {
     aliasesByTeam.set(Number(alias.teamId), current);
   });
   const serialized = list.map(team => ({
-    ...(typeof team.toJSON === 'function' ? team.toJSON() : team),
+    ...serializeTeamLiquipedia(team),
     aliases: aliasesByTeam.get(Number(team.id)) || []
   }));
   return Array.isArray(teams) ? serialized : serialized[0];

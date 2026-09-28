@@ -2,7 +2,8 @@ import { getRecordedMatchState, normalizeTeamName } from './matchScheduleReconci
 
 export const rowsOf = response => Array.isArray(response) ? response : response?.list || response?.data || [];
 
-export function resolvePreviewTeam(teams, name) {
+export function resolvePreviewTeam(teams, name, id) {
+  if (id != null && id !== '') return teams.find(team => String(team.id) === String(id)) || null;
   const target = normalizeTeamName(name);
   if (!target) return null;
   return teams.find(team => [team.name, team.abbreviation, ...(team.aliases || [])]

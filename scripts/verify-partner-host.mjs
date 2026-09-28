@@ -97,7 +97,7 @@ try {
       assert.equal(new URL(page.url()).hash, '#/visualize');
     }
     await settleHttp();
-    await page.getByRole('tab', { name: '赛程列表', exact: true }).click();
+    await page.getByRole('tab', { name: '比赛列表', exact: true }).click();
     await page.locator('.schedule-shell').waitFor({ timeout: 60000 });
     const image = page.locator('img[src^="blob:"]').first();
     // The desktop brand mark is hidden on mobile but still used by exports.

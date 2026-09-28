@@ -37,4 +37,6 @@ test('team identity supports aliases without ambiguous substring matching', () =
   assert.equal(resolvePreviewTeam(teams, 'ksa').id, 1);
   assert.equal(resolvePreviewTeam(teams, 'SAU').id, 1);
   assert.equal(resolvePreviewTeam(teams, ''), null);
+  assert.equal(resolvePreviewTeam(teams, 'SAU', 2).id, 2);
+  assert.equal(resolvePreviewTeam(teams, 'SAU', 999), null);
 });

@@ -809,9 +809,7 @@ html.admin-theme .data-manage-container .header-actions {
   gap: 8px;
 }
 
-html.admin-theme .data-manage-container .header-actions .el-button,
-html.admin-theme .data-manage-container .stage-definition-actions .el-button,
-html.admin-theme .data-manage-container .ordered-row-actions .el-button {
+html.admin-theme .data-manage-container .header-actions .el-button {
   margin-left: 0;
 }
 
@@ -962,8 +960,7 @@ html.admin-theme .data-manage-container .asset-cell {
   background-size: 14px 14px;
 }
 
-html.admin-theme .data-manage-container .team-primary-name,
-html.admin-theme .data-manage-container .ordered-name {
+html.admin-theme .data-manage-container .team-primary-name {
   color: var(--admin-text-strong);
 }
 
@@ -1004,43 +1001,6 @@ html.admin-theme .data-manage-container .chart-config-form .el-form-item {
   margin: 0;
   padding: 10px 0;
   border-bottom: 1px solid var(--admin-border-soft);
-}
-
-html.admin-theme .data-manage-container .stage-first-tip,
-html.admin-theme .data-manage-container .stage-season-start {
-  min-height: 40px;
-  border-color: var(--admin-border);
-  border-radius: 9px;
-  color: var(--admin-text-muted);
-  background: var(--admin-surface-subtle);
-}
-
-html.admin-theme .data-manage-container .stage-definition-list,
-html.admin-theme .data-manage-container .stage-override-card,
-html.admin-theme .data-manage-container .ordered-list {
-  overflow: hidden;
-  border-color: var(--admin-border);
-  border-radius: 12px;
-  background: var(--admin-surface-subtle);
-}
-
-html.admin-theme .data-manage-container .stage-definition-row,
-html.admin-theme .data-manage-container .ordered-row {
-  border-color: var(--admin-border);
-}
-
-html.admin-theme .data-manage-container .stage-definition-index,
-html.admin-theme .data-manage-container .ordered-index {
-  color: var(--admin-orange);
-}
-
-html.admin-theme .data-manage-container .stage-override-title {
-  color: var(--admin-text-strong);
-}
-
-html.admin-theme .data-manage-container .stage-override-key,
-html.admin-theme .data-manage-container .stage-range-summary {
-  color: var(--admin-text-soft);
 }
 
 html.admin-theme .data-manage-container .role-card {
@@ -1090,7 +1050,6 @@ html.admin-theme .data-manage-container .player-label {
 }
 
 html.admin-theme .data-manage-container .player-stats-form,
-html.admin-theme .data-manage-container .ordered-row,
 html.admin-theme .data-manage-container .player-slot {
   border-color: var(--admin-border);
 }

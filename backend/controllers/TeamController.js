@@ -14,12 +14,11 @@ const {
   serializeTeamsWithAliases
 } = require('../services/TeamAliasService');
 const { getTeamContext } = require('../services/AdminEntityContextService');
-const { teamLiquipediaPayload } = require('../services/TeamLiquipediaLink');
+const { prepareTeamLiquipediaPayload } = require('../services/TeamLiquipediaLink');
 
 const teamPayload = body => ({
   name: body?.name,
   region: body?.region,
-  ...teamLiquipediaPayload(body),
   ...(Object.prototype.hasOwnProperty.call(body || {}, 'logo') ? { logo: body.logo || null } : {})
 });
 
@@ -62,12 +61,13 @@ const TeamController = {
   create: async (req, res) => {
     try {
       const result = await sequelize.transaction(async transaction => {
+        const links = await prepareTeamLiquipediaPayload(req.body, { transaction });
         const identity = await validateTeamIdentity({
           name: req.body?.name,
           aliases: req.body?.aliases || [],
           transaction
         });
-        const team = await Team.create({ ...teamPayload(req.body), name: identity.name }, { transaction });
+        const team = await Team.create({ ...teamPayload(req.body), ...links, name: identity.name }, { transaction });
         await replaceTeamAliases(team.id, identity.aliases, transaction);
         return serializeTeamsWithAliases(team, transaction);
       });
@@ -82,6 +82,7 @@ const TeamController = {
     try {
       const { id } = req.params;
       const result = await sequelize.transaction(async transaction => {
+        const links = await prepareTeamLiquipediaPayload(req.body, { teamId: id, transaction });
         const team = await Team.findByPk(id, { transaction });
         if (!team) return null;
         const current = await serializeTeamsWithAliases(team, transaction);
@@ -93,7 +94,7 @@ const TeamController = {
             : current.aliases,
           transaction
         });
-        await team.update({ ...teamPayload(req.body), name: identity.name }, { transaction });
+        await team.update({ ...teamPayload(req.body), ...links, name: identity.name }, { transaction });
         await replaceTeamAliases(team.id, identity.aliases, transaction);
         return serializeTeamsWithAliases(team, transaction);
       });
