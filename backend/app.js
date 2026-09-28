@@ -110,6 +110,10 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`服务器运行在 http://localhost:${PORT}`);
       startMatchSyncPolling();
+      // Reserve the first source slot for the public ticker before the initial
+      // tournament backlog. Importing the app still has no source side effects.
+      require('./services/UpcomingMatchesService').getUpcomingSchedule()
+        .catch(error => console.warn('[schedule-warmup]', error.message));
       require('./services/TournamentRuntime').startTournamentSync();
     });
   } catch (error) {

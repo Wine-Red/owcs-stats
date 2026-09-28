@@ -48,32 +48,44 @@ const extractUpcomingMatchesFromMatchesPage = pageHtml => {
   });
 };
 
-const upcomingMatchesResource = createCachedResource({
-  ttlMs: LIQUIPEDIA_CACHE_TTL,
-  loader: async () => {
-    const matches = extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml());
-    try { return await attachMatchIdentities(matches); }
-    catch (error) {
-      console.warn('[match-identity]', error.message);
-      return matches.map(match => ({ ...match, sourceId: null }));
+function createUpcomingResources({
+  loadSchedule = async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml()),
+  attachIdentities = attachMatchIdentities, ttlMs = LIQUIPEDIA_CACHE_TTL, maxWaitMs = 25000
+} = {}) {
+  // Both consumers share the same parsed ticker and in-flight request. A
+  // second parse would needlessly wait for another 30-second source slot.
+  const schedule = createCachedResource({ ttlMs, maxWaitMs, loader: loadSchedule });
+  const getUpcomingSchedule = () => schedule.get('schedule');
+  let identityObservation, identityResource, lastVotingResult;
+  const getUpcomingMatches = async () => {
+    const result = await getUpcomingSchedule();
+    // Stale observations may be displayed, but must never authorize voting.
+    if (result.stale) return { ...result, data: lastVotingResult?.observedAt === result.observedAt
+      ? lastVotingResult.data : result.data.map(match => ({ ...match, sourceId: null })) };
+    // Enrichment cannot extend the source freshness window. A new source
+    // observation invalidates identities; retain only the current resource.
+    if (identityObservation !== result.observedAt) {
+      identityObservation = result.observedAt;
+      identityResource = createCachedResource({ ttlMs, maxWaitMs, loader: async () => {
+        try { return await attachIdentities(result.data); }
+        catch (error) {
+          console.warn('[match-identity]', error.message);
+          return result.data.map(match => ({ ...match, sourceId: null }));
+        }
+      } });
     }
-  }
-});
-
-const getUpcomingMatches = () => upcomingMatchesResource.get('upcoming');
-
-// The data contract needs only the schedule, not additional identity lookups
-// used by voting. Keep its last successful source observation independently.
-const upcomingScheduleResource = createCachedResource({
-  ttlMs: LIQUIPEDIA_CACHE_TTL,
-  maxWaitMs: 60000,
-  loader: async () => extractUpcomingMatchesFromMatchesPage(await fetchLiquipediaUpcomingHtml())
-});
-const getUpcomingSchedule = () => upcomingScheduleResource.get('schedule');
+    const voting = { ...await identityResource.get('upcoming'), observedAt: result.observedAt };
+    if (identityObservation === result.observedAt) lastVotingResult = voting;
+    return voting;
+  };
+  return { getUpcomingSchedule, getUpcomingMatches };
+}
+const { getUpcomingMatches, getUpcomingSchedule } = createUpcomingResources();
 
 module.exports = {
   extractUpcomingMatchesFromMatchesPage,
   getUpcomingMatches,
   getUpcomingSchedule,
+  createUpcomingResources,
   normalizeWhitespace
 };

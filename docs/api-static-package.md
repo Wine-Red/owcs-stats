@@ -49,6 +49,8 @@ flowchart LR
 
 主要资源：赛季、队伍、选手、地图、英雄目录；比赛/地图局及时间线详情；报名关系；选手档案；英雄总览/排行榜；赛季、阶段、队伍统计；公开展示配置；`/meta`。完整路径及参数以路由表为可执行契约。比赛分页支持 `page`、`pageSize`（1–10000）及既有赛季、队伍、地图和日期筛选。不支持的参数返回 400。
 
+投票与只读展示共享同一次赛程来源读取，只有投票服务补充稳定比赛标识。启动时先预热公共赛程，再运行赛事快照同步；来源请求最多等待 25 秒，已有数据会以过期状态返回，未完成的请求继续合并。旧赛程不能授权投票，身份补全也不会延长来源数据的有效期。
+
 响应保持既有字段、集合包装与 null/0 语义，可选新增字段自动到达前端。v1 不删除字段或改变单位、类型和包装；不兼容变更发布 v2 并保留 v1，让旧包继续运行。包配置的 `schemaVersion: 1`、接口的 `apiVersion: 1` 与离线快照的 schemaVersion 2 分别管理。
 
 仅开放 GET、HEAD、OPTIONS，写方法返回 JSON 405，未知路由/非公开配置返回 404。配置仅允许 `visualize_chart_config`、`visualize_stage_season_order`、`visualize_season_<id>` 和最后同步时间，后者只返回 `lastSyncAt`。管理上下文、凭据配置、同步和导入控制不在此边界内。
@@ -113,7 +115,7 @@ npm run verify:embedded-webview
 
 ## API 包的投票与助手
 
-API 包现在可通过 `site-package.config.json` 的 `interactions.voting` / `interactions.assistant` 分别启用投票和助手。默认交付配置均开启；省略开关的旧配置保持关闭。`pollApiBaseUrl` 和 `assistantApiBaseUrl` 指向本站对应独立接口，构建时和 CSP 一起嵌入，禁止放入模型密钥。主站管理页不包含在 API 包内。纯快照包继续禁用两项交互。
+API 包现在可通过 `site-package.config.json` 的 `interactions.voting` / `interactions.assistant` 分别启用投票和助手。默认交付配置均开启；省略开关的旧配置保持关闭。`pollApiBaseUrl` 和 `assistantApiBaseUrl` 指向本站对应独立接口，构建时和 CSP 一起嵌入，禁止放入模型密钥。管理路由会跳回展示页，但共用 bundle 尚未彻底剔除管理页面代码。纯快照包继续禁用两项交互。
 
 投票页面从投票服务 `/upcoming` 读取带稳定比赛标识的赛程，通过 `/summary` 查询投票、`/visitor` 获取匿名身份、`/vote` 提交或更改支持队伍。浏览器 localStorage 保存身份，按域名隔离；不承诺主站和不同合作方域名之间去重，不依赖第三方 Cookie。API 包只在页面加载/导航和投票后读取结果，不启用后台轮询。比赛已结束或封盘时沿用现有禁止投票规则。
 
