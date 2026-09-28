@@ -39,4 +39,21 @@ function resolveTournamentSeasonIds(sourceUrl, seasons = [], configs = []) {
     } catch { return []; } // A broken unrelated configuration cannot widen scope.
   }))];
 }
-module.exports = { resolveTournamentSource, resolveTournamentSeasonIds };
+// Child pages must be listed in a complete snapshot of this exact article.
+// URL ancestry alone must never authorize a qualifier or unrelated phase.
+function resolveTournamentSourcePages(sourceUrl, snapshot) {
+  const root = parseTournamentUrl(sourceUrl).page;
+  const pages = new Set([root]);
+  if (snapshot?.page !== root || !snapshot.blocks?.length) return [...pages];
+  const conflicted = new Set((snapshot.blocks || []).filter(block => block.stageIssue).flatMap(block => {
+    try { return [parseTournamentUrl(block.sourceUrl).page]; } catch { return []; }
+  }));
+  for (const source of snapshot.sources || []) {
+    try {
+      const page = parseTournamentUrl(source.url).page;
+      if (page.startsWith(`${root}/`) && !conflicted.has(page)) pages.add(page);
+    } catch { /* Invalid saved source cannot widen the voting scope. */ }
+  }
+  return [...pages];
+}
+module.exports = { resolveTournamentSource, resolveTournamentSeasonIds, resolveTournamentSourcePages };

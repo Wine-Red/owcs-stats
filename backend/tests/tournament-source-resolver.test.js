@@ -1,7 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveTournamentSource, resolveTournamentSeasonIds } = require('../services/TournamentSourceResolver');
+const { resolveTournamentSource, resolveTournamentSeasonIds, resolveTournamentSourcePages } = require('../services/TournamentSourceResolver');
 const root = 'https://liquipedia.net/overwatch/';
+test('voting scope permits only verified children of the exact saved tournament', () => {
+  const source = `${root}Test_Event`, page = 'Test Event';
+  const snapshot = { page, blocks: [{ sourceUrl: source + '/Playoffs', stageIssue: 'stage-conflict' }],
+    sources: [{ url: source }, { url: source + '/Regular_Season' }, { url: source + '/Playoffs' },
+      { url: `${root}Test_Event_2/Regular_Season` }, { url: 'https://example.com/private' }] };
+  assert.deepEqual(resolveTournamentSourcePages(source, snapshot), [page, page + '/Regular Season']);
+  assert.deepEqual(resolveTournamentSourcePages(source, { ...snapshot, page: 'Old Event' }), [page]);
+  assert.deepEqual(resolveTournamentSourcePages(source, { ...snapshot, blocks: [] }), [page]);
+});
 test('all regional stages resolve without database IDs, including the distinct Korea path', () => {
   for (const [region, code] of [['国服', 'China'], ['北美', 'NA'], ['欧中非', 'EMEA'], ['韩国', 'Korea']]) {
     for (const [i, stage] of ['一', '二', '三'].entries()) {

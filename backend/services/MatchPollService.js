@@ -8,6 +8,8 @@ const Config = require('../models/Config');
 const Season = require('../models/Season');
 const { loadTeamIdentities, normalizeTeamIdentity } = require('./TeamAliasService');
 const { parseTournamentUrl } = require('./LiquipediaRosterParser');
+const { resolveTournamentSource, resolveTournamentSourcePages } = require('./TournamentSourceResolver');
+const { getTournamentService } = require('./TournamentRuntime');
 const upcoming = require('./UpcomingMatchesService');
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
@@ -34,20 +36,27 @@ const findPollLinks = (polls, matches, now = Date.now()) => {
   return [...proposals].filter(([, ids]) => ids.length === 1).map(([matchId, ids]) => ({ pollId: ids[0], matchId }));
 };
 
-const reconcilePolls = async seasonId => {
+const reconcilePolls = async (seasonId, context) => {
   const polls = await MatchPoll.findAll({ raw: true });
   if (!polls.length) return;
   const configs = await Config.findAll({ where: { key: { [Op.like]: 'visualize_season_%' } }, raw: true });
+  const seasons = await Season.findAll({ attributes: ['id', 'name', 'externalEventName'], raw: true });
+  const configByKey = new Map(configs.map(config => [config.key, config.value]));
   const scopeByPage = new Map();
-  for (const config of configs) {
+  for (const season of seasons) {
     try {
-      const id = Number(config.key.match(/^visualize_season_(\d+)$/)?.[1]);
-      const value = typeof config.value === 'string' ? JSON.parse(config.value) : config.value;
-      const page = parseTournamentUrl(value.liquipediaTournamentUrl).page;
+      const id = Number(season.id), config = configByKey.get(`visualize_season_${id}`);
+      const value = typeof config === 'string' ? JSON.parse(config) : config;
+      const url = resolveTournamentSource(season, value);
+      if (!url) continue;
+      const page = parseTournamentUrl(url).page;
       if (id) scopeByPage.set(page, [...(scopeByPage.get(page) || []), id]);
     } catch { /* Unconfigured seasons have no source scope. */ }
   }
-  for (const poll of polls) poll.scopeSeasonIds = scopeByPage.get(poll.sourcePage) || [Number(poll.seasonId)];
+  for (const poll of polls) {
+    const root = context?.sourcePages?.includes(poll.sourcePage) ? context.sourcePage : poll.sourcePage;
+    poll.scopeSeasonIds = scopeByPage.get(root) || [Number(poll.seasonId)];
+  }
   const relevant = seasonId ? polls.filter(p => p.scopeSeasonIds.includes(Number(seasonId))) : polls;
   const matches = await Match.findAll({ where: { seasonId: { [Op.in]: [...new Set(relevant.flatMap(p => p.scopeSeasonIds))] } }, raw: true });
   // Source corrections may change an already linked formal match.
@@ -69,14 +78,19 @@ const reconcilePolls = async seasonId => {
 
 const getContext = async seasonId => {
   if (!positiveId(seasonId)) throw fail('赛季参数无效');
-  if (!await Season.findByPk(seasonId)) throw fail('赛季不存在', 404);
+  const season = await Season.findByPk(seasonId);
+  if (!season) throw fail('赛季不存在', 404);
   const config = await Config.findByPk(`visualize_season_${seasonId}`);
   const value = typeof config?.value === 'string' ? JSON.parse(config.value) : config?.value;
-  if (!value?.liquipediaTournamentUrl) return { sources: [], stale: false };
-  const page = parseTournamentUrl(value.liquipediaTournamentUrl).page;
+  const sourceUrl = resolveTournamentSource(season, value);
+  if (!sourceUrl) return { sources: [], stale: false };
+  const page = parseTournamentUrl(sourceUrl).page;
+  const saved = await getTournamentService().readSaved(page);
+  const { scopeTournamentSnapshot } = await import('./tournamentSemantics.mjs');
+  const sourcePages = resolveTournamentSourcePages(sourceUrl, saved && scopeTournamentSnapshot(saved));
   const [result, { identityMap }] = await Promise.all([upcoming.getUpcomingMatches(), loadTeamIdentities()]);
   const resolve = team => identityMap.get(normalizeTeamIdentity(team?.name)) || identityMap.get(normalizeTeamIdentity(team?.wikiName));
-  const sources = result.data.filter(source => source.sourceId && source.sourcePage === page).flatMap(source => {
+  const sources = result.data.filter(source => source.sourceId && sourcePages.includes(source.sourcePage)).flatMap(source => {
     const team1 = resolve(source.team1); const team2 = resolve(source.team2);
     if (!team1 || !team2 || Number(team1.id) === Number(team2.id)) return [];
     return [{ sourceId: source.sourceId, sourcePage: source.sourcePage, sourceGroup: source.sourceGroup,
@@ -84,7 +98,7 @@ const getContext = async seasonId => {
       pairKey: pairKey(team1.id, team2.id), scheduledAt: new Date(source.timestamp),
       team1Name: team1.name, team2Name: team2.name, timestamp: source.timestamp }];
   });
-  return { sources, sourcePage: page, stale: !!result.stale };
+  return { sources, sourcePage: page, sourcePages, stale: !!result.stale };
 };
 
 const visitorHash = async token => {
@@ -129,10 +143,10 @@ const getSummary = async (seasonId, token) => {
       where: { sourceId: source.sourceId, pairKey: source.pairKey, matchId: null }
     });
   }
-  await reconcilePolls(Number(seasonId));
+  await reconcilePolls(Number(seasonId), context);
   const formalMatches = await Match.findAll({ where: { seasonId }, attributes: ['id'], raw: true });
   const formalIds = formalMatches.map(m => Number(m.id));
-  const scopes = [{ seasonId }, ...(context.sourcePage ? [{ sourcePage: context.sourcePage }] : []),
+  const scopes = [{ seasonId }, ...(context.sourcePages?.length ? [{ sourcePage: { [Op.in]: context.sourcePages } }] : []),
     ...(formalIds.length ? [{ matchId: formalIds }] : [])];
   const polls = await MatchPoll.findAll({ where: { [Op.or]: scopes }, raw: true });
   const summaries = await summarizePolls(polls, await visitorHash(token));
@@ -182,4 +196,4 @@ const castVote = async ({ seasonId, sourceId, teamId, team1Id, team2Id }, token)
   return getSummary(seasonId, token);
 };
 
-module.exports = { createVisitor, getSummary, castVote, reconcilePolls, findPollLinks, pairKey, hashToken };
+module.exports = { createVisitor, getSummary, castVote, getContext, reconcilePolls, findPollLinks, pairKey, hashToken };

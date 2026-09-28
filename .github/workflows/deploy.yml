@@ -41,8 +41,6 @@ jobs:
         run: |
           npm run test:static-export
           npm run test:liquipedia-url
-          npm run test:tournament-stages
-          node --test backend/shared/*.test.mjs
           npm run test:match-schedule
           npm run test:recent-team-form
           npm run test:team-roster
@@ -56,6 +54,11 @@ jobs:
       - name: Install Backend Dependencies
         working-directory: backend
         run: npm ci
+
+      - name: Test shared tournament presentation
+        run: |
+          npm run test:tournament-stages
+          node --test backend/shared/*.test.mjs
 
       - name: Test Assistant
         run: |
