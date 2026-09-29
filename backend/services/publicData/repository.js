@@ -41,14 +41,20 @@ class PublicDataRepository {
   async requireCatalog(kind, id) {
     const spec = CATALOGS[kind];
     const rows = await this.select(`SELECT ${spec.fields} FROM ${spec.table} c WHERE c.id = ?`, [id]);
+    if (!rows.length && ['teams', 'players'].includes(kind)) {
+      const redirects = await this.select('SELECT targetId FROM entity_redirects WHERE kind = ? AND sourceId = ?', [kind === 'teams' ? 'team' : 'player', id]);
+      if (redirects.length) return this.requireCatalog(kind, Number(redirects[0].targetId));
+    }
     if (!rows.length) throw notFound();
     return rows[0];
   }
 
-  async aliases(ids) {
+  async aliases(ids, kind = 'teams') {
     if (!ids.length) return new Map();
-    const rows = await this.select(`SELECT teamId, alias FROM team_aliases WHERE teamId IN (${placeholders(ids)}) ORDER BY teamId, alias`, ids);
-    return grouped(rows, 'teamId');
+    const field = kind === 'players' ? 'playerId' : 'teamId';
+    const table = kind === 'players' ? 'player_aliases' : 'team_aliases';
+    const rows = await this.select(`SELECT ${field}, alias FROM ${table} WHERE ${field} IN (${placeholders(ids)}) ORDER BY ${field}, alias`, ids);
+    return grouped(rows, field);
   }
 
   async catalog(kind, query = {}, after, competitionId) {
@@ -56,6 +62,7 @@ class PublicDataRepository {
     const add = (sql, ...params) => { where.push(sql); values.push(...params); };
     if (query.q) {
       if (kind === 'teams') add(`(${contains('c.name')} OR EXISTS (SELECT 1 FROM team_aliases a WHERE a.teamId = c.id AND ${contains('a.alias')}))`, query.q, query.q);
+      else if (kind === 'players') add(`(${contains('c.name')} OR EXISTS (SELECT 1 FROM player_aliases a WHERE a.playerId = c.id AND ${contains('a.alias')}))`, query.q, query.q);
       else add(contains('c.name'), query.q);
     }
     if (query.status) add('c.status = ?', query.status);
@@ -73,8 +80,8 @@ class PublicDataRepository {
         conditions.push('st.seasonId = ?'); params.push(query.competition_id);
       }
       if (query.team_id) {
-        await this.requireCatalog('teams', query.team_id);
-        conditions.push('st.teamId = ?'); params.push(query.team_id);
+        const team = await this.requireCatalog('teams', query.team_id);
+        conditions.push('st.teamId = ?'); params.push(team.id);
       }
       add(`EXISTS (SELECT 1 FROM season_team_players sp JOIN season_teams st ON st.id = sp.seasonTeamId
         WHERE sp.playerId = c.id AND ${conditions.join(' AND ')})`, ...params);
@@ -82,14 +89,14 @@ class PublicDataRepository {
     // LIMIT is an internally parsed integer (1..101), never untrusted SQL text.
     const rows = await this.select(`SELECT ${spec.fields} FROM ${spec.table} c ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY c.id ASC LIMIT ${query.limit + 1}`, values);
-    const aliases = kind === 'teams' ? await this.aliases(rows.map(row => row.id)) : new Map();
+    const aliases = ['teams', 'players'].includes(kind) ? await this.aliases(rows.map(row => row.id), kind) : new Map();
     return rows.map(row => spec.serialize(row, (aliases.get(Number(row.id)) || []).map(a => a.alias)));
   }
 
   async catalogItem(kind, id) {
     const row = await this.requireCatalog(kind, id);
-    const aliases = kind === 'teams' ? await this.aliases([id]) : new Map();
-    return CATALOGS[kind].serialize(row, (aliases.get(id) || []).map(a => a.alias));
+    const aliases = ['teams', 'players'].includes(kind) ? await this.aliases([row.id], kind) : new Map();
+    return CATALOGS[kind].serialize(row, (aliases.get(Number(row.id)) || []).map(a => a.alias));
   }
 
   async stages(competitionId) {
@@ -113,12 +120,15 @@ class PublicDataRepository {
   async roster(competitionId, teamId) {
     const competition = await this.requireCatalog('competitions', competitionId);
     const team = await this.requireCatalog('teams', teamId);
+    teamId = Number(team.id);
     const membership = await this.select('SELECT id FROM season_teams WHERE seasonId = ? AND teamId = ?', [competitionId, teamId]);
     if (!membership.length) throw notFound();
     const players = await this.select(`SELECT c.id, c.name, c.role FROM players c WHERE EXISTS (
       SELECT 1 FROM season_team_players sp JOIN season_teams st ON st.id = sp.seasonTeamId
       WHERE sp.playerId = c.id AND st.seasonId = ? AND st.teamId = ?) ORDER BY c.id`, [competitionId, teamId]);
-    return { competition: dto.ref(competition.id, competition.name), team: dto.ref(team.id, team.name), players: players.map(dto.player) };
+    const aliases = await this.aliases(players.map(row => row.id), 'players');
+    return { competition: dto.ref(competition.id, competition.name), team: dto.ref(team.id, team.name),
+      players: players.map(row => dto.player(row, (aliases.get(Number(row.id)) || []).map(a => a.alias))) };
   }
 
   async projectMatches(rows) {
@@ -130,10 +140,11 @@ class PublicDataRepository {
   }
 
   async matches(query, after, paginate = true) {
+    query = { ...query };
     const where = [], values = [];
     const add = (sql, ...params) => { where.push(sql); values.push(...params); };
     for (const [key, kind] of Object.entries({ competition_id: 'competitions', team_id: 'teams', opponent_id: 'teams', player_id: 'players', map_id: 'maps' })) {
-      if (query[key]) await this.requireCatalog(kind, query[key]);
+      if (query[key]) query[key] = Number((await this.requireCatalog(kind, query[key])).id);
     }
     if (query.competition_id) add('m.seasonId = ?', query.competition_id);
     if (query.stage_id) {

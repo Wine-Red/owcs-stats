@@ -2551,6 +2551,12 @@ components:
           type: string
           description: 选手显示名称；同名不等于同人。
           minLength: 1
+        aliases:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          description: 管理员确认的旧名称或别名；不据同名自动合并选手。新增可选字段，旧版响应可能省略。
         role:
           type: string
           description: 选手为目录位置，英雄为职责分类；目录位置不证明每一场的实际位置。
@@ -3522,7 +3528,7 @@ components:
     q:
       name: q
       in: query
-      description: 名称包含查询串，忽略大小写并规范空白；% 和 _ 按普通字符，不是通配符；规范后空字符串无效。按 ID 返回全部候选。队伍同时检索已确认 aliases；不自动合并同名实体。
+      description: 名称包含查询串，忽略大小写并规范空白；% 和 _ 按普通字符，不是通配符；规范后空字符串无效。按 ID 返回全部候选。队伍和选手同时检索已确认 aliases；不自动合并同名实体。
       schema:
         type: string
         minLength: 1

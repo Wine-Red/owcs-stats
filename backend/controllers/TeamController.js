@@ -15,6 +15,8 @@ const {
 } = require('../services/TeamAliasService');
 const { getTeamContext } = require('../services/AdminEntityContextService');
 const { prepareTeamLiquipediaPayload } = require('../services/TeamLiquipediaLink');
+const { identityTransaction, lockIdentityWrites } = require('../services/IdentityWriteService');
+const { protectedAliases, resolveCanonicalId } = require('../services/PlayerIdentityService');
 
 const teamPayload = body => ({
   name: body?.name,
@@ -37,7 +39,7 @@ const TeamController = {
   getById: async (req, res) => {
     try {
       const { id } = req.params;
-      const team = await Team.findByPk(id);
+      const team = await Team.findByPk(await resolveCanonicalId('team', id));
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });
       }
@@ -49,8 +51,9 @@ const TeamController = {
 
   getAdminContext: async (req, res) => {
     try {
-      const context = await getTeamContext(req.params.id);
+      const context = await getTeamContext(await resolveCanonicalId('team', req.params.id));
       if (!context) return res.status(404).json({ error: 'Team not found' });
+      context.identity = await require('../services/PlayerIdentityService').getIdentityMaintenance('team', context.entity.id);
       res.status(200).json(context);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -60,7 +63,7 @@ const TeamController = {
   // 创建队伍
   create: async (req, res) => {
     try {
-      const result = await sequelize.transaction(async transaction => {
+      const result = await identityTransaction(async transaction => {
         const links = await prepareTeamLiquipediaPayload(req.body, { transaction });
         const identity = await validateTeamIdentity({
           name: req.body?.name,
@@ -81,17 +84,18 @@ const TeamController = {
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const result = await sequelize.transaction(async transaction => {
+      const result = await identityTransaction(async transaction => {
         const links = await prepareTeamLiquipediaPayload(req.body, { teamId: id, transaction });
         const team = await Team.findByPk(id, { transaction });
         if (!team) return null;
         const current = await serializeTeamsWithAliases(team, transaction);
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, 'aliases') && !Array.isArray(req.body.aliases)) throw new Error('队伍别名必须是数组');
         const identity = await validateTeamIdentity({
           teamId: team.id,
           name: req.body?.name,
-          aliases: Object.prototype.hasOwnProperty.call(req.body || {}, 'aliases')
-            ? req.body.aliases
-            : current.aliases,
+          aliases: [...(Object.prototype.hasOwnProperty.call(req.body || {}, 'aliases') ? req.body.aliases : current.aliases),
+            ...(await protectedAliases('team', team.id, transaction)),
+            ...(req.body?.name && req.body.name !== team.name ? [team.name] : [])],
           transaction
         });
         await team.update({ ...teamPayload(req.body), ...links, name: identity.name }, { transaction });
@@ -109,6 +113,7 @@ const TeamController = {
   delete: async (req, res) => {
     const t = await sequelize.transaction();
     try {
+      await lockIdentityWrites(t);
       const { id } = req.params;
       const team = await Team.findByPk(id, { transaction: t });
       if (!team) {
@@ -134,6 +139,10 @@ const TeamController = {
           message: '该队伍仍被比赛数据引用。比赛只能在 Matchweb 删除或修改后同步。',
           references: { matchesCount, mapGamesCount, playerStatsCount }
         });
+      }
+      if (await require('../models/EntityIdentity').EntityRedirect.count({ where: { kind: 'team', targetId: id }, transaction: t })) {
+        await t.rollback();
+        return res.status(409).json({ error: '该队伍承接了合并身份，不能直接删除；可继续合并到其他队伍' });
       }
 
       // SeasonTeamPlayer (must be deleted before SeasonTeam and Player)
@@ -172,7 +181,7 @@ const TeamController = {
   // 获取队伍的选手
   getPlayers: async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = await resolveCanonicalId('team', req.params.id);
       const team = await Team.findByPk(id);
       if (!team) {
         return res.status(404).json({ error: 'Team not found' });

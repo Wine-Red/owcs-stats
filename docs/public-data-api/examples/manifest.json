@@ -1,4 +1,8 @@
 {
+  "examples/players-with-aliases.json": {
+    "schema": "PlayerList",
+    "source": "synthetic identity merge example"
+  },
   "examples/match.json": {
     "schema": "MatchResponse",
     "source": "production projection, audited 2026-09-09"

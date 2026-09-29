@@ -23,6 +23,23 @@ const fixture = () => ({
 });
 const reader = snapshot => (name) => name.split('.').reduce((value, key) => value?.[key], snapshot);
 
+test('offline merged identities resolve old detail links and filters to one canonical record', async () => {
+  const snapshot = fixture();
+  snapshot.collections.teams[1].mergedIds = [20];
+  snapshot.collections.players[0].mergedIds = [70];
+  snapshot.collections.players[0].aliases = ['Old Player'];
+  snapshot.views.playerProfiles = { 7: { all: { player: snapshot.collections.players[0] } } };
+  snapshot.views.playerHeroes = { '1:7': { data: [] } };
+  snapshot.views.seasonStats[1].teams = { 2: { compositions: [{ count: 1 }] } };
+  const load = reader(snapshot);
+  assert.equal((await readStaticData(load, '/teams/20')).id, 2);
+  assert.equal((await readStaticData(load, '/players/70')).id, 7);
+  assert.equal((await readStaticData(load, '/stats/player/70/profile')).player.id, 7);
+  assert.deepEqual(await readStaticData(load, '/matches?teamId=20'), await readStaticData(load, '/matches?teamId=2'));
+  assert.deepEqual(await readStaticData(load, '/stats/player/heroes?seasonId=1&playerId=70'), { data: [] });
+  assert.deepEqual(await readStaticData(load, '/season-stats/1/teams/20/compositions'), [{ count: 1 }]);
+});
+
 test('offline tournament views use the saved source snapshot and old packages fall back without network access', async () => {
   const snapshot = fixture();
   assert.deepEqual(await readStaticData(reader(snapshot), '/seasons/1/tournament'), { configured: false, offline: true });

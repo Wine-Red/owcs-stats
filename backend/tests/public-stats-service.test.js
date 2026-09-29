@@ -146,7 +146,8 @@ test('database and snapshot paths return identical complete results for every sh
   assert.ok(reads > 0);
 });
 
-test('HTTP controllers forward shared results including future fields and keep validation', async () => {
+test('HTTP controllers forward shared results including future fields and keep validation', async t => {
+  t.mock.method(require('../models/EntityIdentity').EntityRedirect, 'findOne', async () => null);
   const invoke = async (method, params = {}, query = {}) => {
     let status = 200, body;
     await method({ params, query }, { status(code) { status = code; return this; }, json(value) { body = value; return this; } });

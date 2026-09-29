@@ -380,7 +380,8 @@ const MapGameController = {
   // 获取所有地图局
   getAll: async (req, res) => {
     try {
-      const { seasonId, teamId, mapId, startDate, endDate, page = 1, pageSize = 10 } = req.query;
+      const { seasonId, mapId, startDate, endDate, page = 1, pageSize = 10 } = req.query;
+      const teamId = req.query.teamId ? await require('../services/PlayerIdentityService').resolveCanonicalId('team', req.query.teamId) : null;
       
       // 构建筛选条件
       const where = {};

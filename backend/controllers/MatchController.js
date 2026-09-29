@@ -68,7 +68,8 @@ const MatchController = {
   // 获取所有比赛
   getAll: async (req, res) => {
     try {
-      const { page = 1, pageSize = 10, seasonId, teamId, mapId, startDate, endDate } = req.query;
+      const { page = 1, pageSize = 10, seasonId, mapId, startDate, endDate } = req.query;
+      const teamId = req.query.teamId ? await require('../services/PlayerIdentityService').resolveCanonicalId('team', req.query.teamId) : null;
       
       const where = {};
       if (seasonId) where.seasonId = seasonId;

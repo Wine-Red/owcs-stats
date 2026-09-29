@@ -18,6 +18,7 @@ const Config = require('../models/Config'); // eslint-disable-line no-unused-var
 require('../models/ExternalMatchInbox'); // Created additively by the existing sequelize.sync().
 require('../models/MatchVote');
 require('../models/TournamentSnapshot'); // Additive table; existing business records are unchanged.
+require('../models/EntityIdentity');
 const { migrateLegacySeasonIcons } = require('./seasonIconMigration');
 const { retireLegacyAgentViews } = require('./legacyAgentViewRetirement');
 const { migrateLegacyTeamNameMapping } = require('./teamAliasMigration');
@@ -155,6 +156,7 @@ const initDatabase = async () => {
     // 避免 MySQL 在长期运行中反复 alter 表结构，导致索引数量失控
     await sequelize.sync();
     console.log('数据库模型同步成功');
+    await require('./entityIdentityMigration').migrateEntityIdentities();
 
     const seasonIconMigration = await migrateLegacySeasonIcons();
     console.log(

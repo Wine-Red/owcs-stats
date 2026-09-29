@@ -251,6 +251,7 @@ const reconcileOrphanPlayers = async ({
   now = new Date(),
   graceDays = DEFAULT_ORPHAN_GRACE_DAYS
 } = {}) => {
+  await require('./IdentityWriteService').lockIdentityWrites(transaction);
   const [players, statPlayerIds, membershipPlayerIds] = await Promise.all([
     Player.findAll({ attributes: ['id', 'identityOrigin', 'orphanedAt'], transaction }),
     PlayerStat.findAll({ attributes: ['playerId'], group: ['playerId'], transaction, raw: true }),
@@ -283,6 +284,11 @@ const reconcileOrphanPlayers = async ({
       continue;
     }
     if (isHardDeleteEligibleOrphan(player, now, graceDays)) {
+      const { PlayerAlias, PlayerExternalIdentity, EntityRedirect } = require('../models/EntityIdentity');
+      const protectedCount = await PlayerAlias.count({ where: { playerId: id }, transaction })
+        + await EntityRedirect.count({ where: { kind: 'player', targetId: id }, transaction });
+      if (protectedCount) { summary.protectedLegacyOrManual.push(id); continue; }
+      await PlayerExternalIdentity.destroy({ where: { playerId: id }, transaction });
       await player.destroy({ transaction });
       summary.deleted.push(id);
     } else if (player.identityOrigin !== SOURCE_TYPES.MATCH) {

@@ -1,6 +1,8 @@
 const { randomUUID, createHash } = require('crypto');
 const { Op } = require('sequelize');
-const sequelize = require('../config/database');
+const { identityTransaction } = require('./IdentityWriteService');
+const { serializePlayersWithAliases } = require('./PlayerIdentityService');
+const { serializeTeamsWithAliases } = require('./TeamAliasService');
 const Season = require('../models/Season');
 const Config = require('../models/Config');
 const Team = require('../models/Team');
@@ -44,7 +46,7 @@ const loadCatalog = async (seasonId, transaction) => {
     ...options, where: { seasonTeamId: { [Op.in]: seasonTeams.map(row => row.id) } },
     attributes: ['seasonTeamId', 'playerId']
   }) : [];
-  return { teams, players, seasonTeams, seasonPlayers };
+  return { teams: await serializeTeamsWithAliases(teams, transaction), players: await serializePlayersWithAliases(players, transaction), seasonTeams, seasonPlayers };
 };
 
 const fetchRoster = async source => {
@@ -103,7 +105,7 @@ const apply = async (seasonId, previewToken, excludedTeamLinks = [], excludedPla
     throw error('排除的选手不属于当前预览，请重新预览', 400);
   }
   const excludedPlayerSet = new Set(excludedPlayers);
-  return sequelize.transaction(async transaction => {
+  return identityTransaction(async transaction => {
     // Serialize applies for the same season, then re-read identity and conflict
     // evidence inside the transaction. The browser cannot supply arbitrary IDs.
     const source = await getSource(seasonId, transaction);

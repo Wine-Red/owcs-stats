@@ -34,6 +34,9 @@ test('export reads every collection in one transaction, preserves timelines and 
   for (const [name, rows] of Object.entries(data)) stub(`../models/${name}`, {
     findAll: async options => { calls.push({ name, options }); return rows; }
   });
+  stub('../models/EntityIdentity', Object.fromEntries(['PlayerAlias', 'EntityRedirect'].map(name => [name, {
+    findAll: async options => { calls.push({ name, options }); return []; }
+  }])));
   stub('../config/database', { transaction: async (options, work) => {
     assert.equal(options.isolationLevel, 'REPEATABLE READ'); return work(transaction);
   } });
@@ -67,7 +70,7 @@ test('export reads every collection in one transaction, preserves timelines and 
     assert.deepEqual(snapshot.collections.seasonTeamPlayers[0].sources, [{ sourceType: 'liquipedia' }]);
     assert.equal(snapshot.collections.seasonTeamPlayers[0].SeasonTeam.seasonId, 1);
     assert.ok(snapshot.views.playerProfiles[7].bySeason[1], 'appearance without registered roster is still exported');
-    assert.equal(calls.length, Object.keys(data).length);
+    assert.equal(calls.length, Object.keys(data).length + 2);
     assert.ok(calls.every(call => call.options.transaction === transaction && call.options.limit === undefined));
     assert.ok(calls.filter(call => call.name.endsWith('Source')).every(call => call.options.where.active === true));
     assert.equal(calculations.filter(call => call.matchIds?.length === 1 && call.matchIds[0] === 2107).length, 5);

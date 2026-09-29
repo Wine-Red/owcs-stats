@@ -1,6 +1,5 @@
 const { createHash, randomBytes } = require('crypto');
 const { Op, fn, col } = require('sequelize');
-const sequelize = require('../config/database');
 const MatchPoll = require('../models/MatchPoll');
 const { MatchVote, VoteVisitor } = require('../models/MatchVote');
 const Match = require('../models/Match');
@@ -10,6 +9,8 @@ const { loadTeamIdentities, normalizeTeamIdentity } = require('./TeamAliasServic
 const { parseTournamentUrl } = require('./LiquipediaRosterParser');
 const { resolveTournamentSource, resolveTournamentSourcePages } = require('./TournamentSourceResolver');
 const { getTournamentService } = require('./TournamentRuntime');
+const { identityTransaction } = require('./IdentityWriteService');
+const { resolveCanonicalId } = require('./PlayerIdentityService');
 const upcoming = require('./UpcomingMatchesService');
 
 const fail = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
@@ -176,16 +177,14 @@ const castVote = async ({ seasonId, sourceId, teamId, team1Id, team2Id }, token)
   if (![source.team1Id, source.team2Id].includes(Number(teamId))) throw fail('请选择本场参赛队伍');
   if (source.timestamp <= Date.now()) throw fail('比赛已到开赛时间，投票已截止', 409);
   const where = { sourceId, pairKey: source.pairKey };
-  // Do not SELECT a missing unique key inside REPEATABLE READ: simultaneous
-  // first votes would take conflicting gap locks. A standalone INSERT settles
-  // identity first; the short voting transaction locks the existing row.
-  try {
-    await MatchPoll.create({ ...where, seasonId: Number(seasonId), sourcePage: source.sourcePage, sourceGroup: source.sourceGroup,
-      team1Id: source.team1Id, team2Id: source.team2Id, scheduledAt: source.scheduledAt });
-  } catch (error) {
-    if (error.name !== 'SequelizeUniqueConstraintError') throw error;
-  }
-  await sequelize.transaction(async transaction => {
+  await identityTransaction(async transaction => {
+    // Context was fetched before the transaction. Reject a stale ballot instead
+    // of recreating a poll for a team that was merged during the network request.
+    for (const id of [source.team1Id, source.team2Id]) {
+      if (await resolveCanonicalId('team', id, transaction) !== Number(id)) throw fail('队伍身份已更新，请刷新后重新投票', 409);
+    }
+    await MatchPoll.findOrCreate({ where, defaults: { ...where, seasonId: Number(seasonId), sourcePage: source.sourcePage,
+      sourceGroup: source.sourceGroup, team1Id: source.team1Id, team2Id: source.team2Id, scheduledAt: source.scheduledAt }, transaction });
     const poll = await MatchPoll.findOne({ where, transaction, lock: transaction.LOCK.UPDATE });
     if (poll.matchId || source.timestamp <= Date.now()) throw fail('投票已截止', 409);
     await poll.update({ scheduledAt: source.scheduledAt }, { transaction });

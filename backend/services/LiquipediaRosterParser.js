@@ -29,6 +29,28 @@ const wikiLink = href => {
 };
 const isPlaceholder = name => !name || /^(tbd|tba|unknown|to be (announced|determined)|-+|\?+)$/i.test(name);
 
+const parseParticipantTeamsHtml = html => {
+  const $ = cheerio.load(html);
+  const teams = new Map(), warnings = [];
+  let inParticipants = false;
+  $('h2, .team-participant-card').each((_, element) => {
+    if (element.tagName === 'h2') {
+      inParticipants = /^(participants|participating teams|teams)$/i.test(clean($(element).text()).replace(/\[edit\]/gi, '').trim());
+      return;
+    }
+    if (!inParticipants) return;
+    const anchor = $(element).find('.team-participant-card__header .name a').first();
+    const name = clean(anchor.text()), link = wikiLink(anchor.attr('href'));
+    if (!link || isPlaceholder(name)) {
+      warnings.push('参赛列表中有待定或缺少身份链接的队伍，已跳过。');
+      return;
+    }
+    if (!teams.has(link)) teams.set(link, { name, link });
+  });
+  if (!teams.size) throw fail('未识别到赛事 Participants 中的参赛队伍卡片；请检查赛事页面，未写入任何关联。');
+  return { teams: [...teams.values()], warnings: [...new Set(warnings)] };
+};
+
 const parseRosterHtml = html => {
   const $ = cheerio.load(html);
   const shortNames = new Map();
@@ -100,4 +122,4 @@ const parseRosterHtml = html => {
   return { teams: [...teams.values()], warnings: [...new Set(warnings)] };
 };
 
-module.exports = { parseTournamentUrl, parseRosterHtml, identityKey };
+module.exports = { parseTournamentUrl, parseRosterHtml, parseParticipantTeamsHtml, identityKey };

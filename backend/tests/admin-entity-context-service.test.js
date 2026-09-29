@@ -16,6 +16,8 @@ const { getTeamContext, getPlayerContext } = require('../services/AdminEntityCon
 const row = value => ({ ...value, toJSON: () => ({ ...value }) });
 
 const withMocks = async (mocks, run) => {
+  const { EntityRedirect, PlayerAlias } = require('../models/EntityIdentity');
+  mocks = [...mocks, [EntityRedirect, 'findAll', async () => []], [PlayerAlias, 'findAll', async () => []]];
   const originals = mocks.map(([target, key]) => [target, key, target[key]]);
   mocks.forEach(([target, key, value]) => { target[key] = value; });
   try {

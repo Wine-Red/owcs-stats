@@ -155,6 +155,7 @@ const SeasonController = {
   delete: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
+      await require('../services/IdentityWriteService').lockIdentityWrites(transaction);
       const { id } = req.params;
       const season = await Season.findByPk(id);
       if (!season) {

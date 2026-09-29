@@ -4,6 +4,8 @@ CREATE TABLE seasons (id INT PRIMARY KEY, name VARCHAR(255), status VARCHAR(30),
 CREATE TABLE teams (id INT PRIMARY KEY, name VARCHAR(255));
 CREATE TABLE team_aliases (id INT PRIMARY KEY, teamId INT, alias VARCHAR(191));
 CREATE TABLE players (id INT PRIMARY KEY, name VARCHAR(255), role VARCHAR(30));
+CREATE TABLE player_aliases (id INT PRIMARY KEY, playerId INT, alias VARCHAR(191));
+CREATE TABLE entity_redirects (id INT PRIMARY KEY, kind VARCHAR(16), sourceId INT, targetId INT);
 CREATE TABLE maps (id INT PRIMARY KEY, name VARCHAR(255), type VARCHAR(30));
 CREATE TABLE heroes (id INT PRIMARY KEY, name VARCHAR(255), role VARCHAR(30), subRole VARCHAR(50));
 CREATE TABLE season_stages (id INT PRIMARY KEY, seasonId INT, name VARCHAR(255), startMatchId INT);

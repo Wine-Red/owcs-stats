@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const TeamController = require('../controllers/TeamController');
+const { handler } = require('../controllers/EntityMergeController');
+router.post('/:id/merge/preview', handler('team', false));
+router.post('/:id/merge', handler('team', true));
 
 // 获取所有队伍
 router.get('/', TeamController.getAll);

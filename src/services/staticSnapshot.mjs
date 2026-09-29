@@ -30,7 +30,13 @@ export const readStaticData = async (load, path, params) => {
   };
   const collection = name => load(`collections.${name}`);
   const view = (name, key) => load(`views.${name}${key === undefined ? '' : `.${key}`}`);
-  const entity = async (name, id) => required((await collection(name)).find(row => same(row.id, id)), `${name}/${id}`);
+  const entity = async (name, id) => required((await collection(name)).find(row => same(row.id, id)
+    || (['teams', 'players'].includes(name) && row.mergedIds?.some(oldId => same(oldId, id)))), `${name}/${id}`);
+  for (const [parameter, name] of [['teamId', 'teams'], ['playerId', 'players']]) {
+    if (!query.has(parameter)) continue;
+    const canonical = (await collection(name)).find(row => row.mergedIds?.some(id => same(id, query.get(parameter))));
+    if (canonical) query.set(parameter, String(canonical.id));
+  }
   let match;
   if (pathname === '/matches/upcoming') { check(); return load('schedule'); }
   // Older offline snapshots have no source tournament data. Return an empty state
@@ -114,11 +120,13 @@ export const readStaticData = async (load, path, params) => {
     check('stageId');
     const season = await view('seasonStats', match[1]);
     const scope = query.has('stageId') ? season?.stageStats?.[query.get('stageId')] : season;
-    const team = scope?.teams?.[match[2]];
+    const canonical = await entity('teams', match[2]);
+    const team = scope?.teams?.[canonical.id];
     return required(team?.[match[3] === 'compositions' ? 'compositions' : 'heroStats'], pathname);
   }
   if ((match = pathname.match(/^\/stats\/player\/(\d+)\/profile$/))) {
-    check('seasonId'); const profile = await view('playerProfiles', match[1]);
+    check('seasonId'); const player = await entity('players', match[1]);
+    const profile = await view('playerProfiles', player.id);
     return required(query.has('seasonId') ? profile?.bySeason?.[query.get('seasonId')] : profile?.all, pathname);
   }
   if (pathname === '/stats/hero/overview') { check('seasonId'); return required(await view('heroOverview', query.get('seasonId')), pathname); }

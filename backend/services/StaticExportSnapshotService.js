@@ -1,6 +1,7 @@
 const Season = require('../models/Season');
 const Team = require('../models/Team');
 const TeamAlias = require('../models/TeamAlias');
+const { PlayerAlias, EntityRedirect } = require('../models/EntityIdentity');
 const { serializeTeamLiquipedia } = require('./TeamLiquipediaLink');
 const TournamentSnapshot = require('../models/TournamentSnapshot');
 const Player = require('../models/Player');
@@ -56,7 +57,9 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     timelineModels,
     stageModels,
     tournamentModels,
-    teamAliasModels
+    teamAliasModels,
+    playerAliasModels,
+    redirectModels
   ] = await sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, async transaction => Promise.all([
     Season.findAll({ transaction }),
     Team.findAll({ transaction }),
@@ -107,12 +110,17 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     MapGameTimeline.findAll({ transaction, raw: true }),
     SeasonStage.findAll({ transaction, raw: true }),
     TournamentSnapshot.findAll({ transaction, attributes: ['sourceKey', 'page', 'payload'], raw: true }),
-    TeamAlias.findAll({ transaction, raw: true })
+    TeamAlias.findAll({ transaction, raw: true }),
+    PlayerAlias.findAll({ transaction, raw: true }),
+    EntityRedirect.findAll({ transaction, raw: true })
   ]));
 
   const seasons = seasonModels.map(plain);
-  const teams = teamModels.map(team => serializeTeamLiquipedia(plain(team)));
-  const players = playerModels.map(plain);
+  const mergedIds = (kind, id) => redirectModels.filter(row => row.kind === kind && Number(row.targetId) === Number(id)).map(row => Number(row.sourceId));
+  const teams = teamModels.map(team => ({ ...serializeTeamLiquipedia(plain(team)),
+    aliases: teamAliasModels.filter(row => Number(row.teamId) === Number(team.id)).map(row => row.alias), mergedIds: mergedIds('team', team.id) }));
+  const players = playerModels.map(player => ({ ...plain(player),
+    aliases: playerAliasModels.filter(row => Number(row.playerId) === Number(player.id)).map(row => row.alias), mergedIds: mergedIds('player', player.id) }));
   const maps = mapModels.map(plain);
   const heroes = heroModels.map(plain);
   const seasonTeams = seasonTeamModels.map(plain);

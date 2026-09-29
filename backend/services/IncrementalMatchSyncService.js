@@ -11,6 +11,9 @@ const TeamAlias = require('../models/TeamAlias');
 const Season = require('../models/Season');
 const MapModel = require('../models/Map');
 const Player = require('../models/Player');
+const { PlayerAlias, PlayerExternalIdentity } = require('../models/EntityIdentity');
+const { resolveSourcePlayer, bindExternalIdentity } = require('./PlayerIdentityService');
+const { lockIdentityWrites } = require('./IdentityWriteService');
 const Hero = require('../models/Hero');
 const { HERO_NAME_ALIASES, heroNameKey, resolveExistingHero } = require('./HeroIdentityService');
 const { createExternalMatchSyncClient } = require('./ExternalMatchSyncClient');
@@ -70,13 +73,15 @@ const mapWithConcurrency = async (items, limit, mapper) => {
 };
 
 const buildCaches = async (transaction) => {
-  const [seasons, teams, teamAliases, maps, players, heroes] = await Promise.all([
+  const [seasons, teams, teamAliases, maps, players, heroes, playerAliases, playerExternalIdentities] = await Promise.all([
     Season.findAll({ transaction }),
     Team.findAll({ transaction }),
     TeamAlias.findAll({ transaction }),
     MapModel.findAll({ transaction }),
     Player.findAll({ transaction }),
-    Hero.findAll({ transaction })
+    Hero.findAll({ transaction }),
+    PlayerAlias.findAll({ transaction }),
+    PlayerExternalIdentity.findAll({ transaction })
   ]);
   return {
     seasons,
@@ -85,6 +90,8 @@ const buildCaches = async (transaction) => {
     maps,
     players,
     heroes,
+    playerAliases,
+    playerExternalIdentities,
     seasonByName: new Map(seasons.flatMap(s => [s.name, s.externalEventName].filter(Boolean).map(name => [lower(name), s]))),
     teamByName: buildTeamIdentityMap(teams, teamAliases),
     mapByName: new Map(maps.filter(m => m.name).map(m => [lower(m.name), m])),
@@ -108,12 +115,7 @@ const ensurePlayer = async (source, team, caches, transaction) => {
   if (!source?.name) throw new Error('Player name is missing');
   const role = normalizeRole(source.role);
   const externalId = String(source.playerId || source.name).trim();
-  let player = caches.players.find(p => lower(p.externalId) === lower(externalId));
-  player ||= caches.players.find(p => (
-    !String(p.externalId || '').trim()
-    && lower(p.name) === lower(source.name)
-    && p.role === role
-  ));
+  let player = resolveSourcePlayer(source, role, caches);
   if (!player) {
     player = await Player.create({
       name: source.name,
@@ -128,6 +130,13 @@ const ensurePlayer = async (source, team, caches, transaction) => {
     if (!player.externalId) updates.externalId = externalId;
     if (player.orphanedAt) updates.orphanedAt = null;
     if (Object.keys(updates).length) await player.update(updates, { transaction });
+  }
+  // Preserve every historical authoritative ID across merges and resyncs.
+  // A name-only legacy record must not claim another player's explicit ID.
+  if (source.playerId || !player.externalId || player.externalId === externalId) {
+    const identity = await bindExternalIdentity(player, externalId, transaction);
+    caches.playerExternalIdentities ||= [];
+    if (identity && !caches.playerExternalIdentities.some(row => row.id === identity.id)) caches.playerExternalIdentities.push(identity);
   }
   return player;
 };
@@ -228,12 +237,15 @@ const replacePlayerStats = async ({
   await PlayerStat.destroy({ where: { mapGameId: mapGame.id }, transaction });
 
   const pendingHeroStats = [];
+  const seenPlayers = new Set();
   let playerStatsCount = 0;
   let heroStatsCount = 0;
   let newMembershipsCount = 0;
   for (const [players, team, seasonTeam] of [[round.playersA || [], team1, seasonTeam1], [round.playersB || [], team2, seasonTeam2]]) {
     for (const source of players) {
       const player = await ensurePlayer(source, team, caches, transaction);
+      if (seenPlayers.has(Number(player.id))) throw new Error(`同一地图局中多个来源选手映射到 ${player.name}，请核对身份`);
+      seenPlayers.add(Number(player.id));
       if (seasonTeam) {
         const membership = await ensureSeasonTeamPlayer(
           seasonTeam,
@@ -308,6 +320,7 @@ const upsertMatchDetail = async (source, caches, transaction) => {
 
   const team1 = await ensureTeam(source.teamA.name, caches, transaction);
   const team2 = await ensureTeam(source.teamB.name, caches, transaction);
+  if (Number(team1.id) === Number(team2.id)) throw new Error('同步对阵的双方映射到同一队伍，请在 Matchweb 核对身份');
   const seasonTeamResult1 = await ensureSeasonTeam(season, team1, source.id, caches, transaction);
   const seasonTeamResult2 = await ensureSeasonTeam(season, team2, source.id, caches, transaction);
   const seasonTeam1 = seasonTeamResult1.seasonTeam;
@@ -466,6 +479,7 @@ const persistJsonConfig = async (key, value, description, transaction) => {
 };
 
 const applyInboxChange = async (row, detail, transaction) => {
+  await lockIdentityWrites(transaction);
   const result = row.operation === 'delete'
     ? await deleteMatchByExternalId(row.externalId, transaction)
     : await upsertMatchDetail(detail, await buildCaches(transaction), transaction);

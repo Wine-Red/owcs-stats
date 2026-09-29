@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "id": 1, "name": "Current Player", "role": "support", "aliases": ["Old Player"] },
+    { "id": 2, "name": "Another Player", "role": "damage", "aliases": [] }
+  ],
+  "pagination": { "next_cursor": null }
+}

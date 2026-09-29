@@ -132,7 +132,7 @@
           </el-form-item>
           <el-form-item
             label="Liquipedia赛事页面"
-            title="使用赛事页面 URL 关联赛程和参赛阵容"
+            title="使用赛事页面 URL 关联赛程和参赛队伍"
             :error="liquipediaTournamentUrlError"
           >
             <el-input
@@ -144,8 +144,8 @@
               @input="liquipediaTournamentUrlError = ''"
               @blur="validateLiquipediaTournamentUrl"
             />
-            <div class="form-hint">用于关联该赛事的 Upcoming 比赛和参赛阵容。修改后请先保存配置，再自动匹配。</div>
-            <LiquipediaRosterImport :season-id="seasonVisualForm.seasonId" :draft-url="seasonVisualForm.liquipediaTournamentUrl" @applied="refreshLiquipediaMemberships" />
+            <div class="form-hint">用于关联该赛事的 Upcoming 比赛和参赛队伍。修改后请先保存配置，再自动匹配。</div>
+            <LiquipediaTeamImport :season-id="seasonVisualForm.seasonId" :draft-url="seasonVisualForm.liquipediaTournamentUrl" @applied="refreshLiquipediaMemberships" />
           </el-form-item>
           <el-form-item label="地图池">
             <el-select
@@ -467,9 +467,10 @@
               <span v-else class="entity-card-muted">暂无同步别名</span>
               <el-link v-if="getTeamLiquipediaUrls(team).length" :href="getTeamLiquipediaUrls(team)[0]" target="_blank" rel="noopener noreferrer" @click.stop @keydown.stop>Liquipedia · {{ getTeamLiquipediaUrls(team).length }} 个页面 ↗</el-link>
             </div>
-            <div class="entity-card-actions" @click.stop>
+            <div class="entity-card-actions" @click.stop @keydown.stop>
               <button type="button" @click="openTeamContext(team)">历史</button>
               <button type="button" @click="editTeam(team)">编辑</button>
+              <button type="button" @click="openEntityMerge('team', team)">合并</button>
               <button type="button" class="danger" @click="deleteTeam(team.id)">删除</button>
             </div>
           </article>
@@ -543,7 +544,8 @@
           <article v-for="player in filteredPlayerCatalog" :key="player.id" class="entity-card player-card" :class="{ 'is-orphan': player.orphanedAt }" role="button" tabindex="0" title="打开选手历史档案" @click="openPlayerContext(player)" @keydown.enter="openPlayerContext(player)" @keydown.space.prevent="openPlayerContext(player)">
             <div class="player-monogram">{{ player.name.slice(0, 2).toUpperCase() }}</div>
             <div class="entity-card-copy"><div class="entity-card-heading"><strong>{{ player.name }}</strong><span>{{ getRoleText(player.role) }}</span></div><small>{{ player.orphanedAt ? '孤儿身份 · 需要排查' : identityOriginText(player.identityOrigin) }}</small></div>
-            <div class="entity-card-actions" @click.stop><button type="button" @click="openPlayerContext(player)">履历</button><button type="button" @click="editPlayer(player)">编辑</button><button type="button" class="danger" @click="deletePlayer(player.id)">删除</button></div>
+            <div v-if="player.aliases?.length" class="entity-card-tags"><span v-for="alias in player.aliases" :key="alias">{{ alias }}</span></div>
+            <div class="entity-card-actions" @click.stop @keydown.stop><button type="button" @click="openPlayerContext(player)">履历</button><button type="button" @click="editPlayer(player)">编辑</button><button type="button" @click="openEntityMerge('player', player)">合并</button><button type="button" class="danger" @click="deletePlayer(player.id)">删除</button></div>
           </article>
         </div>
         <el-empty v-else description="没有符合条件的选手" />
@@ -553,7 +555,7 @@
     <!-- 赛季-队伍关联管理 -->
     <div v-if="activeTab === 'season-teams'">
       <section class="relation-workspace">
-        <LiquipediaRosterImport :season-id="seasonTeamFilter.seasonId" @applied="refreshLiquipediaMemberships" />
+        <LiquipediaTeamImport :season-id="seasonTeamFilter.seasonId" @applied="refreshLiquipediaMemberships" />
         <div class="relation-commandbar">
           <div><strong>参赛队伍配置</strong><span>先选赛季，再批量加入；同步证据会继续保留。</span></div>
           <el-select v-model="seasonTeamFilter.seasonId" filterable clearable placeholder="搜索赛季" @change="loadSeasonTeams">
@@ -625,6 +627,8 @@
       :loading="entityContextLoading"
       @edit="editContextEntity"
     />
+    <entity-merge-dialog v-model="entityMergeVisible" :kind="entityMergeKind" :source="entityMergeSource"
+      :entities="entityMergeKind === 'team' ? teams : players" @merged="handleEntityMerged" />
 
     <!-- 导入地图数据对话框 -->
     <el-dialog
@@ -772,6 +776,11 @@
         <el-form :model="editForm" :rules="playerRules" ref="editFormRef" label-width="120px">
           <el-form-item label="选手名称" prop="name">
             <el-input v-model="editForm.name" placeholder="请输入选手名称" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="选手别名">
+            <el-select v-model="editForm.aliases" multiple filterable allow-create default-first-option :reserve-keyword="false"
+              placeholder="输入别名并按 Enter" style="width: 100%" />
+            <small>别名用于识别旧名称；合并产生的别名会保留，避免再次生成重复身份。</small>
           </el-form-item>
           <el-form-item label="位置" prop="role">
             <el-select v-model="editForm.role" filterable clearable placeholder="搜索位置" style="width: 100%">
@@ -1186,8 +1195,10 @@ import MapDataImport from './components/MapDataImport.vue';
 import PlayerStatsEditor from './components/PlayerStatsEditor.vue';
 import MediaUploadField from './components/MediaUploadField.vue';
 import EntityContextDrawer from './components/EntityContextDrawer.vue';
+import EntityMergeDialog from './components/EntityMergeDialog.vue';
 import MatchDataDrawer from './components/MatchDataDrawer.vue';
 import LiquipediaRosterImport from './components/LiquipediaRosterImport.vue';
+import LiquipediaTeamImport from './components/LiquipediaTeamImport.vue';
 import UpcomingPolls from './components/UpcomingPolls.vue';
 import { mediaSourceState, resolveMediaUrl } from '@/utils/media';
 import {
@@ -1210,8 +1221,10 @@ export default {
     PlayerStatsEditor,
     MediaUploadField,
     EntityContextDrawer,
+    EntityMergeDialog,
     MatchDataDrawer,
     LiquipediaRosterImport,
+    LiquipediaTeamImport,
     UpcomingPolls
   },
   setup() {
@@ -1900,7 +1913,7 @@ export default {
 
     const filteredPlayerCatalog = computed(() => players.value
       .filter(player => playerRoleFilter.value === 'all' || player.role === playerRoleFilter.value)
-      .filter(player => matchesSearch(playerSearch.value, [player.name, player.role]))
+      .filter(player => matchesSearch(playerSearch.value, [player.name, player.role, ...(player.aliases || [])]))
       .sort((a, b) => sortText(a.name, b.name)));
 
     const getTeamById = id => teams.value.find(team => Number(team.id) === Number(id)) || null;
@@ -2811,6 +2824,16 @@ export default {
 
     const openTeamContext = team => loadEntityContext('team', team);
     const openPlayerContext = player => loadEntityContext('player', player);
+    const entityMergeVisible = ref(false), entityMergeKind = ref('team'), entityMergeSource = ref(null);
+    const openEntityMerge = (kind, source) => {
+      entityMergeKind.value = kind; entityMergeSource.value = source; entityMergeVisible.value = true;
+    };
+    const handleEntityMerged = async result => {
+      entityContextVisible.value = false;
+      ElMessage.success(`已合入 ${result.target.name}，审计记录 #${result.auditId}`);
+      try { await store.dispatch('loadBaseData'); }
+      catch { ElMessage.warning('合并已完成，列表刷新失败，请刷新页面'); }
+    };
     const editContextEntity = () => {
       const entity = entityContextEntity.value;
       if (!entity) return;
@@ -2863,6 +2886,7 @@ export default {
       dialogType.value = 'player';
       editForm.value = {
         name: '',
+        aliases: [],
         role: role // 默认使用传入的位置，如果没有传入则默认为tank
       };
       dialogVisible.value = true;
@@ -3302,6 +3326,7 @@ export default {
     });
     
     return {
+      entityMergeVisible, entityMergeKind, entityMergeSource, openEntityMerge, handleEntityMerged,
       pageTitleMap,
       pageSectionMap,
       pageDescriptionMap,

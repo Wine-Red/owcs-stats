@@ -484,6 +484,9 @@ export default {
           await store.dispatch('loadBaseData');
         }
 
+        const requestedId = queryParams.value.teamId;
+        const canonical = store.state.teams.find(item => item.mergedIds?.some(id => String(id) === String(requestedId)));
+        if (canonical) queryParams.value.teamId = String(canonical.id);
         const teamId = queryParams.value.teamId;
         team.value = store.state.teams.find(t => String(t.id) === String(teamId));
 

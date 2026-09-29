@@ -35,7 +35,7 @@ DATA_API_CURSOR_SECRET
 DATA_API_PORT
 ```
 
-部署时建议为 `DATA_API_DB_USER` 设置独立 SELECT 账号，仅授权 seasons、season_stages、teams、team_aliases、players、maps、heroes、season_teams、season_team_players、matches、map_games、player_stats、player_hero_stats。本次不自动创建数据库账号或写入凭据。
+部署时建议为 `DATA_API_DB_USER` 设置独立 SELECT 账号，仅授权 seasons、season_stages、teams、team_aliases、players、player_aliases、entity_redirects、maps、heroes、season_teams、season_team_players、matches、map_games、player_stats、player_hero_stats。本次不自动创建数据库账号或写入凭据。
 
 `DATA_API_CURSOR_SECRET` 应为至少 32 字节的随机秘密，保存在后端运行环境。多实例必须使用同一值；轮换后旧游标返回 400，客户端从第一页重读。未配置时使用进程内随机密钥，因此重启后旧游标失效。首次游标到期点为当前 UTC 日期后第二个零点，即剩余 24–48 小时；后续页继承同一到期点，不滑动续期。
 

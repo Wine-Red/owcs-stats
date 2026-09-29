@@ -26,7 +26,7 @@ const choice = (value, allowed) => {
 };
 const competition = row => ({ ...ref(row.id, row.name), status: choice(row.status, ['in_progress', 'completed']) });
 const team = (row, aliases = []) => ({ ...ref(row.id, row.name), aliases: [...new Set(aliases.map(name))].sort() });
-const player = row => ({ ...ref(row.id, row.name), role: choice(row.role, ROLES) });
+const player = (row, aliases = []) => ({ ...ref(row.id, row.name), role: choice(row.role, ROLES), aliases: [...new Set(aliases.map(name))].sort() });
 const map = row => ({ ...ref(row.id, row.name), mode: choice(Object.keys(MODES).find(mode => MODES[mode] === row.type), Object.keys(MODES)) });
 const hero = row => ({ ...ref(row.id, row.name), role: choice(row.role, ROLES), sub_role: typeof row.subRole === 'string' && row.subRole.trim() ? row.subRole : null });
 const stage = (row, index) => ({ ...ref(row.id, row.name), competition_id: id(row.seasonId), sequence: index + 1 });

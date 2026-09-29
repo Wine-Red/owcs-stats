@@ -21,6 +21,9 @@ let nextSeason = 100;
 // Transaction-aware in-memory ORM double: exercises the real membership writer,
 // without using the developer's configured database or creating base identities.
 const setup = t => {
+  const { IdentityWriteLock, PlayerAlias, EntityRedirect } = require('../models/EntityIdentity');
+  t.mock.method(IdentityWriteLock, 'findByPk', async () => ({ id: 1 }));
+  for (const model of [PlayerAlias, EntityRedirect, require('../models/TeamAlias')]) t.mock.method(model, 'findAll', async () => []);
   const seasonId = nextSeason++;
   const state = {
     store: { teams: [], players: [], teamSources: [], playerSources: [] },

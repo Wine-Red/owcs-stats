@@ -45,6 +45,8 @@ if (!isDisplayPackage) api.interceptors.response.use(
 
 // API服务
 const apiService = {
+  previewEntityMerge: (kind, sourceId, targetId) => api.post(`/${kind === 'team' ? 'teams' : 'players'}/${sourceId}/merge/preview`, { targetId }),
+  applyEntityMerge: (kind, sourceId, targetId, fingerprint) => api.post(`/${kind === 'team' ? 'teams' : 'players'}/${sourceId}/merge`, { targetId, fingerprint }),
   // 赛季相关
   getSeasons: () => api.get('/seasons'),
   getSeasonById: (id) => api.get(`/seasons/${id}`),
@@ -55,6 +57,8 @@ const apiService = {
   getSeasonDeletePreview: (id) => api.get(`/seasons/${id}/pre-delete-check`),
   previewLiquipediaRoster: (id) => api.post(`/seasons/${id}/liquipedia-roster/preview`, {}, { timeout: 120000 }),
   applyLiquipediaRoster: (id, previewToken, excludedTeamLinks = [], excludedPlayers = []) => api.post(`/seasons/${id}/liquipedia-roster/apply`, { previewToken, ...(excludedTeamLinks.length ? { excludedTeamLinks } : {}), ...(excludedPlayers.length ? { excludedPlayers } : {}) }, { timeout: 120000 }),
+  previewLiquipediaTeams: id => api.post(`/seasons/${id}/liquipedia-teams/preview`, {}, { timeout: 120000 }),
+  applyLiquipediaTeams: (id, previewToken, excludedTeamLinks = []) => api.post(`/seasons/${id}/liquipedia-teams/apply`, { previewToken, excludedTeamLinks }, { timeout: 120000 }),
   saveManualSeasonRoster: (id, data) => api.post(`/seasons/${id}/manual-roster`, data),
 
   // 队伍相关

@@ -104,7 +104,10 @@ def validate_contract():
                 assert not forbidden.intersection(node["properties"]), (name, node)
             if node.get("type") == "object":
                 assert node.get("additionalProperties") is False, name
-                assert set(node.get("required", [])) == set(node.get("properties", {})), name
+                # Additive aliases remain optional for clients validating an
+                # older Player response. All other fields retain their guarantees.
+                optional = {"aliases"} if name == "Player" and node is schema else set()
+                assert set(node.get("required", [])) == set(node.get("properties", {})) - optional, name
     for node in walk(SPEC):
         if isinstance(node, dict) and "$ref" in node:
             resolve(node)
@@ -174,6 +177,12 @@ def validate_sample_relations(examples):
 
 def validate_negative_cases(examples):
     cases = 0
+    legacy_player = {"id": 1, "name": "Current Player", "role": "support"}
+    schema_validator("Player").validate(legacy_player)
+    schema_validator("Player").validate({**legacy_player, "aliases": []})
+    for aliases in (None, "Old Player", [""], [1]):
+        expect_invalid("Player", {**legacy_player, "aliases": aliases})
+        cases += 1
     for value in (0, -1, "599"):
         data = copy.deepcopy(examples["game"])
         data["data"]["duration_seconds"] = value

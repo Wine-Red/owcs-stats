@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const PlayerController = require('../controllers/PlayerController');
+const { handler } = require('../controllers/EntityMergeController');
+router.post('/:id/merge/preview', handler('player', false));
+router.post('/:id/merge', handler('player', true));
 
 // 获取所有选手
 router.get('/', PlayerController.getAll);

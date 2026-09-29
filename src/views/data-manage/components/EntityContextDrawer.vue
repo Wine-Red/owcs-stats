@@ -40,13 +40,27 @@
           </div>
         </section>
 
-        <section v-if="type === 'team' && entity?.aliases?.length" class="context-section">
+        <section v-if="entity?.aliases?.length" class="context-section">
           <div class="context-section-title">
             <h3>同步别名</h3>
             <span>{{ entity.aliases.length }} 个</span>
           </div>
           <div class="context-aliases">
             <span v-for="alias in entity.aliases" :key="alias">{{ alias }}</span>
+          </div>
+        </section>
+
+        <section v-if="context.identity?.externalIds?.length" class="context-section">
+          <div class="context-section-title"><h3>已绑定的外部选手 ID</h3></div>
+          <div class="context-aliases"><span v-for="identity in context.identity.externalIds" :key="`${identity.source}:${identity.externalId}`">{{ identity.source }} · {{ identity.externalId }}</span></div>
+        </section>
+        <section v-if="context.identity?.merges?.length" class="context-section">
+          <div class="context-section-title"><h3>身份合并记录</h3><span>最近 50 条</span></div>
+          <div class="membership-timeline">
+            <article v-for="merge in context.identity.merges" :key="merge.id" class="membership-record">
+              <strong>{{ merge.sourceName }} #{{ merge.sourceId }} → {{ merge.targetName }} #{{ merge.targetId }}</strong>
+              <p>审计 #{{ merge.id }} · {{ new Date(merge.createdAt).toLocaleString('zh-CN') }}</p>
+            </article>
           </div>
         </section>
 

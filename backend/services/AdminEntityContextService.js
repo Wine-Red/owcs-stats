@@ -193,7 +193,7 @@ const getPlayerContext = async playerId => {
   });
 
   return {
-    entity: player.toJSON(),
+    entity: await require('./PlayerIdentityService').serializePlayersWithAliases(player),
     counts: {
       memberships: memberships.length,
       seasons: new Set(memberships.map(row => row.season?.id).filter(Boolean)).size,

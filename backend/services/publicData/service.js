@@ -37,8 +37,10 @@ const createPublicDataService = ({ database = createReadDatabase(), cursors = cr
       if (kind === 'games') return { data: bundles.map(b => b.game) };
       if (kind === 'game') return { data: bundles[0].game };
       const bundle = bundles[0];
+      query = { ...query };
+      if (query.team_id) query.team_id = Number((await repo.requireCatalog('teams', query.team_id)).id);
+      if (query.player_id) query.player_id = Number((await repo.requireCatalog('players', query.player_id)).id);
       if (query.team_id && ![bundle.game.team1.team.id, bundle.game.team2.team.id].includes(query.team_id)) throw notFound();
-      if (query.player_id) await repo.requireCatalog('players', query.player_id);
       return { data: bundle.player_stats.filter(p => (!query.team_id || p.team.id === query.team_id) && (!query.player_id || p.player.id === query.player_id)) };
     }),
     coverage: (competitionId, query) => read(async repo => {

@@ -331,7 +331,10 @@ export default {
       await router.replace({ query: { ...route.query, tab } });
     };
 
-    const playerId = computed(() => String(route.query.playerId || ''));
+    const playerId = computed(() => {
+      const requested = String(route.query.playerId || '');
+      return String(store.state.players.find(player => player.mergedIds?.some(id => String(id) === requested))?.id || requested);
+    });
     const role = computed(() => player.value?.role || currentStat.value?.role || 'damage');
     const roleMeta = computed(() => ROLE_META[role.value] || ROLE_META.damage);
     const roleLabel = computed(() => roleMeta.value.label);

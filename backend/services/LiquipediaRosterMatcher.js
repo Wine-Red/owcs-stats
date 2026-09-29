@@ -3,9 +3,10 @@ const { identityKey } = require('./LiquipediaRosterParser');
 const indexNames = rows => {
   const index = new Map();
   for (const row of rows) {
-    const key = identityKey(row.name);
-    if (!index.has(key)) index.set(key, []);
-    index.get(key).push(row);
+    for (const key of new Set([row.name, ...(row.aliases || [])].map(identityKey))) {
+      if (!index.has(key)) index.set(key, []);
+      if (!index.get(key).some(item => Number(item.id) === Number(row.id))) index.get(key).push(row);
+    }
   }
   return index;
 };

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const sequelize = require('../config/database');
+const { identityTransaction } = require('../services/IdentityWriteService');
 const SeasonTeam = require('../models/SeasonTeam');
 const RosterReadService = require('../services/RosterReadService');
 const Season = require('../models/Season');
@@ -46,7 +46,7 @@ class SeasonTeamController {
   static async create(req, res) {
     try {
       const { seasonId, teamId } = req.body;
-      const result = await sequelize.transaction(async transaction => {
+      const result = await identityTransaction(async transaction => {
         const [season, team] = await Promise.all([
           Season.findByPk(seasonId, { transaction }),
           Team.findByPk(teamId, { transaction })
@@ -71,7 +71,7 @@ class SeasonTeamController {
       if (!seasonId || !Array.isArray(teamIds) || teamIds.length === 0) {
         return res.status(400).json({ error: '参数错误' });
       }
-      const result = await sequelize.transaction(async transaction => {
+      const result = await identityTransaction(async transaction => {
         const season = await Season.findByPk(seasonId, { transaction });
         if (!season) throw Object.assign(new Error('赛季不存在'), { statusCode: 400 });
         const uniqueIds = [...new Set(teamIds.map(Number))];
@@ -107,7 +107,7 @@ class SeasonTeamController {
 
   static async delete(req, res) {
     try {
-      const result = await sequelize.transaction(async transaction => {
+      const result = await identityTransaction(async transaction => {
         const relation = await SeasonTeam.findByPk(req.params.id, { transaction });
         if (!relation) return null;
         return removeManualSeasonTeam(relation.id, transaction);

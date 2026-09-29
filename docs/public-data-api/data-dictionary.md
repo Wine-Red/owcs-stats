@@ -48,10 +48,12 @@
 | 对象 | 字段 | 含义 |
 |---|---|---|
 | Team | `id`, `name`, `aliases` | 队伍与已确认别名；别名不代表自动认可俱乐部继承关系 |
-| Player | `id`, `name`, `role` | 选手与目录位置；`role` 为 `tank`、`damage`、`support` |
+| Player | `id`, `name`, `role`, `aliases` | 选手、确认别名与目录位置；`role` 为 `tank`、`damage`、`support` |
 | Map | `id`, `name`, `mode` | 地图与比赛模式 |
 | Hero | `id`, `name`, `role`, `sub_role` | 英雄、职责及可为空的细分职责 |
 | Roster | `competition`, `team`, `players` | 某赛事某队的完整已记录名单 |
+
+`Player.aliases` 是新增可选字段；新版本输出数组，无别名时为 `[]`，旧响应可能省略。管理员确认合并后，旧队伍/选手 ID 的详情和筛选仍可使用，响应使用保留后的规范 ID；目录只列出保留身份。名称相同不会自动触发合并。
 
 地图模式统一编码：
 

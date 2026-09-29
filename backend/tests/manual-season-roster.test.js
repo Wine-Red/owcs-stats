@@ -9,6 +9,9 @@ const membership = require('../services/MembershipSourceService');
 const service = require('../services/ManualSeasonRosterService');
 
 const setup = t => {
+  const { IdentityWriteLock, PlayerAlias } = require('../models/EntityIdentity');
+  t.mock.method(IdentityWriteLock, 'findByPk', async () => ({ id: 1 }));
+  t.mock.method(PlayerAlias, 'findAll', async () => []);
   const state = { data: {
     teams: [{ id: 1, name: 'WBG', region: '中国' }],
     players: [{ id: 1, name: 'Diya', role: 'damage' }, { id: 2, name: 'Diya', role: 'support' }],

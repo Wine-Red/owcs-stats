@@ -105,6 +105,9 @@ const serializeTeamsWithAliases = async (teams, transaction) => {
     order: [['alias', 'ASC']],
     transaction
   });
+  const redirects = await require('../models/EntityIdentity').EntityRedirect.findAll({
+    where: { kind: 'team', targetId: teamIds }, transaction
+  });
   const aliasesByTeam = new Map();
   aliases.forEach(alias => {
     const current = aliasesByTeam.get(Number(alias.teamId)) || [];
@@ -113,7 +116,8 @@ const serializeTeamsWithAliases = async (teams, transaction) => {
   });
   const serialized = list.map(team => ({
     ...serializeTeamLiquipedia(team),
-    aliases: aliasesByTeam.get(Number(team.id)) || []
+    aliases: aliasesByTeam.get(Number(team.id)) || [],
+    mergedIds: redirects.filter(row => Number(row.targetId) === Number(team.id)).map(row => Number(row.sourceId))
   }));
   return Array.isArray(teams) ? serialized : serialized[0];
 };

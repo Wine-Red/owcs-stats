@@ -4,13 +4,14 @@ const { isPublicConfigKey } = require('./contract');
 
 const sourceNames = ['Season', 'Team', 'TeamAlias', 'Player', 'Map', 'Hero', 'Match', 'MapGame',
     'PlayerStat', 'PlayerHeroStat', 'SeasonTeam', 'SeasonTeamPlayer', 'SeasonStage',
-    'SeasonTeamSource', 'SeasonTeamPlayerSource', 'MapGameTimeline', 'TournamentSnapshot'];
+    'SeasonTeamSource', 'SeasonTeamPlayerSource', 'MapGameTimeline', 'TournamentSnapshot', 'PlayerAlias', 'EntityRedirect'];
 // Several source tables have no updatedAt. Hash their actual records so edits
 // and deletes cannot silently leave an old page marked current. Large timeline
 // bodies already have an authoritative digest and are never loaded here.
 const readMetadata = async ({ database, models, readSchedule } = {}) => {
   const sequelize = database || require('../../config/database');
-  const resolveModel = name => models?.[name] || require(`../../models/${name}`);
+  const resolveModel = name => models?.[name] || (['PlayerAlias', 'EntityRedirect'].includes(name)
+    ? require('../../models/EntityIdentity')[name] : require(`../../models/${name}`));
   const Config = resolveModel('Config');
   const signature = await sequelize.transaction({ isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ }, async transaction => {
     const result = [];

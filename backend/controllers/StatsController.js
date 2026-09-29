@@ -4,6 +4,7 @@ const Player = require('../models/Player');
 const Team = require('../models/Team');
 const MapGame = require('../models/MapGame');
 const PublicStatsService = require('../services/PublicStatsService');
+const { resolveCanonicalId } = require('../services/PlayerIdentityService');
 
 const StatsController = {
   // Aggregate the data used by the public player profile page.
@@ -16,7 +17,7 @@ const StatsController = {
         return res.status(400).json({ error: 'Invalid player ID' });
       }
 
-      const profile = await PublicStatsService.getPlayerProfile(playerId, { seasonId });
+      const profile = await PublicStatsService.getPlayerProfile(await resolveCanonicalId('player', playerId), { seasonId });
       if (!profile) return res.status(404).json({ error: 'Player not found' });
       return res.status(200).json(profile);
     } catch (error) {
@@ -328,7 +329,7 @@ const StatsController = {
         return res.status(400).json({ error: 'seasonId / playerId 不合法' });
       }
 
-      res.json(await PublicStatsService.getPlayerHeroes(seasonIdNum, playerIdNum));
+      res.json(await PublicStatsService.getPlayerHeroes(seasonIdNum, await resolveCanonicalId('player', playerIdNum)));
     } catch (error) {
       console.error('获取选手英雄数据失败:', error);
       res.status(500).json({ error: '获取数据失败' });

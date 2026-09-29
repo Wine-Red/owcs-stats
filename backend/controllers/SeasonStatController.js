@@ -75,7 +75,8 @@ const SeasonStatController = {
   // 队伍常用阵容：该队伍在本赛季的五人稳定英雄阵容（按累计在场时长排序，至多三套）
   getSeasonTeamCompositions: async (req, res) => {
     try {
-      const { seasonId, teamId } = req.params;
+      const { seasonId } = req.params;
+      const teamId = await require('../services/PlayerIdentityService').resolveCanonicalId('team', req.params.teamId);
       const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
       if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
       const compositions = await SeasonStatsCalculator.calculateSeasonTeamCompositions(seasonId, teamId, options);
@@ -89,7 +90,8 @@ const SeasonStatController = {
   // 队伍英雄数据：英雄使用情况 + ban 倾向（我方 ban / 对手 ban）
   getSeasonTeamHeroStats: async (req, res) => {
     try {
-      const { seasonId, teamId } = req.params;
+      const { seasonId } = req.params;
+      const teamId = await require('../services/PlayerIdentityService').resolveCanonicalId('team', req.params.teamId);
       const options = await resolveStageCalculationOptions(seasonId, req.query.stageId);
       if (!options) return res.status(404).json({ error: '阶段不存在或不属于该赛季' });
       const stats = await SeasonStatsCalculator.calculateSeasonTeamHeroStats(seasonId, teamId, options);
