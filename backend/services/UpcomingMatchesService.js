@@ -2,12 +2,25 @@ const cheerio = require('cheerio');
 const { createCachedResource } = require('./CachedResource');
 const { fetchParsedHtml } = require('./LiquipediaClient');
 const { attachMatchIdentities } = require('./LiquipediaMatchIdentity');
+const { parseTournamentUrl } = require('./LiquipediaRosterParser');
 
 const LIQUIPEDIA_SITE_BASE = 'https://liquipedia.net';
 const LIQUIPEDIA_UPCOMING_WIKITEXT = '{{#invoke:Lua|invoke|module=MatchTicker/Custom|fn=mainPage|type=upcoming|limit=50|filterbuttons-liquipediatier=1,2}}';
 const LIQUIPEDIA_CACHE_TTL = 5 * 60 * 1000;
 
 const normalizeWhitespace = value => String(value || '').replace(/\s+/g, ' ').trim();
+
+const extractWikiName = link => {
+  const href = link.attr('href');
+  if (href) {
+    try {
+      // Red links use index.php?title=...; article links carry the title in
+      // their path. Both identify the team without presentation-only tooltips.
+      return parseTournamentUrl(new URL(href, LIQUIPEDIA_SITE_BASE).href).page;
+    } catch { /* Missing or invalid wiki URLs fall back to a cleaned tooltip. */ }
+  }
+  return normalizeWhitespace(link.attr('title')).replace(/\s+\(page does not exist\)$/i, '');
+};
 
 const fetchLiquipediaUpcomingHtml = async () => {
   const result = await fetchParsedHtml({ text: LIQUIPEDIA_UPCOMING_WIKITEXT });
@@ -32,11 +45,11 @@ const extractUpcomingMatchesFromMatchesPage = pageHtml => {
       link: tournamentHref ? `${LIQUIPEDIA_SITE_BASE}${tournamentHref}` : '',
       team1: {
         name: normalizeWhitespace(matchNode.find('.match-info-header-opponent-left .name').first().text()) || 'TBD',
-        wikiName: matchNode.find('.match-info-header-opponent-left .name a').first().attr('title') || ''
+        wikiName: extractWikiName(matchNode.find('.match-info-header-opponent-left .name a').first())
       },
       team2: {
         name: normalizeWhitespace(matchNode.find('.match-info-header-opponent').last().find('.name').first().text()) || 'TBD',
-        wikiName: matchNode.find('.match-info-header-opponent').last().find('.name a').first().attr('title') || ''
+        wikiName: extractWikiName(matchNode.find('.match-info-header-opponent').last().find('.name a').first())
       }
     });
   });
