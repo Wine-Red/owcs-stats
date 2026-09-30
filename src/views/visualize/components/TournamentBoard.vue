@@ -171,8 +171,9 @@ const nodeWidth = 106, columnStep = 120;
 const columns = block => Math.max(...block.matches.map(m => m.depth)) + 1;
 const graphWidth = block => columns(block) * columnStep - (columnStep - nodeWidth);
 const graphHeight = block => Math.max(...block.matches.map(m => m.y)) * 92 + 72;
-const graphStyle = block => ({ minWidth: `${graphWidth(block)}px`, maxWidth: `${columns(block) * 180 - 20}px`, height: `${graphHeight(block)}px` });
-const nodeStyle = (block, match) => ({ left: `${match.depth * columnStep / graphWidth(block) * 100}%`, width: `${nodeWidth / graphWidth(block) * 100}%`, top: `${match.y * 92}px` });
+const graphStyle = block => ({ minWidth: `${graphWidth(block)}px`, maxWidth: `${columns(block) * 180 - 20}px`, height: block.matches.length === 1 ? 'auto' : `${graphHeight(block)}px` });
+const nodeStyle = (block, match) => block.matches.length === 1 ? { position: 'relative', width: '100%' }
+  : ({ left: `${match.depth * columnStep / graphWidth(block) * 100}%`, width: `${nodeWidth / graphWidth(block) * 100}%`, top: `${match.y * 92}px` });
 const edgePath = (block, edge) => {
   const from = block.matches.find(m => m.id === edge.from), to = block.matches.find(m => m.id === edge.to);
   if (!from || !to) return '';
@@ -286,6 +287,9 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 .table-team-logo{width:18px;height:18px;object-fit:contain}.round-team-logo{display:inline-block;width:20px;height:20px;object-fit:contain;vertical-align:middle}
 .round-label{font-family:var(--vis-font-display);font-weight:700}
 .is-decider{display:inline-block;width:calc(33.333% - 8px);margin-right:8px;vertical-align:top}.is-decider .block-heading{display:none}
+.is-decider .round-header{display:block;height:auto}
+.is-decider .round-label{display:block;overflow:visible;white-space:normal;overflow-wrap:anywhere}
+.is-decider .round-time{text-align:left}
 @media(max-width:360px){.is-decider{width:calc(50% - 8px)}}
 @media(max-width:640px){.round-label-full{display:none}.round-label-compact{display:inline}}
 @media(max-width:768px){.tournament-board{width:calc(100% + 20px);max-width:none;margin:0 -10px;padding:0 14px}}
