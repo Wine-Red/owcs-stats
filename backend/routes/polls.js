@@ -1,8 +1,9 @@
 const express = require('express');
 const { createHash } = require('crypto');
 const service = require('../services/MatchPollService');
+const settings = require('../services/MatchPollSettingsService');
 
-const createPollRouter = (pollService = service) => {
+const createPollRouter = (pollService = service, pollSettings = settings) => {
   const router = express.Router();
   const limits = new Map();
   const limit = (key, max, duration) => {
@@ -31,8 +32,23 @@ const createPollRouter = (pollService = service) => {
     }
     next();
   });
-  router.get('/summary', async (req, res) => res.json(await pollService.getSummary(req.query.seasonId, req.get('X-Vote-Token'))));
+  router.get('/status', async (_req, res) => res.json(await pollSettings.getStatus()));
+  router.get('/summary', async (req, res) => {
+    const summary = await pollService.getSummary(req.query.seasonId, req.get('X-Vote-Token'));
+    const { enabled } = await pollSettings.getStatus();
+    const closePolls = entries => Object.fromEntries(Object.entries(entries || {}).map(([id, poll]) => [id, { ...poll, closed: true }]));
+    res.json({ ...summary, enabled, ...(!enabled ? { sources: closePolls(summary.sources), matches: closePolls(summary.matches) } : {}) });
+  });
   router.get('/upcoming', async (_req, res) => res.json(await require('../services/UpcomingMatchesService').getUpcomingMatches()));
+  // Settings writes stay on the existing authenticated /api/config boundary.
+  // Check both public writes so a page opened before disabling cannot keep voting.
+  router.use(['/visitor', '/vote'], async (req, res, next) => {
+    if (req.method !== 'POST') return next();
+    if (!(await pollSettings.getStatus()).enabled) {
+      return res.status(403).json({ error: '投票功能已关闭', code: 'VOTING_DISABLED' });
+    }
+    next();
+  });
   router.post('/visitor', async (_req, res) => res.json({ token: await pollService.createVisitor() }));
   router.post('/vote', async (req, res) => res.json(await pollService.castVote(req.body, req.get('X-Vote-Token'))));
   return router;

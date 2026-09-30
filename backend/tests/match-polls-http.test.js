@@ -11,14 +11,14 @@ test('public voting routes validate origins, avoid shared caching and rate-limit
     createVisitor: async () => 'test-token',
     getSummary: async (seasonId, token) => ({ seasonId, authenticated: !!token }),
     castVote: async () => { votes++; return { total: 1 }; }
-  }));
+  }, { getStatus: async () => ({ enabled: true }) }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}/poll-api`;
   let r = await fetch(`${base}/summary?seasonId=24`, { headers: { 'X-Vote-Token': 'test-token' } });
   assert.equal(r.headers.get('cache-control'), 'private, no-store');
-  assert.deepEqual(await r.json(), { seasonId: '24', authenticated: true });
+  assert.deepEqual(await r.json(), { seasonId: '24', authenticated: true, enabled: true });
   r = await fetch(`${base}/vote`, { method: 'POST', headers: { Origin: 'https://untrusted.example' } });
   assert.equal(r.status, 403);
   assert.equal(votes, 0);
@@ -30,6 +30,6 @@ test('public voting routes validate origins, avoid shared caching and rate-limit
 
 test('open partner policy accepts web origins but still rejects opaque origins',async t=>{
  const previous=process.env.POLL_PARTNER_ORIGINS;process.env.POLL_PARTNER_ORIGINS='*';
- const app=express();app.use('/poll-api',createPollRouter({createVisitor:async()=> 'fixture-token'}));const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(async()=>{if(previous===undefined)delete process.env.POLL_PARTNER_ORIGINS;else process.env.POLL_PARTNER_ORIGINS=previous;await new Promise(r=>server.close(r));});const base=`http://127.0.0.1:${server.address().port}/poll-api/visitor`;
+ const app=express();app.use('/poll-api',createPollRouter({createVisitor:async()=> 'fixture-token'}, { getStatus: async () => ({ enabled: true }) }));const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(async()=>{if(previous===undefined)delete process.env.POLL_PARTNER_ORIGINS;else process.env.POLL_PARTNER_ORIGINS=previous;await new Promise(r=>server.close(r));});const base=`http://127.0.0.1:${server.address().port}/poll-api/visitor`;
  assert.equal((await fetch(base,{method:'POST',headers:{origin:'https://arbitrary.example'}})).status,200);assert.equal((await fetch(base,{method:'POST',headers:{origin:'null'}})).status,403);
 });

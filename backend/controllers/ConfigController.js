@@ -1,4 +1,5 @@
 const Config = require('../models/Config');
+const pollSettings = require('../services/MatchPollSettingsService');
 const { wakeTournamentSync } = require('../services/TournamentRuntime');
 
 const ConfigController = {
@@ -40,6 +41,7 @@ const ConfigController = {
       if (!key) {
         return res.status(400).json({ error: '配置键不能为空' });
       }
+      if (key === pollSettings.configKey) pollSettings.validateSettings(value);
 
       const [config, created] = await Config.findOrCreate({
         where: { key },
@@ -61,6 +63,7 @@ const ConfigController = {
       if (/^visualize_season_\d+$/.test(key)) wakeTournamentSync();
       res.json({ message: '配置更新成功', config });
     } catch (error) {
+      if (error.statusCode === 400) return res.status(400).json({ error: error.message });
       console.error('更新配置失败:', error);
       res.status(500).json({ error: '更新配置失败' });
     }

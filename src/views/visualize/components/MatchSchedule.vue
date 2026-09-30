@@ -787,6 +787,7 @@ export default {
 
     const { entry: pollEntry, vote: submitVote } = useMatchPolls(computed(() => props.seasonId));
     const supportForMatch = match => {
+      if (!pollEntry.value.enabled) return null;
       if (match.source !== 'upcoming') return null;
       const poll = match.source === 'upcoming' ? pollEntry.value.sources[match.sourceId] : pollEntry.value.matches[match.id];
       const pair = [Number(match.team1.id), Number(match.team2.id)].sort().join(':');

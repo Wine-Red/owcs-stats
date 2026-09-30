@@ -1,5 +1,6 @@
 /* global globalThis */
 import { computed, onMounted, onUnmounted, reactive, unref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { isSnapshotPackage, isApiPackage } from './packageMode.mjs';
 import { interactionBase } from './interactionEndpoints.mjs';
 
@@ -21,7 +22,7 @@ const request = async (path, body) => {
     const base = isApiPackage ? await interactionBase('voting') : baseURL;
     if (!base) {
       if (body) throw new Error('当前页面未启用投票');
-      return { sources: {}, matches: {} };
+      return { enabled: false, sources: {}, matches: {} };
     }
     const response = await fetch(`${base.replace(/\/$/, '')}${path}`, {
       method: body ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
@@ -30,11 +31,12 @@ const request = async (path, body) => {
       ...(body ? { body: JSON.stringify(body) } : {})
     });
     const result = await response.json();
-    if (!response.ok) throw Object.assign(new Error(result.error || '暂时无法获取支持率'), { status: response.status });
+    if (!response.ok) throw Object.assign(new Error(result.error || '暂时无法获取支持率'), { status: response.status, code: result.code });
     return result;
   } finally { clearTimeout(timeout); }
 };
 export const getLiveUpcomingMatches = () => request('/upcoming');
+export const getMatchPollStatus = () => request('/status');
 
 const ensureVisitor = async () => {
   if (readToken()) return;
@@ -52,34 +54,40 @@ const ensureVisitor = async () => {
 export const useMatchPolls = season => {
   // Static packages have no visitor identity, vote totals, polling or writes.
   if (isSnapshotPackage) return {
-    entry: computed(() => ({ sources: {}, matches: {}, error: '', loading: false })),
+    entry: computed(() => ({ enabled: false, sources: {}, matches: {}, error: '', loading: false })),
     refresh: async () => {},
     vote: async () => { throw new Error('静态展示版不支持投票'); }
   };
+  const route = useRoute();
   const seasonId = computed(() => String(unref(season) || ''));
-  const entry = computed(() => state[seasonId.value] || { sources: {}, matches: {}, error: '', loading: true });
+  const entry = computed(() => state[seasonId.value] || { enabled: false, sources: {}, matches: {}, error: '', loading: true });
   const refresh = async (force = false) => {
     const id = seasonId.value;
     if (!/^\d+$/.test(id)) return;
-    if (pending.has(id)) return pending.get(id);
+    if (pending.has(id)) {
+      await pending.get(id);
+      if (!force) return;
+      if (pending.has(id)) return pending.get(id);
+    }
     if (!force && state[id]?.fetchedAt > Date.now() - 15000) return;
     const task = request(`/summary?seasonId=${id}`).then(result => {
-      state[id] = { ...result, error: '', loading: false, fetchedAt: Date.now() };
+      state[id] = { ...result, enabled: result.enabled !== false, error: '', loading: false, fetchedAt: Date.now() };
     }).catch(error => {
-      state[id] = { ...(state[id] || { sources: {}, matches: {} }), error: error.message, loading: false, fetchedAt: Date.now() };
+      state[id] = { ...(state[id] || { sources: {}, matches: {} }), enabled: false, error: error.message, loading: false, fetchedAt: Date.now() };
     }).finally(() => pending.delete(id));
     pending.set(id, task);
     return task;
   };
   const vote = async (summary, teamId) => {
-    await ensureVisitor();
     const id = seasonId.value;
     try {
+      if (entry.value.enabled === false) throw new Error('投票功能已关闭');
+      await ensureVisitor();
       const result = await request('/vote', { seasonId: id, sourceId: summary.sourceId, teamId,
         team1Id: summary.team1Id, team2Id: summary.team2Id });
       // Do not let an older in-flight refresh overwrite a successful vote.
       if (pending.has(id)) await pending.get(id);
-      state[id] = { ...result, error: '', loading: false, fetchedAt: Date.now() };
+      state[id] = { ...result, enabled: result.enabled !== false, error: '', loading: false, fetchedAt: Date.now() };
     } catch (error) {
       if (error.status === 401) globalThis.localStorage.removeItem(tokenKey);
       await refresh(true);
@@ -88,12 +96,13 @@ export const useMatchPolls = season => {
   };
   let timer;
   const onVisible = () => { if (document.visibilityState === 'visible') refresh(true); };
-  watch(seasonId, () => refresh(), { immediate: true });
+  watch([seasonId, () => route.fullPath], () => refresh(true), { immediate: true });
   onMounted(() => {
-    if (isApiPackage) return; // Partner pages read on navigation and after voting, without background polling.
-    timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 60000);
+    // Partner pages follow the shared switch on navigation/focus, without polling.
+    if (!isApiPackage) timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 60000);
+    window.addEventListener('focus', onVisible);
     document.addEventListener('visibilitychange', onVisible);
   });
-  onUnmounted(() => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); });
+  onUnmounted(() => { clearInterval(timer); window.removeEventListener('focus', onVisible); document.removeEventListener('visibilitychange', onVisible); });
   return { entry, refresh, vote };
 };

@@ -117,7 +117,9 @@ npm run verify:embedded-webview
 
 API 包现在可通过 `site-package.config.json` 的 `interactions.voting` / `interactions.assistant` 分别启用投票和助手。默认交付配置均开启；省略开关的旧配置保持关闭。`pollApiBaseUrl` 和 `assistantApiBaseUrl` 指向本站对应独立接口，构建时和 CSP 一起嵌入，禁止放入模型密钥。管理路由会跳回展示页，但共用 bundle 尚未彻底剔除管理页面代码。纯快照包继续禁用两项交互。
 
-投票页面从投票服务 `/upcoming` 读取带稳定比赛标识的赛程，通过 `/summary` 查询投票、`/visitor` 获取匿名身份、`/vote` 提交或更改支持队伍。浏览器 localStorage 保存身份，按域名隔离；不承诺主站和不同合作方域名之间去重，不依赖第三方 Cookie。API 包只在页面加载/导航和投票后读取结果，不启用后台轮询。比赛已结束或封盘时沿用现有禁止投票规则。
+后台「数据管理 → 赛前投票」的「启用投票功能」开关统一控制主站与 API 包，默认开启。设置持久化到现有配置表，通过受登录保护的 `/api/config` 保存；公开 `/poll-api/status` 只返回 `{ enabled: true/false }`，不能修改设置。API 包的 `interactions.voting` 决定该包是否支持投票，服务器开关决定当前是否启用，两者均开启才显示入口。部署新版包后，日常切换后台开关无需重新打包。
+
+投票页面从投票服务 `/upcoming` 读取带稳定比赛标识的赛程，通过 `/summary` 查询投票、`/visitor` 获取匿名身份、`/vote` 提交或更改支持队伍。`/summary` 同时返回 `enabled`；关闭时隐藏投票入口，后端立即拒绝创建身份和提交选票，已有票数保留供后台查看。重新开启恢复原有票数和投票身份。浏览器 localStorage 保存身份，按域名隔离；不承诺主站和不同合作方域名之间去重，不依赖第三方 Cookie。API 包在页面加载/导航、切回页面和投票后读取投票设置及结果，不启用后台轮询。比赛已结束或封盘时沿用现有禁止投票规则。
 
 助手从公开 `/status` 读取显示开关，向 `/chat` 提交当前页面范围和临时对话，继续使用 NDJSON 流；刷新清空会话。设置、连接测试、模型密钥和管理路由不向合作方开放。
 

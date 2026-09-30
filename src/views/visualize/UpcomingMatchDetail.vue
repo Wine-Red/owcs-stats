@@ -1100,6 +1100,7 @@ export default {
 
     const { entry: pollEntry, vote: submitVote } = useMatchPolls(computed(() => queryParams.value.seasonId));
     const upcomingPoll = computed(() => {
+      if (!pollEntry.value.enabled) return null;
       const poll = pollEntry.value.sources[queryParams.value.sourceId];
       const pair = [Number(team1ResolvedId.value), Number(team2ResolvedId.value)].sort().join(':');
       return poll && !poll.matchId && [poll.team1Id, poll.team2Id].sort().join(':') === pair ? poll : null;
