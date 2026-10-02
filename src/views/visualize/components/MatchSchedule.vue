@@ -1465,7 +1465,7 @@ export default {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .schedule-shell {
     width: calc(100% + 20px);
     margin-right: -10px;
@@ -1795,7 +1795,7 @@ export default {
   border-top: 0;
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1100px) and (orientation: landscape), (min-width: 1200px) {
   .day-matches {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
@@ -2100,7 +2100,7 @@ export default {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .schedule-shell {
     width: 100%;
     margin: 0 0 10px;
@@ -2424,14 +2424,14 @@ export default {
 .schedule-match > .match-support:not(.empty) :deep(.support-choice.right) { color: #fff; }
 .schedule-match > .match-support :deep(.support-track) { height: 6px; }
 .schedule-match > .match-support :deep(.support-choice) { pointer-events: auto; }
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .match-main.has-support .match-summary { flex-wrap: wrap; row-gap: 0; max-width: 100%; }
   .match-main.has-support .state-ongoing + .match-enter-indicator { display: none; }
 }
 </style>
 
 <style>
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .schedule-date-drawer.el-drawer {
     overflow: hidden;
     border-radius: 16px 16px 0 0;

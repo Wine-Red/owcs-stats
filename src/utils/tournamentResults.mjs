@@ -1,4 +1,4 @@
-import { groupKey } from '../../backend/services/tournamentSemantics.mjs';
+import { groupKey, sourcePath, stageName, compatibleStages } from '../../backend/services/tournamentSemantics.mjs';
 
 const record = value => {
   const match = String(value || '').match(/^(\d+)\s*[-–—:]\s*(\d+)$/);
@@ -19,8 +19,44 @@ const identity = snapshot => {
   };
 };
 
+// During live updates the event overview and phase page may contain different
+// revisions of the same table. Prefer the explicit phase page only when source
+// ancestry, stage, group and the complete team set establish its identity.
+const selectStageStandings = (stage, teamKey) => {
+  const tables = stage.blocks.filter(block => block.type === 'standings' && !block.stageIssue);
+  const urlKey = block => {
+    try { const url = new URL(block.sourceUrl); return `${url.origin}${decodeURIComponent(url.pathname).replace(/_/g, ' ').replace(/\/$/, '')}`; }
+    catch { return ''; }
+  };
+  const members = block => {
+    const keys = block.rows.map(row => teamKey(row.team));
+    return keys.every(Boolean) && new Set(keys).size === keys.length ? keys.sort().join('|') : '';
+  };
+  const discarded = new Set();
+  for (const table of tables) {
+    const source = urlKey(table), teams = members(table);
+    const phase = sourcePath(table.sourceUrl).map(stageName).filter(Boolean).at(-1);
+    if (!source || !teams || !phase || !compatibleStages(phase, stage.id)) continue;
+    const peers = tables.filter(other => groupKey(other) === groupKey(table));
+    if (peers.length < 2 || peers.some(other => members(other) !== teams)) continue;
+    if (peers.every(other => other === table || (urlKey(other) && source.startsWith(`${urlKey(other)}/`)))) {
+      peers.filter(other => other !== table).forEach(other => discarded.add(other));
+    }
+  }
+  return { ...stage, blocks: stage.blocks.filter(block => !discarded.has(block)) };
+};
+
+const isFinished = match => {
+  const scores = match.opponents.map(team => team.score);
+  if (!scores.every(Number.isInteger) || scores[0] === scores[1]) return false;
+  if (match.opponents.some(team => team.winner)) return true;
+  const bestOf = String(match.bestOf || '').match(/^BO(\d+)$/i);
+  return bestOf ? Math.max(...scores) >= Math.floor(Number(bestOf[1]) / 2) + 1 : true;
+};
+
 export function attachStageResults(stage, snapshot = {}) {
   const teamKey = identity(snapshot);
+  stage = selectStageStandings(stage, teamKey);
   const tables = stage.blocks.filter(block => block.type === 'standings');
   const lists = stage.blocks.filter(block => block.type === 'matches' && !block.stageIssue);
   const enrich = table => {
@@ -60,13 +96,15 @@ export function attachStageResults(stage, snapshot = {}) {
           const known = own.score !== null && own.score !== undefined && opponent.score !== null && opponent.score !== undefined;
           return { key, opponent, score: known ? `${own.score}:${opponent.score}` : '—', ownScore: own.score,
             opponentScore: opponent.score, timestamp: match.timestamp, matchId: match.matchId, matchSeasonId: match.matchSeasonId,
-            sourceUrl: match.sourceUrl, sourceLabel: label, opponents: match.opponents, navigation: match.navigation };
+            sourceUrl: match.sourceUrl, sourceLabel: label, opponents: match.opponents, navigation: match.navigation,
+            bestOf: match.bestOf, finished: isFinished(match),
+            live: known && [own.score, opponent.score].every(Number.isInteger) && own.score + opponent.score > 0 && !isFinished(match) };
         });
       if (new Set(games.map(game => game.timestamp)).size !== games.length) reasons.add('ambiguous-order');
-      const completed = games.filter(game => Number.isInteger(game.ownScore) && Number.isInteger(game.opponentScore)
-        && game.ownScore !== game.opponentScore);
+      const completed = games.filter(game => game.finished);
       const actual = [completed.filter(game => game.ownScore > game.opponentScore).length, completed.filter(game => game.ownScore < game.opponentScore).length];
-      const actualMaps = [completed.reduce((n, game) => n + game.ownScore, 0), completed.reduce((n, game) => n + game.opponentScore, 0)];
+      const scored = games.filter(game => Number.isInteger(game.ownScore) && Number.isInteger(game.opponentScore));
+      const actualMaps = [scored.reduce((n, game) => n + game.ownScore, 0), scored.reduce((n, game) => n + game.opponentScore, 0)];
       const baseline = stage.baselineTables?.flatMap(block => block.rows).filter(other => teamKey(other.team) === ownKey) || [];
       const offset = baseline.length === 1 ? record(baseline[0].matches) : null;
       const mapOffset = baseline.length === 1 ? record(baseline[0].maps) : null;
@@ -74,7 +112,10 @@ export function attachStageResults(stage, snapshot = {}) {
       for (const [expected, computed, previous] of [[record(row.matches), actual, offset], [record(row.maps), actualMaps, mapOffset]]) {
         if (!expected || (stage.carryOver && !previous)) continue;
         const target = expected.map((n, i) => n - (stage.carryOver ? previous[i] : 0));
-        if (computed.some((n, i) => n > target[i])) conflict = true;
+        // Aggregate tables can lag individual scores during a match. Preserve
+        // the sourced schedule; only contradictory match identities/scores
+        // above, or an impossible round-robin schedule below, disable it.
+        if (computed.some((n, i) => n > target[i])) reasons.add('standings-out-of-sync');
         else if (computed.some((n, i) => n < target[i])) reasons.add('incomplete-results');
       }
       if (stage.roundRobinCycles) {
@@ -93,7 +134,8 @@ export function attachStageResults(stage, snapshot = {}) {
     if (reasons.has('ambiguous-order')) return unavailable('ambiguous-order');
     if (snapshot.discovery?.complete === false) reasons.add('incomplete-discovery');
     const partial = reasons.size > 0;
-    return { ...table, rows, gameLabels: Array.from({ length: Math.max(...rows.map(row => row.games.length)) }, (_, i) => partial ? `已知 ${i + 1}` : `第 ${i + 1} 场`),
+    const incompleteSchedule = ['incomplete-schedule', 'unknown-date', 'unconfirmed-opponents', 'foreign-team', 'incomplete-discovery'].some(reason => reasons.has(reason));
+    return { ...table, rows, gameLabels: Array.from({ length: Math.max(...rows.map(row => row.games.length)) }, (_, i) => incompleteSchedule ? `已知 ${i + 1}` : `第 ${i + 1} 场`),
       resultsStatus: { state: partial ? 'partial' : 'available', reasons: [...reasons], matches: events.size } };
   };
   return { ...stage, blocks: stage.blocks.map(block => block.type === 'standings' ? enrich(block) : block) };

@@ -1,21 +1,21 @@
 <template>
-  <div v-analytics-view="{ feature: '选手排行榜', seasonId, resultCount: playerLeaderboardData.length }" class="vis-card">
+  <div v-analytics-view="{ feature: '选手排行榜', seasonId, resultCount: playerLeaderboardData.length }" class="vis-card player-stats-card">
     <div class="panel-header">
       <div class="header-controls">
         <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart(); track('filter_change', { filter: '职责', role: playerRole })" class="role-radio-group">
           <el-radio-button label="tank">
             <div class="role-btn-content">
-              <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" />
+              <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" /><span class="vis-web-only">重装</span>
             </div>
           </el-radio-button>
           <el-radio-button label="damage">
             <div class="role-btn-content">
-              <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" />
+              <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" /><span class="vis-web-only">输出</span>
             </div>
           </el-radio-button>
           <el-radio-button label="support">
             <div class="role-btn-content">
-              <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" />
+              <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" /><span class="vis-web-only">支援</span>
             </div>
           </el-radio-button>
         </el-radio-group>
@@ -50,6 +50,7 @@
       </div>
     </div>
     <div class="card-content">
+      <div class="vis-web-chart-caption vis-web-only"><h3>表现分布</h3><span>{{ playerRole === 'support' ? '治疗/10min × KA/D' : playerRole === 'tank' ? '抵挡/10min × K/D' : '伤害/10min × K/D' }}</span></div>
       <div ref="playerStatsChart" class="chart-container"></div>
       
       <div class="leaderboard-section">
@@ -82,7 +83,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="playerName" label="选手" min-width="120" fixed>
+          <el-table-column prop="playerName" label="选手" :min-width="isWideLayout ? 156 : 120" fixed>
             <template #default="scope">
               <button type="button" class="player-cell player-link" @click="goToPlayerDetail(scope.row)">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
@@ -195,7 +196,7 @@
           <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
         </el-table>
 
-        <div class="leaderboard-footer" v-if="playerLeaderboardData.length > 3">
+        <div class="leaderboard-footer" v-if="playerLeaderboardData.length > (isWideLayout ? 10 : 3)">
           <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
             {{ isExpanded ? '收起全部' : '查看全部' }}
             <el-icon class="el-icon--right">
@@ -222,6 +223,7 @@ import apiService from '@/services/api';
 import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { useWideVisualizeLayout } from '@/composables/useVisualizeLayout';
 import { escapeHtml } from '@/utils/security';
 
 export default {
@@ -244,6 +246,7 @@ export default {
     }
   },
   setup(props) {
+    const isWideLayout = useWideVisualizeLayout();
     const track = useFeatureAnalytics('选手排行榜', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const router = useRouter();
@@ -426,7 +429,7 @@ export default {
         if (isExpanded.value) {
             return playerLeaderboardData.value;
         }
-        return playerLeaderboardData.value.slice(0, 3);
+        return playerLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 3);
     });
 
     const getRankClass = (index) => {
@@ -941,6 +944,7 @@ export default {
       playerLeaderboardData,
       displayedPlayerLeaderboard,
       isExpanded,
+      isWideLayout,
       getRankClass,
       tableRowClassName,
       handleSortChange,
@@ -1271,7 +1275,7 @@ export default {
 .export-text {
   font-weight: 500;
 }
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .export-text {
     display: none;
   }
@@ -1297,7 +1301,7 @@ export default {
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .header-controls {
     display: flex; /* 改回 flex 以便控制换行 */
     flex-wrap: wrap;
@@ -1560,7 +1564,7 @@ export default {
 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .vis-card {
     padding: 0;
   }

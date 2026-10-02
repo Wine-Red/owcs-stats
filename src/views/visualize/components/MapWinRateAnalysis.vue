@@ -1385,7 +1385,7 @@ export default {
   font-weight: 700;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .map-analysis-panel {
     gap: 16px;
   }

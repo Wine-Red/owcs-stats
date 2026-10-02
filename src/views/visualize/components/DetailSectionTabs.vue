@@ -150,7 +150,7 @@ export default {
   line-height: 14px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .detail-section-tabs__item {
     min-height: 34px;
     padding: 0 8px;

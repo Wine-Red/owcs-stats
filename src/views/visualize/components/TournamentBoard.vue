@@ -58,6 +58,7 @@
                   :aria-label="round.navigation?.to ? `${resultLabels(block)[i]}，${row.team.localName || row.team.name} 对 ${round.opponent.localName || round.opponent.name}，${round.navigation.preview ? '查看前瞻' : `${round.score}，查看比赛详情`}，${round.navigation.date} ${round.navigation.time}` : undefined">
                   <time v-if="resultDate(round)" class="result-score-date" :datetime="round.navigation?.datetime">{{ resultDate(round) }}</time>
                   <strong v-else>{{ round.score || '—' }}</strong>
+                  <small v-if="round.live" class="result-live">进行中</small>
                   <span v-if="round.opponent.name !== '待定'" class="swiss-opponent"><img v-if="round.opponent.logo" :src="round.opponent.logo" :alt="round.opponent.localName || round.opponent.shortName" :title="round.opponent.name" class="round-team-logo" /><template v-else>{{ round.opponent.localName || round.opponent.shortName }}</template></span>
                 </component>
               </td>
@@ -84,7 +85,8 @@
             </div>
           </div>
         </div>
-        <p v-if="block.resultsStatus?.state === 'partial'" class="results-note">部分赛程，按已知比赛时间排序</p>
+        <p v-if="block.resultsStatus?.reasons.includes('standings-out-of-sync')" class="results-note">积分汇总更新中，逐场比分按赛程显示</p>
+        <p v-else-if="block.resultsStatus?.state === 'partial'" class="results-note">部分赛程，按已知比赛时间排序</p>
         <p v-else-if="block.resultsStatus?.state === 'conflict'" class="results-note">逐场结果暂不可用</p>
         <p v-else-if="block.resultsStatus?.reasons.includes('unconfirmed-opponents')" class="results-note">对阵尚未确定</p>
       </div>
@@ -221,9 +223,10 @@ onBeforeUnmount(() => { generation++; clearTimeout(timer); clearInterval(clockTi
 .preview-more::before{content:'';position:absolute;z-index:-1;inset:0 0 0 -16px;background:linear-gradient(90deg,transparent,var(--vis-bg-page,#f4f5f8) 50%);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);mask-image:linear-gradient(90deg,transparent,#000 40%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 40%);pointer-events:none}
 .preview-lead:focus-visible,.preview-more:focus-visible{outline:2px solid var(--preview-accent);outline-offset:2px;border-radius:8px}
 @media(hover:hover){.preview-lead:hover{border-color:#e8b18a;background:#fffaf5}.preview-more:hover{color:#de5900}}
-@media(max-width:768px){.preview-section{--preview-edge:14px}}
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait){.preview-section{--preview-edge:14px}}
 @media(max-width:360px){.preview-section{--preview-logo-size:14px}.preview-cards{gap:4px}.preview-lead-copy strong{font-size:10px}.preview-lead-copy small{font-size:9px}}
 .tournament-block{margin-bottom:20px;min-width:0}
+.result-live{color:#168a59;font-size:9px;line-height:12px;white-space:nowrap}
 .stage-match-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .stage-match-item{min-width:0}
 .block-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:6px}
@@ -292,5 +295,5 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 .is-decider .round-time{text-align:left}
 @media(max-width:360px){.is-decider{width:calc(50% - 8px)}}
 @media(max-width:640px){.round-label-full{display:none}.round-label-compact{display:inline}}
-@media(max-width:768px){.tournament-board{width:calc(100% + 20px);max-width:none;margin:0 -10px;padding:0 14px}}
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait){.tournament-board{width:calc(100% + 20px);max-width:none;margin:0 -10px;padding:0 14px}}
 </style>

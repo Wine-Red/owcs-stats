@@ -98,7 +98,61 @@ test('missing schedules, dates and TBD opponents never become zero scores or gue
   const incomplete = stage(); incomplete.blocks[0].rows.forEach((row, i) => { row.matches = i ? '0–2' : '2–0'; row.maps = i ? '2–6' : '6–2'; });
   const table = result(incomplete);
   assert.equal(table.resultsStatus.state, 'partial');
-  assert.deepEqual(table.gameLabels, ['已知 1']);
+  assert.deepEqual(table.gameLabels, ['第 1 场']);
+});
+
+test('live BO5 scores keep all per-match columns without counting a match win', () => {
+  for (const scores of [[2, 0], [2, 2]]) {
+    const input = stage([game({ bestOf: 'BO5', opponents: teams.map((t, i) => ({ ...t, score: scores[i] })) })]);
+    input.blocks[0].rows.forEach((row, i) => { row.matches = '0–0'; row.maps = `${scores[i]}–${scores[1 - i]}`; });
+    const table = result(input);
+    assert.equal(table.resultsStatus.state, 'available');
+    assert.deepEqual(table.gameLabels, ['第 1 场']);
+    assert.equal(table.rows[0].games[0].score, `${scores[0]}:${scores[1]}`);
+    assert.equal(table.rows[0].games[0].finished, false);
+    assert.equal(table.rows[0].games[0].live, true);
+    const finished = stage([game({ bestOf: 'BO5' })]);
+    assert.equal(result(finished).resultsStatus.state, 'available');
+    assert.equal(result(finished).rows[0].games[0].live, false);
+  }
+});
+
+test('lagging standings never hide a sourced live score or a completed result', () => {
+  for (const scores of [[2, 0], [3, 0]]) {
+    const input = stage([game({ bestOf: 'BO5', opponents: teams.map((t, i) => ({ ...t, score: scores[i] })) })]);
+    input.blocks[0].rows.forEach(row => { row.matches = '0–0'; row.maps = '0–0'; });
+    const table = result(input);
+    assert.equal(table.resultsStatus.state, 'partial');
+    assert.ok(table.resultsStatus.reasons.includes('standings-out-of-sync'));
+    assert.deepEqual(table.gameLabels, ['第 1 场']);
+    assert.equal(table.rows[0].games[0].score, `${scores[0]}:${scores[1]}`);
+  }
+});
+
+test('overview and explicit phase tables updating separately render one phase table with per-match results', () => {
+  const input = stage();
+  input.blocks[0].sourceUrl = 'https://liquipedia.net/overwatch/Example/2026';
+  const phase = { ...structuredClone(input.blocks[0]), id: 'phase-table', sourceUrl: `${input.blocks[0].sourceUrl}/Regular_Season` };
+  input.blocks[0].rows.forEach(row => { row.matches = '0–0'; row.maps = '0–0'; });
+  input.blocks.splice(1, 0, phase);
+  const before = structuredClone(input);
+  const tables = attachStageResults(input).blocks.filter(block => block.type === 'standings');
+  assert.equal(tables.length, 1);
+  assert.equal(tables[0].id, 'phase-table');
+  assert.equal(tables[0].resultsStatus.state, 'available');
+  assert.equal(tables[0].rows[0].games[0].score, '3:1');
+  assert.deepEqual(input, before);
+  // A sibling page or a different team set does not prove duplicate identity.
+  for (const mutate of [
+    value => { value.blocks[1].sourceUrl = 'https://liquipedia.net/overwatch/Other/2026/Regular_Season'; },
+    value => { value.blocks[1].rows[0].team = team('Gamma'); },
+    value => { value.blocks[1].sourceUrl = value.blocks[0].sourceUrl; }
+  ]) {
+    const ambiguous = structuredClone(input); mutate(ambiguous);
+    const remaining = attachStageResults(ambiguous).blocks.filter(block => block.type === 'standings');
+    assert.equal(remaining.length, 2);
+    assert.ok(remaining.every(table => table.resultsStatus.reasons.includes('ambiguous-table')));
+  }
 });
 
 test('carried regular-season standings are checked against the baseline without rewriting totals', () => {

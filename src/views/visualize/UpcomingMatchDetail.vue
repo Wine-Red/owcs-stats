@@ -1757,7 +1757,7 @@ export default {
   z-index: 1;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .match-banner.has-support { padding-top: 18px; }
   .match-banner.has-support > .left-team { margin-left: 12px; }
   .match-banner.has-support > .right-team { margin-right: 12px; }

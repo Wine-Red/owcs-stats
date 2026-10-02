@@ -1,0 +1,611 @@
+/* Desktop additions are hidden in the unchanged compact layouts. */
+.vis-web-only { display: none; }
+
+/* Light surfaces, restrained orange markers and a real event-data masthead.
+   The sidebar removes two rows of navigation from the reading canvas. */
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize {
+    --vis-web-width: 1480px;
+    --vis-web-gutter: clamp(20px, 2vw, 32px);
+    --vis-web-inset: max(var(--vis-web-gutter), calc((100% - var(--vis-web-width)) / 2 + var(--vis-web-gutter)));
+    --vis-web-nav-width: 168px;
+    --vis-web-rule: #e2e5eb;
+  }
+
+  .app-layout.is-visualize .visualize-container .vis-header {
+    height: 56px; flex-basis: 56px; padding-inline: var(--vis-web-inset);
+    border-bottom: 1px solid var(--vis-web-rule); background: #fff;
+  }
+  .app-layout.is-visualize .visualize-container .header-logo { width: 32px; height: 32px; }
+  .app-layout.is-visualize .visualize-container .header-left { gap: 10px; }
+  .app-layout.is-visualize .visualize-container .vis-title { font-size: 19px; letter-spacing: 0; }
+  .app-layout.is-visualize .visualize-container .vis-season-select { width: clamp(260px, 25vw, 340px); }
+  .app-layout.is-visualize .visualize-container .vis-season-select .el-select__wrapper {
+    min-height: 36px; border-radius: 8px; box-shadow: 0 0 0 1px var(--vis-web-rule) inset;
+  }
+  .app-layout.is-visualize .visualize-container .vis-content {
+    min-height: 0; padding: 20px var(--vis-web-inset) 24px;
+  }
+  .app-layout.is-visualize .visualize-container .vis-body {
+    display: grid; grid-template-columns: var(--vis-web-nav-width) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr); column-gap: 24px; min-height: 0;
+  }
+  .app-layout.is-visualize .visualize-container .vis-body > .banner-fullbleed {
+    grid-column: 1 / -1; grid-row: 1; margin: 0 0 24px; padding: 18px 24px;
+    border: 1px solid var(--vis-web-rule); border-left: 3px solid var(--vis-accent);
+    border-radius: 10px; background: linear-gradient(110deg, #fff 55%, #fff8f0);
+    box-shadow: none;
+  }
+  .app-layout.is-visualize .visualize-container .banner-decor--hex { display: none; }
+  .app-layout.is-visualize .visualize-container .banner-fullbleed::after { display: none; }
+  .app-layout.is-visualize .visualize-container .banner-decor--stripes { opacity: 0.25; }
+  .app-layout.is-visualize .visualize-container .banner-content { align-items: center; gap: 20px; }
+  .app-layout.is-visualize .visualize-container .banner-logo {
+    width: 60px; height: 60px; flex: 0 0 60px; border: 0; border-radius: 0;
+    background: transparent; box-shadow: none;
+  }
+  .app-layout.is-visualize .visualize-container .banner-logo img { width: 100%; height: 100%; object-fit: contain; }
+  .app-layout.is-visualize .visualize-container .banner-info { flex: 1; min-width: 0; gap: 7px; padding-top: 0; }
+  .app-layout.is-visualize .visualize-container .season-name {
+    margin: 0; font-size: clamp(20px, 1.8vw, 26px); font-style: normal; line-height: 1.3; letter-spacing: -0.02em;
+  }
+  .app-layout.is-visualize .visualize-container .badges { gap: 6px; }
+  .app-layout.is-visualize .visualize-container .badge { padding: 3px 7px; font-size: 10px; border-radius: 4px; }
+  .app-layout.is-visualize .visualize-container .badge-status.completed { color: #65707d; background: #edf0f4; }
+  .app-layout.is-visualize .visualize-container .meta-data { gap: 16px; margin: 0; font-size: 12px; }
+  .app-layout.is-visualize .vis-web-event-metrics {
+    display: flex; flex: 0 0 auto; gap: 28px; padding: 8px 0 8px 28px;
+    border-left: 1px solid var(--vis-web-rule);
+  }
+  .app-layout.is-visualize .vis-web-event-metrics > div { display: flex; flex-direction: column; gap: 6px; }
+  .app-layout.is-visualize .vis-web-event-metrics strong { color: #161b22; font: 800 26px/1 var(--vis-font-numeric); }
+  .app-layout.is-visualize .vis-web-event-metrics span { font-size: 11px; color: #68727f; }
+
+  .app-layout.is-visualize .visualize-container .vis-tabs-container {
+    grid-column: 1; grid-row: 2; align-self: start; display: block; margin: 0; padding: 12px;
+    border: 1px solid var(--vis-web-rule); border-radius: 10px; box-shadow: none; background: #fff;
+  }
+  .app-layout.is-visualize .visualize-container .vis-tabs-container::before {
+    content: '赛事浏览'; display: block; margin: 4px 10px 12px; color: #68727f; font-size: 11px; font-weight: 600;
+  }
+  .app-layout.is-visualize .visualize-container .vis-tabs { width: 100%; flex-direction: column; gap: 4px; }
+  .app-layout.is-visualize .visualize-container .vis-tab-item {
+    flex: 0 0 auto; width: 100%; min-width: 0; min-height: 44px; padding: 10px 14px;
+    border-radius: 6px; font-size: 13px; font-style: normal; font-weight: 600; text-align: left;
+    color: #65707d; justify-content: flex-start;
+  }
+  .app-layout.is-visualize .visualize-container .vis-tab-item.active { color: #161b22; background: #fff3e8; }
+  .app-layout.is-visualize .visualize-container .vis-tab-item::after {
+    inset: 12px auto 12px 0; width: 3px; height: auto; border-radius: 2px;
+    transform: none; background: var(--vis-accent); opacity: 0;
+  }
+  .app-layout.is-visualize .visualize-container .vis-tab-item.active::after { opacity: 1; }
+  .app-layout.is-visualize .visualize-container :is(.stats-category-host, .tournament-stage-tabs-host:not(:empty)) {
+    grid-column: 1; grid-row: 3; align-self: start; width: 100%; margin: 16px 0 0; padding: 12px;
+    border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; box-sizing: border-box;
+  }
+  .app-layout.is-visualize .visualize-container .stats-category-host::before,
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host:not(:empty)::before {
+    display: block; margin: 4px 10px 12px; color: #68727f; font-size: 11px; font-weight: 600;
+  }
+  .app-layout.is-visualize .visualize-container .stats-category-host::before { content: '数据分类'; }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host:not(:empty)::before { content: '赛制阶段'; }
+  .app-layout.is-visualize .visualize-container .stats-category-host .content-choice-group__options {
+    width: 100%; flex-direction: column; gap: 4px; padding: 0; border: 0;
+  }
+  .app-layout.is-visualize .visualize-container .stats-category-host .content-choice-group__option {
+    width: 100%; min-height: 44px; justify-content: flex-start; padding: 10px 14px; font-weight: 600;
+  }
+  .app-layout.is-visualize .visualize-container .stats-category-host .content-choice-group__option.is-active { background: #fff3e8; }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host .detail-section-tabs {
+    flex-direction: column; gap: 4px; padding: 0; border: 0;
+  }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host .detail-section-tabs__item {
+    width: 100%; min-width: 0; min-height: 52px; padding: 8px 12px; align-items: flex-start; border-radius: 6px;
+  }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host .detail-section-tabs__label { justify-content: flex-start; }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host .detail-section-tabs__description { padding-left: 12px; font-size: 10px; }
+  .app-layout.is-visualize .visualize-container .tab-content {
+    grid-column: 2; grid-row: 2 / 4; min-width: 0; min-height: 0;
+    padding: 0 0 24px; scrollbar-gutter: auto; scrollbar-width: thin;
+  }
+  .app-layout.is-visualize .visualize-container .tab-content.is-stats-hero { padding: 0; }
+  .app-layout.is-visualize .visualize-container :is(.overview-section, .stats-workspace, .schedule-shell) {
+    width: 100%; max-width: none; margin: 0;
+  }
+  .app-layout.is-visualize .vis-web-page-heading { display: flex; align-items: center; min-height: 50px; margin: 0 0 18px; }
+  .app-layout.is-visualize .vis-web-page-heading h2 { margin: 0; color: #161b22; font-size: 23px; font-weight: 750; line-height: 1.3; letter-spacing: -0.02em; }
+  .app-layout.is-visualize .vis-web-page-heading p { margin: 6px 0 0; color: #68727f; font-size: 12px; line-height: 1.5; }
+
+  .app-layout.is-visualize .content-choice-group { min-width: 0; }
+  .app-layout.is-visualize .content-choice-group__options { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px; padding: 4px 0; border: 0; background: transparent; }
+  .app-layout.is-visualize .content-choice-group__option { flex: 0 0 auto; min-height: 40px; padding-inline: 18px; border-radius: 6px; font-size: 13px; }
+  .app-layout.is-visualize .content-choice-group--compact .content-choice-group__option { min-height: 36px; padding-inline: 14px; font-size: 12px; }
+  .app-layout.is-visualize .detail-section-tabs { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 8px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--vis-web-rule); }
+  .app-layout.is-visualize .detail-section-tabs__item { flex: 0 0 auto; min-width: 120px; min-height: 46px; padding-inline: 20px; }
+
+  .app-layout.is-visualize .tournament-board { max-width: none; margin: 0; padding: 0; }
+  .app-layout.is-visualize .tournament-board .stage-panel { padding-top: 0; }
+  .app-layout.is-visualize .tournament-board .tournament-block { margin-bottom: 20px; padding: 24px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .tournament-board .block-heading { margin-bottom: 18px; }
+  .app-layout.is-visualize .tournament-board .tournament-table :is(th, td) { padding: 10px 12px; }
+  .app-layout.is-visualize .tournament-board .tournament-table.has-rounds tbody :is(th, td) { padding-block: 6px; }
+  .app-layout.is-visualize .tournament-board .stage-match-list { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .app-layout.is-visualize .tournament-board .bracket-canvas { margin-inline: auto; zoom: 1.35; }
+  .app-layout.is-visualize .tournament-board .tournament-block.is-decider { width: calc(50% - 10px); margin-right: 10px; }
+  .app-layout.is-visualize .tournament-board .preview-cards { gap: 12px; padding-right: 56px; }
+  .app-layout.is-visualize .tournament-board .preview-lead { min-height: 72px; padding: 12px; }
+
+  .app-layout.is-visualize .schedule-shell .date-rail-wrap { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 44px; margin-bottom: 20px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .schedule-shell .date-rail { min-height: 56px; padding-left: 8px; }
+  .app-layout.is-visualize .schedule-shell .date-picker-trigger { display: grid; place-items: center; width: 44px; min-height: 44px; border: 0; border-left: 1px solid var(--vis-web-rule); background: #fff; color: #68727f; }
+  .app-layout.is-visualize .schedule-shell .schedule-days { gap: 20px; background: transparent; }
+  .app-layout.is-visualize .schedule-shell .schedule-day { overflow: hidden; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .schedule-shell .day-header { min-height: 44px; padding-inline: 18px; background: #f8f9fb; }
+  .app-layout.is-visualize .schedule-shell .day-matches { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 18px; }
+  .app-layout.is-visualize .schedule-shell .schedule-match { border: 0; border-bottom: 1px solid var(--vis-web-rule); border-radius: 0; background: #fff; box-shadow: none; }
+  .app-layout.is-visualize .schedule-shell .schedule-match:last-child { border-bottom: 0; }
+  .app-layout.is-visualize .schedule-shell .match-main { min-height: 78px; padding: 12px 18px; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); }
+  .app-layout.is-visualize .schedule-shell .team-side { flex-direction: row; align-items: center; gap: 12px; }
+  .app-layout.is-visualize .schedule-shell .team-side--left { justify-content: flex-end; }
+  .app-layout.is-visualize .schedule-shell .team-side--right { justify-content: flex-start; }
+  .app-layout.is-visualize .schedule-shell .team-name { font-size: 14px; line-height: 1.4; }
+  .app-layout.is-visualize .schedule-shell .team-logo-box { flex: 0 0 32px; width: 32px; height: 32px; }
+  .app-layout.is-visualize .schedule-shell .team-logo { max-width: 32px; max-height: 32px; }
+  .app-layout.is-visualize .schedule-shell .replay-toggle { width: auto; margin: 0 auto 8px; padding: 4px 14px; border: 0; border-radius: 5px; background: #f7f8fa; }
+
+  .app-layout.is-visualize .stats-data-section > .vis-card { padding: 20px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; box-shadow: none; }
+  .app-layout.is-visualize .stats-data-section .panel-header { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--vis-web-rule); }
+  .app-layout.is-visualize .stats-data-section .header-controls { flex-wrap: wrap; gap: 12px; }
+  .app-layout.is-visualize .stats-data-section .header-controls .el-select__wrapper { min-height: 38px; }
+  .app-layout.is-visualize .stats-data-section .card-content { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .app-layout.is-visualize .vis-web-chart-caption { display: flex; justify-content: space-between; align-items: center; min-height: 28px; gap: 12px; }
+  .app-layout.is-visualize .vis-web-chart-caption h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .app-layout.is-visualize .vis-web-chart-caption span { color: #68727f; font-size: 11px; }
+  .app-layout.is-visualize .stats-data-section .vis-web-chart-caption { grid-row: 2; margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--vis-web-rule); }
+  .app-layout.is-visualize .stats-data-section .chart-container { grid-row: 3; height: 260px; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section { grid-row: 1; margin: 0; padding: 0; border: 0; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-title { font-size: 16px; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table { font-size: 12px; --el-table-row-hover-bg-color: #fff8f1; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table td.el-table__cell { padding-block: 7px; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table .cell { padding-inline: 8px; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table tbody tr td.el-table__cell { background: #fff !important; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table tbody tr:first-child td.el-table__cell { background: #fff8f0 !important; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section .el-table tbody tr:hover td.el-table__cell { background: #fff8f0 !important; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-footer { margin-top: 12px; }
+  .app-layout.is-visualize .stats-data-section .team-cell-clickable { gap: 4px; margin-inline: 0; padding-inline: 0; }
+  .app-layout.is-visualize .stats-data-section .player-name { white-space: nowrap; font-size: 12px; }
+
+  .app-layout.is-visualize .hero-overview-chart .hero-filters { flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; margin: 0; padding: 10px 14px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .hero-overview-chart .hero-filters .content-choice-group { width: auto; }
+  .app-layout.is-visualize .hero-overview-chart .hero-scroll-area { padding-top: 16px; scrollbar-width: thin; }
+  .app-layout.is-visualize .hero-overview-chart .hero-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
+  .app-layout.is-visualize .hero-overview-chart .hero-item { min-width: 0; overflow: hidden; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .hero-overview-chart .hero-row { min-height: 76px; padding: 12px 16px; }
+  .app-layout.is-visualize .hero-overview-chart .hero-detail { overflow-x: auto; padding: 0 16px 16px; }
+  .app-layout.is-visualize .hero-overview-chart .player-ranks { min-width: 380px; }
+  .app-layout.is-visualize .map-stats-overview .mode-filter { margin: 0 0 16px; padding: 8px; gap: 6px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .map-stats-overview .mode-chip { min-height: 36px; padding-inline: 12px; }
+  .app-layout.is-visualize .map-stats-overview .map-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .app-layout.is-visualize .map-stats-overview .map-group { min-width: 0; padding: 16px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .radar-section { max-width: none; margin: 0; padding: 24px; border: 1px solid var(--vis-web-rule); border-radius: 10px; background: #fff; }
+  .app-layout.is-visualize .radar-section :is(.panel-header, .header-controls, .player-selectors) { flex-wrap: wrap; }
+
+  /* Detail pages share the same centered canvas as the event page. */
+  .app-layout.is-visualize :is(.team-detail-page, .player-detail-page, .match-detail-page, .upcoming-detail-page) .detail-container {
+    width: min(calc(100% - var(--vis-web-gutter) * 2), calc(var(--vis-web-width) - var(--vis-web-gutter) * 2));
+    min-width: 0;
+    margin: 24px auto 40px;
+    padding-bottom: 0;
+  }
+
+  .app-layout.is-visualize .detail-topbar {
+    box-sizing: border-box;
+    min-height: 60px;
+    border: 1px solid var(--vis-border);
+    border-bottom: 0;
+    border-radius: 10px 12px 0 0;
+    padding-inline: 24px;
+  }
+
+  .app-layout.is-visualize .detail-topbar__back {
+    width: 44px;
+    height: 44px;
+  }
+
+  .app-layout.is-visualize :is(.team-hero, .match-hero, .upcoming-detail-page .match-banner, .player-hero) {
+    border: 1px solid var(--vis-border);
+    border-top: 0;
+  }
+
+  .app-layout.is-visualize :is(.team-detail-page, .match-detail-page, .upcoming-detail-page) .tabs-container {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--vis-border);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    background: var(--vis-bg-card);
+  }
+
+  .app-layout.is-visualize :is(.team-detail-page, .upcoming-detail-page) .detail-section-tabs {
+    padding-inline: 24px;
+  }
+
+  .app-layout.is-visualize :is(.team-detail-page, .match-detail-page, .upcoming-detail-page) .seamless-content {
+    padding: 24px;
+  }
+
+  .app-layout.is-visualize .match-detail-page .content-mode-switch {
+    width: 100%;
+    margin: 0 0 24px;
+    border-bottom: 1px solid var(--vis-border);
+  }
+
+  .app-layout.is-visualize .match-detail-page .custom-tabs-nav {
+    gap: 12px;
+    padding-inline: 24px;
+  }
+
+  .app-layout.is-visualize .match-detail-page .tab-nav-item {
+    min-height: 54px;
+    padding-inline: 18px;
+  }
+
+  .app-layout.is-visualize .match-detail-page .stat-player-row {
+    min-height: 64px;
+    padding: 12px 8px;
+  }
+
+  /* Larger lanes and labels make a full match timeline readable on a monitor;
+     event coordinates, round selection and zoom calculations are unchanged. */
+  .app-layout.is-visualize .map-timeline {
+    --lane-label-width: 144px;
+    --lane-height: 30px;
+    margin-top: 24px;
+  }
+
+  .app-layout.is-visualize .map-timeline :is(.lane-label, .lane-label--player span) {
+    font-size: 11px;
+  }
+
+  .app-layout.is-visualize .map-timeline :is(.tick-lane span, .map-timeline__rounds span) {
+    font-size: 10px;
+  }
+
+  .app-layout.is-visualize .map-timeline .map-timeline__filters button {
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+
+  .app-layout.is-visualize .map-timeline .map-timeline__selection {
+    min-height: 44px;
+  }
+
+  .app-layout.is-visualize .map-timeline .map-timeline__selection :is(time, b, span) {
+    font-size: 11px;
+  }
+
+  .app-layout.is-visualize .map-timeline .map-timeline__zoom {
+    font-size: 11px;
+  }
+
+  .app-layout.is-visualize .map-timeline .map-timeline__zoom output {
+    font-size: 11px;
+  }
+
+  .app-layout.is-visualize .team-detail-page .minimal-roster {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .app-layout.is-visualize .team-detail-page .roster-flat:only-child {
+    grid-column: 1 / -1;
+    width: min(840px, 100%);
+    justify-self: center;
+  }
+
+  .app-layout.is-visualize .team-detail-page .m-time-row {
+    padding-block: 16px;
+  }
+
+  .app-layout.is-visualize .team-detail-page .m-time-track {
+    width: clamp(72px, 10vw, 160px);
+    flex-basis: clamp(72px, 10vw, 160px);
+  }
+
+  .app-layout.is-visualize .team-detail-page .h2h-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .app-layout.is-visualize .player-detail-page .player-detail-tabs {
+    margin-top: 0;
+    padding-inline: 24px;
+    border-inline: 1px solid var(--vis-border);
+    background: var(--vis-bg-card);
+  }
+
+  .app-layout.is-visualize .player-detail-page .player-tab-panel {
+    padding: 24px;
+    border: 1px solid var(--vis-border);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    background: var(--vis-bg-card);
+  }
+
+  .app-layout.is-visualize .player-detail-page .content-grid {
+    margin-top: 0;
+    gap: 32px;
+  }
+
+  .app-layout.is-visualize .player-detail-page .trajectory-section {
+    padding-left: 32px;
+    border-left: 1px solid var(--vis-border);
+  }
+
+  .app-layout.is-visualize .upcoming-detail-page .seamless-content:has(.team-radar-wrapper, .team-extra-stats) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  .app-layout.is-visualize .upcoming-detail-page .team-extra-stats {
+    margin-top: 0;
+    padding: 0 0 0 24px;
+    border-bottom: 0;
+    border-left: 1px solid var(--vis-border);
+  }
+
+  .app-layout.is-visualize .upcoming-detail-page .team-analysis-block {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--vis-border);
+  }
+}
+
+/* Keep tablet controls touchable and avoid narrow chart/table columns. */
+@media (min-width: 769px) and (max-width: 1099px) and (orientation: landscape) {
+  .app-layout.is-visualize .stats-data-section .header-controls :is(.el-select__wrapper, .el-radio-button__inner) {
+    min-height: 44px;
+  }
+
+  .app-layout.is-visualize .stats-data-section .header-controls .el-radio-button__inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-layout.is-visualize .visualize-container .banner-logo {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
+  }
+
+  .app-layout.is-visualize .visualize-container .vis-body > .banner-fullbleed {
+    padding-block: 20px;
+  }
+
+  .app-layout.is-visualize .hero-overview-chart .hero-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-layout.is-visualize .team-detail-page :is(.minimal-roster, .h2h-list) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .app-layout.is-visualize .match-detail-page :is(.analysis-grid, .map-analysis-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-layout.is-visualize .player-detail-page .content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-layout.is-visualize .player-detail-page .trajectory-section {
+    padding: 24px 0 0;
+    border-top: 1px solid var(--vis-border);
+    border-left: 0;
+  }
+
+  .app-layout.is-visualize .upcoming-detail-page .seamless-content:has(.team-radar-wrapper, .team-extra-stats) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-layout.is-visualize .upcoming-detail-page .team-extra-stats {
+    padding: 20px 0 0;
+    border-top: 1px solid var(--vis-border);
+    border-left: 0;
+  }
+}
+
+@media (min-width: 1100px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize .schedule-shell .day-matches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-layout.is-visualize .match-detail-page .overall-stats-container {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+
+  .app-layout.is-visualize .match-detail-page .match-analysis-section .analysis-grid {
+    grid-template-columns: minmax(260px, 0.65fr) minmax(0, 1.35fr);
+    gap: 32px;
+    align-items: center;
+  }
+
+  .app-layout.is-visualize .match-detail-page .map-flow-strip {
+    grid-column: auto;
+    flex-direction: column;
+    justify-content: center;
+    margin-top: 0;
+    border-bottom: 0;
+  }
+
+  .app-layout.is-visualize .match-detail-page .map-flow-node {
+    display: grid;
+    grid-template-columns: 24px 24px minmax(0, 1fr) 24px auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 76px;
+    padding: 12px 16px;
+    border-bottom-width: 1px;
+  }
+
+  .app-layout.is-visualize .match-detail-page :is(.map-flow-index, .map-flow-name) {
+    font-size: 13px;
+  }
+
+  .app-layout.is-visualize .match-detail-page .map-flow-name {
+    grid-column: 3;
+  }
+
+  .app-layout.is-visualize .match-detail-page :is(.map-flow-winner-logo, .map-flow-winner-placeholder) {
+    grid-column: 4;
+  }
+
+  .app-layout.is-visualize .match-detail-page .map-flow-score {
+    grid-column: 5;
+  }
+
+  .app-layout.is-visualize .match-detail-page .radar-analysis-card {
+    grid-column: auto;
+    border-left: 1px solid var(--vis-border);
+    padding-left: 24px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .app-layout.is-visualize .map-stats-overview .map-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Match the phone theme and shell on portrait tablets without changing the
+   existing phone breakpoints or the administration pages. */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
+  .app-layout.is-visualize {
+    --vis-border-radius: 12px;
+    --vis-card-padding: 16px;
+    --vis-gap: 16px;
+  }
+
+  :where(.app-layout.is-visualize) .header-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 8px;
+  }
+
+  :where(.app-layout.is-visualize) .vis-card {
+    border-radius: 12px;
+  }
+
+  :where(.app-layout.is-visualize) .vis-chip {
+    min-height: 26px;
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  :where(.app-layout.is-visualize) .vis-slant-bar {
+    height: 14px;
+  }
+
+  .app-layout.is-visualize .app-footer {
+    display: none;
+  }
+}
+
+/* A scatter plot only sits beside its table when both remain readable. */
+@media (min-width: 1320px) {
+  .app-layout.is-visualize .stats-data-section .card-content {
+    grid-template-columns: minmax(260px, 0.75fr) minmax(680px, 1.35fr);
+    grid-template-rows: 28px minmax(360px, auto); gap: 12px 24px; align-items: start;
+  }
+  .app-layout.is-visualize .stats-data-section .vis-web-chart-caption { grid-column: 1; grid-row: 1; margin: 0; padding: 0; border: 0; }
+  .app-layout.is-visualize .stats-data-section .chart-container { grid-column: 1; grid-row: 2; height: 360px; }
+  .app-layout.is-visualize .stats-data-section .leaderboard-section {
+    grid-column: 2; grid-row: 1 / 3; padding: 0 0 0 24px; border-top: 0; border-left: 1px solid var(--vis-web-rule);
+  }
+}
+
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize :is(.team-detail-page, .player-detail-page, .match-detail-page, .upcoming-detail-page) .detail-container { margin-block: 20px 36px; }
+  .app-layout.is-visualize .detail-topbar { min-height: 50px; font-size: 13px; }
+  .app-layout.is-visualize .team-detail-page .team-hero { min-height: 176px; padding: 28px 32px; }
+  .app-layout.is-visualize .match-detail-page .match-hero { padding: 24px 32px 20px; }
+  .app-layout.is-visualize .match-detail-page .match-hero .team-logo { width: 64px; height: 64px; }
+  .app-layout.is-visualize .match-detail-page .match-hero .team-name { font-size: 22px; }
+  .app-layout.is-visualize .match-detail-page .match-summary-strip { margin-top: 14px; gap: 12px; }
+  .app-layout.is-visualize .player-detail-page .player-hero { min-height: 236px; padding: 32px; }
+  .app-layout.is-visualize .player-detail-page .identity-block h1 { --player-name-max-size: clamp(44px, 5vw, 68px); }
+  .app-layout.is-visualize .upcoming-detail-page .match-banner { padding: 28px 32px; }
+  .app-layout.is-visualize .upcoming-detail-page .match-banner .team-logo { width: 64px; height: 64px; }
+  .app-layout.is-visualize .map-timeline { border: 1px solid var(--vis-web-rule); border-radius: 8px; }
+  .schedule-date-drawer.el-drawer { width: min(860px, calc(100% - 48px)); inset-inline: 0; margin-inline: auto; border-radius: 14px 14px 0 0; }
+}
+
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
+  .app-layout.is-visualize { --vis-web-nav-width: 148px; }
+  .app-layout.is-visualize .visualize-container .vis-body { column-gap: 20px; }
+  .app-layout.is-visualize .visualize-container .vis-body > .banner-fullbleed { padding: 16px 18px; margin-bottom: 20px; }
+  .app-layout.is-visualize .visualize-container .banner-content { gap: 16px; }
+  .app-layout.is-visualize .vis-web-event-metrics { gap: 20px; padding-left: 20px; }
+  .app-layout.is-visualize .vis-web-event-metrics strong { font-size: 22px; }
+  .app-layout.is-visualize .visualize-container .vis-tab-item { padding-inline: 12px; }
+  .app-layout.is-visualize .vis-web-page-heading h2 { font-size: 21px; }
+  .app-layout.is-visualize .stats-data-section .header-controls :is(.el-select__wrapper, .el-radio-button__inner) { min-height: 44px; }
+  .app-layout.is-visualize .stats-data-section .chart-container { height: 230px; }
+  .app-layout.is-visualize .visualize-container .tournament-stage-tabs-host .detail-section-tabs__item { padding-inline: 8px; }
+  .app-layout.is-visualize .tournament-board .bracket-canvas { zoom: 1.1; }
+}
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize .role-btn-content .vis-web-only { display: inline; margin-left: 5px; font-size: 12px; }
+  .app-layout.is-visualize .hero-overview-chart .hero-item:has(.hero-detail) { grid-column: 1 / -1; }
+  .app-layout.is-visualize .radar-section {
+    display: grid; grid-template-columns: 248px minmax(0, 1fr); align-items: start; gap: 24px;
+    height: auto; padding: 24px; min-height: 420px;
+  }
+  .app-layout.is-visualize .radar-section .panel-header {
+    flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 24px;
+    margin: 0; padding: 4px 24px 0 0; border-bottom: 0; border-right: 1px solid var(--vis-web-rule);
+  }
+  .app-layout.is-visualize .radar-section .header-controls { flex-direction: column; width: 100%; align-items: stretch; gap: 16px; }
+  .app-layout.is-visualize .radar-section :is(.role-radio-group, .player-selectors, .player-select) { width: 100%; }
+  .app-layout.is-visualize .radar-section .role-radio-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-layout.is-visualize .radar-section .role-radio-group .el-radio-button { min-width: 0; }
+  .app-layout.is-visualize .radar-section .role-radio-group .el-radio-button__inner { width: 100%; min-height: 38px; padding-inline: 8px !important; }
+  .app-layout.is-visualize .radar-section .player-selectors { flex-direction: column; gap: 12px; }
+  .app-layout.is-visualize .radar-section .radar-body { min-height: 372px; padding: 0 12px; }
+  .app-layout.is-visualize .radar-section .chart-container { height: 372px; }
+}
+
+@media (min-width: 769px) and (orientation: landscape) and (pointer: coarse), (min-width: 1200px) and (pointer: coarse) {
+  .app-layout.is-visualize .header-controls :is(.el-select__wrapper, .el-radio-button__inner) { min-height: 44px; }
+  .app-layout.is-visualize .content-choice-group__option { min-height: 44px; }
+}
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize .schedule-shell .schedule-match { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .app-layout.is-visualize .schedule-shell .match-main { grid-column: 1; grid-row: 1; }
+  .app-layout.is-visualize .schedule-shell .replay-toggle { grid-column: 2; grid-row: 1; align-self: center; margin: 0 12px; padding: 8px 12px; }
+  .app-layout.is-visualize .schedule-shell :is(.replay-list, .schedule-match > .match-support) { grid-column: 1 / -1; }
+  .app-layout.is-visualize .schedule-shell .team-side--left .team-name { order: 0; }
+  .app-layout.is-visualize .schedule-shell .team-side--left .team-logo-box { order: 1; }
+  .app-layout.is-visualize .schedule-shell .team-side--right .team-name { order: 1; }
+  .app-layout.is-visualize .schedule-shell .team-side--right .team-logo-box { order: 0; }
+}
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
+  .app-layout.is-visualize .visualize-container :is(.stats-category-host, .tournament-stage-tabs-host:not(:empty)) {
+    min-height: 0; max-height: calc(100% - 16px); overflow-y: auto; scrollbar-width: thin;
+  }
+  .app-layout.is-visualize .visualize-container .badge-owcs { background: #fff0dc; color: #984700; }
+  .app-layout.is-visualize .stats-data-section :is(.rank-1, .rank-2, .rank-3, .stat-highlight) { color: #c65100 !important; }
+}

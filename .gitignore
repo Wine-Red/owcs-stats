@@ -9,6 +9,15 @@ node_modules
 /.tmp-pw/
 /.tmp-srv.log
 
+# Generated browser checks and temporary build artifacts
+/output/
+/.tmp/
+/test-results/
+/playwright-report/
+/coverage/
+**/__pycache__/
+*.log
+
 
 # local env files
 .env.local

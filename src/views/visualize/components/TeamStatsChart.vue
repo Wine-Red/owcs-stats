@@ -1,5 +1,5 @@
 <template>
-  <div v-analytics-view="{ feature: '战队排行榜', seasonId, resultCount: teamLeaderboardData.length }" class="vis-card">
+  <div v-analytics-view="{ feature: '战队排行榜', seasonId, resultCount: teamLeaderboardData.length }" class="vis-card team-stats-card">
     <div class="panel-header">
       <div class="header-controls">
         <div class="select-wrapper">
@@ -33,6 +33,7 @@
       </div>
     </div>
     <div class="card-content">
+      <div class="vis-web-chart-caption vis-web-only"><h3>表现分布</h3><span>伤害/10min × K/D</span></div>
       <div ref="teamComparisonChart" class="chart-container"></div>
       
       <div class="leaderboard-section">
@@ -56,7 +57,7 @@
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="teamName" label="队伍" width="96" fixed>
+          <el-table-column prop="teamName" label="队伍" :width="isWideLayout ? undefined : 96" :min-width="isWideLayout ? 140 : undefined" fixed>
             <template #default="scope">
               <div class="team-cell team-cell-clickable" @click="goToTeamDetail(scope.row)" role="button" tabindex="0">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
@@ -65,25 +66,25 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="kd" label="K/D" width="100" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+          <el-table-column prop="kd" label="K/D" :width="isWideLayout ? undefined : 100" :min-width="isWideLayout ? 100 : undefined" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
             <template #default="scope">
               <span :class="{ 'stat-highlight': sortState.prop === 'kd' }">{{ scope.row.kd }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="damagePer10" label="伤害/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+          <el-table-column prop="damagePer10" label="伤害/10min" :width="isWideLayout ? undefined : 120" :min-width="isWideLayout ? 120 : undefined" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
             <template #default="scope">
               <span :class="{ 'stat-highlight': sortState.prop === 'damagePer10' }">{{ scope.row.damagePer10 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="healingPer10" label="治疗/10min" width="120" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+          <el-table-column prop="healingPer10" label="治疗/10min" :width="isWideLayout ? undefined : 120" :min-width="isWideLayout ? 120 : undefined" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
             <template #default="scope">
               <span :class="{ 'stat-highlight': sortState.prop === 'healingPer10' }">{{ scope.row.healingPer10 }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="duration" label="总时长(分)" width="100" align="center" />
+          <el-table-column prop="duration" label="总时长(分)" :width="isWideLayout ? undefined : 100" :min-width="isWideLayout ? 100 : undefined" align="center" />
         </el-table>
 
-        <div class="leaderboard-footer" v-if="teamLeaderboardData.length > 3">
+        <div class="leaderboard-footer" v-if="teamLeaderboardData.length > (isWideLayout ? 10 : 3)">
           <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
             {{ isExpanded ? '收起全部' : '查看全部' }}
             <el-icon class="el-icon--right">
@@ -109,6 +110,7 @@ import apiService from '@/services/api';
 import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { useWideVisualizeLayout } from '@/composables/useVisualizeLayout';
 import { trackPublicEvent } from '@/utils/analytics';
 import { escapeHtml } from '@/utils/security';
 
@@ -127,6 +129,7 @@ export default {
     }
   },
   setup(props) {
+    const isWideLayout = useWideVisualizeLayout();
     const track = useFeatureAnalytics('战队排行榜', () => ({ seasonId: props.seasonId }));
     const store = useStore();
     const route = useRoute();
@@ -228,7 +231,7 @@ export default {
         if (isExpanded.value) {
             return teamLeaderboardData.value;
         }
-        return teamLeaderboardData.value.slice(0, 3);
+        return teamLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 3);
     });
 
     const getRankClass = (index) => {
@@ -685,6 +688,7 @@ export default {
       teamLeaderboardData,
       displayedTeamLeaderboard,
       isExpanded,
+      isWideLayout,
       getRankClass,
       tableRowClassName,
       handleSortChange,
@@ -931,7 +935,7 @@ export default {
 .export-text {
   font-weight: 500;
 }
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .export-text {
     display: none; /* Hide text on mobile if needed, or keep it */
   }
@@ -953,7 +957,7 @@ export default {
   white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .header-controls {
     width: 100%;
     flex-direction: column;
@@ -1185,7 +1189,7 @@ export default {
 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .vis-card {
     padding: 0;
   }

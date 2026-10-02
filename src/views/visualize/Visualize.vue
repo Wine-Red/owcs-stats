@@ -127,6 +127,8 @@
             :tags="seasonVisualConfig.tags" 
             :dateRange="seasonVisualConfig.dateRange"
             :status="currentSeasonStatus"
+            :match-count="seasonMatches.length"
+            :map-game-count="seasonMapGames.length"
           />
 
           <!-- 标签页导航 -->
@@ -193,6 +195,12 @@
                 }
               ]"
             >
+              <header class="vis-web-page-heading vis-web-only">
+                <div>
+                  <h2>{{ webPageHeading.title }}</h2>
+                  <p>{{ webPageHeading.description }}</p>
+                </div>
+              </header>
               <template v-if="currentTab === 'overview'">
                 <div class="overview-section">
                   <TournamentBoard :season-id="filterForm.seasonId" @show-matches="switchHomeTab('recent')" />
@@ -293,6 +301,17 @@ export default {
     
     const currentTab = ref('overview');
     const activeStatsCategory = ref('team');
+    const webPageHeading = computed(() => {
+      if (currentTab.value === 'overview') return { title: '赛事进程', description: '查看各阶段积分排名与晋级对阵' };
+      if (currentTab.value === 'recent') return { title: '比赛列表', description: '按比赛日查看对阵、比分与录像' };
+      return {
+        team: { title: '战队数据', description: '对照战队表现分布与每10分钟数据' },
+        player: { title: '选手数据', description: '按职责查看选手表现与统计排名' },
+        map: { title: '地图数据', description: '查看地图选用、模式分布与各队胜率' },
+        hero: { title: '英雄数据', description: '查看英雄选禁分布与选手使用数据' },
+        radar: { title: '选手对比', description: '选择同职责选手，对照每10分钟表现' }
+      }[activeStatsCategory.value] || { title: '赛事数据', description: '' };
+    });
     const mobileSeasonPickerOpen = ref(false);
     const tabContentRef = ref(null);
 
@@ -725,6 +744,7 @@ export default {
       switchHomeTab,
       tabContentRef,
       activeStatsCategory,
+      webPageHeading,
       statsCategoryTabs,
       switchStatsCategory,
       filterForm,
@@ -1101,7 +1121,7 @@ export default {
 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .vis-container {
     height: 100%;
     min-height: 0;
@@ -1453,7 +1473,7 @@ export default {
 </style>
 
 <style>
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .mobile-season-drawer.el-drawer {
     overflow: hidden;
     border-radius: 16px 16px 0 0;
@@ -1690,7 +1710,7 @@ export default {
 }
 
 /* 针对长列表（队伍、选手）在桌面端的网格布局 */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
   .vis-dropdown-tabs {
     min-width: 320px !important;
   }
@@ -1708,7 +1728,7 @@ export default {
 }
 
 /* 移动端行为：长列表分两栏，下拉框占满屏幕宽度 */
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .vis-dropdown-tabs, .vis-dropdown, .vis-dropdown-long {
     width: 90vw !important;
     min-width: unset !important;

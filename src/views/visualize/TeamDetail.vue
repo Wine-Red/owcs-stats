@@ -1394,7 +1394,7 @@ export default {
   font-size: 14px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .detail-container,
   .tabs-container,
   .tab-content-area,

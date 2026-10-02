@@ -756,13 +756,13 @@ export default {
 }
 
 /* 桌面端仅放大表头字号，数据列保持紧凑，避免挤压选手名 */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (orientation: landscape), (min-width: 1200px) {
   .player-metric-tab {
     font-size: 11px;
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .hero-filters {
     margin: 0 -10px;
   }

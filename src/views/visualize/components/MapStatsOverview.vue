@@ -149,11 +149,12 @@
 
 <script>
 import { useFeatureAnalytics } from '@/composables/useAnalytics';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import { ArrowDown } from '@element-plus/icons-vue';
 import { getMapImageUrl, getMapModeIconUrl } from '@/utils/mapImages';
+import { COMPACT_VISUALIZE_MEDIA_QUERY, isCompactVisualizeLayout } from '@/utils/visualizeLayout';
 import { getHeroIconUrl } from '@/utils/heroIcons';
 
 const TYPE_ORDER = [
@@ -195,7 +196,6 @@ export default {
     const expandedMapIds = ref(new Set());
     // 模式筛选：'' = 全部（桌面 chips 用）；移动端竖栏默认选中第一个模式
     const activeMode = ref('');
-    const isMobileLayout = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
     // 「各队胜率」行 → 战队详情页（同赛季）
     const goToTeamDetail = (stat) => {
@@ -373,11 +373,18 @@ export default {
     });
 
     // 移动端竖栏默认选中第一个模式（groups 异步填充，需 watch）
-    watch(groups, (gs) => {
-      if (gs.length && isMobileLayout() && !activeMode.value) {
-        activeMode.value = gs[0].type;
+    const ensureCompactMode = () => {
+      if (groups.value.length && isCompactVisualizeLayout() && !activeMode.value) {
+        activeMode.value = groups.value[0].type;
       }
-    }, { immediate: true });
+    };
+    watch(groups, ensureCompactMode, { immediate: true });
+    let compactMedia;
+    onMounted(() => {
+      compactMedia = window.matchMedia(COMPACT_VISUALIZE_MEDIA_QUERY);
+      compactMedia.addEventListener('change', ensureCompactMode);
+    });
+    onUnmounted(() => compactMedia?.removeEventListener('change', ensureCompactMode));
 
     const visibleGroups = computed(() => {
       if (!activeMode.value) return groups.value;
@@ -822,7 +829,7 @@ export default {
   font-weight: 600;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   /* 贴边零空隙：左灰栏 + 右白带直达屏幕边缘 */
   .map-stats-overview {
     margin: 0 -10px;

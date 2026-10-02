@@ -663,7 +663,7 @@ onBeforeUnmount(() => {
   .lane-marker { transition: none; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .map-timeline { --lane-label-width: 84px; --lane-height: 18px; margin-top: 18px; padding: 0 8px 8px; }
   .map-timeline__topline { min-height: 40px; }
   .map-timeline__topline h3 { font-size: 14px; }

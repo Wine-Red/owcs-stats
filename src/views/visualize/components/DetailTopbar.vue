@@ -98,7 +98,7 @@ export default {
   min-width: 38px;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 680px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .detail-topbar {
     position: sticky;
     top: 0;

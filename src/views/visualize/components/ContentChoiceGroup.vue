@@ -143,7 +143,7 @@ export default {
   outline-offset: -2px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .content-choice-group {
     align-items: stretch;
     justify-content: stretch;

@@ -3196,7 +3196,7 @@ export default {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .match-banner {
     gap: 8px;
     padding: 18px 12px 12px;

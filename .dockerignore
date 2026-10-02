@@ -12,3 +12,18 @@ services/assistant/node_modules
 **/.env.*
 .tmp-*
 *.log
+
+# Local screenshots, reports, and temporary validation outputs
+output
+.tmp
+.tmp-pw
+.codex-remote-attachments
+test-results
+playwright-report
+coverage
+
+# CI runs these before building the production images
+backend/tests
+backend/shared/*.test.mjs
+services/assistant/tests
+scripts/tests

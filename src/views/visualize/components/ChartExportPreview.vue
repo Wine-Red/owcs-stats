@@ -96,7 +96,7 @@ export default {
   color: var(--vis-accent, #ff6a00);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .export-preview-container {
     padding: 8px;
   }

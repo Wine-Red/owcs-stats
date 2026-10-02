@@ -27,6 +27,10 @@
           </div>
         </div>
       </div>
+      <div class="vis-web-event-metrics vis-web-only" aria-label="赛事收录情况">
+        <div><strong>{{ matchCount }}</strong><span>已收录比赛</span></div>
+        <div><strong>{{ mapGameCount }}</strong><span>已收录地图局</span></div>
+      </div>
     </div>
   </div>
 </template>
@@ -44,6 +48,8 @@ export default {
     Calendar
   },
   props: {
+    matchCount: { type: Number, default: 0 },
+    mapGameCount: { type: Number, default: 0 },
     seasonId: {
       type: [Number, String],
       required: true
@@ -272,7 +278,7 @@ export default {
   color: var(--vis-text-tertiary, #909399);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .tournament-banner {
     padding: 18px 16px 16px;
     margin-bottom: 0;

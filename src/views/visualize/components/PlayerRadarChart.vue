@@ -5,17 +5,17 @@
           <el-radio-group v-model="playerRole" size="small" @change="handleRoleChange" class="role-radio-group">
             <el-radio-button label="tank">
               <div class="role-btn-content">
-                <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" />
+                <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" /><span class="vis-web-only">重装</span>
               </div>
             </el-radio-button>
             <el-radio-button label="damage">
               <div class="role-btn-content">
-                <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" />
+                <img :src="packageAssetUrl('icons/role/DPS.png')" class="role-icon" alt="damage" /><span class="vis-web-only">输出</span>
               </div>
             </el-radio-button>
             <el-radio-button label="support">
               <div class="role-btn-content">
-                <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" />
+                <img :src="packageAssetUrl('icons/role/Support.png')" class="role-icon" alt="support" /><span class="vis-web-only">支援</span>
               </div>
             </el-radio-button>
           </el-radio-group>
@@ -103,6 +103,7 @@ import apiService from '@/services/api';
 import { Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
+import { COMPACT_VISUALIZE_MEDIA_QUERY, isCompactVisualizeLayout } from '@/utils/visualizeLayout';
 
 export default {
   name: 'PlayerRadarChart',
@@ -125,6 +126,7 @@ export default {
     const player2Id = ref('');
     const allPlayerStats = ref([]);
     let myChart = null;
+    let compactMedia;
 
     const { showPreview, previewImage, handleExportChart } = useChartExport();
     const handleExportCommand = (command) => {
@@ -342,7 +344,7 @@ export default {
             return String(Number(num.toFixed(2)));
         };
 
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = isCompactVisualizeLayout();
         const isSmallMobile = window.innerWidth <= 420;
 
         const option = {
@@ -477,10 +479,13 @@ export default {
         myChart = echarts.init(radarChart.value);
         loadData();
         window.addEventListener('resize', handleResize);
+        compactMedia = window.matchMedia(COMPACT_VISUALIZE_MEDIA_QUERY);
+        compactMedia.addEventListener('change', updateChart);
     });
 
     onUnmounted(() => {
         window.removeEventListener('resize', handleResize);
+        compactMedia?.removeEventListener('change', updateChart);
         myChart?.dispose();
     });
 
@@ -694,7 +699,7 @@ export default {
   object-fit: contain;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .radar-section :deep(.slanted-title) {
     padding-bottom: 12px;
   }
