@@ -188,6 +188,40 @@ test('identity merge against isolated MySQL tables: migration, rollback, replay 
     const game = await m.map_games.findOne({ where: { matchId: match.id } });
     assert.equal((await m.player_stats.findOne({ where: { mapGameId: game.id } })).playerId, player.id);
   });
+  await t.test('sync adds PF membership for a legacy support homonym and preserves the old roster on replay', async () => {
+    const oldSeason = await Season.create({ name: 'Legacy SOAE Season' });
+    const oldTeam = await makeTeam('SBAD Fixture'), newTeam = await makeTeam('PF Fixture');
+    const support = await m.players.create({ name: 'SOAE', role: 'support', identityOrigin: 'legacy' });
+    const damage = await m.players.create({ name: 'SOAE', role: 'damage', identityOrigin: 'legacy' });
+    const oldMembership = await m.season_teams.create({ seasonId: oldSeason.id, teamId: oldTeam.id });
+    const oldRoster = await m.season_team_players.create({ seasonTeamId: oldMembership.id, playerId: support.id });
+    await m.season_team_players.create({ seasonTeamId: oldMembership.id, playerId: damage.id });
+    const oldEvidence = await m.season_team_player_sources.create({ seasonTeamPlayerId: oldRoster.id, sourceType: 'manual', sourceKey: 'old-roster' });
+    const source = { id: 'soae-role-regression', updatedAt: '2026-10-02T10:54:21Z', eventName: season.name,
+      teamA: { name: opponent.name }, teamB: { name: newTeam.name }, scoreA: 1, scoreB: 0, matchDate: '2026-10-02',
+      rounds: [{ mapName: map.name, winner: 'A', playersA: [], playersB: [{ name: 'SOAE', playerId: 'SOAE', role: 'S', kad: '6/8/9' }] }] };
+    const replay = createIncrementalMatchSyncService({ client: { fetchMatch: async () => source } });
+    const playerCount = await m.players.count();
+    await replay.syncMatch(source.id);
+    await replay.syncMatch(source.id);
+    assert.equal(await m.players.count(), playerCount);
+    assert.equal((await support.reload()).externalId, 'SOAE');
+    assert.equal((await damage.reload()).externalId, null);
+    assert.ok(await m.season_team_players.findByPk(oldRoster.id));
+    assert.equal((await oldEvidence.reload()).active, true);
+    assert.equal(await m.season_team_players.count({ where: { seasonTeamId: oldMembership.id } }), 2);
+    const pf = await m.season_teams.findOne({ where: { seasonId: season.id, teamId: newTeam.id } });
+    const roster = await m.season_team_players.findOne({ where: { seasonTeamId: pf.id, playerId: support.id } });
+    assert.ok(roster);
+    assert.equal(await m.season_team_players.count({ where: { seasonTeamId: pf.id } }), 1);
+    assert.equal(await m.season_team_player_sources.count({ where: { seasonTeamPlayerId: roster.id, sourceType: 'match', sourceKey: source.id } }), 1);
+    assert.equal((await identity.PlayerExternalIdentity.findOne({ where: { normalizedExternalId: 'soae' } })).playerId, support.id);
+    const match = await m.matches.findOne({ where: { externalId: source.id } });
+    const game = await m.map_games.findOne({ where: { matchId: match.id } });
+    assert.equal((await m.player_stats.findOne({ where: { mapGameId: game.id } })).playerId, support.id);
+    assert.equal(await m.player_stats.count({ where: { mapGameId: game.id } }), 1);
+    assert.equal((await require('../models/ExternalMatchInbox').findByPk(source.id)).status, 'applied');
+  });
   await t.test('concurrent confirmations serialize, retry idempotently, and flatten chained redirects', async () => {
     const final = await makeTeam('Final Team');
     const preview = await service.previewMerge('team', target.id, final.id);

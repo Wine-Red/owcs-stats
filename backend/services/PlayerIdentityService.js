@@ -85,17 +85,22 @@ const resolveSourcePlayer = (source, role, caches) => {
     if (legacy.length === 1) return legacy[0];
   }
   const aliasIds = new Set((caches.playerAliases || []).filter(a => a.normalizedAlias === nameKey(source.name)).map(a => Number(a.playerId)));
-  const matches = caches.players.filter(p => nameKey(p.name) === nameKey(source.name) || aliasIds.has(Number(p.id)));
+  const named = caches.players.filter(p => nameKey(p.name) === nameKey(source.name) || aliasIds.has(Number(p.id)));
+  // Legacy records can share a name across roles. Narrow that fallback before
+  // deciding it is ambiguous; an existing external ID above still takes priority.
+  const matches = named.filter(p => p.role === role);
   if (matches.length > 1) throw fail(`选手“${source.name}”存在多个候选身份，需人工核对`);
+  if (!matches.length && named.some(p => aliasIds.has(Number(p.id)))) {
+    throw fail(`选手“${source.name}”命中别名，但位置不一致，需人工核对`);
+  }
   if (!externalId || !matches.length) return matches[0] || null;
   const candidate = matches[0];
   // A confirmed alias may safely attach a newly observed source ID. A plain
   // same-name match is still insufficient to claim an already bound identity.
   if (aliasIds.has(Number(candidate.id))) {
-    if (candidate.role !== role) throw fail(`选手“${source.name}”命中别名，但位置不一致，需人工核对`);
     return candidate;
   }
-  return !candidate.externalId && candidate.role === role ? candidate : null;
+  return !candidate.externalId ? candidate : null;
 };
 
 module.exports = { nameKey, externalKey, protectedAliases, resolveCanonicalId, getIdentityMaintenance, serializePlayersWithAliases,

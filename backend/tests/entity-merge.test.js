@@ -95,3 +95,28 @@ test('Liquipedia uses confirmed aliases but retains cross-team and role checks',
   assert.equal(result.teams[0].players[0].playerId, 5);
   assert.equal(result.teams[0].players[0].status, 'matched');
 });
+
+test('sync distinguishes unbound legacy homonyms by role before checking ambiguity', () => {
+  const support = { id: 212, name: 'SOAE', role: 'support', externalId: null };
+  const damage = { id: 215, name: 'SOAE', role: 'damage', externalId: null };
+  const caches = { players: [damage, support], playerAliases: [], playerExternalIdentities: [] };
+  const before = structuredClone(caches);
+  for (const source of [{ name: 'SOAE', playerId: 'SOAE' }, { name: 'soae' }]) {
+    assert.equal(resolveSourcePlayer(source, 'support', caches), support);
+    assert.equal(resolveSourcePlayer(source, 'damage', caches), damage);
+    assert.equal(resolveSourcePlayer(source, 'tank', caches), null);
+  }
+  assert.deepEqual(caches, before);
+  caches.players.push({ id: 216, name: 'SOAE', role: 'support', externalId: null });
+  assert.throws(() => resolveSourcePlayer({ name: 'SOAE', playerId: 'SOAE' }, 'support', caches), { statusCode: 409 });
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'SOAE' }, 'damage', caches), damage);
+});
+
+test('authoritative IDs still resolve across role changes while an unknown ID cannot claim a bound homonym', () => {
+  const support = { id: 1, name: 'SOAE', role: 'support', externalId: 'known-id' };
+  const caches = { players: [support, { id: 2, name: 'SOAE', role: 'damage', externalId: null }],
+    playerExternalIdentities: [{ playerId: 1, source: 'matchweb', normalizedExternalId: 'historic-id' }] };
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'HISTORIC-ID' }, 'damage', caches), support);
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'KNOWN-ID' }, 'damage', caches), support);
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'unseen-id' }, 'support', caches), null);
+});
