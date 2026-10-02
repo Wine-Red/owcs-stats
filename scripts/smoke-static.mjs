@@ -163,7 +163,7 @@ try {
             const metrics = await page.evaluate(() => {
               const rect = selector => {
                 const box = document.querySelector(selector)?.getBoundingClientRect();
-                return box ? { top: box.top, bottom: box.bottom } : null;
+                return box ? { left: box.left, right: box.right, top: box.top, bottom: box.bottom } : null;
               };
               const tabContent = document.querySelector('.tab-content');
               const scrollArea = document.querySelector('.hero-scroll-area');
@@ -192,11 +192,13 @@ try {
             });
 
             const filterGap = metrics.before.filters.top - metrics.before.category.bottom;
+            const separateColumns = metrics.before.category.right <= metrics.before.filters.left + 1
+              || metrics.before.filters.right <= metrics.before.category.left + 1;
             const fixed = Math.abs(metrics.after.category.top - metrics.before.category.top) < 1
               && Math.abs(metrics.after.filters.top - metrics.before.filters.top) < 1
               && metrics.after.tabScrollTop === 0;
             const contentMoved = metrics.after.firstHero.top < metrics.before.firstHero.top;
-            if (filterGap < -1 || !fixed || (metrics.scrollable && !contentMoved)) {
+            if ((!separateColumns && filterGap < -1) || !fixed || (metrics.scrollable && !contentMoved)) {
               throw new Error(`英雄细化 Tab 与内容滚动层级异常: ${JSON.stringify(metrics)}`);
             }
             if (mobile && (metrics.scrollbarWidth > 0 || metrics.firefoxScrollbarWidth !== 'none')) {
@@ -224,9 +226,18 @@ try {
       if (!tabsBox || !dateRailBox) {
         throw new Error('无法测量赛程 Tab 栏和日期栏的位置');
       }
-      const scheduleTopGap = Math.round(dateRailBox.y - (tabsBox.y + tabsBox.height));
-      if (scheduleTopGap > 1) {
-        throw new Error(`赛程日期栏与 Tab 栏之间仍有 ${scheduleTopGap}px 空白`);
+      if (tabsBox.x + tabsBox.width <= dateRailBox.x + 1) {
+        const headingBox = await page.locator('.vis-web-page-heading').boundingBox();
+        const contentBox = await page.locator('.tab-content').boundingBox();
+        const headingGap = headingBox && dateRailBox.y - (headingBox.y + headingBox.height);
+        if (!headingBox || !contentBox || headingGap < -1 || headingGap > 24 || Math.abs(dateRailBox.x - contentBox.x) > 1) {
+          throw new Error(`宽屏赛程日期栏未与正文标题对齐: ${JSON.stringify({ dateRailBox, headingBox, contentBox })}`);
+        }
+      } else {
+        const scheduleTopGap = Math.round(dateRailBox.y - (tabsBox.y + tabsBox.height));
+        if (scheduleTopGap > 1) {
+          throw new Error(`赛程日期栏与 Tab 栏之间仍有 ${scheduleTopGap}px 空白`);
+        }
       }
       const firstMatch = page.locator('.schedule-match').first();
       const leftTeamBox = await firstMatch.locator('.team-side--left').boundingBox();
