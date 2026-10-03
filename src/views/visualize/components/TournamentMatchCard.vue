@@ -3,7 +3,7 @@
     class="tournament-match" :class="{ linked: navigation.to }" :aria-label="description" :title="`${description} · ${navigation.date} ${navigation.time} ${match.bestOf || ''}`">
     <div v-for="(team, i) in match.opponents" :key="i" class="opponent" :class="{ winner: team.winner }">
       <img v-if="team.logo" :src="team.logo" alt="" class="team-logo" />
-      <span class="team-name" :title="team.name">{{ teamName(team) }}</span><strong>{{ team.score ?? '—' }}</strong>
+      <span class="team-name" :title="teamName(team)">{{ teamName(team) }}</span><strong>{{ team.score ?? '—' }}</strong>
     </div>
   </component>
 </template>
@@ -12,9 +12,12 @@
 import { computed } from 'vue';
 import { tournamentMatchNavigation } from '@/utils/tournamentMatchNavigation.mjs';
 const props = defineProps({ match: { type: Object, required: true }, seasonId: { type: [Number, String], required: true } });
-const teamName = team => team.localName || team.shortName || team.name;
+const teamName = team => {
+  const name = team.localName || team.shortName || team.name || '待定';
+  return /^(?:TBD\s*)+$/i.test(name.trim()) ? 'TBD' : name;
+};
 const navigation = computed(() => props.match.navigation || tournamentMatchNavigation(props.match, { seasonId: props.seasonId }));
-const description = computed(() => `${props.match.round || ''} ${props.match.opponents.map(t => `${t.localName || t.name} ${t.score ?? '待定'}`).join(' 对 ')}${navigation.value.preview ? '，查看前瞻' : navigation.value.to ? '，查看比赛详情' : ''}`);
+const description = computed(() => `${props.match.round || ''} ${props.match.opponents.map(t => `${teamName(t)} ${t.score ?? '待定'}`).join(' 对 ')}${navigation.value.preview ? '，查看前瞻' : navigation.value.to ? '，查看比赛详情' : ''}`);
 </script>
 
 <style scoped>

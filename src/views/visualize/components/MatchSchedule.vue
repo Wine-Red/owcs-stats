@@ -249,6 +249,7 @@ import {
   removeRecordedFromUpcoming
 } from '@/utils/matchScheduleReconciliation.mjs';
 import { groupMatchDaysByWeek } from '@/utils/matchScheduleWeeks.mjs';
+import { resolvePreviewTeam } from '@/utils/recentTeamForm.mjs';
 
 const CACHE_KEY = 'liquipedia_upcoming_matches';
 const CACHE_EXPIRY = 60 * 1000;
@@ -342,20 +343,8 @@ export default {
     const getTeamByName = name => {
       const normalizedName = String(name || '').trim();
       if (!normalizedName || normalizedName.toLowerCase() === 'tbd') return null;
-      const nameLower = normalizedName.toLowerCase();
       const teams = Array.isArray(store.state.teams) ? store.state.teams : [];
-      let matchedTeam = teams.find(team =>
-        String(team.name || '').toLowerCase() === nameLower ||
-        String(team.abbreviation || '').toLowerCase() === nameLower
-      );
-
-      if (!matchedTeam && nameLower.length > 3) {
-        matchedTeam = teams.find(team => {
-          const teamName = String(team.name || '').toLowerCase();
-          return teamName.includes(nameLower) || (teamName.length > 3 && nameLower.includes(teamName));
-        });
-      }
-      return matchedTeam || null;
+      return resolvePreviewTeam(teams, normalizedName);
     };
 
     const getTeamById = id => {

@@ -49,8 +49,7 @@
                   <label><span>最后一击</span><el-input-number v-model="heroStat.finalBlows" :min="0" :controls="false" /></label>
                   <label><span>被最后一击</span><el-input-number v-model="heroStat.deathsByFinalBlow" :min="0" :controls="false" /></label>
                   <label><span>终极技能就绪</span><el-input-number v-model="heroStat.ultReady" :min="0" :controls="false" /></label>
-                  <label><span>终极技能使用</span><el-input-number v-model="heroStat.ultUsed" :min="0" :controls="false" /></label>
-                  <label><span>平均充能秒数</span><el-input-number v-model="heroStat.avgUltChargeSeconds" :min="0" :precision="2" :controls="false" /></label>
+                  <label title="不包含上甲"><span>大招释放次数</span><el-input-number v-model="heroStat.ultUsed" :min="0" :controls="false" /></label>
                   <el-button type="danger" plain size="small" @click="removeHeroStat(scope.row, heroIndex)">删除</el-button>
                 </div>
               </div>

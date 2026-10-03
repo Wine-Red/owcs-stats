@@ -187,12 +187,13 @@ const getHeroOverview = async (seasonId, options = {}) => {
     const heroId = Number(row.heroId);
     if (!byHero.has(heroId)) byHero.set(heroId, { heroId, heroName: row.heroName,
       maps: new Set(), picks: new Set(), usageSeconds: 0, finalBlows: 0, deathsByFinalBlow: 0,
-      ultReady: 0, ultUsed: 0, chargeSum: 0, chargeCount: 0, winPicks: 0 });
+      ultReady: 0, ultUsed: 0, ultUsedSamples: 0, chargeSum: 0, chargeCount: 0, winPicks: 0 });
     const item = byHero.get(heroId);
     if (String(row.heroName || '') > String(item.heroName || '')) item.heroName = row.heroName;
     item.maps.add(Number(row.mapGameId));
     item.picks.add(Number(row.playerStatId));
     for (const key of ['usageSeconds', 'finalBlows', 'deathsByFinalBlow', 'ultReady', 'ultUsed']) item[key] += number(row[key]);
+    if (row.ultUsed != null) item.ultUsedSamples++;
     if (row.avgUltChargeSeconds != null) { item.chargeSum += number(row.avgUltChargeSeconds); item.chargeCount++; }
     if (row.winnerId != null && row.teamId != null && Number(row.winnerId) === Number(row.teamId)) item.winPicks++;
   }
@@ -212,6 +213,7 @@ const getHeroOverview = async (seasonId, options = {}) => {
       winRate: pickCount ? (item?.winPicks || 0) / pickCount : 0, usageSeconds, finalBlows,
       finalBlowsPer10: usageSeconds ? finalBlows / (usageSeconds / 60) * 10 : 0,
       deathsByFinalBlow: item?.deathsByFinalBlow || 0, ultReady: item?.ultReady || 0, ultUsed: item?.ultUsed || 0,
+      ultUsedPer10: item?.ultUsedSamples && usageSeconds > 0 ? item.ultUsed * 600 / usageSeconds : null,
       avgUltChargeSeconds: item?.chargeCount ? item.chargeSum / item.chargeCount : null };
   });
   return { data, totalMapGames };
@@ -231,6 +233,8 @@ const getHeroPlayers = async (seasonId, heroId, options = {}) => {
         usageSeconds: 0,
         finalBlows: 0,
         deathsByFinalBlow: 0,
+        ultUsed: 0,
+        ultUsedSamples: 0,
         ultWeightedSum: 0,
         ultWeight: 0,
         mapIds: new Set()
@@ -241,6 +245,10 @@ const getHeroPlayers = async (seasonId, heroId, options = {}) => {
     agg.usageSeconds += usage;
     agg.finalBlows += Number(r.finalBlows) || 0;
     agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
+    if (r.ultUsed != null) {
+      agg.ultUsed += number(r.ultUsed);
+      agg.ultUsedSamples++;
+    }
     if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
       agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
       agg.ultWeight += usage;
@@ -264,6 +272,8 @@ const getHeroPlayers = async (seasonId, heroId, options = {}) => {
       finalBlows: agg.finalBlows,
       finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
       fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
+      ultUsed: agg.ultUsedSamples ? agg.ultUsed : null,
+      ultUsedPer10: agg.ultUsedSamples && minutes > 0 ? agg.ultUsed / minutes * 10 : null,
       avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
     };
   }).sort((a, b) => (b.finalBlowsPer10 - a.finalBlowsPer10) || (b.usageSeconds - a.usageSeconds));
@@ -283,6 +293,8 @@ const getPlayerHeroes = async (seasonId, playerId, options = {}) => {
         usageSeconds: 0,
         finalBlows: 0,
         deathsByFinalBlow: 0,
+        ultUsed: 0,
+        ultUsedSamples: 0,
         ultWeightedSum: 0,
         ultWeight: 0,
         mapIds: new Set()
@@ -293,6 +305,10 @@ const getPlayerHeroes = async (seasonId, playerId, options = {}) => {
     agg.usageSeconds += usage;
     agg.finalBlows += Number(r.finalBlows) || 0;
     agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
+    if (r.ultUsed != null) {
+      agg.ultUsed += number(r.ultUsed);
+      agg.ultUsedSamples++;
+    }
     if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
       agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
       agg.ultWeight += usage;
@@ -309,6 +325,8 @@ const getPlayerHeroes = async (seasonId, playerId, options = {}) => {
       finalBlows: agg.finalBlows,
       finalBlowsPer10: minutes ? agg.finalBlows / minutes * 10 : 0,
       fbPerDeath: agg.deathsByFinalBlow > 0 ? agg.finalBlows / agg.deathsByFinalBlow : null,
+      ultUsed: agg.ultUsedSamples ? agg.ultUsed : null,
+      ultUsedPer10: agg.ultUsedSamples && minutes > 0 ? agg.ultUsed / minutes * 10 : null,
       avgUltChargeSeconds: agg.ultWeight > 0 ? agg.ultWeightedSum / agg.ultWeight : null
     };
   }).sort((a, b) => b.usageSeconds - a.usageSeconds);

@@ -1,5 +1,6 @@
 const { parseTournamentUrl } = require('./LiquipediaRosterParser');
 const { getTeamLiquipediaUrls } = require('./TeamLiquipediaLink');
+const { normalizeTeamName } = require('./LiquipediaTournamentParser');
 const normalize = value => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 const pageKey = value => { try { return normalize(parseTournamentUrl(value).page); } catch { return ''; } };
 const day = value => {
@@ -67,6 +68,9 @@ function bindTournament(snapshot, { teams = [], allTeams = teams, aliases = [], 
   };
   const teamPages = new Map(catalog.map(team => [Number(team.id), new Set(getTeamLiquipediaUrls(team).map(canonical).filter(Boolean))]));
   const resolve = source => {
+    // Also repair saved snapshots parsed before the repeated-placeholder fix.
+    source.name = normalizeTeamName(source.name);
+    if (source.shortName != null) source.shortName = normalizeTeamName(source.shortName);
     const sourcePage = canonical(source.url);
     let candidates = sourcePage ? catalog.filter(t => teamPages.get(Number(t.id)).has(sourcePage)) : [];
     // A page identifies the team independently of its displayed name. Duplicate

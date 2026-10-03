@@ -371,7 +371,7 @@
                                 <dl class="player-hero-metrics">
                                   <div><dt>最后一击</dt><dd>{{ hero.finalBlows }}</dd></div>
                                   <div><dt>死亡</dt><dd>{{ hero.deathsByFinalBlow }}</dd></div>
-                                  <div><dt>平均充能</dt><dd>{{ formatHeroCharge(hero.avgUltChargeSeconds) }}</dd></div>
+                                  <div title="不包含上甲"><dt>大招释放</dt><dd>{{ formatHeroUltUses(hero.ultUsed) }}</dd></div>
                                 </dl>
                               </article>
                             </div>
@@ -620,8 +620,7 @@ export default {
             usageSeconds: 0,
             finalBlows: 0,
             deathsByFinalBlow: 0,
-            ultWeightedSum: 0,
-            ultWeight: 0
+            ultUsed: null
           });
         }
         const agg = byHero.get(key);
@@ -629,20 +628,15 @@ export default {
         agg.usageSeconds += usage;
         agg.finalBlows += Number(r.finalBlows) || 0;
         agg.deathsByFinalBlow += Number(r.deathsByFinalBlow) || 0;
-        if (r.avgUltChargeSeconds !== null && r.avgUltChargeSeconds !== undefined && usage > 0) {
-          agg.ultWeightedSum += Number(r.avgUltChargeSeconds) * usage;
-          agg.ultWeight += usage;
+        if (r.ultUsed !== null && r.ultUsed !== undefined) {
+          agg.ultUsed = (agg.ultUsed ?? 0) + (Number(r.ultUsed) || 0);
         }
       });
     };
 
-    // 选手在该图的英雄数据终态：按英雄聚合出使用占比与（按时长加权的）平均大招充能
+    // 按英雄汇总使用占比与正常大招释放次数（不包含上甲）。
     const finalizePlayerHeroes = (player) => {
       const heroes = Array.from(player.heroAgg.values())
-        .map(h => ({
-          ...h,
-          avgUltChargeSeconds: h.ultWeight > 0 ? h.ultWeightedSum / h.ultWeight : null
-        }))
         .filter(h => h.usageSeconds > 0)
         .sort((a, b) => b.usageSeconds - a.usageSeconds);
       const totalUsage = heroes.reduce((sum, h) => sum + h.usageSeconds, 0);
@@ -830,10 +824,10 @@ export default {
         : [...expandedMapPlayerKeys.value, key];
     };
     const handleHeroIconError = (hero) => { hero.iconFailed = true; };
-    const formatHeroCharge = (value) => (
+    const formatHeroUltUses = (value) => (
       value === null || value === undefined || !Number.isFinite(Number(value))
         ? '—'
-        : `${Math.round(Number(value))}s`
+        : `${Math.trunc(Number(value))}次`
     );
 
     const loadMapTimeline = async (mapGame = currentMapGame.value) => {
@@ -1682,7 +1676,7 @@ export default {
       toggleMapPlayerHeroes,
       mapPlayerDrawerId,
       handleHeroIconError,
-      formatHeroCharge,
+      formatHeroUltUses,
       selectMapRole,
       currentMapPlayerRadarCards,
       isSelectedMapRadarPlayer,

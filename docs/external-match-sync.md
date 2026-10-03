@@ -18,7 +18,9 @@ HTTP 详情请求在事务外执行；单场失败回滚后，用独立事务记
 抓取失败仍可处理之前保存的工作。有待处理记录时暂停全局孤立选手清理。
 原有 `backend/scripts/resync-external-match.js <id>` 会通过队列执行定向重同步，不能越过较新版本。
 
-时间线英雄统计在同步时计算并入库。死亡数以独立 `death` 事件为准：先按同一选手、同一回合的共享证据关联 `kill`，未关联的旧格式记录再按实际时间差不超过 1.5 秒一对一匹配；仅未匹配的 `kill` 补记死亡。同一次死亡使用 `death` 的时间和英雄归属，不修改原始时间线。没有完整充能样本时，`avgUltChargeSeconds` 保留为 `null`，页面显示“—”；实际测得的零值仍保留为 `0`。
+时间线英雄统计在同步时计算并入库。死亡数以独立 `death` 事件为准：先按同一选手、同一回合的共享证据关联 `kill`，未关联的旧格式记录再按实际时间差不超过 1.5 秒一对一匹配；仅未匹配的 `kill` 补记死亡。同一次死亡使用 `death` 的时间和英雄归属，不修改原始时间线。旧字段 `avgUltChargeSeconds` 在没有完整充能样本时保留为 `null`，实际测得的零值仍保留为 `0`。
+
+英雄榜单和选手英雄数据展示“大招释放/10min”：`ultUsedPer10 = SUM(ultUsed) × 600 / SUM(usageSeconds)`，分母为该英雄实际使用时长，不使用整图时长，也不平均各地图的释放率。比赛详情展示累计 `ultUsed`（大招释放次数）。只统计可用于统计的正常 `ultimate_used`；上甲 `mech_call_used` / `abilityContext.kind = call_mech`、复制大招、候选、拒绝和 `statisticsEligible = false` 的事件不计入正常大招。缺失计数或零使用时长的释放率保留 `null`，实际零次释放显示 `0`。旧充能字段继续保留在数据中以兼容已有接口，页面不再展示平均充能时间。
 
 更新聚合代码不会自动重算已经应用的来源版本。部署后，在使用目标环境配置的 `backend` 目录执行 `node scripts/resync-external-match.js <Matchweb ID>`，经现有同步事务重新获取并计算该场全部地图。例如 USA–KOR（Stats 比赛 ID `5449`）的 Matchweb ID 为 `245`，应执行 `node scripts/resync-external-match.js 245`，不能传 Stats ID。此操作会正常重同步该场比赛，不应清空全局游标来触发历史重算。纯离线快照包需要在数据重同步后重新导出；在线页面和 API 版静态页面下次请求读取更新结果。
 

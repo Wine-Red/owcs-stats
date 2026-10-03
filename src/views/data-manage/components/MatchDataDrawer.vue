@@ -93,7 +93,6 @@
                           <header><b>{{ hero.hero?.name || hero.heroName }}</b><span>{{ formatDuration(hero.usageSeconds) }}</span></header>
                           <div><span>使用率 <b>{{ percent(hero.usagePercentage) }}</b></span><span>最后一击 <b>{{ hero.finalBlows || 0 }}</b></span></div>
                           <div><span>大招就绪 <b>{{ hero.ultReady || 0 }}</b></span><span>大招释放 <b>{{ hero.ultUsed || 0 }}</b></span></div>
-                          <small>平均充能 {{ hero.avgUltChargeSeconds == null ? '—' : formatDuration(hero.avgUltChargeSeconds) }}</small>
                         </article>
                       </div>
                       <el-empty v-else description="该选手没有英雄明细" :image-size="48" />

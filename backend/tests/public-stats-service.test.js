@@ -118,6 +118,41 @@ test('hero leaderboards use weighted charge, distinct maps and latest player-sta
   assert.equal(reads, 0);
 });
 
+test('ultimate rates use summed releases over actual hero usage in live and snapshot views', async () => {
+  const rawData = reset();
+  // Two maps: four releases in 120s and one in 60s -> 16.67/10min,
+  // rather than the mean of the map rates (20 and 10).
+  rawData.playerHeroStats.find(row => row.id === 9).ultUsed = 4;
+  rawData.playerHeroStats.find(row => row.id === 1).ultUsed = 1;
+  rawData.playerHeroStats.find(row => row.id === 2).ultUsed = 0;
+  for (const options of [{ rawData }, {}]) {
+    const overview = (await service.getHeroOverview(1, options)).data;
+    const players = (await service.getHeroPlayers(1, 11, options)).data;
+    const heroes = (await service.getPlayerHeroes(1, 7, options)).data;
+    for (const row of [overview[0], players[0], heroes[0]]) {
+      assert.equal(row.ultUsed, 5);
+      assert.ok(Math.abs(row.ultUsedPer10 - 50 / 3) < 1e-10);
+    }
+    assert.equal(overview[1].ultUsedPer10, null, 'ban-only hero has no rate');
+    assert.equal(heroes[1].ultUsedPer10, null, 'missing event count is not measured zero');
+  }
+});
+
+test('ultimate rates preserve measured zero and omit rates with missing counts or zero usage', async () => {
+  const rawData = reset();
+  rawData.playerHeroStats.forEach(row => { row.ultUsed = 0; });
+  let row = (await service.getHeroPlayers(1, 11, { rawData })).data[0];
+  assert.equal(row.ultUsed, 0);
+  assert.equal(row.ultUsedPer10, 0);
+  rawData.playerHeroStats.forEach(row => { row.usageSeconds = 0; });
+  row = (await service.getHeroPlayers(1, 11, { rawData })).data[0];
+  assert.equal(row.ultUsedPer10, null);
+  rawData.playerHeroStats.forEach(row => { delete row.ultUsed; row.usageSeconds = 60; });
+  row = (await service.getHeroPlayers(1, 11, { rawData })).data[0];
+  assert.equal(row.ultUsed, null);
+  assert.equal(row.ultUsedPer10, null);
+});
+
 test('feature flags distinguish absent values from measured zero and exclude other seasons', async () => {
   const rawData = reset();
   assert.deepEqual(await service.getSeasonFeatures(1, { rawData }), {

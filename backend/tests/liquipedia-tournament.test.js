@@ -82,6 +82,35 @@ test('Decider labels consistently describe seeds without implying elimination or
     ['第 1–2 种子决定战', '第 3–4 种子决定战', '第 5–6 种子决定战']);
 });
 
+test('seeding deciders parse repeated unknown-team labels as one TBD', async () => {
+  const source = await fixture('china2');
+  const $ = require('cheerio').load(source.html);
+  const bracket = $('.brkts-bracket-wrapper').first();
+  bracket.find('.match-info-header-opponent').each((_, node) => {
+    $(node).html('<span class="name"><span>TBD</span><span>TBD</span><span>TBD</span></span>');
+  });
+  bracket.find('.brkts-opponent-score-inner').text('-');
+  const match = parseTournamentHtml({ ...source, html: $.html() }).blocks
+    .find(block => block.type === 'bracket' && block.matches.length === 1).matches[0];
+  assert.equal(match.round, '第 1–2 种子决定战');
+  assert.deepEqual(match.opponents.map(team => [team.name, team.shortName, team.url, team.score]),
+    [['TBD', 'TBD', null, null], ['TBD', 'TBD', null, null]]);
+});
+
+test('saved repeated TBD placeholders are normalized without inventing team bindings or changing the snapshot', () => {
+  const input = snapshot([event({ opponents: [
+    { name: 'TBDTBDTBD', shortName: 'TBDTBDTBD', score: null },
+    { name: 'TBD TBD TBD', shortName: 'TBD TBD', score: null }
+  ] })]);
+  const before = structuredClone(input);
+  const result = bindTournament(input, { teams: [teamA, teamB], matches: [] });
+  const opponents = result.blocks[0].matches[0].opponents;
+  assert.deepEqual(opponents.map(team => [team.name, team.shortName]), [['TBD', 'TBD'], ['TBD', 'TBD']]);
+  assert.ok(opponents.every(team => !team.teamId));
+  assert.equal(result.blocks[0].matches[0].matchId, undefined);
+  assert.deepEqual(input, before);
+});
+
 test('future bracket keeps unknown opponents, scores and times unknown, and ignores redlinked child pages', async () => {
   const data = await parsed('na3');
   assert.equal(data.blocks[0].matches.length, 6);

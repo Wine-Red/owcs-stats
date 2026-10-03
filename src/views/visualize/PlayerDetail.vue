@@ -481,7 +481,7 @@ export default {
 
     const HERO_METRIC_DEFS = [
       { key: 'fb', label: '最后一击 / 10min', field: 'finalBlowsPer10', lower: false, fmt: v => formatNumber(v) },
-      { key: 'ult', label: '大招充能时间', field: 'avgUltChargeSeconds', lower: true, fmt: v => `${Math.round(v)} 秒` },
+      { key: 'ult', label: '大招释放/10min', field: 'ultUsedPer10', lower: false, fmt: v => formatNumber(v) },
       { key: 'fbd', label: '最后一击 / 死亡', field: 'fbPerDeath', lower: false, fmt: v => formatNumber(v) }
     ];
 

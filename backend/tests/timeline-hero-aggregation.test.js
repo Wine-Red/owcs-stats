@@ -44,6 +44,30 @@ test('an incomplete primary cycle has no inferred or zero-valued charge sample',
   assert.equal(result.playersA[0].heroes[0].avgUltChargeSeconds, null);
 });
 
+test('D.Va and D.Mon release counts exclude mech calls, temporary abilities and unconfirmed events', () => {
+  for (const heroId of ['dva', 'dmon']) {
+    const base = { playerId: 'TANK', heroId, status: 'confirmed' };
+    const result = aggregateTimeline({ media: { durationMs: 600_000 },
+      players: [{ playerId: 'TANK', teamSide: 'A' }], events: [
+        { ...base, type: 'hero_selected', timeMs: 0 },
+        { ...base, type: 'ultimate_ready', timeMs: 30_000, abilityContext: { kind: 'primary' } },
+        { ...base, type: 'ultimate_used', timeMs: 40_000, abilityContext: { kind: 'primary' } },
+        { ...base, type: 'mech_call_used', timeMs: 45_000, abilityContext: { kind: 'call_mech' } },
+        { ...base, type: 'ultimate_used', timeMs: 50_000, abilityContext: { kind: 'call_mech' } },
+        { ...base, type: 'ultimate_used', timeMs: 60_000, abilityContext: { kind: 'duplicate' } },
+        { ...base, type: 'duplicate_ultimate_used', timeMs: 70_000 },
+        { ...base, type: 'ultimate_used', timeMs: 80_000, status: 'candidate' },
+        { ...base, type: 'ultimate_used', timeMs: 90_000, statisticsEligible: false },
+        { ...base, type: 'ultimate_used', timeMs: 100_000, status: 'rejected' },
+        { ...base, type: 'ultimate_used', timeMs: 110_000 }
+      ] });
+    const hero = result.playersA[0].heroes[0];
+    assert.equal(hero.heroId, heroId);
+    assert.equal(hero.usageSeconds, 600);
+    assert.equal(hero.ultUsed, 2);
+  }
+});
+
 test('timeline mirror keeps the canonical MatchWeb payload losslessly', () => {
   const payload = { schemaVersion: 1, source: { taskId: 'task-1' }, events: [{ eventId: 'e1' }] };
   const syncedAt = new Date('2026-09-01T00:00:00.000Z');

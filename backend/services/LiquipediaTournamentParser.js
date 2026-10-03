@@ -3,6 +3,8 @@ const { createHash } = require('crypto');
 const { parseTournamentUrl } = require('./LiquipediaRosterParser');
 
 const clean = value => String(value || '').replace(/\[edit\]/g, '').replace(/\s+/g, ' ').trim();
+// Liquipedia can repeat the unknown team in its icon, short and full labels.
+const normalizeTeamName = value => /^(?:TBD\s*)+$/i.test(clean(value)) ? 'TBD' : clean(value);
 const ownText = node => clean(node.clone().children().remove().end().text());
 const hash = value => createHash('sha256').update(value).digest('hex').slice(0, 16);
 const labels = [
@@ -93,8 +95,8 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
   const team = node => {
     const dynamic = node.find('[data-team-name]').first();
     const link = node.find('a[href^="/overwatch/"]').filter((_, a) => !$(a).hasClass('new')).first();
-    const name = clean(node.attr('aria-label') || dynamic.attr('data-team-name') || link.attr('title') || node.find('.name,.team-template-text').first().text()) || '待定';
-    return { name, shortName: clean(dynamic.attr('data-team-shortname')) || name, url: article(link.attr('href')) };
+    const name = normalizeTeamName(node.attr('aria-label') || dynamic.attr('data-team-name') || link.attr('title') || node.find('.name,.team-template-text').first().text()) || '待定';
+    return { name, shortName: normalizeTeamName(dynamic.attr('data-team-shortname')) || name, url: article(link.attr('href')) };
   };
   const score = value => {
     const text = clean(value);
@@ -229,4 +231,4 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
   return { page, revisionId, sourceUrl: pageUrl, rules, blocks, children: [...children], links, warnings };
 }
 
-module.exports = { parseTournamentHtml, translateLabel, translateRule };
+module.exports = { parseTournamentHtml, translateLabel, translateRule, normalizeTeamName };

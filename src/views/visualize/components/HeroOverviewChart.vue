@@ -75,9 +75,13 @@
                   class="player-metric-tab"
                   :class="{ 'is-active': row.playerSortBy === opt.value }"
                   role="radio"
+                  :aria-label="opt.label"
                   :aria-checked="row.playerSortBy === opt.value"
                   @click="row.playerSortBy = opt.value; track('sort_change', { metric: opt.label, heroId: row.heroId })"
-                ><span aria-hidden="true"></span>{{ opt.label }}</button>
+                >
+                  <span class="player-metric-mark" aria-hidden="true"></span>
+                  <span class="player-metric-label"><span>{{ opt.heading }}</span><span>{{ opt.unit }}</span></span>
+                </button>
               </div>
               <div
                 v-for="(player, idx) in sortedPlayers(row)"
@@ -91,11 +95,19 @@
               >
                 <div class="player-id">
                   <span class="rank-no" :class="{ 'rank-top': idx < 3 }">{{ idx + 1 }}</span>
+                  <img
+                    v-if="player.teamLogo && !player.teamLogoFailed"
+                    class="player-team-logo"
+                    :src="player.teamLogo"
+                    :alt="player.teamName"
+                    :title="player.teamName"
+                    loading="lazy"
+                    @error="player.teamLogoFailed = true"
+                  />
                   <span class="player-name-with-time">
                     <span class="player-name" :title="player.playerName">{{ player.playerName }}</span>
                     <sub class="player-hero-time" :title="`本赛季使用${row.heroName}：${heroUsageText(player.usageSeconds)}`">{{ heroUsageText(player.usageSeconds) }}</sub>
                   </span>
-                  <span v-if="player.teamName" class="player-team">{{ player.teamName }}</span>
                 </div>
                 <span
                   v-for="opt in row.playerMetricOptions"
@@ -128,6 +140,7 @@ import { ArrowDown } from '@element-plus/icons-vue';
 import apiService from '@/services/api';
 import ContentChoiceGroup from './ContentChoiceGroup.vue';
 import { getHeroIconUrl } from '@/utils/heroIcons';
+import { resolveMediaUrl } from '@/utils/media';
 
 const COLLAPSED_COUNT = 12;
 
@@ -268,22 +281,21 @@ export default {
 
     const isExpanded = (heroId) => expandedHeroIds.value.has(heroId);
 
-    const resolveTeamName = (teamId) => {
-      const team = store.getters.getTeamById
+    const resolveTeam = (teamId) => {
+      return store.getters.getTeamById
         ? store.getters.getTeamById(teamId)
         : (store.state.teams || []).find(t => Number(t.id) === Number(teamId));
-      return team?.name || '';
     };
 
     const PLAYER_METRIC_DEFS = [
-      { value: 'fb', label: '最后一击/10min' },
-      { value: 'ult', label: '大招充能时间' },
-      { value: 'ratio', label: '最后一击/死亡' }
+      { value: 'fb', label: '最后一击/10min', heading: '最后一击', unit: '/10min' },
+      { value: 'ult', label: '大招释放/10min', heading: '大招释放', unit: '/10min' },
+      { value: 'ratio', label: '最后一击/死亡', heading: '最后一击', unit: '/死亡' }
     ];
 
     // 选手在某维度上的可排序值；无数据返回 null（排序时沉底）
     const playerMetricValue = (player, key) => {
-      const raw = player[{ fb: 'finalBlowsPer10', ult: 'avgUltChargeSeconds', ratio: 'fbPerDeath' }[key]];
+      const raw = player[{ fb: 'finalBlowsPer10', ult: 'ultUsedPer10', ratio: 'fbPerDeath' }[key]];
       if (raw === null || raw === undefined || String(raw).trim() === '') return null;
       const value = Number(raw);
       return Number.isFinite(value) ? value : null;
@@ -294,7 +306,7 @@ export default {
       const seconds = Number(raw);
       if (!Number.isFinite(seconds) || seconds < 0) return '-';
       const total = Math.round(seconds);
-      return total < 60 ? `${total}秒` : `${Math.floor(total / 60)}分${String(total % 60).padStart(2, '0')}秒`;
+      return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m${String(total % 60).padStart(2, '0')}s`;
     };
 
     // 缺失值使用占位符，有效的零值正常展示。
@@ -302,7 +314,7 @@ export default {
       const v = playerMetricValue(player, key);
       if (v === null) return '-';
       if (key === 'fb') return v.toFixed(1);
-      if (key === 'ult') return `${Math.round(v)} 秒`;
+      if (key === 'ult') return v.toFixed(1);
       return v.toFixed(2);
     };
 
@@ -314,7 +326,7 @@ export default {
         if (va === null && vb === null) return 0;
         if (va === null) return 1;
         if (vb === null) return -1;
-        return key === 'ult' ? va - vb : vb - va;
+        return vb - va;
       });
     };
 
@@ -334,10 +346,15 @@ export default {
       row.playersLoading = true;
       try {
         const res = await apiService.getHeroPlayersData({ seasonId: props.seasonId, heroId: row.heroId });
-        const players = (Array.isArray(res?.data) ? res.data : []).map(p => ({
-          ...p,
-          teamName: resolveTeamName(p.teamId)
-        }));
+        const players = (Array.isArray(res?.data) ? res.data : []).map(p => {
+          const team = resolveTeam(p.teamId);
+          return {
+            ...p,
+            teamName: team?.name || '',
+            teamLogo: resolveMediaUrl(team?.logo),
+            teamLogoFailed: false
+          };
+        });
         // 指标级门控：该英雄所有选手都没有的维度不生成对应列
         const available = [];
         for (const { value } of PLAYER_METRIC_DEFS) {
@@ -599,8 +616,8 @@ export default {
 .player-metric-tabs,
 .player-rank-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(var(--metric-count, 3), 60px);
-  column-gap: 5px;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--metric-count, 3), 48px);
+  column-gap: 2px;
 }
 
 .player-metric-tabs {
@@ -612,9 +629,9 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
-  padding: 3px 2px 5px;
+  padding: 3px 0 5px;
   border: 0;
   background: transparent;
   color: var(--vis-text-tertiary, #909399);
@@ -629,7 +646,7 @@ export default {
   transition: color 0.18s var(--vis-ease, ease);
 }
 
-.player-metric-tab > span {
+.player-metric-mark {
   flex: 0 0 auto;
   width: 4px;
   height: 4px;
@@ -637,6 +654,13 @@ export default {
   background: #c6cbd3;
   transform: skewX(-16deg);
   transition: background-color 0.18s var(--vis-ease, ease), transform 0.18s var(--vis-ease, ease);
+}
+
+.player-metric-label {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
 }
 
 .player-metric-tab:hover:not(.is-active) {
@@ -647,7 +671,7 @@ export default {
   color: #111;
 }
 
-.player-metric-tab.is-active > span {
+.player-metric-tab.is-active .player-metric-mark {
   background: var(--vis-accent, #ff6a00);
   transform: skewX(-16deg) scaleY(1.8);
 }
@@ -661,13 +685,13 @@ export default {
 .player-id {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .rank-no {
   flex: 0 0 auto;
-  width: 18px;
+  width: 14px;
   text-align: center;
   font-family: var(--vis-font-numeric);
   font-size: 12px;
@@ -719,11 +743,12 @@ export default {
   text-decoration-color: rgba(255, 106, 0, 0.55);
 }
 
-.player-team {
+.player-team-logo {
   flex: 0 0 auto;
-  font-size: 11px;
-  color: #909399;
-  white-space: nowrap;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .player-cell {
@@ -782,6 +807,24 @@ export default {
 
   .hero-detail {
     padding-left: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .player-metric-tabs,
+  .player-rank-row {
+    grid-template-columns: minmax(0, 1fr) repeat(var(--metric-count, 3), 44px);
+  }
+}
+
+@media (max-width: 360px) {
+  .player-metric-tab {
+    font-size: 9px;
+  }
+
+  .player-metric-tabs,
+  .player-rank-row {
+    grid-template-columns: minmax(0, 1fr) repeat(var(--metric-count, 3), 40px);
   }
 }
 </style>

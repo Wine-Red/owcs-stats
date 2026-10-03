@@ -282,7 +282,7 @@ async function capture(context, output, mobile = false) {
   await page.waitForTimeout(150);
   await page.screenshot({ path: timelineOutput, fullPage: true });
   await page.locator('.player-data-table .el-table__expand-icon').first().click();
-  await page.getByText('平均充能').first().waitFor();
+  await page.getByText('大招释放').first().waitFor();
   await page.getByRole('button', { name: /好莱坞/u }).click();
   await page.getByText('这张地图尚未同步 OWCS Studio 时间线。').waitFor();
   await page.getByRole('button', { name: /伊利奥斯/u }).click();
@@ -364,8 +364,9 @@ async function capturePublic(context, output, mobile = false) {
   assert.ok(Number.parseFloat(await longHeroName.evaluate(element => getComputedStyle(element).fontSize)) < 8);
   assert.equal(await firstHeroDrawer.getByText('最后一击').count(), 4);
   assert.equal(await firstHeroDrawer.getByText('死亡', { exact: true }).count(), 4);
-  assert.equal(await firstHeroDrawer.getByText('大招释放').count(), 0);
-  assert.equal(await firstHeroDrawer.getByText('平均充能').count(), 4);
+  assert.equal(await firstHeroDrawer.getByText('大招释放', { exact: true }).count(), 4);
+  assert.equal(await firstHeroDrawer.getByText('平均充能').count(), 0);
+  assert.deepEqual(await firstHeroDrawer.locator('.player-hero-metrics div:last-child dd').allInnerTexts(), ['4次', '1次', '0次', '0次']);
   assert.deepEqual(
     await firstHeroDrawer.locator('.player-hero-usage').allInnerTexts(),
     ['66%', '20%', '10%', '4%']
@@ -375,8 +376,8 @@ async function capturePublic(context, output, mobile = false) {
     return { width: rect.width, height: rect.height };
   }));
   assert.ok(usageBadgeRects.every(rect => rect.width <= 16 && rect.height <= 8), JSON.stringify(usageBadgeRects));
-  assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*平均充能\s*128s/u);
-  const averageChargePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
+  assert.match(await firstHeroDrawer.locator('.player-hero-card').first().innerText(), /最后一击\s*7\s*死亡\s*5\s*大招释放\s*4次/u);
+  const ultimateUsePartsFit = await firstHeroDrawer.locator('.player-hero-card').first().locator('.player-hero-metrics div').last().evaluate(element => {
     const label = element.querySelector('dt');
     const value = element.querySelector('dd');
     return Boolean(
@@ -385,7 +386,7 @@ async function capturePublic(context, output, mobile = false) {
       && value.scrollWidth <= value.clientWidth + 1
     );
   });
-  assert.equal(averageChargePartsFit, true);
+  assert.equal(ultimateUsePartsFit, true);
   assert.equal(await firstHeroDrawer.locator('.player-hero-metrics').first().evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 1);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1), false);
   if (mobile) await firstHeroDrawer.screenshot({ path: output.replace(/\.png$/u, '-heroes.png') });
