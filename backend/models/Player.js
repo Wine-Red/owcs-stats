@@ -14,7 +14,6 @@ const Player = sequelize.define('Player', {
   externalId: {
     type: DataTypes.STRING(160),
     allowNull: true,
-    unique: true,
     comment: 'Authoritative MatchWeb playerId'
   },
   role: {
@@ -34,7 +33,8 @@ const Player = sequelize.define('Player', {
   }
 }, {
   tableName: 'players',
-  timestamps: false
+  timestamps: false,
+  indexes: [{ unique: true, fields: ['externalId', 'role'], name: 'uq_player_external_role' }]
 });
 
 module.exports = Player;

@@ -1,3 +1,9 @@
+**选手换位置**
+
+选手按 Matchweb `playerId` + `role` 绑定本地记录。同一个来源选手换位置时，复用该位置已有记录，或创建同名的新选手；旧位置的比赛、赛季关系和统计保留。后台允许新建同名不同位置选手，禁止直接修改旧记录的位置或合并跨位置记录。
+
+启动时迁移 `players` 和 `player_external_identities` 的唯一索引，历史映射的位置从原选手记录回填。迁移可重复执行，不会自动重放已同步比赛。修复既有错位数据时需定向重同步，例如 HNG–BF（Stats `5478` / Matchweb `1870`）：`node scripts/resync-external-match.js 1870`。该场来源的 ROCKCLIMB 为输出，SUNA 为支援。已有其他受影响比赛也应根据来源逐场核对和重同步，不修改旧选手的位置来覆盖历史。
+
 **比赛同步失败隔离 / Independent match sync retries**
 
 启动时现有 `sequelize.sync()` 会增加 `external_match_inbox`，不清空比赛数据。

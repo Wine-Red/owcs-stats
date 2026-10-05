@@ -79,6 +79,35 @@ test('identity merge against isolated MySQL tables: migration, rollback, replay 
   }
   namespaceReady = true;
   await sequelize.sync();
+  await t.test('legacy global ID indexes migrate to role indexes without changing IDs', async () => {
+    const qi = sequelize.getQueryInterface();
+    const player = await m.players.create({ name: 'Migration Fixture', externalId: 'migration-id', role: 'support' });
+    await identity.PlayerExternalIdentity.create({ playerId: player.id, source: 'matchweb', externalId: 'migration-id', normalizedExternalId: 'migration-id', role: 'support' });
+    await qi.removeIndex(tableNames.get('players'), 'uq_player_external_role');
+    await qi.addIndex(tableNames.get('players'), ['externalId'], { name: 'legacy_external_id', unique: true });
+    await qi.removeIndex(tableNames.get('player_external_identities'), 'uq_player_source_role_identity');
+    await qi.addIndex(tableNames.get('player_external_identities'), ['source', 'normalizedExternalId'], { name: 'uq_player_source_identity', unique: true });
+    await qi.removeColumn(tableNames.get('player_external_identities'), 'role');
+    const adapter = {
+      getQueryInterface: () => new Proxy(qi, { get(target, key) {
+        if (key === 'showAllTables') return async () => [...tableNames.keys()];
+        return (...args) => target[key](tableNames.get(args[0]) || args[0], ...args.slice(1));
+      } }),
+      query: sql => sequelize.query(sql.replace(/player_external_identities|players/g, name => tableNames.get(name)))
+    };
+    const { ensurePlayerRoleIdentitySchema } = require('../database/playerRoleIdentityMigration');
+    await ensurePlayerRoleIdentitySchema(adapter);
+    await ensurePlayerRoleIdentitySchema(adapter);
+    const restored = await identity.PlayerExternalIdentity.findOne({ where: { playerId: player.id } });
+    assert.equal(restored.role, 'support');
+    assert.equal((await player.reload()).externalId, 'migration-id');
+    const damage = await m.players.create({ name: player.name, externalId: player.externalId, role: 'damage' });
+    await identity.PlayerExternalIdentity.create({ playerId: damage.id, source: 'matchweb', externalId: 'migration-id', normalizedExternalId: 'migration-id', role: 'damage' });
+    await assert.rejects(m.players.create({ name: 'Duplicate', externalId: 'migration-id', role: 'damage' }), { name: 'SequelizeUniqueConstraintError' });
+    await identity.PlayerExternalIdentity.destroy({ where: { normalizedExternalId: 'migration-id' } });
+    await damage.destroy();
+    await player.destroy();
+  });
   await migrateEntityIdentities();
   const season = await Season.create({ name: 'Merge Fixture' });
   const map = await Map.create({ name: 'Fixture Map', type: '占领要点' });
@@ -221,6 +250,34 @@ test('identity merge against isolated MySQL tables: migration, rollback, replay 
     assert.equal((await m.player_stats.findOne({ where: { mapGameId: game.id } })).playerId, support.id);
     assert.equal(await m.player_stats.count({ where: { mapGameId: game.id } }), 1);
     assert.equal((await require('../models/ExternalMatchInbox').findByPk(source.id)).status, 'applied');
+  });
+  await t.test('role switch creates a separate identity and replay preserves both histories', async () => {
+    const support = await makePlayer('ROCKCLIMB', 'ROCKCLIMB');
+    await migrateEntityIdentities();
+    detail = { ...detail, id: 'role-support', rounds: [{ ...detail.rounds[0],
+      playersA: [{ name: 'ROCKCLIMB', playerId: 'ROCKCLIMB', role: 'S', kad: '1/2/3' }], playersB: [] }] };
+    await sync.syncMatch(detail.id);
+    const historic = await m.matches.findOne({ where: { externalId: detail.id } });
+    const historicMap = await m.map_games.findOne({ where: { matchId: historic.id } });
+    const historicStat = (await m.player_stats.findOne({ where: { mapGameId: historicMap.id } })).toJSON();
+    detail = { ...detail, id: 'role-damage', rounds: [{ ...detail.rounds[0],
+      playersA: [{ name: 'ROCKCLIMB', playerId: 'ROCKCLIMB', role: 'D', kad: '17/0/9' }] }] };
+    await sync.syncMatch(detail.id);
+    await sync.syncMatch(detail.id);
+    const rows = await m.players.findAll({ where: { name: 'ROCKCLIMB' } });
+    assert.equal(rows.length, 2);
+    const damage = rows.find(row => row.role === 'damage');
+    assert.notEqual(damage.id, support.id);
+    assert.equal(damage.externalId, support.externalId);
+    assert.equal(await identity.PlayerExternalIdentity.count({ where: { normalizedExternalId: 'rockclimb' } }), 2);
+    assert.deepEqual((await m.player_stats.findByPk(historicStat.id)).toJSON(), historicStat);
+    const current = await m.matches.findOne({ where: { externalId: detail.id } });
+    const currentMap = await m.map_games.findOne({ where: { matchId: current.id } });
+    const currentStat = await m.player_stats.findOne({ where: { mapGameId: currentMap.id } });
+    assert.equal(currentStat.playerId, damage.id);
+    assert.equal(currentStat.kills, 17);
+    await migrateEntityIdentities();
+    assert.equal(await m.players.count({ where: { name: 'ROCKCLIMB' } }), 2);
   });
   await t.test('concurrent confirmations serialize, retry idempotently, and flatten chained redirects', async () => {
     const final = await makeTeam('Final Team');

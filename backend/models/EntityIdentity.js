@@ -14,9 +14,10 @@ const PlayerAlias = sequelize.define('PlayerAlias', {
 const PlayerExternalIdentity = sequelize.define('PlayerExternalIdentity', {
   id, playerId, source: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'matchweb' },
   externalId: { type: DataTypes.STRING(160), allowNull: false },
+  role: { type: DataTypes.ENUM('tank', 'damage', 'support'), allowNull: false },
   normalizedExternalId: { type: DataTypes.STRING(160), allowNull: false }
 }, { tableName: 'player_external_identities', timestamps: false,
-  indexes: [{ unique: true, fields: ['source', 'normalizedExternalId'], name: 'uq_player_source_identity' }] });
+  indexes: [{ unique: true, fields: ['source', 'normalizedExternalId', 'role'], name: 'uq_player_source_role_identity' }] });
 
 const EntityRedirect = sequelize.define('EntityRedirect', {
   id, kind: { type: DataTypes.STRING(16), allowNull: false },

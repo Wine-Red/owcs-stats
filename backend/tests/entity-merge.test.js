@@ -82,7 +82,7 @@ test('sync resolves all mapped IDs, rejects ambiguous names and does not merge u
   assert.equal(resolveSourcePlayer({ name: 'Old' }, 'support', caches).id, 2);
   assert.equal(resolveSourcePlayer({ name: 'Current', playerId: 'unseen-id' }, 'support', caches), null);
   assert.equal(resolveSourcePlayer({ name: 'Old', playerId: 'unseen-id' }, 'support', caches).id, 2);
-  assert.throws(() => resolveSourcePlayer({ name: 'Old', playerId: 'another-id' }, 'tank', caches), /位置不一致/);
+  assert.equal(resolveSourcePlayer({ name: 'Old', playerId: 'another-id' }, 'tank', caches), null);
   caches.players.push({ id: 3, name: 'Old', role: 'support' });
   assert.throws(() => resolveSourcePlayer({ name: 'Old' }, 'support', caches), /多个候选/);
   assert.throws(() => resolveSourcePlayer({ name: 'Old', playerId: 'third-id' }, 'support', caches), /多个候选/);
@@ -112,11 +112,34 @@ test('sync distinguishes unbound legacy homonyms by role before checking ambigui
   assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'SOAE' }, 'damage', caches), damage);
 });
 
-test('authoritative IDs still resolve across role changes while an unknown ID cannot claim a bound homonym', () => {
+test('authoritative IDs are scoped by role while an unknown ID cannot claim a bound homonym', () => {
   const support = { id: 1, name: 'SOAE', role: 'support', externalId: 'known-id' };
   const caches = { players: [support, { id: 2, name: 'SOAE', role: 'damage', externalId: null }],
     playerExternalIdentities: [{ playerId: 1, source: 'matchweb', normalizedExternalId: 'historic-id' }] };
-  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'HISTORIC-ID' }, 'damage', caches), support);
-  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'KNOWN-ID' }, 'damage', caches), support);
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'HISTORIC-ID' }, 'damage', caches), caches.players[1]);
+  assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'KNOWN-ID' }, 'damage', caches), caches.players[1]);
   assert.equal(resolveSourcePlayer({ name: 'SOAE', playerId: 'unseen-id' }, 'support', caches), null);
+});
+
+
+test('resync preserves separate support and damage identities for ROCKCLIMB', () => {
+  const support = { id: 382, name: 'ROCKCLIMB', role: 'support', externalId: 'ROCKCLIMB' };
+  const caches = { players: [support], playerExternalIdentities: [
+    { playerId: 382, source: 'matchweb', normalizedExternalId: 'rockclimb', role: 'support' }
+  ] };
+  const source = { name: 'ROCKCLIMB', playerId: 'ROCKCLIMB' };
+  assert.equal(resolveSourcePlayer(source, 'damage', caches), null);
+  const damage = { id: 400, name: 'ROCKCLIMB', role: 'damage', externalId: 'ROCKCLIMB' };
+  caches.players.push(damage);
+  caches.playerExternalIdentities.push({ playerId: 400, source: 'matchweb', normalizedExternalId: 'rockclimb', role: 'damage' });
+  for (let i = 0; i < 3; i++) {
+    assert.equal(resolveSourcePlayer(source, 'damage', caches), damage);
+    assert.equal(resolveSourcePlayer(source, 'support', caches), support);
+  }
+});
+
+test('merging different role records is blocked', () => {
+  const data = snapshot('player');
+  data.rows.players[0].role = 'damage';
+  assert.ok(planMerge('player', 1, 2, data).preview.conflicts.some(c => c.code === 'PLAYER_ROLE_CONFLICT'));
 });

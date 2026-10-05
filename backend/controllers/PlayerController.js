@@ -48,7 +48,7 @@ const PlayerController = {
   create: async (req, res) => {
     try {
       const player = await identityTransaction(async transaction => {
-        const identity = await validatePlayerIdentity({ name: req.body?.name, aliases: req.body?.aliases || [], transaction });
+        const identity = await validatePlayerIdentity({ name: req.body?.name, role: req.body?.role, aliases: req.body?.aliases || [], transaction });
         const row = await Player.create({ ...playerPayload(req.body), name: identity.name, identityOrigin: 'manual' }, { transaction });
         await replacePlayerAliases(row.id, identity.aliases, transaction);
         return serializePlayersWithAliases(row, transaction);
@@ -69,7 +69,7 @@ const PlayerController = {
         const current = await serializePlayersWithAliases(player, transaction);
         const requested = Object.prototype.hasOwnProperty.call(req.body || {}, 'aliases') ? req.body.aliases : current.aliases;
         if (!Array.isArray(requested)) throw new Error('选手别名必须是数组');
-        const identity = await validatePlayerIdentity({ playerId: player.id, name: req.body?.name || player.name,
+        const identity = await validatePlayerIdentity({ playerId: player.id, name: req.body?.name || player.name, role: req.body?.role || player.role,
           aliases: [...requested, ...await protectedAliases('player', player.id, transaction),
             ...(req.body?.name && req.body.name !== player.name ? [player.name] : [])], transaction });
         await player.update({ ...playerPayload(req.body), name: identity.name }, { transaction });

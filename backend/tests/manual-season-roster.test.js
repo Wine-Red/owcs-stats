@@ -112,7 +112,7 @@ test('invalid choices, missing fields and duplicates fail without committing', a
     { team: { new: { name: 'T', region: ' ' } } },
     { team: { id: 1 }, players: [{ new: { name: 'New', role: 'flex' } }] },
     { team: { id: 1 }, players: [{ id: 1 }, { id: 1 }] },
-    { team: { id: 1 }, players: [{ new: { name: 'A', role: 'tank' } }, { new: { name: 'a', role: 'damage' } }] },
+    { team: { id: 1 }, players: [{ new: { name: 'A', role: 'tank' } }, { new: { name: 'a', role: 'tank' } }] },
     { team: { id: 1 }, players: Array.from({ length: 101 }, () => ({ id: 1 })) }
   ]) await assert.rejects(service.save(24, body), { statusCode: 400 });
   await assert.rejects(service.save(24, { team: { id: 99 } }), { statusCode: 409 });
@@ -143,4 +143,16 @@ test('manual HTTP endpoint returns validation errors and saved entity IDs', asyn
   const response = await send({ team: { id: 1 }, players: [{ id: 2 }] });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).players[0].id, 2);
+});
+
+
+test('manual roster allows same name in different roles', async t => {
+  const state = setup(t);
+  const result = await service.save(24, { team: { id: 1 }, players: [
+    { new: { name: 'ROCKCLIMB', role: 'damage' } },
+    { new: { name: 'ROCKCLIMB', role: 'support' } }
+  ] });
+  assert.equal(result.createdPlayers, 2);
+  assert.notEqual(result.players[0].id, result.players[1].id);
+  assert.equal(state.commits, 1);
 });

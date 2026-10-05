@@ -100,11 +100,13 @@ const planMerge = (kind, sourceId, targetId, snapshot) => {
   if (snapshot.unknownReferences?.length) registerConflict('UNKNOWN_REFERENCE', `发现未支持的引用：${snapshot.unknownReferences.join('、')}`);
   for (const alias of aliases) {
     const key = nameKey(alias);
-    if (data[table].some(row => ![sourceId, targetId].includes(row.id) && nameKey(row.name) === key)
-      || data[aliasTable].some(row => ![sourceId, targetId].includes(row[ownerField]) && row.normalizedAlias === key)) {
+    const sameRole = id => kind !== 'player' || data.players.find(p => p.id === id)?.role === target.role;
+    if (data[table].some(row => ![sourceId, targetId].includes(row.id) && sameRole(row.id) && nameKey(row.name) === key)
+      || data[aliasTable].some(row => ![sourceId, targetId].includes(row[ownerField]) && sameRole(row[ownerField]) && row.normalizedAlias === key)) {
       registerConflict('ALIAS_CONFLICT', `别名“${alias}”已属于第三个身份`);
     }
   }
+  if (kind === 'player' && source.role !== target.role) registerConflict('PLAYER_ROLE_CONFLICT', '不同位置的选手记录必须分别保留，不能合并');
   const differences = (kind === 'team' ? ['region', 'logo'] : ['role']).filter(key => source[key] !== target[key]);
   if (differences.length) warnings.push(`资料存在差异（${differences.map(key => ({ region: '地区', logo: '队标', role: '位置' }[key])).join('、')}），保留目标资料`);
   const update = (tableName, row, values) => {
@@ -182,9 +184,9 @@ const planMerge = (kind, sourceId, targetId, snapshot) => {
     for (const row of data.player_external_identities.filter(row => row.playerId === sourceId)) update('player_external_identities', row, { playerId: targetId });
     for (const player of [source, target]) if (player.externalId) {
       const normalizedExternalId = externalKey(player.externalId);
-      const existing = data.player_external_identities.find(row => row.source === 'matchweb' && row.normalizedExternalId === normalizedExternalId);
+      const existing = data.player_external_identities.find(row => row.source === 'matchweb' && row.normalizedExternalId === normalizedExternalId && (row.role || data.players.find(p => p.id === row.playerId)?.role) === target.role);
       if (existing && existing.playerId !== targetId) registerConflict('EXTERNAL_ID_CONFLICT', `外部 ID ${player.externalId} 已绑定第三个选手`);
-      if (!existing) insert('player_external_identities', { playerId: targetId, source: 'matchweb', externalId: player.externalId, normalizedExternalId });
+      if (!existing) insert('player_external_identities', { playerId: targetId, source: 'matchweb', externalId: player.externalId, normalizedExternalId, role: target.role });
     }
     // Free the legacy unique slot before assigning it to the canonical player.
     const primary = target.externalId || source.externalId || null;

@@ -32,7 +32,7 @@ const save = async (seasonId, body) => {
   const inputPlayers = body?.players ?? [];
   if (!Array.isArray(inputPlayers) || inputPlayers.length > 100) throw fail('一次最多补充 100 位选手');
   const choices = inputPlayers.map(choice => parseChoice(choice, '选手'));
-  const keys = choices.map(choice => choice.id ? `id:${choice.id}` : `new:${choice.new.name.toLowerCase()}`);
+  const keys = choices.map(choice => choice.id ? `id:${choice.id}` : `new:${choice.new.name.toLowerCase()}:${choice.new.role}`);
   if (new Set(keys).size !== keys.length) throw fail('本次选择中有重复的选手，请检查后保存');
 
   return identityTransaction(async transaction => {
@@ -47,8 +47,8 @@ const save = async (seasonId, body) => {
     for (const choice of choices) {
       if (choice.id && !catalog.some(player => Number(player.id) === choice.id)) throw fail(`选手 #${choice.id} 已不存在，请刷新后重新选择`, 409);
       if (choice.new) {
-        await validatePlayerIdentity({ name: choice.new.name, aliases: [], transaction });
-        const existing = catalog.filter(player => player.name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase() === choice.new.name.toLowerCase());
+        await validatePlayerIdentity({ name: choice.new.name, role: choice.new.role, aliases: [], transaction });
+        const existing = catalog.filter(player => player.role === choice.new.role && player.name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase() === choice.new.name.toLowerCase());
         if (existing.length) throw fail(`选手 ${choice.new.name} 已存在（${existing.map(player => `#${player.id}`).join('、')}），请从已有选手中选择`, 409);
       }
     }

@@ -147,6 +147,7 @@ const initDatabase = async () => {
     await ensureTimelineAggregationSchema();
     await ensureMediaSchema();
     await ensureMembershipSourceSchema();
+    await require('./playerRoleIdentityMigration').ensurePlayerRoleIdentitySchema(sequelize);
     await ensureTeamLiquipediaSchema(sequelize);
     console.log('数据库连接成功');
 
