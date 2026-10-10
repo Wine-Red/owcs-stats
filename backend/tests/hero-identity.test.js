@@ -9,7 +9,8 @@ const cache = heroes => ({
 
 test('legacy names, canonical names and source slugs resolve to the existing catalog identity', async () => {
   for (const [name, alias, externalId, role] of [
-    ['弗蕾娅', '弗雷娅', 'freja', 'damage'], ['布丽吉塔', '布里吉塔', 'brigitte', 'support']
+    ['弗蕾娅', '弗雷娅', 'freja', 'damage'], ['布丽吉塔', '布里吉塔', 'brigitte', 'support'],
+    ['血律', 'Doctrine', 'doctrine', 'support']
   ]) {
     const hero = { id: 34, name, externalId, role };
     const caches = cache([hero]);

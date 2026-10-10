@@ -16,7 +16,7 @@ export const HERO_SLUG_BY_NAME = {
   '安娜': 'ana', '巴蒂斯特': 'baptiste', '飞天猫': 'jetpack-cat', '卢西奥': 'lucio',
   '禅雅塔': 'zenyatta', '雾子': 'kiriko', '生命之梭': 'lifeweaver', '天使': 'mercy',
   '莫伊拉': 'moira', '布丽吉塔': 'brigitte', '布里吉塔': 'brigitte', '伊拉锐': 'illari', '朱诺': 'juno',
-  '瑞稀': 'mizuki', '无漾': 'wuyang'
+  '瑞稀': 'mizuki', '无漾': 'wuyang', '血律': 'doctrine'
 };
 
 export const getHeroIconUrl = (heroOrName, heroRecords = []) => {

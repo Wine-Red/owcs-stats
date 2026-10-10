@@ -34,7 +34,8 @@ module.exports = {
     '生命之梭': 'heroes/illustrated/lifeweaver.png', '天使': 'heroes/illustrated/mercy.png',
     '莫伊拉': 'heroes/illustrated/moira.png', '布丽吉塔': 'heroes/illustrated/brigitte.png', '布里吉塔': 'heroes/illustrated/brigitte.png',
     '伊拉锐': 'heroes/illustrated/illari.png', '朱诺': 'heroes/illustrated/juno.png',
-    '瑞稀': 'heroes/illustrated/mizuki.png', '无漾': 'heroes/illustrated/wuyang.png'
+    '瑞稀': 'heroes/illustrated/mizuki.png', '无漾': 'heroes/illustrated/wuyang.png',
+    '血律': 'heroes/illustrated/doctrine.png'
   },
   maps: {
     '南极半岛': 'maps/control/Antarctic_Peninsula.jpg', '釜山': 'maps/control/Busan.jpg',

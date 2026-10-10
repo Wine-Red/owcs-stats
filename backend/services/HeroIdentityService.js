@@ -1,6 +1,7 @@
 const HERO_NAME_ALIASES = Object.freeze({
   dmon: 'd.mon',
   dva: 'd.va',
+  doctrine: '血律',
   freja: '弗蕾娅',
   '弗雷娅': '弗蕾娅',
   brigitte: '布丽吉塔',
