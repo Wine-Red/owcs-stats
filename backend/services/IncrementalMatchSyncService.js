@@ -45,7 +45,23 @@ const numberOrNull = value => {
   if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return null;
   return Number.isFinite(Number(value)) ? Number(value) : null;
 };
-const normalizeRole = role => role === 'T' ? 'tank' : role === 'D' ? 'damage' : role === 'S' ? 'support' : lower(role);
+const normalizeRole = role => {
+  const value = String(role ?? '').trim().toLowerCase();
+  if (value === 't' || value === 'tank') return 'tank';
+  if (value === 'd' || value === 'damage') return 'damage';
+  if (value === 's' || value === 'support') return 'support';
+  return null;
+};
+
+const validateMatchPlayerRoles = source => {
+  for (const [index, round] of (source.rounds || []).entries()) {
+    for (const player of [...(round.playersA || []), ...(round.playersB || [])]) {
+      if (normalizeRole(player.role)) continue;
+      const role = JSON.stringify(player.role ?? null);
+      throw new Error(`比赛 ${source.id} 第 ${index + 1} 张图（${round.mapName || '未知地图'}）选手 ${player.name || player.playerId || '未知选手'} 的位置 ${role} 无效，请在 Matchweb 修正为 T/D/S（tank/damage/support）后重试`);
+    }
+  }
+};
 
 const parseDuration = value => {
   if (!value || typeof value !== 'string') return 0;
@@ -311,6 +327,9 @@ const replacePlayerStats = async ({
 };
 
 const upsertMatchDetail = async (source, caches, transaction) => {
+  // Validate the entire roster before changing identities, memberships or stats.
+  // Never infer an unknown role from an existing player's other-role identity.
+  validateMatchPlayerRoles(source);
   const eventName = source.eventName;
   const season = caches.seasonByName.get(lower(eventName));
   if (!season) throw new Error(`Season not found for eventName: ${eventName}`);
@@ -622,5 +641,7 @@ module.exports = {
   parseDuration,
   parseKad,
   numberOrNull,
+  normalizeRole,
+  validateMatchPlayerRoles,
   mapWithConcurrency
 };

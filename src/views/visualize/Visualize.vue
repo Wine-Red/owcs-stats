@@ -204,6 +204,7 @@
               <template v-if="currentTab === 'overview'">
                 <div class="overview-section">
                   <TournamentBoard :season-id="filterForm.seasonId" @show-matches="switchHomeTab('recent')" />
+                  <footer class="tournament-source"><span>数据来源</span><span>Liquipedia</span></footer>
                 </div>
               </template>
               <template v-else-if="currentTab === 'recent'">
@@ -300,7 +301,7 @@ export default {
     const route = useRoute();
     
     const currentTab = ref('overview');
-    const activeStatsCategory = ref('team');
+    const activeStatsCategory = ref('player');
     const webPageHeading = computed(() => {
       if (currentTab.value === 'overview') return { title: '赛事进程', description: '查看各阶段积分排名与晋级对阵' };
       if (currentTab.value === 'recent') return { title: '比赛列表', description: '按比赛日查看对阵、比分与录像' };
@@ -492,8 +493,8 @@ export default {
     }, { immediate: true });
 
     const statsCategoryTabs = computed(() => [
-      chartConfig.value.teamStats && { value: 'team', label: '战队' },
       chartConfig.value.playerStats && { value: 'player', label: '选手' },
+      chartConfig.value.teamStats && { value: 'team', label: '战队' },
       chartConfig.value.mapStats && { value: 'map', label: '地图' },
       chartConfig.value.heroBan && { value: 'hero', label: '英雄' },
       chartConfig.value.playerRadar && { value: 'radar', label: '对比' }
@@ -779,6 +780,8 @@ export default {
 </script>
 
 <style scoped>
+.tournament-source { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 20px 2px 8px; color: var(--vis-text-placeholder, #909399); font: 11px/1.5 var(--vis-font-body); }
+
 .vis-container {
   height: 100%;
   min-height: 0;

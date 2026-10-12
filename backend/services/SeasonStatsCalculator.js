@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const { calculateSeasonFleta, loadTimelines } = require('./FletaStatsService');
 const Match = require('../models/Match');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
@@ -74,7 +75,10 @@ const loadSeasonRawData = async (seasonId, options = {}) => {
 
 // 选手赛季聚合：每选手每赛季一行，结构对齐 SeasonPlayerStat（含嵌套 player / team）
 const calculateSeasonPlayerStats = async (seasonId, options = {}) => {
-  const { playerStats, teamById, playerById, gameById } = await loadSeasonRawData(seasonId, options);
+  const rawData = await loadSeasonRawData(seasonId, options);
+  const { playerStats, teamById, playerById, gameById, mapGames } = rawData;
+  const timelines = await loadTimelines(mapGames.map(game => Number(game.id)), options.rawData);
+  const fleta = calculateSeasonFleta({ mapGames, playerStats, playerById, timelines });
 
   const playerAggregateMap = new Map();
   for (const stat of playerStats) {
@@ -99,6 +103,9 @@ const calculateSeasonPlayerStats = async (seasonId, options = {}) => {
         healing: 0,
         mitigation: 0,
         finalBlows: 0,
+        hasTimeline: timelines.length > 0,
+        fletaIndex: fleta.get(Number(player.id))?.fletaIndex ?? null,
+        fletaMaps: fleta.get(Number(player.id))?.fletaMaps ?? 0,
         gameTime: 0,
         player,
         team

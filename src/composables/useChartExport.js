@@ -201,6 +201,9 @@ function drawExportBackground(ctx, EXPORT_WIDTH, EXPORT_HEIGHT, padding, logoImg
     }
 }
 
+// Temporarily disabled for all public leaderboards and charts.
+const CHART_EXPORT_ENABLED = false;
+
 export function useChartExport() {
   const showPreview = ref(false);
   const previewImage = ref('');
@@ -682,6 +685,7 @@ export function useChartExport() {
   };
 
   const exportImage = async (generate, data, valid) => {
+    if (!CHART_EXPORT_ENABLED) return;
     const context = captureAnalyticsContext(route);
     const started = performance.now();
     trackPublicEvent('export_start', data, context);
@@ -710,6 +714,7 @@ export function useChartExport() {
   );
 
   return {
+    exportEnabled: CHART_EXPORT_ENABLED,
     showPreview,
     previewImage,
     handleExportChart,

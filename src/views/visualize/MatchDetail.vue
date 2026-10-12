@@ -126,6 +126,7 @@
                           <div class="sp-body">
                             <div class="sp-line1">
                               <span class="sp-name">{{ player.name }}</span>
+                              <FletaValue v-if="hasMatchTimeline" class="sp-fleta" :value="player.fletaIndex" label="Fleta" compact />
                               <span class="sp-kda" :class="{ 'match-best': player.kdValue > 0 && player.kdValue === overallStats.maxStats.kd }">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
                             </div>
                             <div class="sp-line2">
@@ -330,6 +331,7 @@
                             <div class="sp-body">
                               <div class="sp-line1">
                                 <span class="sp-name">{{ player.name }}</span>
+                                <FletaValue v-if="hasCurrentMapTimeline" class="sp-fleta" :value="player.fletaIndex" label="Fleta" compact />
                                 <span class="sp-kda">{{ player.kills }}/{{ player.assists }}/{{ player.deaths }}</span>
                               </div>
                               <div class="sp-line2">
@@ -409,13 +411,15 @@ import { trackPerformance, trackPublicEvent } from '@/utils/analytics';
 import { TBD_TEAM_LOGO_URL } from '@/utils/teamLogos';
 import DetailTopbar from './components/DetailTopbar.vue';
 import ContentChoiceGroup from './components/ContentChoiceGroup.vue';
+import { aggregateMatchFleta } from '@/utils/matchFleta.mjs';
+import FletaValue from './components/FletaValue.vue';
 import MatchMapTimeline from './components/MatchMapTimeline.vue';
 
 const TBD_LOGO_URL = TBD_TEAM_LOGO_URL;
 
 export default {
   name: 'MatchDetail',
-  components: { DetailTopbar, ContentChoiceGroup, MatchMapTimeline },
+  components: { DetailTopbar, ContentChoiceGroup, MatchMapTimeline, FletaValue },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -594,6 +598,7 @@ export default {
     const normalizePlayer = (stat) => ({
       playerId: stat.playerId,
       teamId: stat.teamId,
+      fletaIndex: stat.fletaIndex ?? null,
       name: stat.player?.name || stat.playerName || 'Unknown',
       role: stat.player?.role || stat.role || 'damage',
       kills: Number(stat.kills || 0),
@@ -647,6 +652,9 @@ export default {
       delete player.heroAgg;
     };
 
+    const hasMatchTimeline = computed(() => matchDetails.value.mapGames.some(game => game.timeline));
+    const matchFleta = computed(() => aggregateMatchFleta(matchDetails.value.mapGames, matchDetails.value.playerStats));
+
     const overallStats = computed(() => {
       const playerMap = new Map();
 
@@ -670,6 +678,7 @@ export default {
         const kdValue = player.deaths > 0 ? player.kills / player.deaths : player.kills;
         return {
           ...player,
+          fletaIndex: matchFleta.value.get(String(player.playerId)) ?? null,
           kdValue,
           kd: kdValue.toFixed(2)
         };
@@ -1661,6 +1670,7 @@ export default {
       mapModeTabs,
       winnerName,
       overallStats,
+      hasMatchTimeline,
       overallTeamSections,
       teamAnalysis,
       teamAnalysisRadarRef,
@@ -2874,6 +2884,9 @@ export default {
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+
+.sp-fleta { margin-left: auto; }
+.sp-fleta + .sp-kda { margin-left: 4px; }
 
 .sp-body {
   display: flex;

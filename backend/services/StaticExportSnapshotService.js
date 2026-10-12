@@ -1,3 +1,4 @@
+const { calculateMapFleta, serializeMapFleta } = require('./FletaStatsService');
 const Season = require('../models/Season');
 const Team = require('../models/Team');
 const TeamAlias = require('../models/TeamAlias');
@@ -133,6 +134,11 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
   const rawMapGames = mapGamesDetailed.map(game => withoutKeys(game, ['winner', 'Map', 'team1BanHero', 'team2BanHero']));
   const rawPlayerStats = playerStatsDetailed.map(stat => withoutKeys(stat, ['player', 'hero', 'team', 'MapGame', 'heroStats']));
   const timelines = Object.fromEntries(timelineModels.map(row => [row.mapGameId, plain(row)]));
+  for (const game of mapGamesDetailed) {
+    const stats = playerStatsDetailed.filter(stat => Number(stat.mapGameId) === Number(game.id));
+    const fleta = calculateMapFleta(game, stats, timelines[game.id]?.payload);
+    for (const stat of stats) Object.assign(stat, serializeMapFleta(fleta.get(Number(stat.playerId))));
+  }
   const collections = {
     seasons, teams, players, maps, heroes, seasonTeams, seasonTeamPlayers, matches,
     mapGames: mapGamesDetailed.map(game => ({ ...game,
@@ -241,6 +247,7 @@ const buildStaticExportSnapshot = async ({ schedule: suppliedSchedule } = {}) =>
     const seasonGameIds = new Set(seasonMapGames.map(game => Number(game.id)));
     const seasonPlayerStats = rawPlayerStats.filter(stat => seasonGameIds.has(Number(stat.mapGameId)));
     const rawData = {
+      timelines,
       matches: seasonMatches,
       mapGames: seasonMapGames,
       playerStats: seasonPlayerStats,

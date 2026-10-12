@@ -71,16 +71,10 @@ try {
   assert.equal(event('浏览-切换内容').length, 0, 'default tab is not an action');
   await page.getByRole('tab', { name: '赛事数据', exact: true }).click();
   await waitEvent('浏览-切换内容', data => data['内容分区'] === '赛事数据');
+  await page.locator('.stats-category-host').getByRole('radio', { name: '战队', exact: true }).click();
   await page.locator('.team-cell-clickable').first().waitFor();
   await waitEvent('功能-有效曝光', data => data['功能'] === '战队排行榜');
-  await page.locator('.export-btn-small').click();
-  await waitEvent('导出-生成结果', data => data['结果'] === '预览已生成');
-  await page.locator('.chart-export-dialog .el-dialog__headerbtn').click();
-  // A genuine rendering failure must never be counted as generated/saved.
-  await page.evaluate(() => { window.qaToDataURL = HTMLCanvasElement.prototype.toDataURL; HTMLCanvasElement.prototype.toDataURL = () => { throw new Error('fixture canvas failure'); }; });
-  await page.locator('.export-btn-small').click();
-  await waitEvent('导出-生成结果', data => data['结果'] === '失败');
-  await page.evaluate(() => { HTMLCanvasElement.prototype.toDataURL = window.qaToDataURL; delete window.qaToDataURL; });
+  assert.equal(await page.locator('.export-btn-small, .export-btn, .chart-export-dialog').count(), 0, 'exports are temporarily disabled');
   await page.locator('.team-cell-clickable').first().click();
   await waitEvent('访问-内容加载完成', data => data['页面'] === '战队详情');
   await page.getByRole('tab', { name: '历史比赛', exact: true }).click();

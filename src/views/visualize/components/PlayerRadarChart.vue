@@ -70,7 +70,7 @@
             </el-select>
           </div>
       </div>
-      <el-dropdown trigger="click" popper-class="vis-export-dropdown" @command="handleExportCommand">
+      <el-dropdown v-if="exportEnabled" trigger="click" popper-class="vis-export-dropdown" @command="handleExportCommand">
         <el-button link class="export-btn">
           <el-icon><Download /></el-icon>
           <span class="export-text">导出</span>
@@ -87,7 +87,7 @@
     <div class="radar-body">
       <div ref="radarChart" class="chart-container"></div>
     </div>
-    <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
+    <ChartExportPreview v-if="exportEnabled" v-model="showPreview" :image-url="previewImage" />
   </div>
 </template>
 
@@ -128,7 +128,7 @@ export default {
     let myChart = null;
     let compactMedia;
 
-    const { showPreview, previewImage, handleExportChart } = useChartExport();
+    const { exportEnabled, showPreview, previewImage, handleExportChart } = useChartExport();
     const handleExportCommand = (command) => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
@@ -504,6 +504,7 @@ export default {
         player1Options,
         player2Options,
         handleRoleChange,
+        exportEnabled,
         showPreview,
         previewImage,
         handleExportCommand

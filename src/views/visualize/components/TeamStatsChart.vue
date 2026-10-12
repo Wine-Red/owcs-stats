@@ -39,27 +39,29 @@
       <div class="leaderboard-section">
         <div class="leaderboard-header">
           <span class="leaderboard-title">参赛队伍排行榜</span>
-          <el-button link class="export-btn-small" @click="handleExportLeaderboard">
+          <el-button v-if="exportEnabled" link class="export-btn-small" @click="handleExportLeaderboard">
             <el-icon><Download /></el-icon> 导出
           </el-button>
         </div>
         
-        <el-table 
+        <CompactLeaderboard v-if="!isWideLayout" kind="team" :rows="displayedTeamLeaderboard" :total="teamLeaderboardData.length"
+          :metrics="leaderboardMetrics" :sort-state="sortState" @sort-change="handleSortChange" @open="goToTeamDetail" />
+        <el-table v-else
           :data="displayedTeamLeaderboard" 
           style="width: 100%" 
           size="small"
           :row-class-name="tableRowClassName"
           @sort-change="handleSortChange"
-          :default-sort="{ prop: 'kd', order: 'descending' }"
+          :default-sort="sortState"
         >
-          <el-table-column type="index" label="排名" width="60" align="center" fixed>
+          <el-table-column type="index" label="排名" width="48" align="center" fixed>
             <template #default="scope">
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="teamName" label="队伍" :width="isWideLayout ? undefined : 96" :min-width="isWideLayout ? 140 : undefined" fixed>
             <template #default="scope">
-              <div class="team-cell team-cell-clickable" @click="goToTeamDetail(scope.row)" role="button" tabindex="0">
+              <div class="team-cell team-cell-clickable" @click="goToTeamDetail(scope.row)" @keydown.enter="goToTeamDetail(scope.row)" @keydown.space.prevent="goToTeamDetail(scope.row)" role="button" tabindex="0">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
                 <span class="team-name" :title="scope.row.teamName">{{ scope.row.teamName }}</span>
                 <span class="team-roster-cue" aria-hidden="true">›</span>
@@ -84,9 +86,9 @@
           <el-table-column prop="duration" label="总时长(分)" :width="isWideLayout ? undefined : 100" :min-width="isWideLayout ? 100 : undefined" align="center" />
         </el-table>
 
-        <div class="leaderboard-footer" v-if="teamLeaderboardData.length > (isWideLayout ? 10 : 3)">
+        <div class="leaderboard-footer" v-if="teamLeaderboardData.length > (isWideLayout ? 10 : 5)">
           <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
-            {{ isExpanded ? '收起全部' : '查看全部' }}
+            {{ isExpanded ? '收起榜单' : `查看全部 ${teamLeaderboardData.length} 支队伍` }}
             <el-icon class="el-icon--right">
               <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
             </el-icon>
@@ -94,7 +96,7 @@
         </div>
       </div>
     </div>
-    <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
+    <ChartExportPreview v-if="exportEnabled" v-model="showPreview" :image-url="previewImage" />
   </div>
 </template>
 
@@ -109,6 +111,7 @@ import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
 import ChartExportPreview from './ChartExportPreview.vue';
+import CompactLeaderboard from './CompactLeaderboard.vue';
 import { useChartExport } from '@/composables/useChartExport';
 import { useWideVisualizeLayout } from '@/composables/useVisualizeLayout';
 import { trackPublicEvent } from '@/utils/analytics';
@@ -117,6 +120,7 @@ import { escapeHtml } from '@/utils/security';
 export default {
   name: 'TeamStatsChart',
   components: {
+    CompactLeaderboard,
     ArrowDown,
     ArrowUp,
     Download,
@@ -158,7 +162,7 @@ export default {
       });
     };
 
-    const { showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
+    const { exportEnabled, showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
     const handleExport = () => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
@@ -182,6 +186,12 @@ export default {
     };
 
     const sortState = ref({ prop: 'kd', order: 'descending' });
+    const leaderboardMetrics = [
+      { prop: 'kd', label: 'K/D' },
+      { prop: 'damagePer10', label: '伤害/10min' },
+      { prop: 'healingPer10', label: '治疗/10min' },
+      { prop: 'duration', label: '总时长(分)' }
+    ];
 
     const handleSortChange = ({ prop, order }) => {
       if (sortState.value.prop !== prop || sortState.value.order !== order) track('sort_change', { metric: prop, order: order || '默认' });
@@ -231,7 +241,7 @@ export default {
         if (isExpanded.value) {
             return teamLeaderboardData.value;
         }
-        return teamLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 3);
+        return teamLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 5);
     });
 
     const getRankClass = (index) => {
@@ -681,6 +691,7 @@ export default {
       metric: '队伍统计' }), { chart: true });
 
     return {
+      leaderboardMetrics,
       track,
       teamComparisonChart,
       teamFilter,
@@ -692,6 +703,7 @@ export default {
       getRankClass,
       tableRowClassName,
       handleSortChange,
+      exportEnabled,
       showPreview,
       previewImage,
       handleExport,

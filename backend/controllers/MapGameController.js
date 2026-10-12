@@ -1,3 +1,4 @@
+const { calculateMapFleta, serializeMapFleta } = require('../services/FletaStatsService');
 const MapGame = require('../models/MapGame');
 const PlayerStat = require('../models/PlayerStat');
 const PlayerHeroStat = require('../models/PlayerHeroStat');
@@ -584,7 +585,10 @@ const MapGameController = {
         playerStats = [];
       }
       
-      res.status(200).json(playerStats);
+      const timeline = await MapGameTimeline.findOne({ where: { mapGameId: id }, raw: true });
+      const rows = playerStats.map(stat => stat.toJSON());
+      const fleta = calculateMapFleta(mapGame, rows, timeline?.payload);
+      res.status(200).json(rows.map(stat => ({ ...stat, ...serializeMapFleta(fleta.get(Number(stat.playerId))) })));
     } catch (error) {
       console.error('获取地图局选手数据失败:', error);
       res.status(500).json({ error: error.message });

@@ -84,10 +84,10 @@
           </div>
 
           <div v-if="peerRanks.length" class="benchmark-list">
-            <div v-for="metric in peerRanks" :key="metric.key" class="benchmark-item" :class="{ 'is-open': expandedMetric === metric.key }">
+            <div v-for="metric in peerRanks" :key="metric.key" class="benchmark-item" :class="{ 'is-open': expandedMetric === metric.key, 'is-fleta': metric.key === 'fletaIndex' }">
               <div class="benchmark-row">
                 <div class="benchmark-copy">
-                  <span>{{ metric.label }}</span>
+                  <span>{{ metric.label }}<FletaHelp v-if="metric.key === 'fletaIndex'" /></span>
                   <strong>{{ metric.displayValue }}</strong>
                 </div>
                 <div class="benchmark-track" aria-hidden="true">
@@ -265,6 +265,7 @@
 </template>
 
 <script>
+import FletaHelp from './components/FletaHelp.vue';
 import { snapshotRoute } from '@/analytics/core.mjs';
 import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
@@ -292,7 +293,7 @@ const number = value => Number(value) || 0;
 
 export default {
   name: 'PlayerDetail',
-  components: { ArrowDown, ArrowRight, DetailTopbar, DetailSectionTabs },
+  components: { ArrowDown, ArrowRight, DetailTopbar, DetailSectionTabs, FletaHelp },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -404,17 +405,19 @@ export default {
       .filter(item => item && item.role === role.value && item.gameTime > 0));
 
     const rankMetric = (key, label, lowerIsBetter = false) => {
+      if (key === 'fletaIndex' && activeStat.value[key] == null) return null;
       const value = number(activeStat.value[key]);
-      const values = normalizedPeers.value.map(item => number(item[key]));
+      const values = normalizedPeers.value.filter(item => key !== 'fletaIndex' || item[key] != null).map(item => number(item[key]));
       if (!values.length) return null;
       const sorted = [...values].sort((a, b) => lowerIsBetter ? a - b : b - a);
       let rank = sorted.findIndex(item => Math.abs(item - value) < 0.0001) + 1;
       if (rank === 0) rank = sorted.filter(item => lowerIsBetter ? item < value : item > value).length + 1;
       const percentile = sorted.length <= 1 ? 100 : Math.max(4, ((sorted.length - rank) / (sorted.length - 1)) * 96 + 4);
-      return { key, label, rank, total: sorted.length, percentile, lowerIsBetter, displayValue: formatNumber(value) };
+      return { key, label, rank, total: sorted.length, percentile, lowerIsBetter, displayValue: key === 'fletaIndex' ? `${value.toFixed(1)}%` : formatNumber(value) };
     };
 
     const peerRanks = computed(() => [
+      activeStat.value.hasTimeline ? rankMetric('fletaIndex', 'Fleta 指数') : null,
       rankMetric(role.value === 'support' ? 'kad' : 'kd', role.value === 'support' ? 'KA/D' : 'K/D'),
       rankMetric(roleMeta.value.keyMetric, roleMeta.value.keyLabel),
       rankMetric('elimsPer10', '消灭 / 10m'),
@@ -432,13 +435,14 @@ export default {
     const metricLeaderboard = (metric) => {
       const lower = metric.lowerIsBetter;
       return [...normalizedPeers.value]
+        .filter(item => metric.key !== 'fletaIndex' || item[metric.key] != null)
         .sort((a, b) => lower ? number(a[metric.key]) - number(b[metric.key]) : number(b[metric.key]) - number(a[metric.key]))
         .map((item, index) => ({
           rank: index + 1,
           playerId: item.playerId || item.player?.id || null,
           name: item.player?.name || `选手#${item.playerId || ''}`,
           teamName: item.team?.name || '',
-          value: formatNumber(item[metric.key]),
+          value: metric.key === 'fletaIndex' ? `${Number(item[metric.key]).toFixed(1)}%` : formatNumber(item[metric.key]),
           isSelf: String(item.playerId || item.player?.id) === playerId.value
         }));
     };
@@ -836,6 +840,9 @@ export default {
 </script>
 
 <style scoped>
+.benchmark-item.is-fleta .benchmark-copy strong { color: #ba4c00; }
+.benchmark-item.is-fleta { border-left: 3px solid #ba4c00; padding-left: 12px; }
+
 .player-detail-page {
   min-height: 100vh;
   background: var(--vis-bg-page, #f4f5f8);

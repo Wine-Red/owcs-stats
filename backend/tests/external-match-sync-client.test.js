@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createExternalMatchSyncClient, validateSummary, validateDetail } = require('../services/ExternalMatchSyncClient');
-const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency, numberOrNull } = require('../services/IncrementalMatchSyncService');
+const { HERO_NAME_ALIASES, heroNameKey, parseDuration, parseKad, mapWithConcurrency, numberOrNull, normalizeRole, validateMatchPlayerRoles } = require('../services/IncrementalMatchSyncService');
 
 test('fetchChanges preserves the opaque cursor and accepts schema v3', async () => {
   let requestedUrl = '';
@@ -90,4 +90,31 @@ test('sync preserves missing charge samples as null and distinguishes measured z
   assert.equal(numberOrNull('0'), 0);
   assert.equal(numberOrNull(92.7), 92.7);
   assert.equal(numberOrNull('92.7'), 92.7);
+});
+
+test('player roles accept canonical values and case/whitespace variations only', () => {
+  for (const [expected, values] of Object.entries({
+    tank: ['T', 't', ' tank ', 'TANK'],
+    damage: ['D', 'd', 'damage', ' Damage '],
+    support: ['S', 's', 'support', ' SUPPORT ']
+  })) {
+    for (const value of values) assert.equal(normalizeRole(value), expected);
+  }
+  for (const value of ['F', 'flex', '', ' ', null, undefined, 1, 'constructor', '__proto__']) {
+    assert.equal(normalizeRole(value), null);
+  }
+});
+
+test('invalid source roles identify the match, later map and player without guessing a historical role', () => {
+  const match = { id: '1675', rounds: [
+    { mapName: '第一张图', playersA: [{ name: 'SOAE', role: 'D' }] },
+    { mapName: '香巴里寺院', playersA: [{ name: 'SOAE', role: 'F' }] }
+  ] };
+  const before = structuredClone(match);
+  assert.throws(() => validateMatchPlayerRoles(match), /比赛 1675 第 2 张图（香巴里寺院）选手 SOAE 的位置 "F" 无效/);
+  assert.deepEqual(match, before);
+  match.rounds[1].playersA[0].role = 'S';
+  assert.doesNotThrow(() => validateMatchPlayerRoles(match));
+  match.rounds[1].playersB = [{ name: 'Other', role: null }];
+  assert.throws(() => validateMatchPlayerRoles(match), /选手 Other 的位置 null 无效/);
 });

@@ -2,7 +2,7 @@
   <div v-analytics-view="{ feature: '选手排行榜', seasonId, resultCount: playerLeaderboardData.length }" class="vis-card player-stats-card">
     <div class="panel-header">
       <div class="header-controls">
-        <el-radio-group v-model="playerRole" size="small" @change="updatePlayerStatsChart(); track('filter_change', { filter: '职责', role: playerRole })" class="role-radio-group">
+        <el-radio-group v-model="playerRole" size="small" @change="track('filter_change', { filter: '职责', role: playerRole })" class="role-radio-group">
           <el-radio-button label="tank">
             <div class="role-btn-content">
               <img :src="packageAssetUrl('icons/role/Tank.png')" class="role-icon" alt="tank" /><span class="vis-web-only">重装</span>
@@ -50,6 +50,7 @@
       </div>
     </div>
     <div class="card-content">
+
       <div class="vis-web-chart-caption vis-web-only"><h3>表现分布</h3><span>{{ playerRole === 'support' ? '治疗/10min × KA/D' : playerRole === 'tank' ? '抵挡/10min × K/D' : '伤害/10min × K/D' }}</span></div>
       <div ref="playerStatsChart" class="chart-container"></div>
       
@@ -64,36 +65,44 @@
           <span class="leaderboard-title" v-else-if="playerRole === 'support'">
             <img :src="packageAssetUrl('icons/role/Support.png')" class="leaderboard-role-icon" alt="support" /> 支援选手排行榜
           </span>
-          <el-button link class="export-btn-small" @click="handleExportLeaderboard">
+          <el-button v-if="exportEnabled" link class="export-btn-small" @click="handleExportLeaderboard">
             <el-icon><Download /></el-icon> 导出
           </el-button>
         </div>
         
-        <el-table 
+        <CompactLeaderboard v-if="!isWideLayout" :rows="displayedPlayerLeaderboard" :total="playerLeaderboardData.length"
+          :metrics="leaderboardMetrics" :sort-state="sortState" @sort-change="handleSortChange" @open="goToPlayerDetail" />
+        <el-table v-else
           ref="playerStatsTable"
+          :default-sort="sortState"
           :data="displayedPlayerLeaderboard" 
           style="width: 100%" 
           size="small"
           :row-class-name="tableRowClassName"
           @sort-change="handleSortChange"
         >
-          <el-table-column type="index" label="排名" width="60" align="center" fixed>
+          <el-table-column type="index" label="排名" width="48" align="center" fixed>
             <template #default="scope">
               <span :class="getRankClass(scope.$index)">{{ scope.$index + 1 }}</span>
             </template>
           </el-table-column>
           
-          <el-table-column prop="playerName" label="选手" :min-width="isWideLayout ? 156 : 120" fixed>
+          <el-table-column prop="playerName" label="选手" min-width="200" fixed>
             <template #default="scope">
               <button type="button" class="player-cell player-link" @click="goToPlayerDetail(scope.row)">
                 <img v-if="scope.row.logo" :src="scope.row.logo" class="team-logo-small" alt="" />
                 <div class="player-info">
                   <span class="player-name">{{ scope.row.playerName }}</span>
-                  <span class="team-name-sub">{{ scope.row.teamName }}</span>
+                  <span class="team-name-sub">{{ scope.row.teamName }} · {{ scope.row.duration ?? '—' }} 分钟</span>
                 </div>
                 <span class="player-link-indicator" aria-hidden="true">›</span>
               </button>
             </template>
+          </el-table-column>
+
+          <el-table-column v-if="showFleta" prop="fletaIndex" label="Fleta 指数" width="140" align="center" sortable="custom" :sort-orders="['descending', 'ascending']">
+            <template #header><span>Fleta 指数</span><FletaHelp /></template>
+            <template #default="scope"><FletaValue :value="scope.row.fletaIndex" compact /></template>
           </el-table-column>
 
           <!-- Tank Columns -->
@@ -193,12 +202,11 @@
             </el-table-column>
           </template>
           
-          <el-table-column prop="duration" label="时长(分)" width="90" align="center" />
         </el-table>
 
-        <div class="leaderboard-footer" v-if="playerLeaderboardData.length > (isWideLayout ? 10 : 3)">
+        <div class="leaderboard-footer" v-if="playerLeaderboardData.length > (isWideLayout ? 10 : 5)">
           <el-button link type="primary" @click="isExpanded = !isExpanded; track('expand', { expanded: isExpanded })">
-            {{ isExpanded ? '收起全部' : '查看全部' }}
+            {{ isExpanded ? '收起榜单' : `查看全部 ${playerLeaderboardData.length} 位选手` }}
             <el-icon class="el-icon--right">
               <component :is="isExpanded ? 'ArrowUp' : 'ArrowDown'" />
             </el-icon>
@@ -206,7 +214,7 @@
         </div>
       </div>
     </div>
-    <ChartExportPreview v-model="showPreview" :image-url="previewImage" />
+    <ChartExportPreview v-if="exportEnabled" v-model="showPreview" :image-url="previewImage" />
   </div>
 </template>
 
@@ -221,6 +229,9 @@ import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import apiService from '@/services/api';
 import { ArrowDown, ArrowUp, Download } from '@element-plus/icons-vue';
+import FletaValue from './FletaValue.vue';
+import FletaHelp from './FletaHelp.vue';
+import CompactLeaderboard from './CompactLeaderboard.vue';
 import ChartExportPreview from './ChartExportPreview.vue';
 import { useChartExport } from '@/composables/useChartExport';
 import { useWideVisualizeLayout } from '@/composables/useVisualizeLayout';
@@ -229,10 +240,13 @@ import { escapeHtml } from '@/utils/security';
 export default {
   name: 'PlayerStatsChart',
   components: {
+    FletaHelp,
+    CompactLeaderboard,
     ArrowDown,
     ArrowUp,
     Download,
-    ChartExportPreview
+    ChartExportPreview,
+    FletaValue
   },
   props: {
     seasonId: {
@@ -254,13 +268,30 @@ export default {
     const playerFilter = ref([]);
     const playerRole = ref('damage');
     const allPlayerStats = ref([]);
+    const showFleta = computed(() => allPlayerStats.value.some(item => item.hasTimeline));
+    const leaderboardMetrics = computed(() => {
+      const common = { prop: 'damagePer10', label: '伤害/10min' };
+      const elims = { prop: 'elimsPer10', label: '消灭/10min' };
+      const assists = { prop: 'assistsPer10', label: '助攻/10min' };
+      const kd = { prop: 'kd', label: 'K/D' };
+      const roles = {
+        tank: [{ prop: 'mitigationPer10', label: '抵挡/10min' }, kd, common, elims, assists],
+        damage: [elims, kd, common, { prop: 'deathsPer10', label: '死亡/10min' }],
+        support: [{ prop: 'kad', label: 'KA/D' }, common, { prop: 'healingPer10', label: '治疗/10min' }, elims, assists]
+      };
+      return [
+        ...(showFleta.value ? [{ prop: 'fletaIndex', label: 'Fleta 指数' }] : []),
+        ...roles[playerRole.value],
+        ...(props.showFinalBlows ? [{ prop: 'finalBlowsPer10', label: '最后一击/10min' }] : [])
+      ];
+    });
     const teamLogoSizes = ref(new Map());
     const isExpanded = ref(false);
     const sortState = ref({ prop: '', order: '' });
     const playerStatsTable = ref(null);
     let playerChart = null;
 
-    const { showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
+    const { exportEnabled, showPreview, previewImage, handleExportChart, handleExportTable } = useChartExport();
     const handleExport = () => {
         const season = store.getters.getSeasonById(props.seasonId);
         const seasonName = season ? season.name : '';
@@ -310,6 +341,8 @@ export default {
             roleColumns.push({ prop: 'finalBlowsPer10', label: '最后一击/10min', highlight: sortState.value.prop === 'finalBlowsPer10', weight: 1.2 });
         }
 
+        if (showFleta.value) roleColumns.unshift({ prop: 'fletaDisplay', label: 'Fleta 指数', highlight: true, weight: 1.2 });
+
         const columns = [
             { prop: 'rank', label: '排名', width: 80, weight: 0.8 },
             { prop: 'playerName', label: '选手', align: 'left', isTeam: true, weight: 2 },
@@ -318,13 +351,15 @@ export default {
         ];
 
         // Export all players instead of top 15
-        const exportData = playerLeaderboardData.value;
+        const exportData = playerLeaderboardData.value.map(row => ({ ...row, fletaDisplay: row.fletaIndex == null ? '—' : `${row.fletaIndex.toFixed(1)}%` }));
         handleExportTable(title, columns, exportData, seasonName, { seasonId: props.seasonId });
     };
     
     // 初始化默认排序
     const setDefaultSort = () => {
-        if (playerRole.value === 'tank') {
+        if (showFleta.value) {
+            sortState.value = { prop: 'fletaIndex', order: 'descending' };
+        } else if (playerRole.value === 'tank') {
             sortState.value = { prop: 'mitigationPer10', order: 'descending' };
         } else if (playerRole.value === 'damage') {
             sortState.value = { prop: 'elimsPer10', order: 'descending' };
@@ -334,7 +369,7 @@ export default {
     };
     
     // 监听角色变化，重置默认排序
-    watch(playerRole, async () => {
+    watch([playerRole, showFleta], async () => {
         setDefaultSort();
         await nextTick();
         if (playerStatsTable.value) {
@@ -402,6 +437,8 @@ export default {
         }
 
         return processed.sort((a, b) => {
+            if (a[prop] == null) return b[prop] == null ? 0 : 1;
+            if (b[prop] == null) return -1;
             let result = 0;
             if (a[prop] > b[prop]) result = 1;
             else if (a[prop] < b[prop]) result = -1;
@@ -429,7 +466,7 @@ export default {
         if (isExpanded.value) {
             return playerLeaderboardData.value;
         }
-        return playerLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 3);
+        return playerLeaderboardData.value.slice(0, isWideLayout.value ? 10 : 5);
     });
 
     const getRankClass = (index) => {
@@ -766,7 +803,10 @@ export default {
     };
 
     // 更新选手数据图表
+    let playerRequest = 0;
     const updatePlayerStatsChart = async () => {
+      const request = ++playerRequest;
+      allPlayerStats.value = [];
       if (!playerChart) return;
       
       if (!props.seasonId) return;
@@ -780,6 +820,7 @@ export default {
         
         // 使用新的赛季数据接口
         const response = await apiService.getSeasonPlayerStats(props.seasonId);
+        if (request !== playerRequest) return;
         
         // Pre-calculate stats from primary data (ignoring backend pre-calculated fields)
         const processedResponse = (response || []).map(item => {
@@ -812,6 +853,7 @@ export default {
 
         allPlayerStats.value = processedResponse;
         await loadTeamLogos(allPlayerStats.value);
+        if (request !== playerRequest) return;
         
         // 获取当前角色的所有数据用于计算Top 5
         const roleStats = allPlayerStats.value.filter(s => s.role === playerRole.value);
@@ -908,7 +950,7 @@ export default {
     // 监听 playerRole 变化，重置选手筛选并更新图表
     watch(playerRole, () => {
         playerFilter.value = []; 
-        updatePlayerStatsChart();
+        renderPlayerChart();
     });
 
     // 监听 seasonId 变化
@@ -934,6 +976,9 @@ export default {
       role: playerRole.value, metric: sortState.value.prop || '选手表现分布' }), { chart: true });
 
     return {
+      leaderboardMetrics,
+      playerStatsTable,
+      showFleta,
       track,
       packageAssetUrl,
       playerStatsChart,
@@ -948,6 +993,7 @@ export default {
       getRankClass,
       tableRowClassName,
       handleSortChange,
+      exportEnabled,
       showPreview,
       previewImage,
       handleExport,
@@ -960,6 +1006,8 @@ export default {
 </script>
 
 <style scoped>
+
+
 /* 去卡片化：无缝直排，标题+内容直接落在页面上（对齐积分榜风格） */
 .vis-card {
   position: relative;
