@@ -204,7 +204,13 @@
               <template v-if="currentTab === 'overview'">
                 <div class="overview-section">
                   <TournamentBoard :season-id="filterForm.seasonId" @show-matches="switchHomeTab('recent')" />
-                  <footer class="tournament-source"><span>数据来源</span><span>Liquipedia</span></footer>
+                  <footer class="tournament-source">
+                    <span>数据来源</span>
+                    <a :href="normalizeLiquipediaTournamentUrl(seasonVisualConfig.liquipediaTournamentUrl) || 'https://liquipedia.net/overwatch/'" target="_blank" rel="noopener noreferrer">
+                      Liquipedia
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4.5 2.5h-2v7h7v-2M6.5 2.5h3v3m0-3-5 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                    </a>
+                  </footer>
                 </div>
               </template>
               <template v-else-if="currentTab === 'recent'">
@@ -257,6 +263,7 @@ import { snapshotRoute } from '@/analytics/core.mjs';
 import { useAnalyticsContext } from '@/composables/useAnalytics';
 import { useAssistantContext } from '@/services/assistantContext';
 import { packageAssetUrl } from '@/utils/packageAssets';
+import { normalizeLiquipediaTournamentUrl } from '@/utils/liquipediaTournament.mjs';
 import { ref, computed, onMounted, defineAsyncComponent, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
@@ -742,6 +749,7 @@ export default {
 
     return {
       currentTab,
+      normalizeLiquipediaTournamentUrl,
       switchHomeTab,
       tabContentRef,
       activeStatsCategory,
@@ -780,7 +788,11 @@ export default {
 </script>
 
 <style scoped>
-.tournament-source { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 20px 2px 8px; color: var(--vis-text-placeholder, #909399); font: 11px/1.5 var(--vis-font-body); }
+.tournament-source { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; padding: 16px 0 12px; border-top: 1px solid var(--vis-border, #e6e9f0); color: var(--vis-text-placeholder, #909399); font: 11px/1.5 var(--vis-font-body); }
+.tournament-source a { display: inline-flex; align-items: center; gap: 4px; color: var(--vis-text-secondary, #606266); font-size: 12px; font-weight: 600; text-decoration: none; }
+.tournament-source a svg { color: #a1a6af; }
+.tournament-source a:hover, .tournament-source a:hover svg { color: var(--vis-accent, #ff6a00); }
+.tournament-source a:focus-visible { outline: 2px solid var(--vis-accent, #ff6a00); outline-offset: 4px; }
 
 .vis-container {
   height: 100%;
