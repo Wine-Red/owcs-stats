@@ -9,6 +9,54 @@ const sources = require('./fixtures/tournaments/sources.json');
 const fixture = async name => ({ ...sources[name], html: await fs.readFile(path.join(__dirname, 'fixtures/tournaments', `${name}.html`), 'utf8') });
 const parsed = async name => parseTournamentHtml(await fixture(name));
 
+test('current China Table2 standings preserve rank, records and Swiss round headers', async () => {
+  const data = await parsed('china3-table2');
+  const table = data.blocks.find(block => block.type === 'standings');
+  assert.deepEqual(table.sourceHeadings, ['Results', 'Regular Season']);
+  assert.deepEqual(table.rows.map(row => [row.rank, row.team.shortName, row.matches, row.maps, row.difference]), [
+    ['1', 'OUG', '2 - 0', '6 - 1', '5'], ['2', 'WBG', '2 - 0', '6 - 2', '4'],
+    ['3', 'AG', '1 - 1', '4 - 4', '0'], ['4', 'JDG', '0 - 1', '1 - 3', '-2'],
+    ['5', 'SV', '0 - 1', '0 - 3', '-3'], ['6', 'HNG', '0 - 2', '2 - 6', '-4']
+  ]);
+  assert.equal(table.rows[0].team.url, 'https://liquipedia.net/overwatch/OU_Gaming');
+  assert.equal(table.rows[5].status, 'down');
+  const swiss = data.blocks.find(block => block.type === 'swiss');
+  assert.deepEqual(swiss.roundLabels, ['第 1 轮', '第 2 轮', '第 3 轮', '第 4 轮']);
+  assert.equal(swiss.rows.length, 8);
+  assert.equal(swiss.rows[0].rounds.length, 4);
+});
+
+test('current Korea Table2 selects one history snapshot and preserves tied ranks', async () => {
+  const input = await fixture('korea3-table2');
+  const table = parseTournamentHtml(input).blocks[0];
+  assert.equal(table.rows.length, 9);
+  assert.deepEqual(table.rows.map(row => row.rank), ['1', '2', '3', '4', '5', '6', '7', '7', '9']);
+  assert.equal(table.rows[0].team.shortName, 'ZETA');
+  assert.equal(table.rows[0].matches, '6 - 0');
+  assert.equal(table.rows[0].difference, '17');
+  const selected = parseTournamentHtml({ ...input, html: input.html.replace('data-toggle-area="3"', 'data-toggle-area="1"') });
+  assert.equal(selected.blocks[0].rows.length, 9);
+  assert.equal(selected.blocks[0].rows[0].team.shortName, 'CB');
+  assert.equal(selected.blocks[0].rows[0].matches, '2 - 0');
+  const fallback = parseTournamentHtml({ ...input, html: input.html.replace('data-toggle-area="3"', '').replace('toggle-area-3', '') });
+  assert.deepEqual(fallback.blocks[0].rows, table.rows);
+});
+
+test('Table2 handles an absent movement column and missing records without inventing zero scores', async () => {
+  const input = await fixture('china3-table2');
+  const $ = require('cheerio').load(input.html);
+  $('.standings-group tr').each((_, el) => $(el).children().eq(1).remove());
+  const rows = $('.standings-group tr.table2__row--body');
+  rows.first().children('td').eq(3).text('—');
+  rows.eq(1).children('td').eq(3).text('0 - 0');
+  const table = parseTournamentHtml({ ...input, html: $.html() }).blocks.find(block => block.type === 'standings');
+  assert.equal(table.rows.length, 6);
+  assert.equal(table.rows[0].team.shortName, 'OUG');
+  assert.equal(table.rows[0].maps, '—');
+  assert.equal(table.rows[0].difference, '');
+  assert.equal(table.rows[1].difference, '0');
+});
+
 test('real China source: Swiss rounds, selected latest standings, six-game double elimination and child discovery', async () => {
   const data = await parsed('china2');
   assert.equal(data.blocks[0].rows.length, 8);

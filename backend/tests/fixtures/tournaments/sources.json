@@ -45,5 +45,19 @@
     "page": "Overwatch Champions Series/2026/Asia/Stage 2/Korea",
     "revisionId": 1142390,
     "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Asia/Stage_2/Korea"
+  },
+  "china3-table2": {
+    "page": "Overwatch Champions Series/2026/China/Stage 3",
+    "revisionId": 1151247,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/China/Stage_3",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse standings; images removed; retrieved 2026-10-22."
+  },
+  "korea3-table2": {
+    "page": "Overwatch Champions Series/2026/Asia/Stage 3/Korea",
+    "revisionId": 1151222,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Asia/Stage_3/Korea",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse standings; images removed; retrieved 2026-10-22."
   }
 }

@@ -85,7 +85,7 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
   const pageUrl = parseTournamentUrl(`https://liquipedia.net/overwatch/${page.replace(/ /g, '_')}`).url;
   const headings = new Map();
   let sections = [];
-  $('h2,h3,h4,h5,h6,a[href],.brkts-bracket-wrapper,.group-table,.standings-swiss,.brkts-matchlist').each((_, el) => {
+  $('h2,h3,h4,h5,h6,a[href],.brkts-bracket-wrapper,.group-table,.standings-group,.standings-swiss,.brkts-matchlist').each((_, el) => {
     if (/^h[2-6]$/.test(el.tagName)) {
       const level = Number(el.tagName.slice(1));
       sections = sections.filter(section => section.level < level);
@@ -96,7 +96,7 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
     const dynamic = node.find('[data-team-name]').first();
     const link = node.find('a[href^="/overwatch/"]').filter((_, a) => !$(a).hasClass('new')).first();
     const name = normalizeTeamName(node.attr('aria-label') || dynamic.attr('data-team-name') || link.attr('title') || node.find('.name,.team-template-text').first().text()) || '待定';
-    return { name, shortName: normalizeTeamName(dynamic.attr('data-team-shortname')) || name, url: article(link.attr('href')) };
+    return { name, shortName: normalizeTeamName(dynamic.attr('data-team-shortname') || node.find('.name.visible-xs').first().text()) || name, url: article(link.attr('href')) };
   };
   const score = value => {
     const text = clean(value);
@@ -117,19 +117,49 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
   };
   const blocks = [];
   const warnings = [];
-  $('.standings-swiss,.group-table,.brkts-bracket-wrapper,.brkts-matchlist').each((index, el) => {
+  $('.standings-swiss,.standings-group,.group-table,.brkts-bracket-wrapper,.brkts-matchlist').each((index, el) => {
     const node = $(el);
     const id = `${hash(page)}-${index}`;
     const sourceHeadings = headings.get(el) || [];
     const sourceTitle = sourceHeadings.at(-1) || '赛程';
     const base = { id, title: translateLabel(sourceTitle), sourceTitle, sourceHeadings, sourceUrl: pageUrl };
     if (node.hasClass('standings-swiss')) {
-      const headers = node.find('thead th').map((_, e) => translateLabel($(e).text())).get();
+      // Table2 now places its header row in tbody instead of thead.
+      const headers = node.find('tr').filter((_, row) => $(row).children('th').length > 0).first()
+        .children('th').map((_, e) => translateLabel($(e).text())).get();
       const rows = node.find('tr.table2__row--body').map((_, e) => {
         const row = $(e), cells = row.children('td');
         return { rank: clean(cells.eq(0).text()), team: team(cells.eq(1)), matches: clean(cells.eq(2).text()), maps: clean(cells.eq(3).text()), status: row.attr('data-position-status') || '', rounds: cells.slice(4).map((_, cell) => ({ score: clean($(cell).find('.label--standings-result').text()) || '—', opponent: team($(cell)) })).get() };
       }).get();
       if (rows.length) blocks.push({ ...base, type: 'swiss', title: '瑞士轮积分', rows, roundLabels: headers.slice(4) });
+    } else if (node.hasClass('standings-group')) {
+      // New Table2 standings include an optional, unnamed movement column.
+      // Resolve fields by headers so that indicator cells never shift records.
+      const headers = node.find('tr').filter((_, row) => $(row).children('th').length > 0).first()
+        .children('th').map((_, cell) => clean($(cell).text())).get();
+      const column = pattern => headers.findIndex(header => pattern.test(header));
+      const rankIndex = column(/^(?:#|Rank|Position)$/i);
+      const teamIndex = column(/^(?:Participant|Team)$/i);
+      const matchesIndex = column(/^Matches$/i);
+      const mapsIndex = column(/^(?:Games|Maps)$/i);
+      const differenceIndex = column(/^(?:(?:Game|Map)s? (?:Diff(?:erence)?\.?|Differential)|\+\/-|[Δ±])$/i);
+      const history = node.closest('.standings-round-history');
+      const allRows = node.find('tr.table2__row--body');
+      const selected = history.attr('data-toggle-area') || (history.attr('class') || '').match(/toggle-area-(\d+)/)?.[1];
+      const current = allRows.filter((_, row) => $(row).attr('data-toggle-area-content') === selected);
+      const latest = allRows.filter('[data-toggle-area-content]').last().attr('data-toggle-area-content');
+      const selectedRows = current.length ? current : latest
+        ? allRows.filter((_, row) => $(row).attr('data-toggle-area-content') === latest) : allRows;
+      const rows = teamIndex < 0 ? [] : selectedRows.map((_, el) => {
+        const row = $(el), cells = row.children('td');
+        const value = index => index < 0 ? '' : clean(cells.eq(index).text());
+        const maps = value(mapsIndex);
+        const mapRecord = maps.match(/^(\d+)\s*[-–—:]\s*(\d+)$/);
+        return { rank: value(rankIndex), team: team(cells.eq(teamIndex)), matches: value(matchesIndex), maps,
+          difference: value(differenceIndex) || (mapRecord ? String(Number(mapRecord[1]) - Number(mapRecord[2])) : ''),
+          status: row.attr('data-position-status') || '' };
+      }).get();
+      if (rows.length) blocks.push({ ...base, type: 'standings', title: /Group/.test(sourceTitle) ? translateLabel(sourceTitle) : `${translateLabel(sourceTitle)} · 积分`, rows });
     } else if (node.hasClass('group-table')) {
       // The template includes historical weekly tables. Use its selected snapshot.
       const selected = (node.attr('class') || '').match(/toggle-area-(\d+)/)?.[1];
