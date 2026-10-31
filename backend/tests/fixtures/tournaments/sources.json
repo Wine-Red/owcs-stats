@@ -59,5 +59,12 @@
     "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/Asia/Stage_3/Korea",
     "license": "CC BY-SA 3.0",
     "note": "Reduced actual MediaWiki action=parse standings; images removed; retrieved 2026-10-22."
+  },
+  "china3-regular-table2": {
+    "page": "Overwatch_Champions_Series/2026/China/Stage_3/Regular_Season",
+    "revisionId": 1152197,
+    "sourceUrl": "https://liquipedia.net/overwatch/Overwatch_Champions_Series/2026/China/Stage_3/Regular_Season",
+    "license": "CC BY-SA 3.0",
+    "note": "Reduced actual MediaWiki action=parse standings; images removed; retrieved 2026-10-31."
   }
 }

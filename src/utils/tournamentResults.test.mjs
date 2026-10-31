@@ -14,6 +14,20 @@ const load = async name => loadTournamentSnapshot(parseTournamentUrl(sources[nam
   fetchPage: async ({ page }) => fixture(page.endsWith('/Regular Season') ? `${name}-regular` : name), fetchCanonicalPages: async () => ({})
 });
 
+test('China detail standings retain records when selected over the event overview', async () => {
+  const overview = parseTournamentHtml(await fixture('china3-table2'));
+  const detail = parseTournamentHtml(await fixture('china3-regular-table2'));
+  const snapshot = { ...overview, blocks: [...overview.blocks, ...detail.blocks] };
+  const stage = groupTournamentStages(snapshot).find(stage => stage.id === 'round-robin');
+  const tables = tournamentStageDisplayBlocks(stage, snapshot).filter(block => block.type === 'standings');
+  assert.equal(tables.length, 1);
+  assert.equal(tables[0].sourceUrl, sources['china3-regular-table2'].sourceUrl);
+  assert.deepEqual(tables[0].rows.map(row => [row.matches, row.maps, row.difference]), [
+    ['4 - 0', '12 - 3', '+9'], ['2 - 1', '8 - 5', '+3'], ['2 - 1', '7 - 6', '+1'],
+    ['1 - 2', '5 - 8', '-3'], ['1 - 3', '7 - 10', '-3'], ['0 - 3', '2 - 9', '-7']
+  ]);
+});
+
 test('real China and EMEA schedules become five correctly oriented chronological games per team', async () => {
   for (const name of ['china2', 'emea2']) {
     const data = await load(name), before = structuredClone(data);

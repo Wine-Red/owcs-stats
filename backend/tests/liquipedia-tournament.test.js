@@ -26,6 +26,34 @@ test('current China Table2 standings preserve rank, records and Swiss round head
   assert.equal(swiss.rows[0].rounds.length, 4);
 });
 
+test('China detail-page Table2 reads singular record headers and explicit GD from the selected week', async () => {
+  const data = await parsed('china3-regular-table2');
+  const table = data.blocks.find(block => block.type === 'standings');
+  assert.deepEqual(table.rows.map(row => [row.rank, row.team.shortName, row.matches, row.maps, row.difference]), [
+    ['1', 'OUG', '4 - 0', '12 - 3', '+9'], ['2', 'WBG', '2 - 1', '8 - 5', '+3'],
+    ['3', 'AG', '2 - 1', '7 - 6', '+1'], ['4', 'JDG', '1 - 2', '5 - 8', '-3'],
+    ['5', 'HNG', '1 - 3', '7 - 10', '-3'], ['6', 'SV', '0 - 3', '2 - 9', '-7']
+  ]);
+});
+
+test('Table2 singular map headers preserve zero and unknown records and prefer explicit differences', async () => {
+  const input = await fixture('china3-regular-table2');
+  const $ = require('cheerio').load(input.html);
+  $('.standings-group th').filter((_, cell) => $(cell).text() === 'Game').text('Map');
+  $('.standings-group th').filter((_, cell) => $(cell).text() === 'GD').text('MD');
+  $('.standings-group tr.table2__row--body').each((_, el) => {
+    const cells = $(el).children('td');
+    cells.eq(3).text('0 - 0');
+    cells.eq(4).text('—');
+    cells.eq(5).text('0');
+  });
+  let table = parseTournamentHtml({ ...input, html: $.html() }).blocks[0];
+  assert.ok(table.rows.every(row => row.matches === '0 - 0' && row.maps === '—' && row.difference === '0'));
+  $('.standings-group tr.table2__row--body').each((_, el) => $(el).children('td').eq(5).text(''));
+  table = parseTournamentHtml({ ...input, html: $.html() }).blocks[0];
+  assert.ok(table.rows.every(row => row.difference === ''));
+});
+
 test('current Korea Table2 selects one history snapshot and preserves tied ranks', async () => {
   const input = await fixture('korea3-table2');
   const table = parseTournamentHtml(input).blocks[0];

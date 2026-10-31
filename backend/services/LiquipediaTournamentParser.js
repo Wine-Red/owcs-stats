@@ -140,9 +140,9 @@ function parseTournamentHtml({ html, page, revisionId, allowEmpty = false }) {
       const column = pattern => headers.findIndex(header => pattern.test(header));
       const rankIndex = column(/^(?:#|Rank|Position)$/i);
       const teamIndex = column(/^(?:Participant|Team)$/i);
-      const matchesIndex = column(/^Matches$/i);
-      const mapsIndex = column(/^(?:Games|Maps)$/i);
-      const differenceIndex = column(/^(?:(?:Game|Map)s? (?:Diff(?:erence)?\.?|Differential)|\+\/-|[Δ±])$/i);
+      const matchesIndex = column(/^Match(?:es)?$/i);
+      const mapsIndex = column(/^(?:Game|Map)s?$/i);
+      const differenceIndex = column(/^(?:(?:Game|Map)s? (?:Diff(?:erence)?\.?|Differential)|GD|MD|\+\/-|[Δ±])$/i);
       const history = node.closest('.standings-round-history');
       const allRows = node.find('tr.table2__row--body');
       const selected = history.attr('data-toggle-area') || (history.attr('class') || '').match(/toggle-area-(\d+)/)?.[1];
